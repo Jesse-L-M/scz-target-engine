@@ -1,38 +1,38 @@
 # Schizophrenia Target Engine
 
-This repo builds `target_engine_v0`, a public-data-first prioritization engine for schizophrenia targets and modules.
+A systematic prioritisation engine for schizophrenia drug targets and biological modules, built on publicly available genomic and transcriptomic data.
 
-The point is not to rank genes by vibes. The point is to force a hard scoring contract, run stability checks that can fail, and publish both winners and kill cards.
+The core challenge in target selection is separating reproducible biological signal from accumulated intuition. This engine enforces explicit scoring contracts, runs quantitative stability analyses, and publishes both high-confidence targets and evidence-backed kill cards.
 
 ## V0 Scope
 
 - Schizophrenia core only
-- TRS as annotation, not as a separately scored output
-- Separate gene and module leaderboards
-- Warning overlays for prior failure history and evidence gaps
-- Stability checks:
-  - leave-one-layer-out
-  - `+/- 20%` weight perturbations
-  - decision-grade threshold of `>= 70%` survival across sensitivity runs
+- Treatment-resistant schizophrenia annotated but not separately scored
+- Independent gene-level and module-level leaderboards
+- Warning overlays for prior clinical failure history and evidence gaps
+- Stability analysis:
+  - Leave-one-layer-out ablation
+  - `+/- 20%` weight perturbation
+  - Decision-grade threshold: `>= 70%` survival across sensitivity runs
 
 ## Current State
 
-This repo currently implements:
+The engine currently implements:
 
-- a manifest-driven scoring engine for curated evidence tables
-- stability analysis and baseline comparisons
-- markdown and CSV report generation
-- a seed-only example gene shortlist plus a checked-in curated gene table refreshed from live source adapters
-- a checked-in curated module table derived from live `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
-- a real `Open Targets` baseline fetcher via the official GraphQL API
-- a real `ChEMBL` tractability fetcher for shortlist genes
-- a real `PGC` schizophrenia prioritized-gene fetcher from the official `scz2022` release
-- a real `SCHEMA` rare-variant fetcher for shortlist genes via the official results browser API
-  - with a checked-in curated alias override layer for unresolved symbols
-- a real `PsychENCODE / BrainSCOPE` shortlist importer for schizophrenia DEG and adult cell-type GRN support
-- a real `PsychENCODE / BrainSCOPE` module-table derivation step for source-backed cell-type modules
+- Manifest-driven scoring for curated evidence tables
+- Stability analysis and baseline comparisons
+- Markdown and CSV report generation
+- A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters
+- A checked-in curated module table derived from `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
+- Live data fetchers:
+  - `Open Targets` schizophrenia baseline via the official GraphQL API
+  - `ChEMBL` tractability annotation for shortlist genes
+  - `PGC` schizophrenia prioritised genes from the `scz2022` release
+  - `SCHEMA` rare-variant support via the official results browser API, with a curated alias override layer for unresolved symbols
+  - `PsychENCODE / BrainSCOPE` schizophrenia DEG and adult cell-type GRN support
+  - `PsychENCODE / BrainSCOPE` source-backed cell-type module derivation
 
-This repo does not yet implement raw-source ingestion from consortium dumps. That is the next layer. V0 starts from curated tables with normalized layer scores in `[0, 1]`.
+Raw-source ingestion from consortium data dumps is not yet implemented. V0 operates from curated tables with normalised layer scores in `[0, 1]`.
 
 ## Quickstart
 
@@ -180,4 +180,4 @@ Required columns:
 
 ## Design Principle
 
-If the output cannot tell a skeptical researcher what to chase, what to ignore, and how fragile that conclusion is, it is not good enough.
+The output must give a researcher a clear basis for what to pursue, what to deprioritise, and how sensitive those conclusions are to the underlying evidence.

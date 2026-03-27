@@ -1,0 +1,2 @@
+[console_scripts]
+scz-target-engine = scz_target_engine.cli:main

@@ -1,0 +1,10 @@
+entity_type,entity_id,severity,warning_kind,warning_text
+gene,ENSGEX0009,high,target_class_baggage,Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.
+gene,ENSGEX0008,medium,direction_of_effect,Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here.
+gene,ENSGEX0005,medium,tractability_gap,Strong biology does not automatically imply a tractable intervention path.
+gene,ENSGEX0023,high,evidence_missingness,Missing biological layers make this gene ineligible for v0 composite ranking.
+gene,ENSGEX0025,medium,cross_layer_gap,Common-variant signal does not converge strongly enough with biological layers.
+module,psychencode:microglia_complement,medium,clinical_translation,Interesting biology but still a long distance from a validated intervention path.
+module,psychencode:generic_signal,high,evidence_missingness,Missing cell-state specificity leaves this module weakly anchored.
+gene,ENSGEX0010,low,compoundability,Interesting signal but limited tractability in the current v0 framing.
+gene,ENSGEX0001,low,clinical_history,Compelling human genetics does not yet imply near-term translational leverage.

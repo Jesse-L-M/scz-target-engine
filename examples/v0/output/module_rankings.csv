@@ -1,0 +1,11 @@
+entity_type,entity_id,entity_label,rank,eligible,composite_score,decision_grade,sensitivity_survival_rate,warning_severity,warnings,member_gene_genetic_enrichment,cell_state_specificity,developmental_regulatory_relevance,notes
+module,psychencode:deep_layer_it,Deep-layer IT neuronal program,1,True,0.876,True,1.0,none,,0.89,0.91,0.82,Synthetic example values only
+module,psychencode:parvalbumin,Parvalbumin interneuron module,2,True,0.832,True,1.0,none,,0.82,0.88,0.79,Synthetic example values only
+module,psychencode:microglia_complement,Microglia complement module,3,True,0.7515,True,1.0,medium,[medium] clinical_translation: Interesting biology but still a long distance from a validated intervention path.,0.78,0.75,0.72,Synthetic example values only
+module,psychencode:synaptic_translation,Synaptic translation program,4,True,0.733,True,1.0,none,,0.76,0.7,0.74,Synthetic example values only
+module,psychencode:chromatin_regulation,Chromatin regulation module,5,True,0.709,True,1.0,none,,0.73,0.61,0.8,Synthetic example values only
+module,psychencode:axon_guidance,Axon guidance program,6,True,0.671,True,1.0,none,,0.67,0.69,0.65,Synthetic example values only
+module,psychencode:oligodendrocyte_state,Oligodendrocyte state module,7,True,0.598,True,1.0,none,,0.59,0.63,0.57,Synthetic example values only
+module,psychencode:astrocyte_reactivity,Astrocyte reactivity program,8,True,0.5465,True,1.0,none,,0.51,0.58,0.55,Synthetic example values only
+module,psychencode:mitochondrial_stress,Mitochondrial stress module,9,True,0.483,True,1.0,none,,0.44,0.52,0.49,Synthetic example values only
+module,psychencode:generic_signal,Generic signaling background,10,True,0.393846,True,1.0,high,[high] evidence_missingness: Missing cell-state specificity leaves this module weakly anchored.,0.38,,0.41,Synthetic example values only

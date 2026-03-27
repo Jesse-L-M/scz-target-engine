@@ -1,0 +1,101 @@
+{
+  "baseline_overlap": {
+    "generic_only": [
+      "ENSGEX0021",
+      "ENSGEX0023",
+      "ENSGEX0025"
+    ],
+    "generic_overlap": 0.85,
+    "naive_only": [
+      "ENSGEX0021",
+      "ENSGEX0023",
+      "ENSGEX0025"
+    ],
+    "naive_overlap": 0.85,
+    "reference_top_n": 20
+  },
+  "gene": {
+    "leave_one_out_overlaps": {
+      "cell_state_support": 1.0,
+      "common_variant_support": 0.95,
+      "developmental_regulatory_support": 1.0,
+      "rare_variant_support": 0.95,
+      "tractability_compoundability": 0.9
+    },
+    "leave_one_out_top10_ejections": {
+      "cell_state_support": 0,
+      "common_variant_support": 0,
+      "developmental_regulatory_support": 0,
+      "rare_variant_support": 0,
+      "tractability_compoundability": 0
+    },
+    "pass_condition": true,
+    "perturbation_overlaps": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.95,
+      1.0
+    ],
+    "survival_rates": {
+      "ENSGEX0001": 1.0,
+      "ENSGEX0002": 1.0,
+      "ENSGEX0003": 1.0,
+      "ENSGEX0004": 1.0,
+      "ENSGEX0005": 1.0,
+      "ENSGEX0006": 1.0,
+      "ENSGEX0007": 1.0,
+      "ENSGEX0008": 0.9333333333333333,
+      "ENSGEX0009": 0.8,
+      "ENSGEX0010": 0.9333333333333333,
+      "ENSGEX0011": 1.0,
+      "ENSGEX0012": 1.0,
+      "ENSGEX0013": 1.0,
+      "ENSGEX0014": 1.0,
+      "ENSGEX0015": 1.0,
+      "ENSGEX0016": 1.0,
+      "ENSGEX0017": 1.0,
+      "ENSGEX0018": 1.0,
+      "ENSGEX0019": 1.0,
+      "ENSGEX0020": 1.0
+    }
+  },
+  "module": {
+    "leave_one_out_overlaps": {
+      "cell_state_specificity": 1.0,
+      "developmental_regulatory_relevance": 1.0,
+      "member_gene_genetic_enrichment": 1.0
+    },
+    "leave_one_out_top10_ejections": {
+      "cell_state_specificity": 0,
+      "developmental_regulatory_relevance": 0,
+      "member_gene_genetic_enrichment": 0
+    },
+    "pass_condition": true,
+    "perturbation_overlaps": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "survival_rates": {
+      "psychencode:astrocyte_reactivity": 1.0,
+      "psychencode:axon_guidance": 1.0,
+      "psychencode:chromatin_regulation": 1.0,
+      "psychencode:deep_layer_it": 1.0,
+      "psychencode:generic_signal": 1.0,
+      "psychencode:microglia_complement": 1.0,
+      "psychencode:mitochondrial_stress": 1.0,
+      "psychencode:oligodendrocyte_state": 1.0,
+      "psychencode:parvalbumin": 1.0,
+      "psychencode:synaptic_translation": 1.0
+    }
+  }
+}

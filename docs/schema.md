@@ -46,6 +46,6 @@ The override layer lives in `config/schema_alias_overrides.csv` so the hard case
 
 ```bash
 uv run scz-target-engine fetch-schema \
-  --input-file examples/v0/input/gene_evidence.csv \
-  --output-file data/processed/schema/example_rare_variant.csv
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/schema/example_rare_variant_support.csv
 ```

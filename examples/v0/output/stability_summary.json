@@ -1,24 +1,24 @@
 {
   "baseline_overlap": {
     "generic_only": [
-      "ENSGEX0021",
-      "ENSGEX0023",
-      "ENSGEX0025"
+      "ENSG00000138821",
+      "ENSG00000180720",
+      "ENSG00000183117",
+      "ENSG00000196628"
     ],
-    "generic_overlap": 0.85,
+    "generic_overlap": 0.8,
     "naive_only": [
-      "ENSGEX0021",
-      "ENSGEX0023",
-      "ENSGEX0025"
+      "ENSG00000138821",
+      "ENSG00000183117"
     ],
-    "naive_overlap": 0.85,
+    "naive_overlap": 0.6,
     "reference_top_n": 20
   },
   "gene": {
     "leave_one_out_overlaps": {
-      "cell_state_support": 1.0,
+      "cell_state_support": 0.95,
       "common_variant_support": 0.95,
-      "developmental_regulatory_support": 1.0,
+      "developmental_regulatory_support": 0.9,
       "rare_variant_support": 0.95,
       "tractability_compoundability": 0.9
     },
@@ -27,7 +27,7 @@
       "common_variant_support": 0,
       "developmental_regulatory_support": 0,
       "rare_variant_support": 0,
-      "tractability_compoundability": 0
+      "tractability_compoundability": 2
     },
     "pass_condition": true,
     "perturbation_overlaps": [
@@ -37,32 +37,32 @@
       1.0,
       1.0,
       1.0,
-      1.0,
-      1.0,
       0.95,
-      1.0
+      1.0,
+      1.0,
+      0.95
     ],
     "survival_rates": {
-      "ENSGEX0001": 1.0,
-      "ENSGEX0002": 1.0,
-      "ENSGEX0003": 1.0,
-      "ENSGEX0004": 1.0,
-      "ENSGEX0005": 1.0,
-      "ENSGEX0006": 1.0,
-      "ENSGEX0007": 1.0,
-      "ENSGEX0008": 0.9333333333333333,
-      "ENSGEX0009": 0.8,
-      "ENSGEX0010": 0.9333333333333333,
-      "ENSGEX0011": 1.0,
-      "ENSGEX0012": 1.0,
-      "ENSGEX0013": 1.0,
-      "ENSGEX0014": 1.0,
-      "ENSGEX0015": 1.0,
-      "ENSGEX0016": 1.0,
-      "ENSGEX0017": 1.0,
-      "ENSGEX0018": 1.0,
-      "ENSGEX0019": 1.0,
-      "ENSGEX0020": 1.0
+      "ENSG00000065609": 0.9333333333333333,
+      "ENSG00000099381": 1.0,
+      "ENSG00000105866": 0.9333333333333333,
+      "ENSG00000109572": 1.0,
+      "ENSG00000117020": 1.0,
+      "ENSG00000140564": 1.0,
+      "ENSG00000145864": 1.0,
+      "ENSG00000149295": 0.9333333333333333,
+      "ENSG00000151067": 1.0,
+      "ENSG00000155511": 1.0,
+      "ENSG00000157103": 1.0,
+      "ENSG00000164588": 1.0,
+      "ENSG00000165995": 0.9333333333333333,
+      "ENSG00000167978": 1.0,
+      "ENSG00000168959": 0.9333333333333333,
+      "ENSG00000170396": 1.0,
+      "ENSG00000179915": 0.9333333333333333,
+      "ENSG00000183454": 1.0,
+      "ENSG00000189056": 0.8,
+      "ENSG00000198822": 1.0
     }
   },
   "module": {

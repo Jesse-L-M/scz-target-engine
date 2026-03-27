@@ -10,7 +10,7 @@ This repo now includes a real upstream preprocessor for the `Open Targets` gener
 - schizophrenia can be queried directly by disease ID
 - the official GraphQL API exposes disease association rows with target IDs, labels, overall score, and datatype scores
 
-That means we can replace one synthetic layer with a real upstream pull without pretending we have finished the harder biology layers.
+That means we can anchor the example workflow with a real baseline pull and stable gene IDs without pretending we have finished the harder biology layers.
 
 ## Current Contract
 

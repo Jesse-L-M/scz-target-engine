@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 
 from scz_target_engine.io import read_csv_rows, write_csv, write_json
+from scz_target_engine.sources.chembl import fetch_chembl_tractability
+from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
+from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
+from scz_target_engine.sources.psychencode import fetch_psychencode_support
+from scz_target_engine.sources.schema import fetch_schema_rare_variant_support
 
 
 ENGINE_LAYER_COLUMNS = [
@@ -14,6 +20,12 @@ ENGINE_LAYER_COLUMNS = [
     "tractability_compoundability",
     "generic_platform_baseline",
 ]
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_EXAMPLE_GENE_SEED_FILE = REPO_ROOT / "examples" / "v0" / "input" / "gene_seed.csv"
+DEFAULT_EXAMPLE_GENE_OUTPUT_FILE = REPO_ROOT / "examples" / "v0" / "input" / "gene_evidence.csv"
+DEFAULT_EXAMPLE_GENE_WORK_DIR = REPO_ROOT / "data" / "processed" / "example_gene_workflow"
+DEFAULT_EXAMPLE_GENE_DISEASE_QUERY = "schizophrenia"
 
 
 def normalize_key(value: str | None) -> str:
@@ -269,3 +281,81 @@ def prepare_gene_table(
     }
     write_json(output_file.with_suffix(".metadata.json"), metadata)
     return metadata
+
+
+def refresh_example_gene_table(
+    seed_file: Path | None = None,
+    output_file: Path | None = None,
+    work_dir: Path | None = None,
+    disease_id: str | None = None,
+    disease_query: str | None = None,
+    overrides_file: Path | None = None,
+) -> dict[str, object]:
+    resolved_seed_file = (seed_file or DEFAULT_EXAMPLE_GENE_SEED_FILE).resolve()
+    resolved_output_file = (output_file or DEFAULT_EXAMPLE_GENE_OUTPUT_FILE).resolve()
+    resolved_work_dir = (work_dir or DEFAULT_EXAMPLE_GENE_WORK_DIR).resolve()
+    resolved_disease_query = disease_query
+    if disease_id is None and resolved_disease_query is None:
+        resolved_disease_query = DEFAULT_EXAMPLE_GENE_DISEASE_QUERY
+
+    pgc_file = resolved_work_dir / "pgc" / "scz2022_prioritized_genes.csv"
+    schema_file = resolved_work_dir / "schema" / "example_rare_variant_support.csv"
+    psychencode_file = resolved_work_dir / "psychencode" / "example_support.csv"
+    opentargets_file = resolved_work_dir / "opentargets" / "schizophrenia_baseline.csv"
+    chembl_file = resolved_work_dir / "chembl" / "example_tractability.csv"
+    curated_file = resolved_work_dir / "curated" / "example_gene_evidence.csv"
+    for candidate in (
+        pgc_file,
+        schema_file,
+        psychencode_file,
+        opentargets_file,
+        chembl_file,
+        curated_file,
+    ):
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+
+    pgc_metadata = fetch_pgc_scz2022_prioritized_genes(output_file=pgc_file)
+    schema_metadata = fetch_schema_rare_variant_support(
+        input_file=resolved_seed_file,
+        output_file=schema_file,
+        overrides_file=overrides_file.resolve() if overrides_file else None,
+    )
+    psychencode_metadata = fetch_psychencode_support(
+        input_file=resolved_seed_file,
+        output_file=psychencode_file,
+    )
+    opentargets_metadata = fetch_opentargets_baseline(
+        output_file=opentargets_file,
+        disease_id=disease_id,
+        disease_query=resolved_disease_query,
+    )
+    chembl_metadata = fetch_chembl_tractability(
+        input_file=resolved_seed_file,
+        output_file=chembl_file,
+    )
+    prepare_metadata = prepare_gene_table(
+        seed_file=resolved_seed_file,
+        output_file=curated_file,
+        pgc_file=pgc_file,
+        schema_file=schema_file,
+        psychencode_file=psychencode_file,
+        opentargets_file=opentargets_file,
+        chembl_file=chembl_file,
+    )
+
+    resolved_output_file.parent.mkdir(parents=True, exist_ok=True)
+    if curated_file != resolved_output_file:
+        shutil.copyfile(curated_file, resolved_output_file)
+
+    return {
+        "seed_file": str(resolved_seed_file),
+        "work_dir": str(resolved_work_dir),
+        "published_output_file": str(resolved_output_file),
+        "curated_output_file": str(curated_file),
+        "pgc": pgc_metadata,
+        "schema": schema_metadata,
+        "psychencode": psychencode_metadata,
+        "opentargets": opentargets_metadata,
+        "chembl": chembl_metadata,
+        "prepare": prepare_metadata,
+    }

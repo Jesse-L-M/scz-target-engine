@@ -23,8 +23,8 @@ The first is a direct schizophrenia cell-state proxy from differential expressio
 
 ```bash
 uv run scz-target-engine fetch-psychencode \
-  --input-file examples/v0/input/gene_evidence.csv \
-  --output-file data/processed/psychencode/example_support.csv
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/psychencode/example_support.csv
 ```
 
 ## Output Shape

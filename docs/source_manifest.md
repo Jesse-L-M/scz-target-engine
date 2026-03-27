@@ -27,6 +27,8 @@ That is deliberate. The scoring engine and its failure conditions need to stabil
   - `cell_state_support`
   - `developmental_regulatory_support`
   - module tables
+- Status: live shortlist-oriented BrainSCOPE importer implemented for schizophrenia DEG plus adult cell-type GRN support
+- Notes: `v0` currently uses the regulatory half of this layer from BrainSCOPE GRNs; a separate developmental source is still open work
 
 ### Open Targets
 

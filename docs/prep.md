@@ -9,6 +9,7 @@ The engine does not want raw source exports forever. It wants a curated gene evi
 - a seed gene list or draft gene evidence table
 - optional `PGC scz2022` prioritized-gene output
 - optional `SCHEMA` rare-variant output
+- optional `PsychENCODE / BrainSCOPE` DEG + GRN output
 - optional `Open Targets` baseline output
 - optional `ChEMBL` tractability output
 

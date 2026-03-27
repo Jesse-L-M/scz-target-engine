@@ -6,6 +6,8 @@
 - Module perturbation median overlap: 100.00%
 - Naive baseline overlap: 60.00%
 - Generic platform overlap: 80.00%
+- Gene entities with warnings: 14
+- Gene entities ineligible for ranking: 2
 
 ## Top Genes
 - 1. GRIN2A (0.474147)

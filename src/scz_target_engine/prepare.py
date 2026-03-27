@@ -70,20 +70,28 @@ def prepare_gene_table(
     seed_file: Path,
     output_file: Path,
     pgc_file: Path | None = None,
+    schema_file: Path | None = None,
+    psychencode_file: Path | None = None,
     opentargets_file: Path | None = None,
     chembl_file: Path | None = None,
 ) -> dict[str, object]:
     seed_rows = read_csv_rows(seed_file)
     pgc_rows = read_csv_rows(pgc_file) if pgc_file else []
+    schema_rows = read_csv_rows(schema_file) if schema_file else []
+    psychencode_rows = read_csv_rows(psychencode_file) if psychencode_file else []
     ot_rows = read_csv_rows(opentargets_file) if opentargets_file else []
     chembl_rows = read_csv_rows(chembl_file) if chembl_file else []
 
     pgc_by_id, pgc_by_label = build_index(pgc_rows)
+    schema_by_id, schema_by_label = build_index(schema_rows)
+    psychencode_by_id, psychencode_by_label = build_index(psychencode_rows)
     ot_by_id, ot_by_label = build_index(ot_rows)
     chembl_by_id, chembl_by_label = build_index(chembl_rows)
 
     prepared_rows: list[dict[str, str]] = []
     pgc_matches = 0
+    schema_matches = 0
+    psychencode_matches = 0
     ot_matches = 0
     chembl_matches = 0
 
@@ -95,9 +103,13 @@ def prepare_gene_table(
         row["seed_entity_id"] = seed_row.get("entity_id", "")
         row["canonical_entity_id"] = seed_row.get("entity_id", "")
         row["source_present_pgc"] = "False"
+        row["source_present_schema"] = "False"
+        row["source_present_psychencode"] = "False"
         row["source_present_opentargets"] = "False"
         row["source_present_chembl"] = "False"
         row["pgc_match_key"] = ""
+        row["schema_match_key"] = ""
+        row["psychencode_match_key"] = ""
         row["opentargets_match_key"] = ""
         row["chembl_match_key"] = ""
 
@@ -116,6 +128,59 @@ def prepare_gene_table(
                 skip_fields={"entity_id", "entity_label", "common_variant_support"},
             )
             provenance.append("pgc")
+
+        schema_row, schema_match_key = match_row(seed_row, schema_by_id, schema_by_label)
+        if schema_row is not None:
+            schema_matches += 1
+            row["source_present_schema"] = "True"
+            row["schema_match_key"] = schema_match_key
+            row["rare_variant_support"] = schema_row.get("rare_variant_support", "")
+            row["approved_name"] = prefer_nonempty(
+                row.get("approved_name", ""),
+                schema_row.get("approved_name", ""),
+            )
+            if schema_row.get("schema_match_status") == "matched":
+                row["canonical_entity_id"] = schema_row.get(
+                    "entity_id",
+                    row["canonical_entity_id"],
+                )
+            merge_source_fields(
+                row,
+                schema_row,
+                skip_fields={"entity_id", "entity_label", "approved_name", "rare_variant_support"},
+            )
+            provenance.append("schema")
+
+        psychencode_row, psychencode_match_key = match_row(
+            seed_row,
+            psychencode_by_id,
+            psychencode_by_label,
+        )
+        if psychencode_row is not None:
+            psychencode_matches += 1
+            row["source_present_psychencode"] = "True"
+            row["psychencode_match_key"] = psychencode_match_key
+            row["cell_state_support"] = psychencode_row.get("cell_state_support", "")
+            row["developmental_regulatory_support"] = psychencode_row.get(
+                "developmental_regulatory_support",
+                "",
+            )
+            row["approved_name"] = prefer_nonempty(
+                row.get("approved_name", ""),
+                psychencode_row.get("approved_name", ""),
+            )
+            merge_source_fields(
+                row,
+                psychencode_row,
+                skip_fields={
+                    "entity_id",
+                    "entity_label",
+                    "approved_name",
+                    "cell_state_support",
+                    "developmental_regulatory_support",
+                },
+            )
+            provenance.append("psychencode")
 
         ot_row, ot_match_key = match_row(seed_row, ot_by_id, ot_by_label)
         if ot_row is not None:
@@ -167,6 +232,10 @@ def prepare_gene_table(
         "seed_entity_id",
         "source_present_pgc",
         "pgc_match_key",
+        "source_present_schema",
+        "schema_match_key",
+        "source_present_psychencode",
+        "psychencode_match_key",
         "source_present_opentargets",
         "opentargets_match_key",
         "source_present_chembl",
@@ -188,9 +257,13 @@ def prepare_gene_table(
         "output_file": str(output_file),
         "row_count": len(prepared_rows),
         "pgc_file": str(pgc_file) if pgc_file else None,
+        "schema_file": str(schema_file) if schema_file else None,
+        "psychencode_file": str(psychencode_file) if psychencode_file else None,
         "opentargets_file": str(opentargets_file) if opentargets_file else None,
         "chembl_file": str(chembl_file) if chembl_file else None,
         "pgc_matches": pgc_matches,
+        "schema_matches": schema_matches,
+        "psychencode_matches": psychencode_matches,
         "opentargets_matches": ot_matches,
         "chembl_matches": chembl_matches,
     }

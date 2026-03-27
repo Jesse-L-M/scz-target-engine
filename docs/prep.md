@@ -8,6 +8,8 @@ The engine does not want raw source exports forever. It wants a curated gene evi
 
 - a seed gene list or draft gene evidence table
 - optional `PGC scz2022` prioritized-gene output
+- optional `SCHEMA` rare-variant output
+- optional `PsychENCODE / BrainSCOPE` DEG + GRN output
 - optional `Open Targets` baseline output
 - optional `ChEMBL` tractability output
 
@@ -27,8 +29,9 @@ For each source:
 1. match by `entity_id` first
 2. if that fails, match by `entity_label` exactly, case-insensitive
 3. if `PGC` matches, use its `entity_id` as `canonical_entity_id`
-4. if `Open Targets` matches, overwrite `canonical_entity_id` with its `entity_id`
-5. keep the seed row as the row driver, do not expand or drop rows
+4. if `SCHEMA` matches with a confirmed source match, overwrite `canonical_entity_id` with its `entity_id`
+5. if `Open Targets` matches, overwrite `canonical_entity_id` with its `entity_id`
+6. keep the seed row as the row driver, do not expand or drop rows
 
 ## Why This Matters
 

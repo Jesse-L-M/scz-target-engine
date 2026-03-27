@@ -26,6 +26,9 @@ This repo currently implements:
 - a real `Open Targets` baseline fetcher via the official GraphQL API
 - a real `ChEMBL` tractability fetcher for shortlist genes
 - a real `PGC` schizophrenia prioritized-gene fetcher from the official `scz2022` release
+- a real `SCHEMA` rare-variant fetcher for shortlist genes via the official results browser API
+  - with a checked-in curated alias override layer for unresolved symbols
+- a real `PsychENCODE / BrainSCOPE` shortlist importer for schizophrenia DEG and adult cell-type GRN support
 
 This repo does not yet implement raw-source ingestion from consortium dumps. That is the next layer. V0 starts from curated tables with normalized layer scores in `[0, 1]`.
 
@@ -64,12 +67,30 @@ uv run scz-target-engine fetch-pgc-scz2022 \
   --output-file data/processed/pgc/scz2022_prioritized_genes.csv
 ```
 
+Fetch `SCHEMA` schizophrenia rare-variant gene support for a shortlist:
+
+```bash
+uv run scz-target-engine fetch-schema \
+  --input-file examples/v0/input/gene_evidence.csv \
+  --output-file data/processed/schema/example_rare_variant.csv
+```
+
+Fetch `PsychENCODE / BrainSCOPE` schizophrenia DEG and GRN support for a shortlist:
+
+```bash
+uv run scz-target-engine fetch-psychencode \
+  --input-file examples/v0/input/gene_evidence.csv \
+  --output-file data/processed/psychencode/example_support.csv
+```
+
 Prepare an engine-ready gene table from joined source outputs:
 
 ```bash
 uv run scz-target-engine prepare-gene-table \
   --seed-file examples/v0/input/gene_evidence.csv \
   --pgc-file data/processed/pgc/scz2022_prioritized_genes.csv \
+  --schema-file data/processed/schema/example_rare_variant.csv \
+  --psychencode-file data/processed/psychencode/example_support.csv \
   --opentargets-file data/processed/opentargets/schizophrenia_baseline.csv \
   --chembl-file data/processed/chembl/example_tractability.csv \
   --output-file data/processed/curated/example_gene_evidence.csv
@@ -97,6 +118,8 @@ uv run --group dev pytest
 - [docs/opentargets.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/opentargets.md): Open Targets fetch contract
 - [docs/chembl.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/chembl.md): ChEMBL fetch contract
 - [docs/pgc.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/pgc.md): PGC scz2022 fetch contract
+- [docs/schema.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/schema.md): SCHEMA fetch contract
+- [docs/psychencode.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/psychencode.md): PsychENCODE / BrainSCOPE fetch contract
 - [docs/prep.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/prep.md): source join and curation contract
 - [examples/v0/input](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/examples/v0/input): synthetic example inputs
 - [src/scz_target_engine](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/src/scz_target_engine): scoring engine

@@ -18,6 +18,7 @@ That is deliberate. The scoring engine and its failure conditions need to stabil
 - Role: rare-variant signal
 - Output into engine: `rare_variant_support`
 - Notes: upstream harmonization should preserve burden direction and study provenance where possible
+- Status: live shortlist-oriented gene fetcher implemented via the official SCHEMA results browser API, with a curated alias override layer for ambiguous symbols
 
 ### PsychENCODE
 
@@ -26,6 +27,8 @@ That is deliberate. The scoring engine and its failure conditions need to stabil
   - `cell_state_support`
   - `developmental_regulatory_support`
   - module tables
+- Status: live shortlist-oriented BrainSCOPE importer implemented for schizophrenia DEG plus adult cell-type GRN support
+- Notes: `v0` currently uses the regulatory half of this layer from BrainSCOPE GRNs; a separate developmental source is still open work
 
 ### Open Targets
 

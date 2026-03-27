@@ -11,6 +11,8 @@ from scz_target_engine.prepare import prepare_gene_table
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
+from scz_target_engine.sources.psychencode import fetch_psychencode_support
+from scz_target_engine.sources.schema import fetch_schema_rare_variant_support
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,10 +43,23 @@ def build_parser() -> argparse.ArgumentParser:
     pgc_parser = subparsers.add_parser("fetch-pgc-scz2022")
     pgc_parser.add_argument("--output-file", required=True)
 
+    schema_parser = subparsers.add_parser("fetch-schema")
+    schema_parser.add_argument("--input-file", required=True)
+    schema_parser.add_argument("--output-file", required=True)
+    schema_parser.add_argument("--limit", type=int)
+    schema_parser.add_argument("--overrides-file")
+
+    psychencode_parser = subparsers.add_parser("fetch-psychencode")
+    psychencode_parser.add_argument("--input-file", required=True)
+    psychencode_parser.add_argument("--output-file", required=True)
+    psychencode_parser.add_argument("--limit", type=int)
+
     prepare_parser = subparsers.add_parser("prepare-gene-table")
     prepare_parser.add_argument("--seed-file", required=True)
     prepare_parser.add_argument("--output-file", required=True)
     prepare_parser.add_argument("--pgc-file")
+    prepare_parser.add_argument("--schema-file")
+    prepare_parser.add_argument("--psychencode-file")
     prepare_parser.add_argument("--opentargets-file")
     prepare_parser.add_argument("--chembl-file")
 
@@ -81,11 +96,40 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
+    if args.command == "fetch-schema":
+        result = fetch_schema_rare_variant_support(
+            input_file=Path(args.input_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            limit=args.limit,
+            overrides_file=(
+                Path(args.overrides_file).resolve()
+                if args.overrides_file
+                else None
+            ),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "fetch-psychencode":
+        result = fetch_psychencode_support(
+            input_file=Path(args.input_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            limit=args.limit,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
     if args.command == "prepare-gene-table":
         result = prepare_gene_table(
             seed_file=Path(args.seed_file).resolve(),
             output_file=Path(args.output_file).resolve(),
             pgc_file=Path(args.pgc_file).resolve() if args.pgc_file else None,
+            schema_file=Path(args.schema_file).resolve() if args.schema_file else None,
+            psychencode_file=(
+                Path(args.psychencode_file).resolve()
+                if args.psychencode_file
+                else None
+            ),
             opentargets_file=(
                 Path(args.opentargets_file).resolve()
                 if args.opentargets_file

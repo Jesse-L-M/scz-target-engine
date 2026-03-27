@@ -25,6 +25,7 @@ This repo currently implements:
 - synthetic example inputs for end-to-end verification
 - a real `Open Targets` baseline fetcher via the official GraphQL API
 - a real `ChEMBL` tractability fetcher for shortlist genes
+- a real `PGC` schizophrenia prioritized-gene fetcher from the official `scz2022` release
 
 This repo does not yet implement raw-source ingestion from consortium dumps. That is the next layer. V0 starts from curated tables with normalized layer scores in `[0, 1]`.
 
@@ -56,11 +57,19 @@ uv run scz-target-engine fetch-chembl \
   --limit 10
 ```
 
+Fetch `PGC` schizophrenia common-variant gene support:
+
+```bash
+uv run scz-target-engine fetch-pgc-scz2022 \
+  --output-file data/processed/pgc/scz2022_prioritized_genes.csv
+```
+
 Prepare an engine-ready gene table from joined source outputs:
 
 ```bash
 uv run scz-target-engine prepare-gene-table \
   --seed-file examples/v0/input/gene_evidence.csv \
+  --pgc-file data/processed/pgc/scz2022_prioritized_genes.csv \
   --opentargets-file data/processed/opentargets/schizophrenia_baseline.csv \
   --chembl-file data/processed/chembl/example_tractability.csv \
   --output-file data/processed/curated/example_gene_evidence.csv
@@ -87,6 +96,7 @@ uv run --group dev pytest
 - [docs/source_manifest.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/opentargets.md): Open Targets fetch contract
 - [docs/chembl.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/chembl.md): ChEMBL fetch contract
+- [docs/pgc.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/pgc.md): PGC scz2022 fetch contract
 - [docs/prep.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/prep.md): source join and curation contract
 - [examples/v0/input](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/examples/v0/input): synthetic example inputs
 - [src/scz_target_engine](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/src/scz_target_engine): scoring engine

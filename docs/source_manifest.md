@@ -11,6 +11,7 @@ That is deliberate. The scoring engine and its failure conditions need to stabil
 - Role: common-variant signal
 - Output into engine: `common_variant_support`
 - Notes: manual or scripted upstream harmonization into gene-level normalized support
+- Status: live `scz2022` prioritized-gene importer implemented
 
 ### SCHEMA
 

@@ -69,17 +69,21 @@ def prefer_nonempty(current_value: str, candidate_value: str) -> str:
 def prepare_gene_table(
     seed_file: Path,
     output_file: Path,
+    pgc_file: Path | None = None,
     opentargets_file: Path | None = None,
     chembl_file: Path | None = None,
 ) -> dict[str, object]:
     seed_rows = read_csv_rows(seed_file)
+    pgc_rows = read_csv_rows(pgc_file) if pgc_file else []
     ot_rows = read_csv_rows(opentargets_file) if opentargets_file else []
     chembl_rows = read_csv_rows(chembl_file) if chembl_file else []
 
+    pgc_by_id, pgc_by_label = build_index(pgc_rows)
     ot_by_id, ot_by_label = build_index(ot_rows)
     chembl_by_id, chembl_by_label = build_index(chembl_rows)
 
     prepared_rows: list[dict[str, str]] = []
+    pgc_matches = 0
     ot_matches = 0
     chembl_matches = 0
 
@@ -90,12 +94,28 @@ def prepare_gene_table(
 
         row["seed_entity_id"] = seed_row.get("entity_id", "")
         row["canonical_entity_id"] = seed_row.get("entity_id", "")
+        row["source_present_pgc"] = "False"
         row["source_present_opentargets"] = "False"
         row["source_present_chembl"] = "False"
+        row["pgc_match_key"] = ""
         row["opentargets_match_key"] = ""
         row["chembl_match_key"] = ""
 
         provenance: list[str] = ["seed"]
+
+        pgc_row, pgc_match_key = match_row(seed_row, pgc_by_id, pgc_by_label)
+        if pgc_row is not None:
+            pgc_matches += 1
+            row["source_present_pgc"] = "True"
+            row["pgc_match_key"] = pgc_match_key
+            row["common_variant_support"] = pgc_row.get("common_variant_support", "")
+            row["canonical_entity_id"] = pgc_row.get("entity_id", row["canonical_entity_id"])
+            merge_source_fields(
+                row,
+                pgc_row,
+                skip_fields={"entity_id", "entity_label", "common_variant_support"},
+            )
+            provenance.append("pgc")
 
         ot_row, ot_match_key = match_row(seed_row, ot_by_id, ot_by_label)
         if ot_row is not None:
@@ -145,6 +165,8 @@ def prepare_gene_table(
         "approved_name",
         *ENGINE_LAYER_COLUMNS,
         "seed_entity_id",
+        "source_present_pgc",
+        "pgc_match_key",
         "source_present_opentargets",
         "opentargets_match_key",
         "source_present_chembl",
@@ -165,8 +187,10 @@ def prepare_gene_table(
         "seed_file": str(seed_file),
         "output_file": str(output_file),
         "row_count": len(prepared_rows),
+        "pgc_file": str(pgc_file) if pgc_file else None,
         "opentargets_file": str(opentargets_file) if opentargets_file else None,
         "chembl_file": str(chembl_file) if chembl_file else None,
+        "pgc_matches": pgc_matches,
         "opentargets_matches": ot_matches,
         "chembl_matches": chembl_matches,
     }

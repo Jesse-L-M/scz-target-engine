@@ -39,6 +39,7 @@ That is deliberate. The scoring engine and its failure conditions need to stabil
 - Role: tractability and compoundability context
 - Output into engine:
   - `tractability_compoundability`
+- Status: shortlist-oriented live fetcher implemented
 
 ## Deferred for V0.1
 

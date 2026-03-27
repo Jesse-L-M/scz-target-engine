@@ -7,6 +7,7 @@ import sys
 
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
+from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 
 
@@ -30,6 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
     opentargets_parser.add_argument("--page-size", type=int, default=500)
     opentargets_parser.add_argument("--max-pages", type=int)
 
+    chembl_parser = subparsers.add_parser("fetch-chembl")
+    chembl_parser.add_argument("--input-file", required=True)
+    chembl_parser.add_argument("--output-file", required=True)
+    chembl_parser.add_argument("--limit", type=int)
+
     return parser
 
 
@@ -43,6 +49,15 @@ def main(argv: list[str] | None = None) -> int:
             disease_query=args.disease_query,
             page_size=args.page_size,
             max_pages=args.max_pages,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "fetch-chembl":
+        result = fetch_chembl_tractability(
+            input_file=Path(args.input_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            limit=args.limit,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

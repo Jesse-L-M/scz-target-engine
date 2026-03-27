@@ -24,6 +24,7 @@ This repo currently implements:
 - markdown and CSV report generation
 - synthetic example inputs for end-to-end verification
 - a real `Open Targets` baseline fetcher via the official GraphQL API
+- a real `ChEMBL` tractability fetcher for shortlist genes
 
 This repo does not yet implement raw-source ingestion from consortium dumps. That is the next layer. V0 starts from curated tables with normalized layer scores in `[0, 1]`.
 
@@ -46,6 +47,15 @@ uv run scz-target-engine fetch-opentargets \
   --output-file data/processed/opentargets/schizophrenia_baseline.csv
 ```
 
+Fetch `ChEMBL` tractability context for a shortlist:
+
+```bash
+uv run scz-target-engine fetch-chembl \
+  --input-file examples/v0/input/gene_evidence.csv \
+  --output-file data/processed/chembl/example_tractability.csv \
+  --limit 10
+```
+
 Validate only:
 
 ```bash
@@ -66,6 +76,7 @@ uv run --group dev pytest
 - [docs/scoring_contract.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/scoring_contract.md): methodological contract for `v0`
 - [docs/source_manifest.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/opentargets.md): Open Targets fetch contract
+- [docs/chembl.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/chembl.md): ChEMBL fetch contract
 - [examples/v0/input](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/examples/v0/input): synthetic example inputs
 - [src/scz_target_engine](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/src/scz_target_engine): scoring engine
 

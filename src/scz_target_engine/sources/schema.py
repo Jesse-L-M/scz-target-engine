@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import gzip
 import json
 import math
 import re
@@ -16,8 +18,12 @@ SCHEMA_RESULTS_BROWSER_URL = "https://schema.broadinstitute.org"
 SCHEMA_GENE_RESULTS_TSV_URL = (
     "https://atgu-exome-browser-data.s3.amazonaws.com/SCHEMA/SCHEMA_gene_results.tsv.bgz"
 )
+DEFAULT_SCHEMA_ALIAS_OVERRIDES_FILE = (
+    Path(__file__).resolve().parents[3] / "config" / "schema_alias_overrides.csv"
+)
 
 JsonTransport = Callable[[str], object]
+BytesTransport = Callable[[str], bytes]
 
 SCHEMA_GENE_RESULT_FIELDS = [
     "Case PTV",
@@ -80,6 +86,17 @@ def live_json_transport(url: str) -> object:
         body = exc.read().decode("utf-8", errors="replace")
         if exc.code == 404:
             raise SCHEMANotFound(f"SCHEMA gene not found: {url}") from exc
+        raise SCHEMAError(f"SCHEMA HTTP error {exc.code}: {body}") from exc
+    except URLError as exc:
+        raise SCHEMAError(f"SCHEMA connection error: {exc.reason}") from exc
+
+
+def live_bytes_transport(url: str) -> bytes:
+    try:
+        with urlopen(url) as response:
+            return response.read()
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
         raise SCHEMAError(f"SCHEMA HTTP error {exc.code}: {body}") from exc
     except URLError as exc:
         raise SCHEMAError(f"SCHEMA connection error: {exc.reason}") from exc
@@ -164,6 +181,43 @@ def extract_schema_gene_results(gene_payload: dict[str, object]) -> dict[str, ob
     }
 
 
+def load_alias_overrides(overrides_file: Path | None) -> dict[str, dict[str, str]]:
+    if overrides_file is None:
+        candidate = DEFAULT_SCHEMA_ALIAS_OVERRIDES_FILE
+        if not candidate.exists():
+            return {}
+        overrides_file = candidate
+    if not overrides_file.exists():
+        raise FileNotFoundError(f"SCHEMA alias overrides file not found: {overrides_file}")
+
+    overrides: dict[str, dict[str, str]] = {}
+    for row in read_csv_rows(overrides_file):
+        key = row.get("entity_label", "").strip().upper()
+        if key:
+            overrides[key] = row
+    return overrides
+
+
+def load_bulk_gene_results(
+    transport: BytesTransport,
+) -> dict[str, dict[str, object]]:
+    payload = gzip.decompress(transport(SCHEMA_GENE_RESULTS_TSV_URL)).decode(
+        "utf-8",
+        errors="replace",
+    )
+    reader = csv.DictReader(payload.splitlines(), delimiter="\t")
+    bulk_results: dict[str, dict[str, object]] = {}
+    for row in reader:
+        gene_id = row.get("gene_id", "").strip()
+        if not gene_id or row.get("group") != "meta":
+            continue
+        bulk_results[gene_id] = {
+            field_name: row.get(field_name, "")
+            for field_name in SCHEMA_GENE_RESULT_FIELDS
+        }
+    return bulk_results
+
+
 def as_float(value: object) -> float | None:
     if value in {None, "", "NA"}:
         return None
@@ -217,50 +271,95 @@ def fetch_schema_rare_variant_support(
     output_file: Path,
     limit: int | None = None,
     transport: JsonTransport | None = None,
+    bytes_transport: BytesTransport | None = None,
+    overrides_file: Path | None = None,
 ) -> dict[str, object]:
     transport = transport or live_json_transport
+    bytes_transport = bytes_transport or live_bytes_transport
     input_rows = read_csv_rows(input_file)
     if limit is not None:
         input_rows = input_rows[:limit]
 
+    alias_overrides = load_alias_overrides(overrides_file)
+    bulk_results_cache: dict[str, dict[str, object]] | None = None
     query_cache: dict[str, dict[str, object] | None] = {}
     output_rows: list[dict[str, object]] = []
     matched_gene_count = 0
     missing_gene_count = 0
+    alias_override_match_count = 0
+    bulk_fallback_match_count = 0
 
     for input_row in input_rows:
         resolved_gene: dict[str, object] | None = None
+        schema_result: dict[str, object] | None = None
         resolved_query = ""
         resolved_query_key = ""
+        override_note = ""
+        override_source = ""
+        input_label = input_row.get("entity_label", "").strip()
+        override_row = alias_overrides.get(input_label.upper())
 
-        for query_key, query_value in resolve_gene_query_candidates(input_row):
-            if query_value not in query_cache:
+        if override_row is not None:
+            override_gene_id = override_row.get("schema_gene_id", "").strip()
+            if override_gene_id:
+                resolved_query = input_label
+                resolved_query_key = "alias_override"
+                override_note = override_row.get("override_note", "")
+                override_source = override_row.get("override_source", "")
                 try:
-                    resolved_query = (
-                        search_gene_id(query_value, transport)
-                        if query_key == "entity_label"
-                        else query_value
-                    )
-                    if not resolved_query:
-                        query_cache[query_value] = None
-                    else:
-                        query_cache[query_value] = fetch_gene_payload(
-                            resolved_query,
-                            transport,
-                        )
+                    resolved_gene = fetch_gene_payload(override_gene_id, transport)
+                    schema_result = extract_schema_gene_results(resolved_gene)
+                    if schema_result is not None:
+                        alias_override_match_count += 1
                 except SCHEMANotFound:
-                    query_cache[query_value] = None
-            if query_cache[query_value] is not None:
-                resolved_gene = query_cache[query_value]
-                resolved_query = query_value
-                resolved_query_key = query_key
-                break
+                    if bulk_results_cache is None:
+                        bulk_results_cache = load_bulk_gene_results(bytes_transport)
+                    schema_result = bulk_results_cache.get(override_gene_id)
+                    if schema_result is not None:
+                        resolved_gene = {
+                            "gene_id": override_gene_id,
+                            "symbol": override_row.get("schema_official_symbol", ""),
+                            "name": override_row.get("approved_name", ""),
+                            "hgnc_id": override_row.get("hgnc_id", ""),
+                            "omim_id": override_row.get("omim_id", ""),
+                            "alias_symbols": [],
+                            "gnomad_constraint": {},
+                            "exac_constraint": {},
+                        }
+                        resolved_query_key = "alias_override_bulk_fallback"
+                        alias_override_match_count += 1
+                        bulk_fallback_match_count += 1
+
+        if resolved_gene is None:
+            for query_key, query_value in resolve_gene_query_candidates(input_row):
+                if query_value not in query_cache:
+                    try:
+                        resolved_query = (
+                            search_gene_id(query_value, transport)
+                            if query_key == "entity_label"
+                            else query_value
+                        )
+                        if not resolved_query:
+                            query_cache[query_value] = None
+                        else:
+                            query_cache[query_value] = fetch_gene_payload(
+                                resolved_query,
+                                transport,
+                            )
+                    except SCHEMANotFound:
+                        query_cache[query_value] = None
+                if query_cache[query_value] is not None:
+                    resolved_gene = query_cache[query_value]
+                    resolved_query = query_value
+                    resolved_query_key = query_key
+                    break
 
         if resolved_gene is None:
             missing_gene_count += 1
             continue
 
-        schema_result = extract_schema_gene_results(resolved_gene)
+        if schema_result is None:
+            schema_result = extract_schema_gene_results(resolved_gene)
         if schema_result is None:
             missing_gene_count += 1
             continue
@@ -280,6 +379,8 @@ def fetch_schema_rare_variant_support(
             "schema_match_status": "matched",
             "schema_query": resolved_query,
             "schema_query_key": resolved_query_key,
+            "schema_override_note": override_note,
+            "schema_override_source": override_source,
             "schema_group": "meta",
             "schema_official_symbol": str(resolved_gene.get("symbol", "") or ""),
             "schema_hgnc_id": str(resolved_gene.get("hgnc_id", "") or ""),
@@ -302,6 +403,8 @@ def fetch_schema_rare_variant_support(
         "schema_match_status",
         "schema_query_key",
         "schema_query",
+        "schema_override_note",
+        "schema_override_source",
         "schema_group",
         "schema_official_symbol",
         "schema_significance_signal",
@@ -326,6 +429,9 @@ def fetch_schema_rare_variant_support(
         "row_count": len(output_rows),
         "matched_gene_count": matched_gene_count,
         "missing_gene_count": missing_gene_count,
+        "alias_override_count": len(alias_overrides),
+        "alias_override_match_count": alias_override_match_count,
+        "bulk_fallback_match_count": bulk_fallback_match_count,
     }
     write_json(output_file.with_suffix(".metadata.json"), metadata)
     return metadata

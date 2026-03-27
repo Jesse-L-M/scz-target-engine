@@ -27,6 +27,7 @@ This repo currently implements:
 - a real `ChEMBL` tractability fetcher for shortlist genes
 - a real `PGC` schizophrenia prioritized-gene fetcher from the official `scz2022` release
 - a real `SCHEMA` rare-variant fetcher for shortlist genes via the official results browser API
+  - with a checked-in curated alias override layer for unresolved symbols
 
 This repo does not yet implement raw-source ingestion from consortium dumps. That is the next layer. V0 starts from curated tables with normalized layer scores in `[0, 1]`.
 

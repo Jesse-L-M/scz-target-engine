@@ -21,6 +21,8 @@ The fetcher:
 - reads a shortlist gene table
 - queries the official SCHEMA gene endpoint by Ensembl ID first, then gene symbol
 - uses the official SCHEMA search endpoint to resolve symbols and skips ambiguous alias hits
+- applies a checked-in curated alias override layer before search when a symbol is known to be ambiguous
+- falls back to the official bulk `SCHEMA_gene_results.tsv.bgz` download if an override points to a real gene ID but the per-gene API is broken
 - preserves the published `meta` gene-level burden fields
 - computes `rare_variant_support` from:
   - SCHEMA `P meta`
@@ -37,6 +39,8 @@ It combines:
 - an effect-direction component based on positive `OR (PTV)`, `OR (Class I)`, and `OR (Class II)`
 
 If the published odds ratios do not show positive enrichment, the normalized score collapses toward zero even if an uncorrected `P meta` exists.
+
+The override layer lives in `config/schema_alias_overrides.csv` so the hard cases stay explicit and reviewable.
 
 ## Example
 

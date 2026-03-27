@@ -18,7 +18,7 @@ That is deliberate. The scoring engine and its failure conditions need to stabil
 - Role: rare-variant signal
 - Output into engine: `rare_variant_support`
 - Notes: upstream harmonization should preserve burden direction and study provenance where possible
-- Status: live shortlist-oriented gene fetcher implemented via the official SCHEMA results browser API
+- Status: live shortlist-oriented gene fetcher implemented via the official SCHEMA results browser API, with a curated alias override layer for ambiguous symbols
 
 ### PsychENCODE
 

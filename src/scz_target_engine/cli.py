@@ -46,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     schema_parser.add_argument("--input-file", required=True)
     schema_parser.add_argument("--output-file", required=True)
     schema_parser.add_argument("--limit", type=int)
+    schema_parser.add_argument("--overrides-file")
 
     prepare_parser = subparsers.add_parser("prepare-gene-table")
     prepare_parser.add_argument("--seed-file", required=True)
@@ -93,6 +94,11 @@ def main(argv: list[str] | None = None) -> int:
             input_file=Path(args.input_file).resolve(),
             output_file=Path(args.output_file).resolve(),
             limit=args.limit,
+            overrides_file=(
+                Path(args.overrides_file).resolve()
+                if args.overrides_file
+                else None
+            ),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

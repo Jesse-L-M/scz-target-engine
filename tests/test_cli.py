@@ -55,8 +55,11 @@ def test_cli_fetch_schema_parser_accepts_input_and_output_files() -> None:
             "seed.csv",
             "--output-file",
             "schema.csv",
+            "--overrides-file",
+            "overrides.csv",
         ]
     )
     assert args.command == "fetch-schema"
     assert args.input_file == "seed.csv"
     assert args.output_file == "schema.csv"
+    assert args.overrides_file == "overrides.csv"

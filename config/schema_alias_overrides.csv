@@ -1,0 +1,4 @@
+entity_label,schema_gene_id,schema_official_symbol,approved_name,hgnc_id,omim_id,override_note,override_source
+DLG2,ENSG00000150672,DLG2,discs large MAGUK scaffold protein 2,HGNC:2901,603583,"SCHEMA search is ambiguous because MPP2 carries DLG2 as a previous symbol. Force the approved DLG2 gene.","https://rest.genenames.org/fetch/symbol/DLG2"
+TCF4,ENSG00000196628,TCF4,transcription factor 4,HGNC:11634,602272,"SCHEMA search is ambiguous because TCF7L2 carries TCF4 as a previous symbol. Force the approved TCF4 gene.","https://rest.genenames.org/fetch/symbol/TCF4"
+CSMD1,ENSG00000183117,CSMD1,CUB and Sushi multiple domains 1,HGNC:14026,608397,"SCHEMA search resolves CSMD1 but the per-gene endpoint 404s. Use the curated gene ID and recover the row from the official bulk SCHEMA gene-results TSV.","https://rest.genenames.org/fetch/symbol/CSMD1"

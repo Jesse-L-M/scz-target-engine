@@ -1,8 +1,8 @@
-# Gene Table Prep
+# Example Table Prep
 
-The engine does not want raw source exports forever. It wants a curated gene evidence table with clear ownership of each column.
+The engine does not want raw source exports forever. It wants curated evidence tables with clear ownership of each column.
 
-## Current Commands
+## Gene Table Prep
 
 `prepare-gene-table` joins:
 
@@ -22,6 +22,32 @@ It emits an engine-ready CSV with:
 - source presence flags
 - provenance JSON
 
+## Module Table Prep
+
+`fetch-psychencode-modules` derives a source-backed module table from:
+
+- a curated gene evidence table
+- live `PsychENCODE / BrainSCOPE` schizophrenia DEG rows
+- live `PsychENCODE / BrainSCOPE` adult cell-type GRNs
+
+It emits an engine-ready module CSV with:
+
+- `entity_id` keyed as `psychencode:{cell_type_slug}`
+- `entity_label` as `BrainSCOPE {cell_type}`
+- required module scoring columns:
+  - `member_gene_genetic_enrichment`
+  - `cell_state_specificity`
+  - `developmental_regulatory_relevance`
+- source context columns such as member-gene counts, top genes, and top TFs
+
+`v0` keeps the module derivation deliberately narrow:
+
+- modules are BrainSCOPE cell-type modules
+- module membership is driven by the current curated gene table, not all genes in the universe
+- cell types with fewer than `2` matched member genes are dropped
+
+## Example Workflow Wrappers
+
 `refresh-example-gene-table` is the repo-native example workflow wrapper. It:
 
 - reads `examples/v0/input/gene_seed.csv`
@@ -29,6 +55,15 @@ It emits an engine-ready CSV with:
 - writes those source snapshots under `data/processed/example_gene_workflow/`
 - prepares `data/processed/example_gene_workflow/curated/example_gene_evidence.csv`
 - publishes the curated snapshot to `examples/v0/input/gene_evidence.csv`
+
+`refresh-example-module-table` is the matching wrapper for modules. It:
+
+- reads `examples/v0/input/gene_evidence.csv` by default
+- derives `PsychENCODE / BrainSCOPE` cell-type modules
+- writes the source-backed module snapshot under `data/processed/example_module_workflow/`
+- publishes the curated snapshot to `examples/v0/input/module_evidence.csv`
+
+`refresh-example-inputs` runs the gene wrapper first and then the module wrapper, so the checked-in example inputs stay aligned.
 
 ## Join Rules
 
@@ -47,10 +82,10 @@ This keeps source fetchers honest. `Open Targets` and `ChEMBL` stay as upstream 
 
 ## Example Workflow
 
-Refresh the checked-in example gene table:
+Refresh the checked-in example gene and module tables:
 
 ```bash
-uv run scz-target-engine refresh-example-gene-table
+uv run scz-target-engine refresh-example-inputs
 ```
 
 Or run the steps manually:
@@ -83,4 +118,8 @@ uv run scz-target-engine prepare-gene-table \
   --opentargets-file data/processed/opentargets/schizophrenia_baseline.csv \
   --chembl-file data/processed/example_gene_workflow/chembl/example_tractability.csv \
   --output-file data/processed/example_gene_workflow/curated/example_gene_evidence.csv
+
+uv run scz-target-engine fetch-psychencode-modules \
+  --input-file data/processed/example_gene_workflow/curated/example_gene_evidence.csv \
+  --output-file data/processed/example_module_workflow/psychencode/example_module_evidence.csv
 ```

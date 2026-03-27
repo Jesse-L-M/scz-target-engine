@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
-from scz_target_engine.sources.psychencode import fetch_psychencode_support
+from scz_target_engine.sources.psychencode import (
+    build_module_member_gene_entries,
+    fetch_psychencode_module_table,
+    fetch_psychencode_support,
+)
 
 
 def fake_text_transport(url: str) -> str:
@@ -158,3 +162,90 @@ def test_fetch_psychencode_support_does_not_guess_aliases_for_absent_genes(
         rows = list(csv.DictReader(handle))
 
     assert rows == []
+
+
+def test_fetch_psychencode_module_table_derives_cell_type_modules(tmp_path: Path) -> None:
+    input_file = tmp_path / "gene_evidence.csv"
+    output_file = tmp_path / "module_evidence.csv"
+    input_file.write_text(
+        (
+            "entity_id,entity_label,approved_name,common_variant_support,rare_variant_support\n"
+            "ENSGEX0001,DRD2,dopamine receptor D2,0.20,0.35\n"
+            "ENSGEX0002,CHRM4,cholinergic receptor muscarinic 4,0.10,0.15\n"
+            "ENSGEX0003,GRM3,glutamate metabotropic receptor 3,0.30,0.25\n"
+            "ENSGEX0004,SETD1A,SET domain containing 1A,0.80,0.95\n"
+        ),
+        encoding="utf-8",
+    )
+
+    metadata = fetch_psychencode_module_table(
+        input_file=input_file,
+        output_file=output_file,
+        text_transport=fake_text_transport,
+        bytes_transport=fake_bytes_transport,
+    )
+
+    assert metadata["input_gene_count"] == 4
+    assert metadata["candidate_cell_type_count"] == 3
+    assert metadata["row_count"] == 2
+    assert metadata["skipped_cell_type_count"] == 1
+    assert metadata["skipped_cell_types"] == ["L4.IT"]
+    assert metadata["minimum_member_gene_count"] == 2
+
+    with output_file.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+
+    ast_row = next(row for row in rows if row["psychencode_module_cell_type"] == "Ast")
+    opc_row = next(row for row in rows if row["psychencode_module_cell_type"] == "OPC")
+
+    assert ast_row["entity_id"] == "psychencode:ast"
+    assert ast_row["entity_label"] == "BrainSCOPE Ast"
+    assert float(ast_row["member_gene_genetic_enrichment"]) > 0.0
+    assert float(ast_row["cell_state_specificity"]) > 0.0
+    assert float(ast_row["developmental_regulatory_relevance"]) > 0.0
+    assert ast_row["psychencode_module_member_gene_count"] == "2"
+
+    assert opc_row["entity_id"] == "psychencode:opc"
+    assert float(opc_row["member_gene_genetic_enrichment"]) > 0.0
+    assert float(opc_row["cell_state_specificity"]) > 0.0
+    assert float(opc_row["developmental_regulatory_relevance"]) > 0.0
+    assert opc_row["psychencode_module_member_gene_count"] == "2"
+    assert {entry["tf"] for entry in json.loads(opc_row["psychencode_module_top_tfs_json"])} == {
+        "OLIG2",
+        "SOX10",
+    }
+
+
+def test_build_module_member_gene_entries_breaks_ties_stably() -> None:
+    member_gene_entries = build_module_member_gene_entries(
+        {"GENE_B", "GENE_A", "GENE_C"},
+        {
+            "GENE_A": {
+                "entity_id": "ENSGA",
+                "entity_label": "GENE_A",
+                "approved_name": "Gene A",
+                "common_variant_support": "0.2",
+                "rare_variant_support": "0.2",
+            },
+            "GENE_B": {
+                "entity_id": "ENSGB",
+                "entity_label": "GENE_B",
+                "approved_name": "Gene B",
+                "common_variant_support": "0.2",
+                "rare_variant_support": "0.2",
+            },
+            "GENE_C": {
+                "entity_id": "ENSGC",
+                "entity_label": "GENE_C",
+                "approved_name": "Gene C",
+                "common_variant_support": "0.4",
+                "rare_variant_support": "0.4",
+            },
+        },
+    )
+
+    assert [entry["entity_label"] for entry in member_gene_entries] == [
+        "GENE_C",
+        "GENE_A",
+        "GENE_B",
+    ]

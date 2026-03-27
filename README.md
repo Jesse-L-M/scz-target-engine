@@ -23,22 +23,23 @@ This repo currently implements:
 - stability analysis and baseline comparisons
 - markdown and CSV report generation
 - a seed-only example gene shortlist plus a checked-in curated gene table refreshed from live source adapters
-- illustrative module inputs for end-to-end verification
+- a checked-in curated module table derived from live `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
 - a real `Open Targets` baseline fetcher via the official GraphQL API
 - a real `ChEMBL` tractability fetcher for shortlist genes
 - a real `PGC` schizophrenia prioritized-gene fetcher from the official `scz2022` release
 - a real `SCHEMA` rare-variant fetcher for shortlist genes via the official results browser API
   - with a checked-in curated alias override layer for unresolved symbols
 - a real `PsychENCODE / BrainSCOPE` shortlist importer for schizophrenia DEG and adult cell-type GRN support
+- a real `PsychENCODE / BrainSCOPE` module-table derivation step for source-backed cell-type modules
 
 This repo does not yet implement raw-source ingestion from consortium dumps. That is the next layer. V0 starts from curated tables with normalized layer scores in `[0, 1]`.
 
 ## Quickstart
 
-Refresh the example gene table from the live source adapters:
+Refresh the example gene and module tables from the live source adapters:
 
 ```bash
-uv run scz-target-engine refresh-example-gene-table
+uv run scz-target-engine refresh-example-inputs
 ```
 
 Then run the example build:
@@ -50,7 +51,7 @@ uv run scz-target-engine build \
   --output-dir examples/v0/output
 ```
 
-`examples/v0/input/gene_evidence.csv` is a generated snapshot from that refresh command. `examples/v0/input/module_evidence.csv` remains illustrative example input until the module workflow gets the same live-source treatment.
+`examples/v0/input/gene_evidence.csv` and `examples/v0/input/module_evidence.csv` are generated snapshots from that refresh flow.
 
 Fetch a real `Open Targets` schizophrenia baseline table:
 
@@ -91,6 +92,14 @@ uv run scz-target-engine fetch-psychencode \
   --output-file data/processed/example_gene_workflow/psychencode/example_support.csv
 ```
 
+Fetch `PsychENCODE / BrainSCOPE` source-backed module evidence from a curated gene table:
+
+```bash
+uv run scz-target-engine fetch-psychencode-modules \
+  --input-file examples/v0/input/gene_evidence.csv \
+  --output-file data/processed/example_module_workflow/psychencode/example_module_evidence.csv
+```
+
 Prepare an engine-ready gene table from joined source outputs:
 
 ```bash
@@ -129,7 +138,7 @@ uv run --group dev pytest
 - [docs/schema.md](docs/schema.md): SCHEMA fetch contract
 - [docs/psychencode.md](docs/psychencode.md): PsychENCODE / BrainSCOPE fetch contract
 - [docs/prep.md](docs/prep.md): source join and curation contract
-- [examples/v0/input](examples/v0/input): seed shortlist, curated gene snapshot, and example module inputs
+- [examples/v0/input](examples/v0/input): seed shortlist plus curated gene and module snapshots
 - [src/scz_target_engine](src/scz_target_engine): scoring engine
 
 ## Input Tables

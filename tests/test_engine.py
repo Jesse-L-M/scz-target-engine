@@ -10,7 +10,7 @@ def test_validate_inputs_counts_example_rows() -> None:
     config = load_config(Path("config/v0.toml"))
     result = validate_inputs(config, Path("examples/v0/input").resolve())
     assert result["gene_records"] == 26
-    assert result["module_records"] == 10
+    assert result["module_records"] == 27
     assert result["warning_entities"] >= 1
 
 

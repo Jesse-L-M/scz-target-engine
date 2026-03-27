@@ -7,6 +7,9 @@ It currently fills two engine columns:
 - `cell_state_support`
 - `developmental_regulatory_support`
 
+`fetch-psychencode-modules` uses the same official BrainSCOPE sources plus a curated
+gene evidence table to derive source-backed module rows for the module leaderboard.
+
 The first is a direct schizophrenia cell-state proxy from differential expression. The second is currently the regulatory half of the engine layer, derived from adult cell-type gene regulatory networks. `v0` does not yet add a separate developmental atlas on top of that.
 
 ## Upstream Sources
@@ -25,6 +28,12 @@ The first is a direct schizophrenia cell-state proxy from differential expressio
 uv run scz-target-engine fetch-psychencode \
   --input-file examples/v0/input/gene_seed.csv \
   --output-file data/processed/example_gene_workflow/psychencode/example_support.csv
+```
+
+```bash
+uv run scz-target-engine fetch-psychencode-modules \
+  --input-file examples/v0/input/gene_evidence.csv \
+  --output-file data/processed/example_module_workflow/psychencode/example_module_evidence.csv
 ```
 
 ## Output Shape
@@ -63,6 +72,24 @@ Key fields:
   - `psychencode_grn_top_cell_types_json`
   - `psychencode_grn_top_tfs_json`
 
+For `fetch-psychencode-modules`, the output shape is one row per retained BrainSCOPE
+cell type with:
+
+- `entity_id` as `psychencode:{cell_type_slug}`
+- `entity_label` as `BrainSCOPE {cell_type}`
+- `member_gene_genetic_enrichment`
+- `cell_state_specificity`
+- `developmental_regulatory_relevance`
+- source context fields:
+  - `psychencode_module_member_gene_count`
+  - `psychencode_module_deg_gene_count`
+  - `psychencode_module_grn_target_gene_count`
+  - `psychencode_module_grn_edge_count`
+  - `psychencode_module_unique_tf_count`
+  - `psychencode_module_top_member_genes_json`
+  - `psychencode_module_top_deg_genes_json`
+  - `psychencode_module_top_tfs_json`
+
 ## Normalization
 
 `cell_state_support` combines:
@@ -84,6 +111,16 @@ Each cell-type DEG score uses:
 - total edge-count signal
 
 This is intentionally a transparent regulatory proxy, not a claim that adult GRN density alone captures developmental biology.
+
+For module derivation:
+
+- `member_gene_genetic_enrichment` is the mean-present genetic support of member genes,
+  aggregated at the cell-type module level with a top-gene and breadth signal
+- `cell_state_specificity` aggregates BrainSCOPE schizophrenia DEG row scores for the
+  matched member genes in that cell type
+- `developmental_regulatory_relevance` aggregates BrainSCOPE GRN edge strength, target
+  breadth, and TF diversity for that cell type
+- cell types with fewer than `2` matched member genes are dropped
 
 ## Matching Rule
 

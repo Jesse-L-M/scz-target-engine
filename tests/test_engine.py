@@ -28,16 +28,17 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     assert (tmp_path / "target_cards.md").exists()
     assert (tmp_path / "kill_cards.md").exists()
     kill_cards = (tmp_path / "kill_cards.md").read_text(encoding="utf-8")
-    assert "TCF4 (ENSGEX0023)" in kill_cards
+    assert "TCF4 (ENSG00000196628)" in kill_cards
     assert "- Decision basis:" in kill_cards
     assert "- Evidence coverage:" in kill_cards
     with (tmp_path / "gene_rankings.csv").open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
-    tcf4_row = next(row for row in rows if row["entity_id"] == "ENSGEX0023")
+    tcf4_row = next(row for row in rows if row["entity_label"] == "TCF4")
     assert "warning_count" in tcf4_row
     assert "warning_kinds" in tcf4_row
     assert tcf4_row["warning_count"] == "1"
-    assert tcf4_row["present_layer_count"] == "3"
+    assert tcf4_row["present_layer_count"] == "4"
+    assert tcf4_row["warning_kinds"] == "source_coverage_gap"
     summary = json.loads((tmp_path / "stability_summary.json").read_text())
     assert "gene" in summary
     assert "baseline_overlap" in summary

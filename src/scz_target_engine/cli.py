@@ -7,6 +7,7 @@ import sys
 
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
+from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -22,11 +23,30 @@ def build_parser() -> argparse.ArgumentParser:
     build_parser_.add_argument("--input-dir")
     build_parser_.add_argument("--output-dir")
 
+    opentargets_parser = subparsers.add_parser("fetch-opentargets")
+    opentargets_parser.add_argument("--output-file", required=True)
+    opentargets_parser.add_argument("--disease-id")
+    opentargets_parser.add_argument("--disease-query")
+    opentargets_parser.add_argument("--page-size", type=int, default=500)
+    opentargets_parser.add_argument("--max-pages", type=int)
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.command == "fetch-opentargets":
+        result = fetch_opentargets_baseline(
+            output_file=Path(args.output_file).resolve(),
+            disease_id=args.disease_id,
+            disease_query=args.disease_query,
+            page_size=args.page_size,
+            max_pages=args.max_pages,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
     config = load_config(args.config)
     config_dir = config.config_path.parent
     input_dir = (

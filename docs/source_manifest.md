@@ -32,6 +32,7 @@ That is deliberate. The scoring engine and its failure conditions need to stabil
 - Output into engine:
   - `generic_platform_baseline`
 - Notes: used as a comparison source, not as the source of truth
+- Status: a live GraphQL fetcher is implemented for disease-scoped baseline pulls
 
 ### ChEMBL
 

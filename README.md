@@ -23,6 +23,7 @@ This repo currently implements:
 - stability analysis and baseline comparisons
 - markdown and CSV report generation
 - synthetic example inputs for end-to-end verification
+- a real `Open Targets` baseline fetcher via the official GraphQL API
 
 This repo does not yet implement raw-source ingestion from consortium dumps. That is the next layer. V0 starts from curated tables with normalized layer scores in `[0, 1]`.
 
@@ -35,6 +36,14 @@ uv run scz-target-engine build \
   --config config/v0.toml \
   --input-dir examples/v0/input \
   --output-dir examples/v0/output
+```
+
+Fetch a real `Open Targets` schizophrenia baseline table:
+
+```bash
+uv run scz-target-engine fetch-opentargets \
+  --disease-query schizophrenia \
+  --output-file data/processed/opentargets/schizophrenia_baseline.csv
 ```
 
 Validate only:
@@ -56,6 +65,7 @@ uv run --group dev pytest
 - [config/v0.toml](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/config/v0.toml): scoring and build config
 - [docs/scoring_contract.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/scoring_contract.md): methodological contract for `v0`
 - [docs/source_manifest.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/source_manifest.md): source roles and intended upstream inputs
+- [docs/opentargets.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/opentargets.md): Open Targets fetch contract
 - [examples/v0/input](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/examples/v0/input): synthetic example inputs
 - [src/scz_target_engine](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/src/scz_target_engine): scoring engine
 

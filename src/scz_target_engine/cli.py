@@ -7,6 +7,7 @@ import sys
 
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
+from scz_target_engine.prepare import prepare_gene_table
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 
@@ -36,6 +37,12 @@ def build_parser() -> argparse.ArgumentParser:
     chembl_parser.add_argument("--output-file", required=True)
     chembl_parser.add_argument("--limit", type=int)
 
+    prepare_parser = subparsers.add_parser("prepare-gene-table")
+    prepare_parser.add_argument("--seed-file", required=True)
+    prepare_parser.add_argument("--output-file", required=True)
+    prepare_parser.add_argument("--opentargets-file")
+    prepare_parser.add_argument("--chembl-file")
+
     return parser
 
 
@@ -58,6 +65,24 @@ def main(argv: list[str] | None = None) -> int:
             input_file=Path(args.input_file).resolve(),
             output_file=Path(args.output_file).resolve(),
             limit=args.limit,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "prepare-gene-table":
+        result = prepare_gene_table(
+            seed_file=Path(args.seed_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            opentargets_file=(
+                Path(args.opentargets_file).resolve()
+                if args.opentargets_file
+                else None
+            ),
+            chembl_file=(
+                Path(args.chembl_file).resolve()
+                if args.chembl_file
+                else None
+            ),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

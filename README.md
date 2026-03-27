@@ -56,6 +56,16 @@ uv run scz-target-engine fetch-chembl \
   --limit 10
 ```
 
+Prepare an engine-ready gene table from joined source outputs:
+
+```bash
+uv run scz-target-engine prepare-gene-table \
+  --seed-file examples/v0/input/gene_evidence.csv \
+  --opentargets-file data/processed/opentargets/schizophrenia_baseline.csv \
+  --chembl-file data/processed/chembl/example_tractability.csv \
+  --output-file data/processed/curated/example_gene_evidence.csv
+```
+
 Validate only:
 
 ```bash
@@ -77,6 +87,7 @@ uv run --group dev pytest
 - [docs/source_manifest.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/opentargets.md): Open Targets fetch contract
 - [docs/chembl.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/chembl.md): ChEMBL fetch contract
+- [docs/prep.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/prep.md): source join and curation contract
 - [examples/v0/input](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/examples/v0/input): synthetic example inputs
 - [src/scz_target_engine](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/src/scz_target_engine): scoring engine
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from scz_target_engine.sources.psychencode import (
+    build_module_member_gene_entries,
     fetch_psychencode_module_table,
     fetch_psychencode_support,
 )
@@ -213,3 +214,38 @@ def test_fetch_psychencode_module_table_derives_cell_type_modules(tmp_path: Path
         "OLIG2",
         "SOX10",
     }
+
+
+def test_build_module_member_gene_entries_breaks_ties_stably() -> None:
+    member_gene_entries = build_module_member_gene_entries(
+        {"GENE_B", "GENE_A", "GENE_C"},
+        {
+            "GENE_A": {
+                "entity_id": "ENSGA",
+                "entity_label": "GENE_A",
+                "approved_name": "Gene A",
+                "common_variant_support": "0.2",
+                "rare_variant_support": "0.2",
+            },
+            "GENE_B": {
+                "entity_id": "ENSGB",
+                "entity_label": "GENE_B",
+                "approved_name": "Gene B",
+                "common_variant_support": "0.2",
+                "rare_variant_support": "0.2",
+            },
+            "GENE_C": {
+                "entity_id": "ENSGC",
+                "entity_label": "GENE_C",
+                "approved_name": "Gene C",
+                "common_variant_support": "0.4",
+                "rare_variant_support": "0.4",
+            },
+        },
+    )
+
+    assert [entry["entity_label"] for entry in member_gene_entries] == [
+        "GENE_C",
+        "GENE_A",
+        "GENE_B",
+    ]

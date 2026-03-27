@@ -546,7 +546,14 @@ def build_module_member_gene_entries(
                 "genetic_score": genetic_score,
             }
         )
-    return sorted(entries, key=lambda entry: float(entry["genetic_score"]), reverse=True)
+    return sorted(
+        entries,
+        key=lambda entry: (
+            -float(entry["genetic_score"]),
+            str(entry["entity_label"]),
+            str(entry["entity_id"]),
+        ),
+    )
 
 
 def compute_module_gene_enrichment(member_gene_entries: list[dict[str, object]]) -> float:
@@ -580,8 +587,10 @@ def compute_module_cell_state_specificity(
 
     ranked_entries = sorted(
         best_by_gene.values(),
-        key=lambda entry: float(entry["row_score"]),
-        reverse=True,
+        key=lambda entry: (
+            -float(entry["row_score"]),
+            str(entry["entity_label"]),
+        ),
     )
     if not ranked_entries:
         return 0.0, []
@@ -642,8 +651,11 @@ def compute_module_regulatory_relevance(
             }
             for tf_name, weights in tf_weights.items()
         ),
-        key=lambda entry: (float(entry["max_edge_weight"]), int(entry["edge_count"])),
-        reverse=True,
+        key=lambda entry: (
+            -float(entry["max_edge_weight"]),
+            -int(entry["edge_count"]),
+            str(entry["tf"]),
+        ),
     )
     top_tfs = [
         {

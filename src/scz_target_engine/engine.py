@@ -13,6 +13,7 @@ from scz_target_engine.reporting import (
 from scz_target_engine.scoring import (
     GENE_REQUIRED_GROUPS,
     MODULE_REQUIRED_GROUPS,
+    SEVERITY_RANK,
     annotate_ranked_entities,
     build_warning_index,
     compare_baseline_overlap,
@@ -122,8 +123,17 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
     kill_cards = [
         entity
         for entity in gene_entities
-        if entity.rank is not None and not entity.decision_grade
+        if entity.rank is None or not entity.decision_grade
     ]
+    kill_cards.sort(
+        key=lambda entity: (
+            entity.rank is not None,
+            -SEVERITY_RANK.get(entity.warning_severity, 0),
+            entity.sensitivity_survival_rate,
+            entity.composite_score if entity.composite_score is not None else -1.0,
+            entity.entity_label.lower(),
+        )
+    )
 
     write_csv(
         output_dir / "gene_rankings.csv",
@@ -150,6 +160,7 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
             top_targets,
             limit=5,
             include_decision_grade=True,
+            decision_grade_threshold=config.stability.decision_grade_threshold,
         ),
     )
     write_text(
@@ -159,6 +170,7 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
             kill_cards,
             limit=5,
             include_decision_grade=False,
+            decision_grade_threshold=config.stability.decision_grade_threshold,
         ),
     )
     write_text(
@@ -181,4 +193,5 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         "module_ranked_count": len(
             [entity for entity in module_entities if entity.rank is not None]
         ),
+        "gene_warning_count": len([entity for entity in gene_entities if entity.warning_count]),
     }

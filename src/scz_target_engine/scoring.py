@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from statistics import median
 
 
+SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
+
 GENE_REQUIRED_GROUPS = (
     ("common_variant_support", "rare_variant_support"),
     ("cell_state_support", "developmental_regulatory_support"),
@@ -13,6 +15,92 @@ GENE_REQUIRED_GROUPS = (
 MODULE_REQUIRED_GROUPS = (
     ("member_gene_genetic_enrichment",),
     ("cell_state_specificity", "developmental_regulatory_relevance"),
+)
+
+
+@dataclass(frozen=True)
+class LayerGroupSpec:
+    label: str
+    layer_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SourceCoverageSpec:
+    flag_name: str
+    source_label: str
+    field_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class WarningRecord:
+    severity: str
+    warning_kind: str
+    warning_text: str
+    source: str
+
+
+@dataclass(frozen=True)
+class SourceCoverageSummary:
+    matched_sources: tuple[str, ...]
+    missing_sources: tuple[str, ...]
+    missing_required_groups: tuple[str, ...]
+    known_source_count: int
+
+
+REQUIRED_LAYER_GROUP_SPECS = {
+    "gene": (
+        LayerGroupSpec(
+            label="genetic support",
+            layer_names=("common_variant_support", "rare_variant_support"),
+        ),
+        LayerGroupSpec(
+            label="biological support",
+            layer_names=("cell_state_support", "developmental_regulatory_support"),
+        ),
+    ),
+    "module": (
+        LayerGroupSpec(
+            label="member-gene enrichment",
+            layer_names=("member_gene_genetic_enrichment",),
+        ),
+        LayerGroupSpec(
+            label="biological support",
+            layer_names=("cell_state_specificity", "developmental_regulatory_relevance"),
+        ),
+    ),
+}
+
+GENE_SOURCE_COVERAGE_SPECS = (
+    SourceCoverageSpec(
+        flag_name="source_present_pgc",
+        source_label="PGC common-variant support",
+        field_names=("common_variant_support",),
+    ),
+    SourceCoverageSpec(
+        flag_name="source_present_schema",
+        source_label="SCHEMA rare-variant support",
+        field_names=("rare_variant_support",),
+    ),
+    SourceCoverageSpec(
+        flag_name="source_present_psychencode",
+        source_label="PsychENCODE biological support",
+        field_names=("cell_state_support", "developmental_regulatory_support"),
+    ),
+    SourceCoverageSpec(
+        flag_name="source_present_chembl",
+        source_label="ChEMBL tractability support",
+        field_names=("tractability_compoundability",),
+    ),
+    SourceCoverageSpec(
+        flag_name="source_present_opentargets",
+        source_label="Open Targets baseline context",
+        field_names=("generic_platform_baseline",),
+    ),
+)
+
+GENE_REQUIRED_SOURCE_GROUPS = (
+    ("genetic support", ("source_present_pgc", "source_present_schema")),
+    ("biological support", ("source_present_psychencode",)),
 )
 
 
@@ -36,7 +124,9 @@ class RankedEntity:
     decision_grade: bool
     sensitivity_survival_rate: float
     layer_values: dict[str, float | None]
+    warning_records: list[WarningRecord]
     warnings: list[str]
+    warning_count: int
     warning_severity: str
     metadata: dict[str, str]
 
@@ -57,6 +147,19 @@ def parse_optional_float(value: str | None) -> float | None:
     if not cleaned:
         return None
     return float(cleaned)
+
+
+def parse_optional_bool(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    cleaned = value.strip().lower()
+    if not cleaned:
+        return None
+    if cleaned in {"true", "1", "yes"}:
+        return True
+    if cleaned in {"false", "0", "no"}:
+        return False
+    return None
 
 
 def parse_entity_rows(
@@ -115,6 +218,153 @@ def check_required_groups(
     required_groups: tuple[tuple[str, ...], ...],
 ) -> bool:
     return all(any(layer_values.get(name) is not None for name in group) for group in required_groups)
+
+
+def format_layer_name_list(layer_names: tuple[str, ...]) -> str:
+    if len(layer_names) == 1:
+        return layer_names[0]
+    if len(layer_names) == 2:
+        return f"{layer_names[0]} or {layer_names[1]}"
+    return ", ".join(layer_names[:-1]) + f", or {layer_names[-1]}"
+
+
+def format_label_list(labels: list[str]) -> str:
+    if not labels:
+        return ""
+    if len(labels) == 1:
+        return labels[0]
+    if len(labels) == 2:
+        return f"{labels[0]} and {labels[1]}"
+    return ", ".join(labels[:-1]) + f", and {labels[-1]}"
+
+
+def find_missing_required_layer_groups(
+    entity_type: str,
+    layer_values: dict[str, float | None],
+) -> list[LayerGroupSpec]:
+    specs = REQUIRED_LAYER_GROUP_SPECS.get(entity_type, ())
+    return [
+        spec
+        for spec in specs
+        if not any(layer_values.get(layer_name) is not None for layer_name in spec.layer_names)
+    ]
+
+
+def summarize_source_coverage(
+    entity_type: str,
+    layer_values: dict[str, float | None],
+    metadata: dict[str, str],
+) -> SourceCoverageSummary | None:
+    if entity_type != "gene":
+        return None
+
+    states: dict[str, bool] = {}
+    matched_sources: list[str] = []
+    missing_sources: list[str] = []
+    for spec in GENE_SOURCE_COVERAGE_SPECS:
+        state = parse_optional_bool(metadata.get(spec.flag_name))
+        if state is None:
+            continue
+        states[spec.flag_name] = state
+        if state:
+            matched_sources.append(spec.source_label)
+            continue
+        field_has_value = any(
+            layer_values.get(field_name) is not None for field_name in spec.field_names
+        )
+        if not field_has_value:
+            field_has_value = any(
+                bool((metadata.get(field_name) or "").strip()) for field_name in spec.field_names
+            )
+        if field_has_value:
+            missing_sources.append(f"{spec.source_label} provenance")
+        else:
+            missing_sources.append(spec.source_label)
+
+    if not states:
+        return None
+
+    missing_required_groups = [
+        label
+        for label, flag_names in GENE_REQUIRED_SOURCE_GROUPS
+        if all(states.get(flag_name) is False for flag_name in flag_names)
+        and all(flag_name in states for flag_name in flag_names)
+    ]
+    return SourceCoverageSummary(
+        matched_sources=tuple(matched_sources),
+        missing_sources=tuple(missing_sources),
+        missing_required_groups=tuple(missing_required_groups),
+        known_source_count=len(states),
+    )
+
+
+def format_warning_record(record: WarningRecord) -> str:
+    return f"[{record.severity}] {record.warning_kind}: {record.warning_text}"
+
+
+def sort_warning_records(records: list[WarningRecord]) -> list[WarningRecord]:
+    return sorted(
+        records,
+        key=lambda record: (
+            -SEVERITY_RANK.get(record.severity.lower(), 0),
+            record.source != "input",
+            record.warning_kind,
+            record.warning_text,
+        ),
+    )
+
+
+def build_automatic_warning_records(
+    entity_type: str,
+    layer_values: dict[str, float | None],
+    metadata: dict[str, str],
+    existing_warning_kinds: set[str],
+) -> list[WarningRecord]:
+    warnings: list[WarningRecord] = []
+
+    missing_groups = find_missing_required_layer_groups(entity_type, layer_values)
+    if missing_groups and not existing_warning_kinds.intersection(
+        {"evidence_missingness", "required_layer_group_missing"}
+    ):
+        missing_text = "; ".join(
+            f"{group.label} ({format_layer_name_list(group.layer_names)})"
+            for group in missing_groups
+        )
+        warnings.append(
+            WarningRecord(
+                severity="high",
+                warning_kind="required_layer_group_missing",
+                warning_text=(
+                    f"Missing required layer groups: {missing_text}. "
+                    "Entity is ineligible for composite ranking until they are sourced."
+                ),
+                source="auto",
+            )
+        )
+
+    source_summary = summarize_source_coverage(entity_type, layer_values, metadata)
+    if source_summary is not None and source_summary.missing_sources and (
+        "source_coverage_gap" not in existing_warning_kinds
+    ):
+        severity = "medium" if source_summary.missing_required_groups else "low"
+        matched_text = format_label_list(list(source_summary.matched_sources)) or "none"
+        missing_text = format_label_list(list(source_summary.missing_sources))
+        if source_summary.missing_required_groups:
+            prefix = (
+                f"Missing source-backed {format_label_list(list(source_summary.missing_required_groups))}"
+            )
+        else:
+            prefix = "Source coverage is partial"
+        warnings.append(
+            WarningRecord(
+                severity=severity,
+                warning_kind="source_coverage_gap",
+                warning_text=f"{prefix}; matched {matched_text}; missing {missing_text}.",
+                source="auto",
+            )
+        )
+
+    return warnings
 
 
 def compute_weighted_score(
@@ -291,17 +541,32 @@ def annotate_ranked_entities(
     entities: list[RankedEntity] = []
     for row in ranked_rows:
         key = (str(row["entity_type"]), str(row["entity_id"]))
-        warnings = warnings_index.get(key, [])
-        warning_lines = [
-            f"[{warning['severity']}] {warning['warning_kind']}: {warning['warning_text']}"
-            for warning in warnings
+        warning_rows = warnings_index.get(key, [])
+        warning_records = [
+            WarningRecord(
+                severity=warning["severity"].strip().lower(),
+                warning_kind=warning["warning_kind"].strip(),
+                warning_text=warning["warning_text"].strip(),
+                source="input",
+            )
+            for warning in warning_rows
         ]
-        severity_rank = {"high": 3, "medium": 2, "low": 1}
+        auto_warning_records = build_automatic_warning_records(
+            entity_type=str(row["entity_type"]),
+            layer_values=dict(row["layer_values"]),
+            metadata=dict(row["metadata"]),
+            existing_warning_kinds={
+                warning_record.warning_kind.lower()
+                for warning_record in warning_records
+            },
+        )
+        warning_records = sort_warning_records(warning_records + auto_warning_records)
+        warning_lines = [format_warning_record(record) for record in warning_records]
         warning_severity = "none"
-        if warnings:
+        if warning_records:
             warning_severity = max(
-                (warning["severity"].lower() for warning in warnings),
-                key=lambda item: severity_rank.get(item, 0),
+                (warning.severity.lower() for warning in warning_records),
+                key=lambda item: SEVERITY_RANK.get(item, 0),
             )
         survival_rate = stability.survival_rates.get(str(row["entity_id"]), 0.0)
         decision_grade = bool(
@@ -322,7 +587,9 @@ def annotate_ranked_entities(
                 decision_grade=decision_grade,
                 sensitivity_survival_rate=round(survival_rate, 6),
                 layer_values=dict(row["layer_values"]),
+                warning_records=warning_records,
                 warnings=warning_lines,
+                warning_count=len(warning_records),
                 warning_severity=warning_severity,
                 metadata=dict(row["metadata"]),
             )

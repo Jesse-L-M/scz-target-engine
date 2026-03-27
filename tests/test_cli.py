@@ -83,6 +83,21 @@ def test_cli_fetch_psychencode_parser_accepts_input_and_output_files() -> None:
     assert args.output_file == "psychencode.csv"
 
 
+def test_cli_fetch_psychencode_modules_parser_accepts_input_and_output_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "fetch-psychencode-modules",
+            "--input-file",
+            "gene_evidence.csv",
+            "--output-file",
+            "module_evidence.csv",
+        ]
+    )
+    assert args.command == "fetch-psychencode-modules"
+    assert args.input_file == "gene_evidence.csv"
+    assert args.output_file == "module_evidence.csv"
+
+
 def test_cli_refresh_example_gene_table_parser_accepts_optional_paths() -> None:
     args = build_parser().parse_args(
         [
@@ -105,3 +120,48 @@ def test_cli_refresh_example_gene_table_parser_accepts_optional_paths() -> None:
     assert args.work_dir == "data/processed/example"
     assert args.disease_id == "MONDO_0005090"
     assert args.overrides_file == "overrides.csv"
+
+
+def test_cli_refresh_example_module_table_parser_accepts_optional_paths() -> None:
+    args = build_parser().parse_args(
+        [
+            "refresh-example-module-table",
+            "--gene-file",
+            "gene_evidence.csv",
+            "--output-file",
+            "module_evidence.csv",
+            "--work-dir",
+            "data/processed/module-example",
+        ]
+    )
+    assert args.command == "refresh-example-module-table"
+    assert args.gene_file == "gene_evidence.csv"
+    assert args.output_file == "module_evidence.csv"
+    assert args.work_dir == "data/processed/module-example"
+
+
+def test_cli_refresh_example_inputs_parser_accepts_optional_paths() -> None:
+    args = build_parser().parse_args(
+        [
+            "refresh-example-inputs",
+            "--seed-file",
+            "gene_seed.csv",
+            "--gene-output-file",
+            "gene_evidence.csv",
+            "--module-output-file",
+            "module_evidence.csv",
+            "--gene-work-dir",
+            "data/processed/example-gene",
+            "--module-work-dir",
+            "data/processed/example-module",
+            "--disease-query",
+            "schizophrenia",
+        ]
+    )
+    assert args.command == "refresh-example-inputs"
+    assert args.seed_file == "gene_seed.csv"
+    assert args.gene_output_file == "gene_evidence.csv"
+    assert args.module_output_file == "module_evidence.csv"
+    assert args.gene_work_dir == "data/processed/example-gene"
+    assert args.module_work_dir == "data/processed/example-module"
+    assert args.disease_query == "schizophrenia"

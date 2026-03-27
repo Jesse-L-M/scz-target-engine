@@ -17,8 +17,8 @@
 - 5. DRD2 (0.360249)
 
 ## Top Modules
-- 1. Deep-layer IT neuronal program (0.876)
-- 2. Parvalbumin interneuron module (0.832)
-- 3. Microglia complement module (0.7515)
-- 4. Synaptic translation program (0.733)
-- 5. Chromatin regulation module (0.709)
+- 1. BrainSCOPE OPC (0.577873)
+- 2. BrainSCOPE L4.IT (0.563742)
+- 3. BrainSCOPE Lamp5 (0.562035)
+- 4. BrainSCOPE L6.IT.Car3 (0.542773)
+- 5. BrainSCOPE L5.6.NP (0.528011)

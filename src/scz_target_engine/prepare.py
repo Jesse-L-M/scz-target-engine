@@ -8,7 +8,10 @@ from scz_target_engine.io import read_csv_rows, write_csv, write_json
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
-from scz_target_engine.sources.psychencode import fetch_psychencode_support
+from scz_target_engine.sources.psychencode import (
+    fetch_psychencode_module_table,
+    fetch_psychencode_support,
+)
 from scz_target_engine.sources.schema import fetch_schema_rare_variant_support
 
 
@@ -25,6 +28,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXAMPLE_GENE_SEED_FILE = REPO_ROOT / "examples" / "v0" / "input" / "gene_seed.csv"
 DEFAULT_EXAMPLE_GENE_OUTPUT_FILE = REPO_ROOT / "examples" / "v0" / "input" / "gene_evidence.csv"
 DEFAULT_EXAMPLE_GENE_WORK_DIR = REPO_ROOT / "data" / "processed" / "example_gene_workflow"
+DEFAULT_EXAMPLE_MODULE_OUTPUT_FILE = REPO_ROOT / "examples" / "v0" / "input" / "module_evidence.csv"
+DEFAULT_EXAMPLE_MODULE_WORK_DIR = (
+    REPO_ROOT / "data" / "processed" / "example_module_workflow"
+)
 DEFAULT_EXAMPLE_GENE_DISEASE_QUERY = "schizophrenia"
 
 
@@ -358,4 +365,63 @@ def refresh_example_gene_table(
         "opentargets": opentargets_metadata,
         "chembl": chembl_metadata,
         "prepare": prepare_metadata,
+    }
+
+
+def refresh_example_module_table(
+    gene_file: Path | None = None,
+    output_file: Path | None = None,
+    work_dir: Path | None = None,
+) -> dict[str, object]:
+    resolved_gene_file = (gene_file or DEFAULT_EXAMPLE_GENE_OUTPUT_FILE).resolve()
+    resolved_output_file = (output_file or DEFAULT_EXAMPLE_MODULE_OUTPUT_FILE).resolve()
+    resolved_work_dir = (work_dir or DEFAULT_EXAMPLE_MODULE_WORK_DIR).resolve()
+
+    module_file = resolved_work_dir / "psychencode" / "example_module_evidence.csv"
+    module_file.parent.mkdir(parents=True, exist_ok=True)
+
+    module_metadata = fetch_psychencode_module_table(
+        input_file=resolved_gene_file,
+        output_file=module_file,
+    )
+
+    resolved_output_file.parent.mkdir(parents=True, exist_ok=True)
+    if module_file != resolved_output_file:
+        shutil.copyfile(module_file, resolved_output_file)
+
+    return {
+        "gene_file": str(resolved_gene_file),
+        "work_dir": str(resolved_work_dir),
+        "published_output_file": str(resolved_output_file),
+        "curated_output_file": str(module_file),
+        "psychencode_modules": module_metadata,
+    }
+
+
+def refresh_example_input_tables(
+    seed_file: Path | None = None,
+    gene_output_file: Path | None = None,
+    module_output_file: Path | None = None,
+    gene_work_dir: Path | None = None,
+    module_work_dir: Path | None = None,
+    disease_id: str | None = None,
+    disease_query: str | None = None,
+    overrides_file: Path | None = None,
+) -> dict[str, object]:
+    gene_refresh = refresh_example_gene_table(
+        seed_file=seed_file,
+        output_file=gene_output_file,
+        work_dir=gene_work_dir,
+        disease_id=disease_id,
+        disease_query=disease_query,
+        overrides_file=overrides_file,
+    )
+    module_refresh = refresh_example_module_table(
+        gene_file=Path(gene_refresh["published_output_file"]),
+        output_file=module_output_file,
+        work_dir=module_work_dir,
+    )
+    return {
+        "gene": gene_refresh,
+        "module": module_refresh,
     }

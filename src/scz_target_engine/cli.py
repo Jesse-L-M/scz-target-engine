@@ -7,11 +7,19 @@ import sys
 
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
-from scz_target_engine.prepare import prepare_gene_table, refresh_example_gene_table
+from scz_target_engine.prepare import (
+    prepare_gene_table,
+    refresh_example_gene_table,
+    refresh_example_input_tables,
+    refresh_example_module_table,
+)
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
-from scz_target_engine.sources.psychencode import fetch_psychencode_support
+from scz_target_engine.sources.psychencode import (
+    fetch_psychencode_module_table,
+    fetch_psychencode_support,
+)
 from scz_target_engine.sources.schema import fetch_schema_rare_variant_support
 
 
@@ -54,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
     psychencode_parser.add_argument("--output-file", required=True)
     psychencode_parser.add_argument("--limit", type=int)
 
+    psychencode_modules_parser = subparsers.add_parser("fetch-psychencode-modules")
+    psychencode_modules_parser.add_argument("--input-file", required=True)
+    psychencode_modules_parser.add_argument("--output-file", required=True)
+    psychencode_modules_parser.add_argument("--limit", type=int)
+
     prepare_parser = subparsers.add_parser("prepare-gene-table")
     prepare_parser.add_argument("--seed-file", required=True)
     prepare_parser.add_argument("--output-file", required=True)
@@ -70,6 +83,21 @@ def build_parser() -> argparse.ArgumentParser:
     refresh_parser.add_argument("--disease-id")
     refresh_parser.add_argument("--disease-query")
     refresh_parser.add_argument("--overrides-file")
+
+    refresh_module_parser = subparsers.add_parser("refresh-example-module-table")
+    refresh_module_parser.add_argument("--gene-file")
+    refresh_module_parser.add_argument("--output-file")
+    refresh_module_parser.add_argument("--work-dir")
+
+    refresh_inputs_parser = subparsers.add_parser("refresh-example-inputs")
+    refresh_inputs_parser.add_argument("--seed-file")
+    refresh_inputs_parser.add_argument("--gene-output-file")
+    refresh_inputs_parser.add_argument("--module-output-file")
+    refresh_inputs_parser.add_argument("--gene-work-dir")
+    refresh_inputs_parser.add_argument("--module-work-dir")
+    refresh_inputs_parser.add_argument("--disease-id")
+    refresh_inputs_parser.add_argument("--disease-query")
+    refresh_inputs_parser.add_argument("--overrides-file")
 
     return parser
 
@@ -127,6 +155,15 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
+    if args.command == "fetch-psychencode-modules":
+        result = fetch_psychencode_module_table(
+            input_file=Path(args.input_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            limit=args.limit,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
     if args.command == "prepare-gene-table":
         result = prepare_gene_table(
             seed_file=Path(args.seed_file).resolve(),
@@ -157,6 +194,47 @@ def main(argv: list[str] | None = None) -> int:
             seed_file=Path(args.seed_file).resolve() if args.seed_file else None,
             output_file=Path(args.output_file).resolve() if args.output_file else None,
             work_dir=Path(args.work_dir).resolve() if args.work_dir else None,
+            disease_id=args.disease_id,
+            disease_query=args.disease_query,
+            overrides_file=(
+                Path(args.overrides_file).resolve()
+                if args.overrides_file
+                else None
+            ),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "refresh-example-module-table":
+        result = refresh_example_module_table(
+            gene_file=Path(args.gene_file).resolve() if args.gene_file else None,
+            output_file=Path(args.output_file).resolve() if args.output_file else None,
+            work_dir=Path(args.work_dir).resolve() if args.work_dir else None,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "refresh-example-inputs":
+        result = refresh_example_input_tables(
+            seed_file=Path(args.seed_file).resolve() if args.seed_file else None,
+            gene_output_file=(
+                Path(args.gene_output_file).resolve()
+                if args.gene_output_file
+                else None
+            ),
+            module_output_file=(
+                Path(args.module_output_file).resolve()
+                if args.module_output_file
+                else None
+            ),
+            gene_work_dir=(
+                Path(args.gene_work_dir).resolve() if args.gene_work_dir else None
+            ),
+            module_work_dir=(
+                Path(args.module_work_dir).resolve()
+                if args.module_work_dir
+                else None
+            ),
             disease_id=args.disease_id,
             disease_query=args.disease_query,
             overrides_file=(

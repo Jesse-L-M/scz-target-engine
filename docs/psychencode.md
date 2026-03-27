@@ -31,6 +31,9 @@ uv run scz-target-engine fetch-psychencode \
 
 One row per shortlist gene with any BrainSCOPE DEG or GRN support.
 
+Genes with no exact BrainSCOPE match are omitted from the CSV and recorded in the
+sidecar metadata JSON instead.
+
 Key fields:
 
 - `entity_id`
@@ -38,6 +41,13 @@ Key fields:
 - `cell_state_support`
 - `developmental_regulatory_support`
 - `psychencode_match_status`
+- metadata-only unmatched coverage fields:
+  - `matching_rule`
+  - `unique_input_gene_count`
+  - `matched_gene_count`
+  - `unmatched_gene_count`
+  - `unmatched_gene_labels`
+  - `unmatched_genes`
 - DEG summary fields:
   - `psychencode_deg_strength_signal`
   - `psychencode_deg_breadth_signal`
@@ -74,3 +84,33 @@ Each cell-type DEG score uses:
 - total edge-count signal
 
 This is intentionally a transparent regulatory proxy, not a claim that adult GRN density alone captures developmental biology.
+
+## Matching Rule
+
+`fetch-psychencode` only performs exact uppercase symbol matching against the official
+BrainSCOPE schizophrenia DEG `gene` column and GRN `TG` column.
+
+It does not:
+
+- do substring or family-name matching
+- remap one gene to another official gene symbol
+- expand HGNC aliases unless a future curated exception is backed by both an official
+  BrainSCOPE symbol and an official nomenclature source that establish a one-to-one
+  identity
+
+If an input gene is absent from both BrainSCOPE resources, the importer leaves it out
+of the support CSV and records an `absent_from_deg_and_grn` entry in the metadata JSON.
+
+## Coverage Note: C4A and CHRM4
+
+For the current public BrainSCOPE schizophrenia resources:
+
+- `C4A` has no exact row in `Schizophrenia_DEGcombined.csv`
+- `C4A` has no exact `TG` target in `GRNs.zip`
+- `CHRM4` has no exact row in `Schizophrenia_DEGcombined.csv`
+- `CHRM4` has no exact `TG` target in `GRNs.zip`
+
+Nearby symbols do exist upstream, for example `CHRM1`, `CHRM2`, `CHRM3`, and `CHRM5`,
+but those are different official genes and are not valid substitutes for `CHRM4`.
+Likewise, HGNC records historical aliases for `C4A`, but they do not justify remapping
+it to distinct official genes such as `C4B`.

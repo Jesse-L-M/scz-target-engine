@@ -20,6 +20,10 @@ BRAINSCOPE_DEG_COMBINED_URL = (
     f"{BRAINSCOPE_RESOURCE_URL}/data/DEG-combined/Schizophrenia_DEGcombined.csv"
 )
 BRAINSCOPE_GRN_ZIP_URL = f"{BRAINSCOPE_RESOURCE_URL}/GRNs.zip"
+PSYCHENCODE_MATCH_RULE = (
+    "Exact official gene-symbol match only against BrainSCOPE DEG `gene` and GRN `TG` "
+    "columns. Do not infer aliases without a curated, source-backed one-to-one exception."
+)
 
 TextTransport = Callable[[str], str]
 BytesTransport = Callable[[str], bytes]
@@ -366,11 +370,24 @@ def fetch_psychencode_support(
     output_rows: list[dict[str, object]] = []
     deg_match_count = 0
     grn_match_count = 0
+    unmatched_genes: list[dict[str, str]] = []
 
     for gene_key, input_row in input_by_gene.items():
         deg_rows = deg_rows_by_gene.get(gene_key, [])
         grn_rows = grn_rows_by_gene.get(gene_key, [])
         if not deg_rows and not grn_rows:
+            unmatched_genes.append(
+                {
+                    "entity_id": input_row.get("entity_id", "").strip(),
+                    "entity_label": input_row.get("entity_label", "").strip(),
+                    "approved_name": input_row.get("approved_name", "").strip(),
+                    "psychencode_match_status": "absent_from_deg_and_grn",
+                    "reason": (
+                        "No exact BrainSCOPE schizophrenia DEG `gene` or GRN `TG` symbol "
+                        "matched this input gene."
+                    ),
+                }
+            )
             continue
 
         deg_support = compute_deg_support(deg_rows)
@@ -437,10 +454,18 @@ def fetch_psychencode_support(
         "resource_url": BRAINSCOPE_RESOURCE_URL,
         "deg_combined_url": BRAINSCOPE_DEG_COMBINED_URL,
         "grn_zip_url": BRAINSCOPE_GRN_ZIP_URL,
+        "matching_rule": PSYCHENCODE_MATCH_RULE,
         "input_file": str(input_file),
         "output_file": str(output_file),
         "input_row_count": len(input_rows),
+        "unique_input_gene_count": len(input_by_gene),
         "row_count": len(output_rows),
+        "matched_gene_count": len(output_rows),
+        "unmatched_gene_count": len(unmatched_genes),
+        "unmatched_gene_labels": [
+            unmatched_gene["entity_label"] for unmatched_gene in unmatched_genes
+        ],
+        "unmatched_genes": unmatched_genes,
         "deg_match_count": deg_match_count,
         "grn_match_count": grn_match_count,
         "grn_member_count": grn_member_count,

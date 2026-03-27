@@ -59,6 +59,13 @@ They exist to stop polished target cards from hiding:
 - evidence gaps
 - direction-of-effect ambiguity
 
+Warning inputs can come from two places:
+
+- manual warning CSV rows
+- automatic reporting warnings synthesized from obvious evidence gaps, such as missing required layer groups and missing source-backed coverage flags when those source-presence fields are present in the input table
+
+These overlays remain reporting-only in `v0`; they do not alter numeric score, rank, or the decision-grade threshold rule.
+
 ## Baselines
 
 - Naive baseline: `common_variant_support` only

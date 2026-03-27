@@ -4,15 +4,17 @@
 - Module stability pass: yes
 - Gene perturbation median overlap: 100.00%
 - Module perturbation median overlap: 100.00%
-- Naive baseline overlap: 85.00%
-- Generic platform overlap: 85.00%
+- Naive baseline overlap: 60.00%
+- Generic platform overlap: 80.00%
+- Gene entities with warnings: 14
+- Gene entities ineligible for ranking: 2
 
 ## Top Genes
-- 1. GRIN2A (0.73)
-- 2. CACNA1C (0.674)
-- 3. SETD1A (0.668)
-- 4. GRIA1 (0.614)
-- 5. NRXN1 (0.598)
+- 1. GRIN2A (0.474147)
+- 2. SETD1A (0.423842)
+- 3. SLC6A1 (0.385576)
+- 4. AKT3 (0.366324)
+- 5. DRD2 (0.360249)
 
 ## Top Modules
 - 1. Deep-layer IT neuronal program (0.876)

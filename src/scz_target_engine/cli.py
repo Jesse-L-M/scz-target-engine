@@ -7,7 +7,7 @@ import sys
 
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
-from scz_target_engine.prepare import prepare_gene_table
+from scz_target_engine.prepare import prepare_gene_table, refresh_example_gene_table
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
@@ -62,6 +62,14 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--psychencode-file")
     prepare_parser.add_argument("--opentargets-file")
     prepare_parser.add_argument("--chembl-file")
+
+    refresh_parser = subparsers.add_parser("refresh-example-gene-table")
+    refresh_parser.add_argument("--seed-file")
+    refresh_parser.add_argument("--output-file")
+    refresh_parser.add_argument("--work-dir")
+    refresh_parser.add_argument("--disease-id")
+    refresh_parser.add_argument("--disease-query")
+    refresh_parser.add_argument("--overrides-file")
 
     return parser
 
@@ -138,6 +146,22 @@ def main(argv: list[str] | None = None) -> int:
             chembl_file=(
                 Path(args.chembl_file).resolve()
                 if args.chembl_file
+                else None
+            ),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "refresh-example-gene-table":
+        result = refresh_example_gene_table(
+            seed_file=Path(args.seed_file).resolve() if args.seed_file else None,
+            output_file=Path(args.output_file).resolve() if args.output_file else None,
+            work_dir=Path(args.work_dir).resolve() if args.work_dir else None,
+            disease_id=args.disease_id,
+            disease_query=args.disease_query,
+            overrides_file=(
+                Path(args.overrides_file).resolve()
+                if args.overrides_file
                 else None
             ),
         )

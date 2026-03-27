@@ -2,7 +2,7 @@
 
 The engine does not want raw source exports forever. It wants a curated gene evidence table with clear ownership of each column.
 
-## Current Command
+## Current Commands
 
 `prepare-gene-table` joins:
 
@@ -22,6 +22,14 @@ It emits an engine-ready CSV with:
 - source presence flags
 - provenance JSON
 
+`refresh-example-gene-table` is the repo-native example workflow wrapper. It:
+
+- reads `examples/v0/input/gene_seed.csv`
+- fetches live `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL` tables
+- writes those source snapshots under `data/processed/example_gene_workflow/`
+- prepares `data/processed/example_gene_workflow/curated/example_gene_evidence.csv`
+- publishes the curated snapshot to `examples/v0/input/gene_evidence.csv`
+
 ## Join Rules
 
 For each source:
@@ -36,3 +44,43 @@ For each source:
 ## Why This Matters
 
 This keeps source fetchers honest. `Open Targets` and `ChEMBL` stay as upstream adapters. The prep layer is where they become engine input.
+
+## Example Workflow
+
+Refresh the checked-in example gene table:
+
+```bash
+uv run scz-target-engine refresh-example-gene-table
+```
+
+Or run the steps manually:
+
+```bash
+uv run scz-target-engine fetch-pgc-scz2022 \
+  --output-file data/processed/pgc/scz2022_prioritized_genes.csv
+
+uv run scz-target-engine fetch-schema \
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/schema/example_rare_variant_support.csv
+
+uv run scz-target-engine fetch-psychencode \
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/psychencode/example_support.csv
+
+uv run scz-target-engine fetch-opentargets \
+  --disease-query schizophrenia \
+  --output-file data/processed/opentargets/schizophrenia_baseline.csv
+
+uv run scz-target-engine fetch-chembl \
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/chembl/example_tractability.csv
+
+uv run scz-target-engine prepare-gene-table \
+  --seed-file examples/v0/input/gene_seed.csv \
+  --pgc-file data/processed/pgc/scz2022_prioritized_genes.csv \
+  --schema-file data/processed/example_gene_workflow/schema/example_rare_variant_support.csv \
+  --psychencode-file data/processed/example_gene_workflow/psychencode/example_support.csv \
+  --opentargets-file data/processed/opentargets/schizophrenia_baseline.csv \
+  --chembl-file data/processed/example_gene_workflow/chembl/example_tractability.csv \
+  --output-file data/processed/example_gene_workflow/curated/example_gene_evidence.csv
+```

@@ -22,7 +22,8 @@ This repo currently implements:
 - a manifest-driven scoring engine for curated evidence tables
 - stability analysis and baseline comparisons
 - markdown and CSV report generation
-- synthetic example inputs for end-to-end verification
+- a seed-only example gene shortlist plus a checked-in curated gene table refreshed from live source adapters
+- illustrative module inputs for end-to-end verification
 - a real `Open Targets` baseline fetcher via the official GraphQL API
 - a real `ChEMBL` tractability fetcher for shortlist genes
 - a real `PGC` schizophrenia prioritized-gene fetcher from the official `scz2022` release
@@ -34,7 +35,13 @@ This repo does not yet implement raw-source ingestion from consortium dumps. Tha
 
 ## Quickstart
 
-Run the example build:
+Refresh the example gene table from the live source adapters:
+
+```bash
+uv run scz-target-engine refresh-example-gene-table
+```
+
+Then run the example build:
 
 ```bash
 uv run scz-target-engine build \
@@ -42,6 +49,8 @@ uv run scz-target-engine build \
   --input-dir examples/v0/input \
   --output-dir examples/v0/output
 ```
+
+`examples/v0/input/gene_evidence.csv` is a generated snapshot from that refresh command. `examples/v0/input/module_evidence.csv` remains illustrative example input until the module workflow gets the same live-source treatment.
 
 Fetch a real `Open Targets` schizophrenia baseline table:
 
@@ -55,9 +64,8 @@ Fetch `ChEMBL` tractability context for a shortlist:
 
 ```bash
 uv run scz-target-engine fetch-chembl \
-  --input-file examples/v0/input/gene_evidence.csv \
-  --output-file data/processed/chembl/example_tractability.csv \
-  --limit 10
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/chembl/example_tractability.csv
 ```
 
 Fetch `PGC` schizophrenia common-variant gene support:
@@ -71,29 +79,29 @@ Fetch `SCHEMA` schizophrenia rare-variant gene support for a shortlist:
 
 ```bash
 uv run scz-target-engine fetch-schema \
-  --input-file examples/v0/input/gene_evidence.csv \
-  --output-file data/processed/schema/example_rare_variant.csv
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/schema/example_rare_variant_support.csv
 ```
 
 Fetch `PsychENCODE / BrainSCOPE` schizophrenia DEG and GRN support for a shortlist:
 
 ```bash
 uv run scz-target-engine fetch-psychencode \
-  --input-file examples/v0/input/gene_evidence.csv \
-  --output-file data/processed/psychencode/example_support.csv
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/psychencode/example_support.csv
 ```
 
 Prepare an engine-ready gene table from joined source outputs:
 
 ```bash
 uv run scz-target-engine prepare-gene-table \
-  --seed-file examples/v0/input/gene_evidence.csv \
+  --seed-file examples/v0/input/gene_seed.csv \
   --pgc-file data/processed/pgc/scz2022_prioritized_genes.csv \
-  --schema-file data/processed/schema/example_rare_variant.csv \
-  --psychencode-file data/processed/psychencode/example_support.csv \
+  --schema-file data/processed/example_gene_workflow/schema/example_rare_variant_support.csv \
+  --psychencode-file data/processed/example_gene_workflow/psychencode/example_support.csv \
   --opentargets-file data/processed/opentargets/schizophrenia_baseline.csv \
-  --chembl-file data/processed/chembl/example_tractability.csv \
-  --output-file data/processed/curated/example_gene_evidence.csv
+  --chembl-file data/processed/example_gene_workflow/chembl/example_tractability.csv \
+  --output-file data/processed/example_gene_workflow/curated/example_gene_evidence.csv
 ```
 
 Validate only:
@@ -112,17 +120,17 @@ uv run --group dev pytest
 
 ## Repo Layout
 
-- [config/v0.toml](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/config/v0.toml): scoring and build config
-- [docs/scoring_contract.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/scoring_contract.md): methodological contract for `v0`
-- [docs/source_manifest.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/source_manifest.md): source roles and intended upstream inputs
-- [docs/opentargets.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/opentargets.md): Open Targets fetch contract
-- [docs/chembl.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/chembl.md): ChEMBL fetch contract
-- [docs/pgc.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/pgc.md): PGC scz2022 fetch contract
-- [docs/schema.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/schema.md): SCHEMA fetch contract
-- [docs/psychencode.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/psychencode.md): PsychENCODE / BrainSCOPE fetch contract
-- [docs/prep.md](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/docs/prep.md): source join and curation contract
-- [examples/v0/input](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/examples/v0/input): synthetic example inputs
-- [src/scz_target_engine](/Users/jessemerrigan/conductor/workspaces/scz-target-engine/santiago-v1/src/scz_target_engine): scoring engine
+- [config/v0.toml](config/v0.toml): scoring and build config
+- [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
+- [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
+- [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract
+- [docs/chembl.md](docs/chembl.md): ChEMBL fetch contract
+- [docs/pgc.md](docs/pgc.md): PGC scz2022 fetch contract
+- [docs/schema.md](docs/schema.md): SCHEMA fetch contract
+- [docs/psychencode.md](docs/psychencode.md): PsychENCODE / BrainSCOPE fetch contract
+- [docs/prep.md](docs/prep.md): source join and curation contract
+- [examples/v0/input](examples/v0/input): seed shortlist, curated gene snapshot, and example module inputs
+- [src/scz_target_engine](src/scz_target_engine): scoring engine
 
 ## Input Tables
 

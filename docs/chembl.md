@@ -46,9 +46,8 @@ This is a v0 heuristic, not a claim that ChEMBL alone can define tractability.
 
 ```bash
 uv run scz-target-engine fetch-chembl \
-  --input-file examples/v0/input/gene_evidence.csv \
-  --output-file data/processed/chembl/example_tractability.csv \
-  --limit 10
+  --input-file examples/v0/input/gene_seed.csv \
+  --output-file data/processed/example_gene_workflow/chembl/example_tractability.csv
 ```
 
 ## Notes

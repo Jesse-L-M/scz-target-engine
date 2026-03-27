@@ -3,6 +3,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 *.pyc
+*.egg-info/
 
 data/raw/*
 !data/raw/README.md

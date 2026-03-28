@@ -27,6 +27,7 @@ The engine currently implements:
 - Stability analysis and baseline comparisons
 - Markdown and CSV report generation
 - Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
+- Implementation-ready ontology plus a checked-in program-history and failure-taxonomy substrate for later domain-aware reasoning
 - A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters
 - A checked-in curated module table derived from `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
 - Live data fetchers:
@@ -46,9 +47,10 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 - `v0` does not yet score relapse prevention, negative symptoms, cognition, CHR/transition prevention, or durable recovery relevance separately.
 - `v0` is not yet seed-independent.
 - Warning overlays remain reporting-only.
+- Program-history and failure-taxonomy artifacts are checked in as curated substrate only; they do not yet affect numeric scoring.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
 
-See [docs/claim.md](docs/claim.md) for the current claim boundary, and [docs/ontology.md](docs/ontology.md) for the initial domain/stage vocabulary that `v0` does not separate yet.
+See [docs/claim.md](docs/claim.md) for the current claim boundary, [docs/ontology.md](docs/ontology.md) for the implementation-ready domain and stage vocabulary, and [docs/program_history.md](docs/program_history.md) for the curated program-history substrate that remains scoring-neutral in `v0`.
 
 ## Quickstart
 
@@ -147,7 +149,8 @@ uv run --group dev pytest
 
 - [config/v0.toml](config/v0.toml): scoring and build config
 - [docs/claim.md](docs/claim.md): current capability and claim boundary for `v0`
-- [docs/ontology.md](docs/ontology.md): initial domain/stage vocabulary not yet separately scored
+- [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary not yet separately scored
+- [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract
@@ -156,6 +159,7 @@ uv run --group dev pytest
 - [docs/schema.md](docs/schema.md): SCHEMA fetch contract
 - [docs/psychencode.md](docs/psychencode.md): PsychENCODE / BrainSCOPE fetch contract
 - [docs/prep.md](docs/prep.md): source join and curation contract
+- [data/curated/program_history](data/curated/program_history): landmark program-history substrate with source URLs and failure-taxonomy labels
 - [examples/v0/input](examples/v0/input): seed shortlist plus curated gene and module snapshots
 - [src/scz_target_engine](src/scz_target_engine): scoring engine
 

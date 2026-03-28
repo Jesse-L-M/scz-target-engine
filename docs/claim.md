@@ -11,7 +11,7 @@
 
 - `v0` is not a validated target decision system.
 - `v0` is not a justified `advance / do not advance` authority for programs or assets.
-- `v1` is not a validated clinical advancement authority, and its PR7-backed failure, directionality, and subgroup heads remain explicit and unscored even though the structural substrate is now landed.
+- `v1` is not a validated clinical advancement authority, even though it now assigns explicit numeric failure, directionality, and subgroup heads from the PR7 target-ledger substrate.
 - `v0` now has a non-seed candidate-registry ingest path, but the checked-in example scoring workflow still relies on curated shortlists and source-specific harmonization.
 
 ## What `v0` Outputs Mean
@@ -21,7 +21,7 @@
 - `heuristic_stable` means the entity cleared the current `v0` sensitivity-survival rule; it does not validate the biology.
 - Warning overlays highlight evidence gaps and prior concerns without changing numeric score, rank, or stability status.
 - Structural target ledgers expose source primitives, failure history, and directionality hypotheses without changing numeric score, rank, or stability status.
-- `v1` decision vectors expose component-head tradeoffs and separate ontology-specific profiles, but they still leave PR7-backed failure, directionality, and subgroup semantics explicitly unscored in this branch.
+- `v1` decision vectors expose component-head tradeoffs and separate ontology-specific profiles, including numeric PR7-backed failure, directionality, and subgroup heads for gene targets.
 
 ## What `v0` Outputs Do Not Justify Claiming
 

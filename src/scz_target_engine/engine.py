@@ -157,7 +157,7 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         if ledger is None:
             continue
         row.update(ledger_summary_fields(ledger))
-    gene_vectors = build_decision_vectors(gene_entities)
+    gene_vectors = build_decision_vectors(gene_entities, ledger_index=target_ledger_index)
     module_vectors = build_decision_vectors(module_entities)
     domain_head_rows = rank_domain_head_rows(gene_vectors + module_vectors)
 

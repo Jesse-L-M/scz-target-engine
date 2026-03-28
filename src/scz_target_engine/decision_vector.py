@@ -1,15 +1,84 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING
 
 from scz_target_engine.scoring import RankedEntity, parse_optional_float
+
+if TYPE_CHECKING:
+    from scz_target_engine.ledger import TargetLedger
 
 
 AVAILABLE_STATUS = "available"
 PARTIAL_STATUS = "partial"
 MISSING_INPUTS_STATUS = "missing_inputs"
 NOT_APPLICABLE_STATUS = "not_applicable"
-PR7_SUBSTRATE_STATUS = "pr7_substrate_available"
+
+FAILURE_SCOPE_PENALTIES = {
+    "target": 0.35,
+    "target_class": 0.30,
+    "unresolved": 0.25,
+    "population": 0.20,
+    "endpoint": 0.15,
+    "molecule": 0.10,
+}
+
+FAILURE_EVIDENCE_PENALTIES = {
+    "strong": 0.10,
+    "moderate": 0.05,
+    "provisional": 0.0,
+}
+
+DIRECTIONALITY_BASE_SCORES = {
+    "high": 0.90,
+    "medium": 0.75,
+    "low": 0.60,
+}
+
+PR7_LEDGER_INPUTS = {
+    "failure_burden_score": (
+        "structural_failure_history.failure_event_count",
+        "structural_failure_history.failure_scopes",
+        "structural_failure_history.events[].evidence_strength",
+    ),
+    "directionality_confidence": (
+        "directionality_hypothesis.status",
+        "directionality_hypothesis.confidence",
+        "directionality_hypothesis.desired_perturbation_direction",
+        "directionality_hypothesis.modality_hypothesis",
+        "directionality_hypothesis.contradiction_conditions",
+        "directionality_hypothesis.falsification_conditions",
+        "directionality_hypothesis.open_risks",
+    ),
+    "subgroup_resolution_score": (
+        "subgroup_domain_relevance.clinical_domains",
+        "subgroup_domain_relevance.clinical_populations",
+        "subgroup_domain_relevance.mono_or_adjunct_contexts",
+        "subgroup_domain_relevance.psychencode_deg_top_cell_types",
+        "subgroup_domain_relevance.psychencode_grn_top_cell_types",
+        "structural_failure_history.failure_scopes",
+        "structural_failure_history.failure_taxonomies",
+    ),
+}
+
+DOMAIN_RELEVANCE = {
+    "acute_positive_symptoms": frozenset({"acute_positive_symptoms"}),
+    "relapse_prevention": frozenset({"relapse_prevention"}),
+    "treatment_resistant_schizophrenia": frozenset(
+        {
+            "treatment_resistant_schizophrenia",
+            "clozapine_resistant_schizophrenia",
+        }
+    ),
+    "clozapine_resistant_schizophrenia": frozenset({"clozapine_resistant_schizophrenia"}),
+    "negative_symptoms": frozenset({"negative_symptoms"}),
+    "cognition": frozenset({"cognition"}),
+    "chr_transition_prevention": frozenset({"chr_transition_prevention"}),
+    "functioning_durable_recovery_relevance": frozenset(
+        {"functioning_durable_recovery_relevance"}
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -74,6 +143,7 @@ class DomainHeadScore:
     total_head_count: int
     pending_head_names: tuple[str, ...]
     missing_head_names: tuple[str, ...]
+    projected_head_scores: tuple[tuple[str, float | None], ...]
 
 
 @dataclass(frozen=True)
@@ -151,40 +221,29 @@ DECISION_HEAD_DEFINITIONS = (
         name="failure_burden_score",
         label="Failure burden",
         semantics=(
-            "Clinical failure-history burden and unresolved program baggage relevant "
-            "to this use case."
+            "Higher means lower known clinical failure burden: no known structural "
+            "failure baggage scores highest, while repeated or severe unresolved "
+            "history scores lower."
         ),
         entity_inputs={},
-        pending_reason=(
-            "PR7 failure-history substrate is now available in structural ledgers, "
-            "but PR8 still leaves this numeric head explicit and unscored."
-        ),
     ),
     DecisionHeadDefinition(
         name="directionality_confidence",
         label="Directionality confidence",
         semantics=(
-            "Confidence that the intervention direction is known and coherent for the "
-            "intended schizophrenia use case."
+            "Confidence that the intervention direction is curated and coherent for "
+            "the intended schizophrenia use case."
         ),
         entity_inputs={},
-        pending_reason=(
-            "PR7 directionality substrate is now available in structural ledgers, "
-            "but PR8 still leaves this numeric head explicit and unscored."
-        ),
     ),
     DecisionHeadDefinition(
         name="subgroup_resolution_score",
         label="Subgroup resolution",
         semantics=(
-            "Resolution around the population, illness stage, or symptom subgroup "
-            "most likely to benefit."
+            "Clarity around the population, illness stage, symptom subgroup, or "
+            "cell-state context most likely to benefit."
         ),
         entity_inputs={},
-        pending_reason=(
-            "PR7-backed subgroup and heterogeneity substrate is now available "
-            "structurally, but PR8 still leaves this numeric head explicit and unscored."
-        ),
     ),
 )
 
@@ -332,22 +391,218 @@ def compute_weighted_average(values: list[tuple[float, float]]) -> float | None:
     return round(numerator / denominator, 6)
 
 
-def build_decision_head_score(
+def clamp_score(value: float) -> float:
+    return round(max(0.0, min(1.0, value)), 6)
+
+
+def iter_relevant_program_events(
+    target_ledger: TargetLedger,
+    domain_slug: str | None,
+) -> list[dict[str, object]]:
+    events = list(target_ledger.structural_failure_history["events"])
+    if domain_slug is None:
+        return events
+    relevant_domains = DOMAIN_RELEVANCE.get(domain_slug, frozenset({domain_slug}))
+    return [
+        event
+        for event in events
+        if str(event.get("where", {}).get("domain", "")) in relevant_domains
+    ]
+
+
+def compute_failure_burden_score(
+    target_ledger: TargetLedger,
+    domain_slug: str | None = None,
+) -> float:
+    relevant_events = [
+        event
+        for event in iter_relevant_program_events(target_ledger, domain_slug)
+        if event.get("failure_scope") != "nonfailure"
+    ]
+    failure_event_count = len(relevant_events)
+    if failure_event_count == 0:
+        return 1.0
+
+    scope_penalty = max(
+        (
+            FAILURE_SCOPE_PENALTIES.get(str(scope), FAILURE_SCOPE_PENALTIES["unresolved"])
+            for scope in (event.get("failure_scope") for event in relevant_events)
+        ),
+        default=0.0,
+    )
+    evidence_penalty = max(
+        (
+            FAILURE_EVIDENCE_PENALTIES.get(
+                str(event.get("evidence_strength")),
+                FAILURE_EVIDENCE_PENALTIES["provisional"],
+            )
+            for event in relevant_events
+        ),
+        default=0.0,
+    )
+    count_penalty = min(0.45, 0.15 * failure_event_count)
+    return clamp_score(1.0 - count_penalty - scope_penalty - evidence_penalty)
+
+
+def compute_directionality_confidence_score(target_ledger: TargetLedger) -> float:
+    directionality = target_ledger.directionality_hypothesis
+    if directionality["status"] != "curated":
+        return 0.25
+
+    score = DIRECTIONALITY_BASE_SCORES.get(
+        str(directionality["confidence"]),
+        DIRECTIONALITY_BASE_SCORES["low"],
+    )
+    if directionality["desired_perturbation_direction"] == "undetermined":
+        score -= 0.10
+    if directionality["modality_hypothesis"] == "undetermined":
+        score -= 0.10
+    if directionality["contradiction_conditions"]:
+        score -= 0.10
+    if directionality["falsification_conditions"]:
+        score -= 0.05
+    score -= min(0.10, 0.05 * len(directionality["open_risks"]))
+    return clamp_score(score)
+
+
+def compute_subgroup_resolution_score(
+    target_ledger: TargetLedger,
+    domain_slug: str | None = None,
+) -> float:
+    subgroup = target_ledger.subgroup_domain_relevance
+    relevant_events = iter_relevant_program_events(target_ledger, domain_slug)
+    score = 0.0
+
+    clinical_domains = sorted(
+        {
+            str(event.get("where", {}).get("domain", ""))
+            for event in relevant_events
+            if event.get("where", {}).get("domain")
+        }
+    )
+    clinical_domain_count = len(clinical_domains if domain_slug is not None else subgroup["clinical_domains"])
+    if clinical_domain_count == 1:
+        score += 0.25
+    elif clinical_domain_count > 1:
+        score += 0.15
+
+    clinical_populations = sorted(
+        {
+            str(event.get("where", {}).get("population", ""))
+            for event in relevant_events
+            if event.get("where", {}).get("population")
+        }
+    )
+    clinical_population_count = len(
+        clinical_populations if domain_slug is not None else subgroup["clinical_populations"]
+    )
+    if clinical_population_count == 1:
+        score += 0.25
+    elif clinical_population_count > 1:
+        score += 0.15
+
+    mono_or_adjunct_contexts = sorted(
+        {
+            str(event.get("mono_or_adjunct", ""))
+            for event in relevant_events
+            if event.get("mono_or_adjunct")
+        }
+    )
+    if (
+        mono_or_adjunct_contexts
+        if domain_slug is not None
+        else subgroup["mono_or_adjunct_contexts"]
+    ):
+        score += 0.10
+    if subgroup["psychencode_deg_top_cell_types"]:
+        score += 0.15
+    if subgroup["psychencode_grn_top_cell_types"]:
+        score += 0.15
+    if any(event.get("failure_scope") == "population" for event in relevant_events):
+        score -= 0.15
+    if any(
+        event.get("failure_reason_taxonomy") == "heterogeneity_or_subgroup_dilution"
+        for event in relevant_events
+    ):
+        score -= 0.15
+
+    return clamp_score(score)
+
+
+def project_head_score_for_domain(
+    head_name: str,
+    head_score: DecisionHeadScore,
+    target_ledger: TargetLedger | None,
+    domain_slug: str,
+) -> float | None:
+    if head_score.score is None:
+        return None
+    if target_ledger is None:
+        return head_score.score
+    if head_name == "failure_burden_score":
+        return compute_failure_burden_score(target_ledger, domain_slug=domain_slug)
+    if head_name == "subgroup_resolution_score":
+        return compute_subgroup_resolution_score(target_ledger, domain_slug=domain_slug)
+    return head_score.score
+
+
+def build_ledger_backed_head_score(
     entity: RankedEntity,
     definition: DecisionHeadDefinition,
+    target_ledger: TargetLedger | None,
 ) -> DecisionHeadScore:
-    if definition.pending_reason is not None:
+    if entity.entity_type != "gene":
         return DecisionHeadScore(
             head_name=definition.name,
             label=definition.label,
             score=None,
-            status=PR7_SUBSTRATE_STATUS,
+            status=NOT_APPLICABLE_STATUS,
             semantics=definition.semantics,
             used_inputs=(),
             missing_inputs=(),
             coverage_weight_fraction=0.0,
-            pending_reason=definition.pending_reason,
+            pending_reason=None,
         )
+    if target_ledger is None:
+        return DecisionHeadScore(
+            head_name=definition.name,
+            label=definition.label,
+            score=None,
+            status=MISSING_INPUTS_STATUS,
+            semantics=definition.semantics,
+            used_inputs=(),
+            missing_inputs=("target_ledger",),
+            coverage_weight_fraction=0.0,
+            pending_reason=None,
+        )
+
+    if definition.name == "failure_burden_score":
+        score = compute_failure_burden_score(target_ledger)
+    elif definition.name == "directionality_confidence":
+        score = compute_directionality_confidence_score(target_ledger)
+    else:
+        score = compute_subgroup_resolution_score(target_ledger)
+
+    return DecisionHeadScore(
+        head_name=definition.name,
+        label=definition.label,
+        score=score,
+        status=AVAILABLE_STATUS,
+        semantics=definition.semantics,
+        used_inputs=PR7_LEDGER_INPUTS[definition.name],
+        missing_inputs=(),
+        coverage_weight_fraction=1.0,
+        pending_reason=None,
+    )
+
+
+def build_decision_head_score(
+    entity: RankedEntity,
+    definition: DecisionHeadDefinition,
+    target_ledger: TargetLedger | None = None,
+) -> DecisionHeadScore:
+    if definition.name in PR7_LEDGER_INPUTS:
+        return build_ledger_backed_head_score(entity, definition, target_ledger)
 
     input_spec = definition.entity_inputs.get(entity.entity_type)
     if input_spec is None:
@@ -411,22 +666,28 @@ def build_decision_head_score(
 def build_domain_head_score(
     head_scores: dict[str, DecisionHeadScore],
     definition: DomainHeadDefinition,
+    target_ledger: TargetLedger | None = None,
 ) -> DomainHeadScore:
     weighted_values: list[tuple[float, float]] = []
     present_weight = 0.0
     available_head_count = 0
     pending_head_names: list[str] = []
     missing_head_names: list[str] = []
+    projected_head_scores: list[tuple[str, float | None]] = []
 
     for head_name, weight in definition.decision_head_weights:
         head_score = head_scores[head_name]
-        if head_score.score is not None:
-            weighted_values.append((head_score.score, weight))
+        projected_score = project_head_score_for_domain(
+            head_name,
+            head_score,
+            target_ledger,
+            definition.slug,
+        )
+        projected_head_scores.append((head_name, projected_score))
+        if projected_score is not None:
+            weighted_values.append((projected_score, weight))
             present_weight += weight
             available_head_count += 1
-            continue
-        if head_score.status == PR7_SUBSTRATE_STATUS:
-            pending_head_names.append(head_name)
             continue
         missing_head_names.append(head_name)
 
@@ -451,17 +712,21 @@ def build_domain_head_score(
         total_head_count=len(definition.decision_head_weights),
         pending_head_names=tuple(pending_head_names),
         missing_head_names=tuple(missing_head_names),
+        projected_head_scores=tuple(projected_head_scores),
     )
 
 
-def build_decision_vector(entity: RankedEntity) -> DecisionVectorV1:
+def build_decision_vector(
+    entity: RankedEntity,
+    target_ledger: TargetLedger | None = None,
+) -> DecisionVectorV1:
     head_scores = tuple(
-        build_decision_head_score(entity, definition)
+        build_decision_head_score(entity, definition, target_ledger)
         for definition in DECISION_HEAD_DEFINITIONS
     )
     head_score_index = {score.head_name: score for score in head_scores}
     domain_head_scores = tuple(
-        build_domain_head_score(head_score_index, definition)
+        build_domain_head_score(head_score_index, definition, target_ledger)
         for definition in DOMAIN_HEAD_DEFINITIONS
     )
     return DecisionVectorV1(
@@ -479,8 +744,17 @@ def build_decision_vector(entity: RankedEntity) -> DecisionVectorV1:
     )
 
 
-def build_decision_vectors(entities: list[RankedEntity]) -> list[DecisionVectorV1]:
-    return [build_decision_vector(entity) for entity in entities]
+def build_decision_vectors(
+    entities: list[RankedEntity],
+    ledger_index: Mapping[str, TargetLedger] | None = None,
+) -> list[DecisionVectorV1]:
+    return [
+        build_decision_vector(
+            entity,
+            target_ledger=None if ledger_index is None else ledger_index.get(entity.entity_id),
+        )
+        for entity in entities
+    ]
 
 
 def serialize_decision_head_score(score: DecisionHeadScore) -> dict[str, object]:
@@ -508,6 +782,10 @@ def serialize_domain_head_score(score: DomainHeadScore) -> dict[str, object]:
         "total_head_count": score.total_head_count,
         "pending_head_names": list(score.pending_head_names),
         "missing_head_names": list(score.missing_head_names),
+        "projected_head_scores": {
+            head_name: projected_score
+            for head_name, projected_score in score.projected_head_scores
+        },
     }
 
 
@@ -596,6 +874,7 @@ def rank_domain_head_rows(vectors: list[DecisionVectorV1]) -> list[dict[str, obj
     for vector in vectors:
         head_score_index = {score.head_name: score for score in vector.head_scores}
         for domain_score in vector.domain_head_scores:
+            projected_head_score_index = dict(domain_score.projected_head_scores)
             row: dict[str, object] = {
                 "entity_type": vector.entity_type,
                 "entity_id": vector.entity_id,
@@ -621,7 +900,10 @@ def rank_domain_head_rows(vectors: list[DecisionVectorV1]) -> list[dict[str, obj
             }
             for head_definition in DECISION_HEAD_DEFINITIONS:
                 head_score = head_score_index[head_definition.name]
-                row[head_definition.name] = head_score.score
+                row[head_definition.name] = projected_head_score_index.get(
+                    head_definition.name,
+                    head_score.score,
+                )
                 row[f"{head_definition.name}_status"] = head_score.status
             rows.append(row)
 

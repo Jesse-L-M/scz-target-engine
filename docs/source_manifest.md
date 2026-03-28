@@ -6,7 +6,7 @@
 - curated evidence tables that feed the current scoring build
 Raw consortium dump parsing is still deferred. The scoring engine and its failure conditions still need to stabilize before raw-source parsing grows the scope.
 
-These sources currently feed one shared schizophrenia `v0` scaffold plus an additive `v1` decision-vector layer. The currently available `v1` heads are built from human-support, biology-context, and intervention-readiness inputs; PR7-backed failure, directionality, and subgroup heads now have landed structural substrate, but PR8 still leaves their numeric semantics explicit and unscored.
+These sources currently feed one shared schizophrenia `v0` scaffold plus an additive `v1` decision-vector layer. `v1` now combines the original human-support, biology-context, and intervention-readiness heads with numeric PR7-backed failure, directionality, and subgroup heads for gene targets, while shared `v0` outputs remain unchanged.
 
 ## Target V0 Sources
 

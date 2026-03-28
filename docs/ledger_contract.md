@@ -2,7 +2,7 @@
 
 `PR7` adds a scoring-neutral target-ledger artifact to `v0`.
 
-The ledger exists so later PRs can consume structural failure history, directionality hypotheses, and source primitives without reverse-engineering markdown cards.
+The ledger exists so later PRs can consume structural failure history, directionality hypotheses, and source primitives without reverse-engineering markdown cards. `PR8.1` now consumes these target-ledger fields into numeric `v1` heads while keeping shared `v0` score, rank, and stability outputs unchanged.
 
 ## Outputs
 

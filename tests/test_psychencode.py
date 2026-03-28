@@ -311,7 +311,7 @@ def test_fetch_psychencode_module_table_derives_cell_type_modules(tmp_path: Path
     assert "member_gene_provenance" not in retained_opc
 
 
-def test_fetch_psychencode_module_table_keeps_same_label_candidates_distinct(
+def test_fetch_psychencode_module_table_preserves_same_label_candidate_ambiguity(
     tmp_path: Path,
 ) -> None:
     input_file = tmp_path / "candidate_gene_registry.csv"
@@ -361,124 +361,160 @@ def test_fetch_psychencode_module_table_keeps_same_label_candidates_distinct(
         rows = list(csv.DictReader(handle))
 
     opc_row = next(row for row in rows if row["psychencode_module_cell_type"] == "OPC")
-    assert opc_row["psychencode_module_member_gene_count"] == "6"
-    assert opc_row["psychencode_module_genetically_supported_gene_count"] == "6"
+    assert opc_row["psychencode_module_member_gene_count"] == "5"
+    assert opc_row["psychencode_module_genetically_supported_gene_count"] == "5"
     assert json.loads(opc_row["psychencode_module_member_source_breakdown_json"]) == {
-        "deg_and_grn": 3,
+        "deg_and_grn": 2,
         "deg_only": 1,
         "grn_only": 2,
     }
     top_members = json.loads(opc_row["psychencode_module_top_member_genes_json"])
-    drd2_entries = [
-        entry for entry in top_members if entry["entity_label"] == "DRD2"
+    drd2_entry = next(entry for entry in top_members if entry["entity_label"] == "DRD2")
+
+    assert drd2_entry["entity_id"] == ""
+    assert drd2_entry["candidate_row_count"] == 2
+    assert drd2_entry["candidate_entity_ids"] == ["ENSGDRD2HIGH", "ENSGDRD2LOW"]
+    assert drd2_entry["candidate_match_confidences"] == [
+        "id_confirmed",
+        "source_confirmed",
+    ]
+    assert drd2_entry["identity_resolution"] == "ambiguous_symbol_match"
+    assert drd2_entry["quantitative_support_entity_id"] == "ENSGDRD2HIGH"
+    assert drd2_entry["quantitative_support_match_confidence"] == "id_confirmed"
+    assert drd2_entry["common_variant_support"] == 0.4
+    assert drd2_entry["rare_variant_support"] == 0.2
+    assert drd2_entry["provenance_sources"] == ["pgc", "opentargets"]
+    assert drd2_entry["candidate_rows"] == [
+        {
+            "approved_name": "dopamine receptor D2",
+            "common_variant_support": 0.4,
+            "entity_id": "ENSGDRD2HIGH",
+            "entity_label": "DRD2",
+            "genetic_score": 0.3,
+            "match_confidence": "id_confirmed",
+            "provenance_sources": ["pgc", "opentargets"],
+            "rare_variant_support": 0.2,
+        },
+        {
+            "approved_name": "dopamine receptor D2",
+            "common_variant_support": 0.1,
+            "entity_id": "ENSGDRD2LOW",
+            "entity_label": "DRD2",
+            "genetic_score": 0.1,
+            "match_confidence": "source_confirmed",
+            "provenance_sources": ["opentargets"],
+            "rare_variant_support": None,
+        },
     ]
 
-    assert len(drd2_entries) == 2
-    assert {entry["entity_id"] for entry in drd2_entries} == {
-        "ENSGDRD2HIGH",
-        "ENSGDRD2LOW",
-    }
-    assert all(entry["candidate_row_count"] == 1 for entry in drd2_entries)
-    assert {tuple(entry["candidate_entity_ids"]) for entry in drd2_entries} == {
-        ("ENSGDRD2HIGH",),
-        ("ENSGDRD2LOW",),
-    }
-    high_entry = next(entry for entry in drd2_entries if entry["entity_id"] == "ENSGDRD2HIGH")
-    low_entry = next(entry for entry in drd2_entries if entry["entity_id"] == "ENSGDRD2LOW")
-    assert high_entry["common_variant_support"] == 0.4
-    assert high_entry["rare_variant_support"] == 0.2
-    assert high_entry["provenance_sources"] == ["pgc", "opentargets"]
-    assert low_entry["common_variant_support"] == 0.1
-    assert low_entry["rare_variant_support"] is None
-    assert low_entry["provenance_sources"] == ["opentargets"]
 
-
-def test_build_module_member_gene_entries_keeps_same_label_candidates_distinct() -> None:
+def test_build_module_member_gene_entries_preserves_symbol_ambiguity_without_double_counting() -> None:
     member_gene_entries = build_module_member_gene_entries(
+        {"DRD2"},
         {
-            "entity_id::ENSGDRD2COMMON",
-            "entity_id::ENSGDRD2RARE",
+            "DRD2": [
+                {
+                    "entity_id": "ENSGDRD2COMMON",
+                    "entity_label": "DRD2",
+                    "approved_name": "dopamine receptor D2",
+                    "common_variant_support": "0.6",
+                    "rare_variant_support": "",
+                    "match_confidence": "source_confirmed",
+                    "registry_source_count": "1",
+                    "registry_sources_json": "[\"pgc\"]",
+                },
+                {
+                    "entity_id": "ENSGDRD2RARE",
+                    "entity_label": "DRD2",
+                    "approved_name": "dopamine receptor D2",
+                    "common_variant_support": "",
+                    "rare_variant_support": "0.9",
+                    "match_confidence": "id_confirmed",
+                    "registry_source_count": "1",
+                    "registry_sources_json": "[\"opentargets\"]",
+                },
+            ]
         },
-        {
-            "entity_id::ENSGDRD2COMMON": {
-                "entity_id": "ENSGDRD2COMMON",
-                "entity_label": "DRD2",
-                "approved_name": "dopamine receptor D2",
-                "common_variant_support": "0.6",
-                "rare_variant_support": "",
-                "match_confidence": "source_confirmed",
-                "registry_sources_json": "[\"pgc\"]",
-            },
-            "entity_id::ENSGDRD2RARE": {
-                "entity_id": "ENSGDRD2RARE",
-                "entity_label": "DRD2",
-                "approved_name": "dopamine receptor D2",
-                "common_variant_support": "",
-                "rare_variant_support": "0.9",
-                "match_confidence": "id_confirmed",
-                "registry_sources_json": "[\"opentargets\"]",
-            },
-        },
-        {
-            "entity_id::ENSGDRD2COMMON",
-            "entity_id::ENSGDRD2RARE",
-        },
+        {"DRD2"},
         set(),
     )
 
-    assert len(member_gene_entries) == 2
+    assert len(member_gene_entries) == 1
 
-    common_entry = next(
-        entry for entry in member_gene_entries if entry["entity_id"] == "ENSGDRD2COMMON"
-    )
-    rare_entry = next(
-        entry for entry in member_gene_entries if entry["entity_id"] == "ENSGDRD2RARE"
-    )
+    drd2_entry = member_gene_entries[0]
 
-    assert common_entry["common_variant_support"] == 0.6
-    assert common_entry["rare_variant_support"] is None
-    assert common_entry["genetic_score"] == 0.6
-    assert common_entry["candidate_row_count"] == 1
-    assert common_entry["candidate_entity_ids"] == ["ENSGDRD2COMMON"]
-    assert common_entry["candidate_match_confidences"] == ["source_confirmed"]
-    assert common_entry["provenance_sources"] == ["pgc"]
-    assert common_entry["membership_source_type"] == "deg_only"
-
-    assert rare_entry["common_variant_support"] is None
-    assert rare_entry["rare_variant_support"] == 0.9
-    assert rare_entry["genetic_score"] == 0.9
-    assert rare_entry["candidate_row_count"] == 1
-    assert rare_entry["candidate_entity_ids"] == ["ENSGDRD2RARE"]
-    assert rare_entry["candidate_match_confidences"] == ["id_confirmed"]
-    assert rare_entry["provenance_sources"] == ["opentargets"]
-    assert rare_entry["membership_source_type"] == "deg_only"
+    assert drd2_entry["entity_id"] == ""
+    assert drd2_entry["common_variant_support"] is None
+    assert drd2_entry["rare_variant_support"] == 0.9
+    assert drd2_entry["genetic_score"] == 0.9
+    assert drd2_entry["candidate_row_count"] == 2
+    assert drd2_entry["candidate_entity_ids"] == [
+        "ENSGDRD2RARE",
+        "ENSGDRD2COMMON",
+    ]
+    assert drd2_entry["candidate_match_confidences"] == [
+        "id_confirmed",
+        "source_confirmed",
+    ]
+    assert drd2_entry["provenance_sources"] == ["pgc", "opentargets"]
+    assert drd2_entry["candidate_rows"] == [
+        {
+            "approved_name": "dopamine receptor D2",
+            "common_variant_support": None,
+            "entity_id": "ENSGDRD2RARE",
+            "entity_label": "DRD2",
+            "genetic_score": 0.9,
+            "match_confidence": "id_confirmed",
+            "provenance_sources": ["opentargets"],
+            "rare_variant_support": 0.9,
+        },
+        {
+            "approved_name": "dopamine receptor D2",
+            "common_variant_support": 0.6,
+            "entity_id": "ENSGDRD2COMMON",
+            "entity_label": "DRD2",
+            "genetic_score": 0.6,
+            "match_confidence": "source_confirmed",
+            "provenance_sources": ["pgc"],
+            "rare_variant_support": None,
+        },
+    ]
+    assert drd2_entry["quantitative_support_entity_id"] == "ENSGDRD2RARE"
+    assert drd2_entry["quantitative_support_match_confidence"] == "id_confirmed"
+    assert drd2_entry["membership_source_type"] == "deg_only"
 
 
 def test_build_module_member_gene_entries_breaks_ties_stably() -> None:
     member_gene_entries = build_module_member_gene_entries(
         {"GENE_B", "GENE_A", "GENE_C"},
         {
-            "GENE_A": {
-                "entity_id": "ENSGA",
-                "entity_label": "GENE_A",
-                "approved_name": "Gene A",
-                "common_variant_support": "0.2",
-                "rare_variant_support": "0.2",
-            },
-            "GENE_B": {
-                "entity_id": "ENSGB",
-                "entity_label": "GENE_B",
-                "approved_name": "Gene B",
-                "common_variant_support": "0.2",
-                "rare_variant_support": "0.2",
-            },
-            "GENE_C": {
-                "entity_id": "ENSGC",
-                "entity_label": "GENE_C",
-                "approved_name": "Gene C",
-                "common_variant_support": "0.4",
-                "rare_variant_support": "0.4",
-            },
+            "GENE_A": [
+                {
+                    "entity_id": "ENSGA",
+                    "entity_label": "GENE_A",
+                    "approved_name": "Gene A",
+                    "common_variant_support": "0.2",
+                    "rare_variant_support": "0.2",
+                }
+            ],
+            "GENE_B": [
+                {
+                    "entity_id": "ENSGB",
+                    "entity_label": "GENE_B",
+                    "approved_name": "Gene B",
+                    "common_variant_support": "0.2",
+                    "rare_variant_support": "0.2",
+                }
+            ],
+            "GENE_C": [
+                {
+                    "entity_id": "ENSGC",
+                    "entity_label": "GENE_C",
+                    "approved_name": "Gene C",
+                    "common_variant_support": "0.4",
+                    "rare_variant_support": "0.4",
+                }
+            ],
         },
         {"GENE_A", "GENE_C"},
         {"GENE_B", "GENE_C"},

@@ -7,12 +7,14 @@ import sys
 
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
+from scz_target_engine.ingest import refresh_candidate_registry
 from scz_target_engine.prepare import (
     prepare_gene_table,
     refresh_example_gene_table,
     refresh_example_input_tables,
     refresh_example_module_table,
 )
+from scz_target_engine.registry import build_candidate_registry
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
@@ -66,6 +68,18 @@ def build_parser() -> argparse.ArgumentParser:
     psychencode_modules_parser.add_argument("--input-file", required=True)
     psychencode_modules_parser.add_argument("--output-file", required=True)
     psychencode_modules_parser.add_argument("--limit", type=int)
+
+    registry_parser = subparsers.add_parser("build-candidate-registry")
+    registry_parser.add_argument("--opentargets-file", required=True)
+    registry_parser.add_argument("--output-file", required=True)
+    registry_parser.add_argument("--pgc-file")
+
+    registry_refresh_parser = subparsers.add_parser("refresh-candidate-registry")
+    registry_refresh_parser.add_argument("--output-file")
+    registry_refresh_parser.add_argument("--work-dir")
+    registry_refresh_parser.add_argument("--disease-id")
+    registry_refresh_parser.add_argument("--disease-query")
+    registry_refresh_parser.add_argument("--skip-pgc", action="store_true")
 
     prepare_parser = subparsers.add_parser("prepare-gene-table")
     prepare_parser.add_argument("--seed-file", required=True)
@@ -160,6 +174,26 @@ def main(argv: list[str] | None = None) -> int:
             input_file=Path(args.input_file).resolve(),
             output_file=Path(args.output_file).resolve(),
             limit=args.limit,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "build-candidate-registry":
+        result = build_candidate_registry(
+            opentargets_file=Path(args.opentargets_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            pgc_file=Path(args.pgc_file).resolve() if args.pgc_file else None,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "refresh-candidate-registry":
+        result = refresh_candidate_registry(
+            output_file=Path(args.output_file).resolve() if args.output_file else None,
+            work_dir=Path(args.work_dir).resolve() if args.work_dir else None,
+            disease_id=args.disease_id,
+            disease_query=args.disease_query,
+            include_pgc=not args.skip_pgc,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

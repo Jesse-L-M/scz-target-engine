@@ -1,6 +1,15 @@
 # Processed Data
 
-Generated upstream source tables can live here during local work.
+Generated normalized source tables, candidate registries, and other processed prep artifacts live here during local work.
+
+Rules:
+
+- source-normalized fetch outputs belong under source-specific subdirectories here
+- the non-seed candidate registry artifact belongs under `data/processed/full_universe_ingest/registry/`
+- seed-driven example fixture prep stays under `data/processed/example_gene_workflow/`
+- example module fixture prep stays under `data/processed/example_module_workflow/`
+
+`refresh-candidate-registry` writes processed full-universe source pulls under `data/processed/full_universe_ingest/` and publishes `data/processed/full_universe_ingest/registry/candidate_gene_registry.csv`.
 
 `refresh-example-gene-table` writes the example gene workflow snapshots under `data/processed/example_gene_workflow/`.
 

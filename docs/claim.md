@@ -11,7 +11,7 @@
 - `v0` is not a validated target decision system.
 - `v0` is not a justified `advance / do not advance` authority for programs or assets.
 - `v0` is not yet domain-specific across symptom domains, illness stages, or relapse-prevention use cases.
-- `v0` is not yet seed-independent; current workflows still rely on curated shortlists and source-specific harmonization.
+- `v0` now has a non-seed candidate-registry ingest path, but the checked-in example scoring workflow still relies on curated shortlists and source-specific harmonization.
 
 ## What `v0` Outputs Mean
 
@@ -27,4 +27,4 @@
 - symptom-domain-specific efficacy expectations
 - relapse-prevention or transition-prevention efficacy expectations
 - clinical advancement or termination decisions
-- seed-independent generalization
+- a fully seed-independent end-to-end scoring claim

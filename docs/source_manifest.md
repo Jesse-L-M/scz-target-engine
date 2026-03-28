@@ -1,8 +1,10 @@
 # Source Manifest
 
-`v0` starts from curated evidence tables, not raw consortium dumps.
+`v0` currently has two ingestion layers:
 
-That is deliberate. The scoring engine and its failure conditions need to stabilize before raw-source parsing grows the scope.
+- processed source tables and a non-seed candidate registry
+- curated evidence tables that feed the current scoring build
+Raw consortium dump parsing is still deferred. The scoring engine and its failure conditions still need to stabilize before raw-source parsing grows the scope.
 
 These sources currently feed one shared schizophrenia `v0` scaffold. They do not yet back separate scoring heads for acute positive symptoms, relapse prevention, treatment-resistant subtypes, negative symptoms, cognition, CHR / transition prevention, or durable recovery relevance.
 
@@ -19,7 +21,7 @@ These sources currently feed one shared schizophrenia `v0` scaffold. They do not
   - `pgc_scz2022_priority_index_snps_json`
   - `pgc_scz2022_*` prioritization criteria
 - Notes: manual or scripted upstream harmonization into gene-level normalized support
-- Status: live `scz2022` prioritized-gene importer implemented
+- Status: live `scz2022` prioritized-gene importer implemented; can now feed the non-seed candidate registry
 
 ### SCHEMA
 
@@ -31,6 +33,7 @@ These sources currently feed one shared schizophrenia `v0` scaffold. They do not
   - provenance primitives such as `schema_match_status`, `schema_query`, and override metadata
 - Notes: upstream harmonization should preserve burden direction and study provenance where possible
 - Status: live shortlist-oriented gene fetcher implemented via the official SCHEMA results browser API, with a curated alias override layer for ambiguous symbols
+- Current scope note: still joins through the seed-driven example prep flow, not the non-seed registry
 
 ### PsychENCODE
 
@@ -45,6 +48,7 @@ These sources currently feed one shared schizophrenia `v0` scaffold. They do not
   - `psychencode_match_status`
 - Status: live shortlist-oriented BrainSCOPE importer implemented for schizophrenia DEG plus adult cell-type GRN support, plus a live cell-type module derivation step backed by the same sources
 - Notes: `v0` currently uses the regulatory half of this layer from BrainSCOPE GRNs; a separate developmental source is still open work
+- Current scope note: still joins through the seed-driven example prep flow, not the non-seed registry
 
 ### Open Targets
 
@@ -56,7 +60,7 @@ These sources currently feed one shared schizophrenia `v0` scaffold. They do not
   - `opentargets_datatype_scores_json`
   - flattened datatype vector columns such as `opentargets_datatype_genetic_association`
 - Notes: used as a comparison source, not as the source of truth
-- Status: a live GraphQL fetcher is implemented for disease-scoped baseline pulls
+- Status: a live GraphQL fetcher is implemented for disease-scoped baseline pulls and now serves as the primary row-expansion source for the non-seed candidate registry
 
 ### ChEMBL
 
@@ -70,6 +74,7 @@ These sources currently feed one shared schizophrenia `v0` scaffold. They do not
   - `chembl_action_types_json`
   - target and match metadata under the `chembl_*` prefix
 - Status: shortlist-oriented live fetcher implemented
+- Current scope note: still joins through the seed-driven example prep flow, not the non-seed registry
 
 ## Deferred for V0.1
 
@@ -80,9 +85,13 @@ These sources currently feed one shared schizophrenia `v0` scaffold. They do not
 
 ## Upstream Contract
 
-The upstream ingestion layer should output curated CSV tables with normalized scores in `[0, 1]`, explicit provenance, and stable entity IDs.
+The upstream ingestion layer should output:
 
-Prepared gene tables keep those source-owned primitives as first-class columns. They separate:
+- processed source tables with normalized scores in `[0, 1]`, explicit provenance, and stable entity IDs
+- an explicit candidate registry artifact before scoring
+- curated evidence tables only after source joins and identity reconciliation are complete
+
+Prepared gene tables keep source-owned primitives as first-class columns. They separate:
 
 - rolled-up `v0` layer fields
 - metadata and provenance fields

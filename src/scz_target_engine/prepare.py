@@ -28,6 +28,60 @@ ENGINE_LAYER_COLUMNS = [
     "generic_platform_baseline",
 ]
 
+PREPARED_GENE_IDENTITY_FIELDS = [
+    "entity_id",
+    "primary_gene_id",
+    "canonical_entity_id",
+    "entity_label",
+    "approved_name",
+]
+
+PREPARED_GENE_PROVENANCE_FIELDS = [
+    "seed_entity_id",
+    "source_entity_ids_json",
+    "match_confidence",
+    "match_provenance_json",
+    "provenance_sources_json",
+    "source_present_pgc",
+    "pgc_match_key",
+    "source_present_schema",
+    "schema_match_key",
+    "source_present_psychencode",
+    "psychencode_match_key",
+    "source_present_opentargets",
+    "opentargets_match_key",
+    "source_present_chembl",
+    "chembl_match_key",
+]
+
+PREPARED_GENE_PRIMITIVE_FIELD_GROUPS = [
+    {
+        "name": "pgc",
+        "preferred_fields": ["gene_biotype"],
+        "prefixes": ("pgc_",),
+    },
+    {
+        "name": "schema",
+        "preferred_fields": [],
+        "prefixes": ("schema_",),
+    },
+    {
+        "name": "psychencode",
+        "preferred_fields": [],
+        "prefixes": ("psychencode_",),
+    },
+    {
+        "name": "opentargets",
+        "preferred_fields": [],
+        "prefixes": ("opentargets_",),
+    },
+    {
+        "name": "chembl",
+        "preferred_fields": [],
+        "prefixes": ("chembl_",),
+    },
+]
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXAMPLE_GENE_SEED_FILE = REPO_ROOT / "examples" / "v0" / "input" / "gene_seed.csv"
 DEFAULT_EXAMPLE_GENE_OUTPUT_FILE = REPO_ROOT / "examples" / "v0" / "input" / "gene_evidence.csv"
@@ -87,6 +141,50 @@ def prefer_nonempty(current_value: str, candidate_value: str) -> str:
     if candidate_value.strip():
         return candidate_value
     return current_value
+
+
+def field_is_in_group(field_name: str, prefixes: tuple[str, ...]) -> bool:
+    return any(field_name.startswith(prefix) for prefix in prefixes)
+
+
+def collect_present_fields(rows: list[dict[str, str]]) -> list[str]:
+    fields: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for key in row:
+            if key not in seen:
+                fields.append(key)
+                seen.add(key)
+    return fields
+
+
+def build_prepared_gene_field_order(rows: list[dict[str, str]]) -> list[str]:
+    present_fields = collect_present_fields(rows)
+    preferred_field_order = [
+        *PREPARED_GENE_IDENTITY_FIELDS,
+        *ENGINE_LAYER_COLUMNS,
+        *PREPARED_GENE_PROVENANCE_FIELDS,
+    ]
+    seen = set(preferred_field_order)
+
+    for field_group in PREPARED_GENE_PRIMITIVE_FIELD_GROUPS:
+        for field_name in field_group["preferred_fields"]:
+            if field_name in present_fields and field_name not in seen:
+                preferred_field_order.append(field_name)
+                seen.add(field_name)
+        for field_name in present_fields:
+            if field_name in seen:
+                continue
+            if field_is_in_group(field_name, field_group["prefixes"]):
+                preferred_field_order.append(field_name)
+                seen.add(field_name)
+
+    for field_name in present_fields:
+        if field_name not in seen:
+            preferred_field_order.append(field_name)
+            seen.add(field_name)
+
+    return preferred_field_order
 
 
 def prepare_gene_table(
@@ -266,38 +364,7 @@ def prepare_gene_table(
         row.update(identity_fields)
         prepared_rows.append(row)
 
-    preferred_field_order = [
-        "entity_id",
-        "primary_gene_id",
-        "canonical_entity_id",
-        "entity_label",
-        "approved_name",
-        *ENGINE_LAYER_COLUMNS,
-        "seed_entity_id",
-        "source_entity_ids_json",
-        "match_confidence",
-        "match_provenance_json",
-        "provenance_sources_json",
-        "source_present_pgc",
-        "pgc_match_key",
-        "source_present_schema",
-        "schema_match_key",
-        "source_present_psychencode",
-        "psychencode_match_key",
-        "source_present_opentargets",
-        "opentargets_match_key",
-        "source_present_chembl",
-        "chembl_match_key",
-    ]
-    additional_fields = []
-    seen = set(preferred_field_order)
-    for row in prepared_rows:
-        for key in row:
-            if key not in seen:
-                additional_fields.append(key)
-                seen.add(key)
-
-    fieldnames = preferred_field_order + additional_fields
+    fieldnames = build_prepared_gene_field_order(prepared_rows)
     write_csv(output_file, prepared_rows, fieldnames)
     metadata = {
         "seed_file": str(seed_file),

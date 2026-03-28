@@ -31,6 +31,16 @@ The fetcher:
   - `chembl_match_confidence`
   - `chembl_match_status`
 
+## Primitive Prepared Fields
+
+When this output is merged into the prepared gene table, the `ChEMBL` primitive block keeps:
+
+- target and match metadata such as `chembl_target_chembl_id`, `chembl_pref_name`, `chembl_target_type`, and `chembl_match_status`
+- `chembl_activity_count`
+- `chembl_mechanism_count`
+- `chembl_max_phase`
+- `chembl_action_types_json`
+
 ## Heuristic
 
 The current heuristic is simple and inspectable, not magical:

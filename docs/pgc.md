@@ -27,6 +27,16 @@ The fetcher:
 - aggregates rows by Ensembl ID and gene symbol
 - computes `common_variant_support` from common-variant-linked prioritization criteria only
 
+## Primitive Prepared Fields
+
+When this output is merged into the prepared gene table, the `PGC` primitive block keeps:
+
+- `gene_biotype`
+- `pgc_scz2022_prioritised`
+- `pgc_scz2022_priority_index_snp_count`
+- `pgc_scz2022_priority_index_snps_json`
+- every emitted `pgc_scz2022_*` prioritization criterion column
+
 ## Common-Variant Support Heuristic
 
 This score is explicitly a `PGC scz2022 prioritized-gene support` score, not a whole-genome gene statistic.

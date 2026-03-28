@@ -72,6 +72,8 @@ Key fields:
   - `psychencode_grn_top_cell_types_json`
   - `psychencode_grn_top_tfs_json`
 
+These DEG and GRN fields stay as first-class primitive columns in the prepared gene table. The rolled-up `v0` inputs `cell_state_support` and `developmental_regulatory_support` remain alongside them.
+
 For `fetch-psychencode-modules`, the output shape is one row per retained BrainSCOPE
 cell type with:
 

@@ -13,19 +13,69 @@ The engine does not want raw source exports forever. It wants curated evidence t
 - optional `Open Targets` baseline output
 - optional `ChEMBL` tractability output
 
-It emits an engine-ready CSV with:
+It emits an engine-ready CSV with a stable column contract:
 
-- required engine layer columns always present
-- source-owned columns merged in
+- rolled-up `v0` layer fields always present
+- metadata and provenance fields grouped ahead of source primitives
+- source-owned primitive fields grouped by source
+- deprecated `canonical_entity_id` compatibility alias resolved from `primary_gene_id`
+
+### Prepared Gene Column Groups
+
+The prepared gene table is not a random dump of whatever the adapters emitted. It is ordered in three layers:
+
+1. identity and labels
+2. rolled-up `v0` layer fields
+3. metadata / provenance fields
+4. primitive source-field groups
+
+Rolled-up `v0` layer fields:
+
+- `common_variant_support`
+- `rare_variant_support`
+- `cell_state_support`
+- `developmental_regulatory_support`
+- `tractability_compoundability`
+- `generic_platform_baseline`
+
+Metadata / provenance fields:
+
 - `primary_gene_id`
+- `canonical_entity_id`
 - `seed_entity_id`
 - `source_entity_ids_json`
 - `match_confidence`
 - `match_provenance_json`
-- source match keys
-- source presence flags
-- source-specific match status fields where available
-- deprecated `canonical_entity_id` compatibility alias resolved from `primary_gene_id`
+- `provenance_sources_json`
+- source presence flags such as `source_present_pgc`
+- source match keys such as `pgc_match_key`
+
+Primitive source-field groups:
+
+- `PGC`
+  - `gene_biotype`
+  - `pgc_scz2022_prioritised`
+  - `pgc_scz2022_priority_index_snp_count`
+  - `pgc_scz2022_priority_index_snps_json`
+  - the `pgc_scz2022_*` prioritization criteria vector
+- `SCHEMA`
+  - significance and effect primitives such as `schema_significance_signal` and `schema_effect_signal`
+  - burden-class, burden-count, and odds-ratio fields under `schema_*`
+  - provenance primitives such as `schema_match_status`, `schema_query`, and override metadata
+- `PsychENCODE / BrainSCOPE`
+  - DEG primitives under `psychencode_deg_*`
+  - GRN primitives under `psychencode_grn_*`
+  - `psychencode_match_status`
+- `Open Targets`
+  - disease/version metadata under `opentargets_*`
+  - `opentargets_datatype_scores_json`
+  - flattened datatype vector fields such as `opentargets_datatype_clinical`
+- `ChEMBL`
+  - target/match metadata under `chembl_*`
+  - `chembl_activity_count`
+  - `chembl_mechanism_count`
+  - `chembl_max_phase`
+  - `chembl_action_types_json`
 
 ## Identity Contract
 
@@ -104,6 +154,14 @@ For each source:
 4. keep the primary row identity stable; do not let later sources overwrite it
 5. store source-side IDs in `source_entity_ids_json` instead of using join order as identity
 6. store ordered provenance details in `match_provenance_json` and compatibility source order in `provenance_sources_json`
+
+## Pass-Through Rule
+
+`prepare-gene-table` keeps source primitives unless there is a documented reason not to.
+
+- if a source emits a `pgc_*`, `schema_*`, `psychencode_*`, `opentargets_*`, or `chembl_*` field, prep preserves it in the prepared CSV
+- known primitive groups are ordered explicitly
+- any remaining passthrough columns are still preserved after the declared contract fields
 
 ## Why This Matters
 

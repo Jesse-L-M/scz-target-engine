@@ -2,7 +2,7 @@ import csv
 import json
 from pathlib import Path
 
-from scz_target_engine.prepare import prepare_gene_table, refresh_example_gene_table
+from scz_target_engine.prepare import ENGINE_LAYER_COLUMNS, prepare_gene_table, refresh_example_gene_table
 
 
 def test_prepare_gene_table_preserves_explicit_identity_contract(tmp_path: Path) -> None:
@@ -83,7 +83,39 @@ def test_prepare_gene_table_preserves_explicit_identity_contract(tmp_path: Path)
     assert metadata["chembl_matches"] == 2
 
     with output_file.open(newline="", encoding="utf-8") as handle:
-        rows = list(csv.DictReader(handle))
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        rows = list(reader)
+
+    assert fieldnames[:5] == [
+        "entity_id",
+        "primary_gene_id",
+        "canonical_entity_id",
+        "entity_label",
+        "approved_name",
+    ]
+    assert fieldnames[5:11] == ENGINE_LAYER_COLUMNS
+    assert fieldnames[11:26] == [
+        "seed_entity_id",
+        "source_entity_ids_json",
+        "match_confidence",
+        "match_provenance_json",
+        "provenance_sources_json",
+        "source_present_pgc",
+        "pgc_match_key",
+        "source_present_schema",
+        "schema_match_key",
+        "source_present_psychencode",
+        "psychencode_match_key",
+        "source_present_opentargets",
+        "opentargets_match_key",
+        "source_present_chembl",
+        "chembl_match_key",
+    ]
+    assert fieldnames.index("pgc_scz2022_prioritised") < fieldnames.index("schema_match_status")
+    assert fieldnames.index("schema_match_status") < fieldnames.index("psychencode_match_status")
+    assert fieldnames.index("psychencode_match_status") < fieldnames.index("opentargets_disease_id")
+    assert fieldnames.index("opentargets_disease_id") < fieldnames.index("chembl_target_chembl_id")
 
     drd2_row = next(row for row in rows if row["entity_label"] == "DRD2")
     setd1a_row = next(row for row in rows if row["entity_label"] == "SETD1A")
@@ -212,6 +244,88 @@ def test_prepare_gene_table_preserves_explicit_identity_contract(tmp_path: Path)
         "opentargets",
         "chembl",
     ]
+
+
+def test_prepare_gene_table_orders_source_primitive_groups_independently_of_first_match(
+    tmp_path: Path,
+) -> None:
+    seed_file = tmp_path / "seed.csv"
+    pgc_file = tmp_path / "pgc.csv"
+    schema_file = tmp_path / "schema.csv"
+    psychencode_file = tmp_path / "psychencode.csv"
+    ot_file = tmp_path / "ot.csv"
+    chembl_file = tmp_path / "chembl.csv"
+    output_file = tmp_path / "prepared.csv"
+
+    seed_file.write_text(
+        (
+            "entity_id,entity_label\n"
+            "ENSGEX0002,SETD1A\n"
+            "ENSGEX0001,DRD2\n"
+        ),
+        encoding="utf-8",
+    )
+    pgc_file.write_text(
+        (
+            "entity_id,entity_label,common_variant_support,gene_biotype,pgc_scz2022_prioritised\n"
+            "ENSGPGC49295,DRD2,0.1875,protein_coding,1\n"
+        ),
+        encoding="utf-8",
+    )
+    schema_file.write_text(
+        (
+            "entity_id,entity_label,approved_name,rare_variant_support,schema_match_status,schema_p_meta\n"
+            "ENSG00000099381,SETD1A,SET domain containing 1A,0.867278,matched,2e-12\n"
+            "ENSG00000149295,DRD2,dopamine receptor D2,0.0,matched,0.19\n"
+        ),
+        encoding="utf-8",
+    )
+    psychencode_file.write_text(
+        (
+            "entity_id,entity_label,approved_name,cell_state_support,psychencode_match_status\n"
+            "ENSGEX0001,DRD2,dopamine receptor D2,0.284,matched_deg_only\n"
+        ),
+        encoding="utf-8",
+    )
+    ot_file.write_text(
+        (
+            "entity_id,entity_label,approved_name,generic_platform_baseline,"
+            "opentargets_disease_id,opentargets_datatype_scores_json,opentargets_datatype_genetic_association\n"
+            "ENSG00000149295,DRD2,dopamine receptor D2,0.7446,MONDO_0005090,\"{}\",0.7\n"
+        ),
+        encoding="utf-8",
+    )
+    chembl_file.write_text(
+        (
+            "entity_id,entity_label,approved_name,tractability_compoundability,chembl_match_status,"
+            "chembl_activity_count,chembl_mechanism_count,chembl_max_phase,chembl_action_types_json\n"
+            "ENSGEX0001,DRD2,dopamine receptor D2,0.98,matched_exact_human_gene_symbol,32479,68,4,"
+            "\"[\"\"ANTAGONIST\"\"]\"\n"
+        ),
+        encoding="utf-8",
+    )
+
+    prepare_gene_table(
+        seed_file=seed_file,
+        output_file=output_file,
+        pgc_file=pgc_file,
+        schema_file=schema_file,
+        psychencode_file=psychencode_file,
+        opentargets_file=ot_file,
+        chembl_file=chembl_file,
+    )
+
+    with output_file.open(newline="", encoding="utf-8") as handle:
+        fieldnames = csv.DictReader(handle).fieldnames or []
+
+    assert fieldnames.index("chembl_match_key") < fieldnames.index("gene_biotype")
+    assert fieldnames.index("gene_biotype") < fieldnames.index("schema_match_status")
+    assert fieldnames.index("schema_match_status") < fieldnames.index("psychencode_match_status")
+    assert fieldnames.index("psychencode_match_status") < fieldnames.index("opentargets_disease_id")
+    assert fieldnames.index("opentargets_disease_id") < fieldnames.index("chembl_match_status")
+    assert fieldnames.index("opentargets_datatype_scores_json") < fieldnames.index(
+        "opentargets_datatype_genetic_association"
+    )
 
 
 def test_refresh_example_gene_table_fetches_sources_and_publishes_curated_csv(

@@ -2,6 +2,8 @@
 
 `program_history` is the curated substrate for landmark schizophrenia program events that later ranking, warning overlays, and domain-specific reasoning can consume. This dataset is intentionally checked in before any scoring integration.
 
+`PR7` now consumes this substrate into scoring-neutral target ledgers. The ledger output stays structural: it does not change numeric rank, but it does make failure evidence machine-readable.
+
 ## Current Boundary
 
 - This directory records externally documented program events.
@@ -86,3 +88,14 @@ Confidence applies to the full curated row, not just to whether the event happen
 5. Add a concise `notes` entry whenever the taxonomy assignment is interpretive.
 
 That workflow keeps the checked-in data stable enough for later code without pretending the repo already has a complete historical adjudication layer.
+
+## PR7 Structural Consumption
+
+The target-ledger output uses `programs.csv` to populate:
+
+- `failure_scope`: normalized structural scope such as `target_class`, `molecule`, `endpoint`, `population`, `target`, `unresolved`, or `nonfailure`
+- `what_failed`: the object currently judged to have failed at that scope
+- `where`: domain, population, phase, and regimen context for the event
+- `evidence_strength`: a scoring-neutral strength label derived from curator confidence
+
+See [ledger_contract.md](ledger_contract.md) for the emitted JSON artifact shape.

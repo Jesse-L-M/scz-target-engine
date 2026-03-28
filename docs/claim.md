@@ -19,6 +19,7 @@
 - Eligibility means the current scoring contract has the minimum required evidence groups for ranking.
 - `heuristic_stable` means the entity cleared the current `v0` sensitivity-survival rule; it does not validate the biology.
 - Warning overlays highlight evidence gaps and prior concerns without changing numeric score, rank, or stability status.
+- Structural target ledgers expose source primitives, failure history, and directionality hypotheses without changing numeric score, rank, or stability status.
 
 ## What `v0` Outputs Do Not Justify Claiming
 

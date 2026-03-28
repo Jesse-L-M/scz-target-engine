@@ -5,6 +5,11 @@ from pathlib import Path
 
 from scz_target_engine.config import EngineConfig
 from scz_target_engine.io import read_csv_rows, write_csv, write_json, write_text
+from scz_target_engine.ledger import (
+    build_target_ledgers,
+    ledger_summary_fields,
+    target_ledgers_to_payload,
+)
 from scz_target_engine.reporting import (
     build_cards_markdown,
     build_summary_markdown,
@@ -24,10 +29,27 @@ from scz_target_engine.scoring import (
 )
 
 
+LEDGER_SUBSTRATE_FILES = (
+    Path("data/curated/program_history/programs.csv"),
+    Path("data/curated/program_history/directionality_hypotheses.csv"),
+)
+
+
 def resolve_path(base_dir: Path, candidate: str | None, fallback: str) -> Path:
     if candidate:
         return Path(candidate).resolve()
     return (base_dir / fallback).resolve()
+
+
+def resolve_repo_root(config: EngineConfig) -> Path:
+    candidate_roots = [
+        config.config_path.resolve().parents[1],
+        Path(__file__).resolve().parents[2],
+    ]
+    for candidate_root in candidate_roots:
+        if all((candidate_root / relative_path).exists() for relative_path in LEDGER_SUBSTRATE_FILES):
+            return candidate_root
+    return Path(__file__).resolve().parents[2]
 
 
 def load_inputs(config: EngineConfig, input_dir: Path) -> tuple[list, list, dict]:
@@ -62,6 +84,11 @@ def validate_inputs(config: EngineConfig, input_dir: Path) -> dict[str, object]:
 
 def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> dict[str, object]:
     gene_records, module_records, warning_index = load_inputs(config, input_dir)
+    repo_root = resolve_repo_root(config)
+    program_history_path = repo_root / "data/curated/program_history/programs.csv"
+    directionality_hypotheses_path = (
+        repo_root / "data/curated/program_history/directionality_hypotheses.csv"
+    )
 
     gene_ranked = rank_records(
         gene_records,
@@ -114,6 +141,17 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
 
     gene_rows = ranked_entities_to_rows(gene_entities)
     module_rows = ranked_entities_to_rows(module_entities)
+    target_ledgers = build_target_ledgers(
+        gene_entities,
+        program_history_path=program_history_path,
+        directionality_hypotheses_path=directionality_hypotheses_path,
+    )
+    target_ledger_index = {ledger.entity_id: ledger for ledger in target_ledgers}
+    for row in gene_rows:
+        ledger = target_ledger_index.get(str(row["entity_id"]))
+        if ledger is None:
+            continue
+        row.update(ledger_summary_fields(ledger))
 
     top_targets = [
         entity
@@ -152,6 +190,15 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
             "module": asdict(module_stability),
             "baseline_overlap": baseline_overlap,
         },
+    )
+    write_json(
+        output_dir / "gene_target_ledgers.json",
+        target_ledgers_to_payload(
+            target_ledgers,
+            program_history_path=program_history_path,
+            directionality_hypotheses_path=directionality_hypotheses_path,
+            repo_root=repo_root,
+        ),
     )
     write_text(
         output_dir / "target_cards.md",
@@ -194,4 +241,5 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
             [entity for entity in module_entities if entity.rank is not None]
         ),
         "gene_warning_count": len([entity for entity in gene_entities if entity.warning_count]),
+        "gene_target_ledger_file": str((output_dir / "gene_target_ledgers.json").resolve()),
     }

@@ -206,8 +206,21 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
         for head in gene_vector["head_scores"]
         if head["head_name"] == "failure_burden_score"
     )
-    assert failure_head["status"] == "pr7_substrate_available"
+    assert failure_head["status"] == "available"
+    assert failure_head["score"] == 1.0
+    assert gene_vector["directionality_confidence"] == 0.25
+    assert gene_vector["subgroup_resolution_score"] == 0.3
     assert gene_vector["domain_profiles"]["negative_symptoms"]["label"] == "Negative symptoms"
+    assert gene_vector["domain_profiles"]["negative_symptoms"]["status"] == "available"
+
+    chrm4_vector = next(
+        entity
+        for entity in decision_vectors["entities"]["gene"]
+        if entity["entity_label"] == "CHRM4"
+    )
+    assert chrm4_vector["failure_burden_score"] == 0.55
+    assert chrm4_vector["directionality_confidence"] == 0.5
+    assert chrm4_vector["subgroup_resolution_score"] == 0.5
 
     with (tmp_path / "domain_head_rankings_v1.csv").open(newline="", encoding="utf-8") as handle:
         domain_rows = list(csv.DictReader(handle))
@@ -219,7 +232,9 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     assert tcf4_negative["heuristic_score_v0"] == tcf4_row["composite_score"]
     assert tcf4_negative["heuristic_rank_v0"] == tcf4_row["rank"]
     assert "human_support_score" in tcf4_negative
-    assert "directionality_confidence_status" in tcf4_negative
+    assert tcf4_negative["failure_burden_score"] == "1.0"
+    assert tcf4_negative["directionality_confidence"] == "0.25"
+    assert tcf4_negative["directionality_confidence_status"] == "available"
 
     assert result["gene_target_ledger_file"].endswith("gene_target_ledgers.json")
     assert result["decision_vector_artifact"].endswith("decision_vectors_v1.json")

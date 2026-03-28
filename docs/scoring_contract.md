@@ -135,11 +135,33 @@ Each entity in `decision_vectors_v1.json` now exposes:
   - Gene semantics: weighted blend of `tractability_compoundability` and `generic_platform_baseline`
   - Module semantics: not currently applicable; modules are not direct intervention objects in this build
 - `failure_burden_score`
-  - PR7-backed structural substrate is now available, but PR8 keeps the numeric head explicit and unscored
+  - Gene semantics: higher means lower known failure burden in the PR7 target ledger
+  - Score `1.0` when `structural_failure_history.failure_event_count == 0`
+  - Otherwise score `1.0 - count_penalty - strongest_scope_penalty - strongest_evidence_penalty`, clamped into `[0, 1]`
+  - Count penalty: `0.15 * failure_event_count`, capped at `0.45`
+  - Strongest scope penalty: `target 0.35`, `target_class 0.30`, `unresolved 0.25`, `population 0.20`, `endpoint 0.15`, `molecule 0.10`
+  - Strongest evidence penalty: `strong 0.10`, `moderate 0.05`, `provisional 0.0`
+  - Module semantics: not currently applicable because the merged PR7 ledger substrate is target-level only
 - `directionality_confidence`
-  - PR7-backed directionality substrate is now available, but PR8 keeps the numeric head explicit and unscored
+  - Gene semantics: confidence that directionality is curated, concrete, and not heavily contradicted in the ledger
+  - Score `0.25` when `directionality_hypothesis.status != curated`
+  - Otherwise start from the curated confidence map: `high 0.90`, `medium 0.75`, `low 0.60`
+  - Subtract `0.10` for `desired_perturbation_direction == undetermined`
+  - Subtract `0.10` for `modality_hypothesis == undetermined`
+  - Subtract `0.10` when contradiction conditions are present
+  - Subtract `0.05` when falsification conditions are present
+  - Subtract `0.05 * open_risk_count`, capped at `0.10`
+  - Module semantics: not currently applicable because the merged PR7 ledger substrate is target-level only
 - `subgroup_resolution_score`
-  - PR7-backed subgroup and heterogeneity substrate is now available structurally, but PR8 leaves the numeric head explicit and unscored
+  - Gene semantics: additive clarity score over structured domain, population, and cell-state resolution, penalized by explicit heterogeneity signals
+  - Add `0.25` for exactly one `clinical_domain`, or `0.15` when multiple domains are present
+  - Add `0.25` for exactly one `clinical_population`, or `0.15` when multiple populations are present
+  - Add `0.10` when `mono_or_adjunct_contexts` is non-empty
+  - Add `0.15` when `psychencode_deg_top_cell_types` is non-empty
+  - Add `0.15` when `psychencode_grn_top_cell_types` is non-empty
+  - Subtract `0.15` when `failure_scopes` includes `population`
+  - Subtract `0.15` when `failure_taxonomies` includes `heterogeneity_or_subgroup_dilution`
+  - Module semantics: not currently applicable because the merged PR7 ledger substrate is target-level only
 
 ### Domain / Stage Head Profiles
 
@@ -154,7 +176,7 @@ Canonical ontology buckets from `docs/ontology.md` now map to explicit `v1` prof
 - `chr_transition_prevention`
 - `functioning_durable_recovery_relevance`
 
-Each profile is a documented weighted blend over the `v1` decision heads. Scores are computed over the available head subset, and each output row carries a coverage fraction plus explicit PR7-substrate status fields where numeric semantics remain intentionally deferred.
+Each profile is a documented weighted blend over the `v1` decision heads. Gene-target rows now consume all six heads numerically when the PR7 ledger is present; module rows still compute over the available subset because the merged PR7 substrate is target-level only.
 
 ### Legacy Comparison Contract
 

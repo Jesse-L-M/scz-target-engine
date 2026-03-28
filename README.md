@@ -4,7 +4,7 @@ A transparent `v0` public-evidence prioritization scaffold for schizophrenia-ori
 
 The core challenge in target selection is separating reproducible biological signal from accumulated intuition. This engine makes the scoring contract explicit, runs quantitative stability analyses, and publishes report cards that show where the current public evidence looks promising, fragile, or insufficient.
 
-`v0` is not a validated target decision system. It does not justify `advance / do not advance` claims, and its warning overlays do not change numeric rank. The build now also emits an additive `v1` decision-vector layer with domain/stage heads, while leaving all existing `v0` numeric outputs unchanged.
+`v0` is not a validated target decision system. It does not justify `advance / do not advance` claims, and its warning overlays do not change numeric rank. The build now also emits an additive `v1` decision-vector layer with domain/stage heads, while leaving all existing `v0` numeric outputs unchanged. The repo also freezes a benchmark protocol contract for later time-sliced evaluation without yet implementing the runner.
 
 ## V0 Scope
 
@@ -51,6 +51,7 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 - `v1` decision vectors are an explicit multi-head output layer, not a validated clinical advancement authority.
 - `v1` domain/stage scores now combine human-support, biology-context, and intervention-readiness heads with numeric PR7-backed failure, directionality, and subgroup heads for gene targets.
 - `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
+- Benchmarking is protocol-defined but not runner-implemented yet; see [docs/benchmarking.md](docs/benchmarking.md).
 - Warning overlays remain reporting-only.
 - Program-history, failure-taxonomy, and directionality-hypothesis artifacts now emit structural target ledgers. Those ledgers feed numeric `v1` head scoring for gene targets, while shared `v0` outputs remain unchanged.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
@@ -192,6 +193,7 @@ uv run --group dev pytest
 - [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary consumed by the additive `v1` head layer
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
+- [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, snapshot semantics, leakage controls, baseline matrix, and artifact schemas
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract

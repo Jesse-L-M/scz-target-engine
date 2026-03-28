@@ -13,7 +13,7 @@ The core challenge in target selection is separating reproducible biological sig
 - Independent gene-level and module-level leaderboards
 - Warning overlays for prior clinical failure history and evidence gaps
 - Ontology vocabulary documented but not separately scored yet
-- Seed-linked example workflow; not yet seed-independent
+- Non-seed candidate-registry ingest plus a seed-linked example fixture workflow
 - Stability analysis:
   - Leave-one-layer-out ablation
   - `+/- 20%` weight perturbation
@@ -28,8 +28,9 @@ The engine currently implements:
 - Markdown and CSV report generation
 - Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
 - Prepared gene tables that keep primitive `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL` source fields as first-class columns alongside the stable rolled-up `v0` layer inputs
+- A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
 - Implementation-ready ontology plus a checked-in program-history and failure-taxonomy substrate for later domain-aware reasoning
-- A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters
+- A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters as a fixture path
 - A checked-in curated module table derived from `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
 - Live data fetchers:
   - `Open Targets` schizophrenia baseline via the official GraphQL API
@@ -46,7 +47,7 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 - `v0` is infrastructure, not the full target-engine vision.
 - `v0` is a public-evidence prioritization scaffold, not a validated decision authority.
 - `v0` does not yet score relapse prevention, negative symptoms, cognition, CHR/transition prevention, or durable recovery relevance separately.
-- `v0` is not yet seed-independent.
+- `v0` now has a non-seed ingest path, but it does not yet claim a fully seed-independent end-to-end scoring rebuild.
 - Warning overlays remain reporting-only.
 - Program-history and failure-taxonomy artifacts are checked in as curated substrate only; they do not yet affect numeric scoring.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
@@ -55,11 +56,21 @@ See [docs/claim.md](docs/claim.md) for the current claim boundary, [docs/ontolog
 
 ## Quickstart
 
+Build the non-seed candidate registry:
+
+```bash
+uv run scz-target-engine refresh-candidate-registry
+```
+
+That writes `data/processed/full_universe_ingest/registry/candidate_gene_registry.csv`.
+
 Refresh the example gene and module tables from the live source adapters:
 
 ```bash
 uv run scz-target-engine refresh-example-inputs
 ```
+
+`refresh-example-inputs` remains the fast fixture workflow for checked-in example inputs.
 
 Then run the example build:
 
@@ -70,7 +81,23 @@ uv run scz-target-engine build \
   --output-dir examples/v0/output
 ```
 
-`examples/v0/input/gene_evidence.csv` and `examples/v0/input/module_evidence.csv` are generated snapshots from that refresh flow.
+`examples/v0/input/gene_evidence.csv` and `examples/v0/input/module_evidence.csv` are generated fixture snapshots from that refresh flow.
+
+Build the registry manually from processed full-universe-capable sources:
+
+```bash
+uv run scz-target-engine fetch-opentargets \
+  --disease-query schizophrenia \
+  --output-file data/processed/full_universe_ingest/opentargets/schizophrenia_baseline.csv
+
+uv run scz-target-engine fetch-pgc-scz2022 \
+  --output-file data/processed/full_universe_ingest/pgc/scz2022_prioritized_genes.csv
+
+uv run scz-target-engine build-candidate-registry \
+  --opentargets-file data/processed/full_universe_ingest/opentargets/schizophrenia_baseline.csv \
+  --pgc-file data/processed/full_universe_ingest/pgc/scz2022_prioritized_genes.csv \
+  --output-file data/processed/full_universe_ingest/registry/candidate_gene_registry.csv
+```
 
 Fetch a real `Open Targets` schizophrenia baseline table:
 
@@ -190,6 +217,9 @@ Prepared gene tables also carry:
 
 The legacy `canonical_entity_id` column is kept temporarily as a deprecated alias to
 `primary_gene_id`. See [docs/prep.md](docs/prep.md) for the prepared-table contract.
+
+The non-seed candidate registry uses the same provenance fields, keeps `seed_entity_id` blank,
+and records which full-universe-capable sources currently back each candidate row.
 
 ### Module Evidence
 

@@ -101,4 +101,4 @@ Pass condition:
 - no illness-stage or relapse-prevention scoring heads
 - no numeric warning penalties
 - no raw-source ingest pipeline
-- no seed-independent claim
+- no fully seed-independent end-to-end scoring claim

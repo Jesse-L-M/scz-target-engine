@@ -5,6 +5,7 @@ import json
 
 
 GENE_IDENTITY_SOURCES = ("seed", "pgc", "schema", "psychencode", "opentargets", "chembl")
+REGISTRY_IDENTITY_SOURCES = ("pgc", "opentargets")
 
 SOURCE_MATCH_STATUS_FIELDS = {
     "schema": "schema_match_status",
@@ -121,16 +122,18 @@ def _json_value(value: str) -> str | None:
 
 def serialize_source_entity_ids(
     source_matches: dict[str, SourceIdentityMatch],
+    source_order: tuple[str, ...] = GENE_IDENTITY_SOURCES,
 ) -> str:
     payload = {
         source_name: _json_value(source_matches[source_name].entity_id)
-        for source_name in GENE_IDENTITY_SOURCES
+        for source_name in source_order
     }
     return json.dumps(payload)
 
 
 def serialize_match_provenance(
     source_matches: dict[str, SourceIdentityMatch],
+    source_order: tuple[str, ...] = GENE_IDENTITY_SOURCES,
 ) -> str:
     payload = [
         {
@@ -141,17 +144,18 @@ def serialize_match_provenance(
             "match_key": _json_value(source_matches[source_name].match_key),
             "match_status": _json_value(source_matches[source_name].match_status),
         }
-        for source_name in GENE_IDENTITY_SOURCES
+        for source_name in source_order
     ]
     return json.dumps(payload)
 
 
 def serialize_provenance_sources(
     source_matches: dict[str, SourceIdentityMatch],
+    source_order: tuple[str, ...] = GENE_IDENTITY_SOURCES,
 ) -> str:
     payload = [
         source_name
-        for source_name in GENE_IDENTITY_SOURCES
+        for source_name in source_order
         if source_matches[source_name].matched
     ]
     return json.dumps(payload)
@@ -167,10 +171,108 @@ def build_gene_identity_fields(
     identity_fields = {
         "primary_gene_id": primary_gene_id,
         "seed_entity_id": source_matches["seed"].entity_id,
-        "source_entity_ids_json": serialize_source_entity_ids(source_matches),
+        "source_entity_ids_json": serialize_source_entity_ids(
+            source_matches,
+            GENE_IDENTITY_SOURCES,
+        ),
         "match_confidence": derive_match_confidence(primary_gene_id, source_matches),
-        "match_provenance_json": serialize_match_provenance(source_matches),
-        "provenance_sources_json": serialize_provenance_sources(source_matches),
+        "match_provenance_json": serialize_match_provenance(
+            source_matches,
+            GENE_IDENTITY_SOURCES,
+        ),
+        "provenance_sources_json": serialize_provenance_sources(
+            source_matches,
+            GENE_IDENTITY_SOURCES,
+        ),
+    }
+    if keep_canonical_alias:
+        identity_fields["canonical_entity_id"] = primary_gene_id
+    return identity_fields
+
+
+def resolve_registry_primary_gene_id(
+    source_matches: dict[str, SourceIdentityMatch],
+) -> str:
+    for source_name in REGISTRY_IDENTITY_SOURCES:
+        source_match = source_matches[source_name]
+        if source_match.entity_id:
+            return source_match.entity_id
+    return ""
+
+
+def derive_registry_match_confidence(
+    primary_gene_id: str,
+    source_matches: dict[str, SourceIdentityMatch],
+) -> str:
+    matched_sources = [
+        source_matches[source_name]
+        for source_name in REGISTRY_IDENTITY_SOURCES
+        if source_matches[source_name].matched
+    ]
+    if not matched_sources:
+        return "seed_only"
+
+    conflicting_ids = {
+        source_match.entity_id
+        for source_match in matched_sources
+        if source_match.entity_id and source_match.entity_id != primary_gene_id
+    }
+    if conflicting_ids:
+        return "source_conflict"
+
+    confirming_sources = [
+        source_match
+        for source_match in matched_sources
+        if source_match.entity_id == primary_gene_id
+    ]
+    if len(confirming_sources) >= 2:
+        return "id_confirmed"
+
+    if confirming_sources:
+        return "source_confirmed"
+
+    return "source_matched"
+
+
+def build_registry_identity_fields(
+    source_matches: dict[str, SourceIdentityMatch],
+    *,
+    keep_canonical_alias: bool,
+) -> dict[str, str]:
+    expanded_source_matches = {
+        source_name: source_matches.get(
+            source_name,
+            SourceIdentityMatch(
+                source=source_name,
+                matched=False,
+                entity_id="",
+                entity_label="",
+                match_key="",
+                match_status="",
+            ),
+        )
+        for source_name in GENE_IDENTITY_SOURCES
+    }
+    primary_gene_id = resolve_registry_primary_gene_id(source_matches)
+    identity_fields = {
+        "primary_gene_id": primary_gene_id,
+        "seed_entity_id": "",
+        "source_entity_ids_json": serialize_source_entity_ids(
+            expanded_source_matches,
+            GENE_IDENTITY_SOURCES,
+        ),
+        "match_confidence": derive_registry_match_confidence(
+            primary_gene_id,
+            source_matches,
+        ),
+        "match_provenance_json": serialize_match_provenance(
+            expanded_source_matches,
+            GENE_IDENTITY_SOURCES,
+        ),
+        "provenance_sources_json": serialize_provenance_sources(
+            expanded_source_matches,
+            GENE_IDENTITY_SOURCES,
+        ),
     }
     if keep_canonical_alias:
         identity_fields["canonical_entity_id"] = primary_gene_id

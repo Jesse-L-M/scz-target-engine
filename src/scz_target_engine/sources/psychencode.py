@@ -577,12 +577,17 @@ def mean_present_gene_score(row: dict[str, str], columns: tuple[str, ...]) -> fl
     return mean(values)
 
 
-def normalize_module_input_gene_rows(
-    gene_rows: dict[str, str] | list[dict[str, str]],
-) -> list[dict[str, str]]:
-    if isinstance(gene_rows, list):
-        return gene_rows
-    return [gene_rows]
+def module_candidate_identity_key(gene_row: dict[str, str]) -> str:
+    entity_id = normalize_gene_key(gene_row.get("entity_id"))
+    if entity_id:
+        return f"entity_id::{entity_id}"
+    return "row::" + json.dumps(
+        {
+            key: str(gene_row.get(key, "")).strip()
+            for key in sorted(gene_row)
+        },
+        sort_keys=True,
+    )
 
 
 def select_preferred_module_gene_row(gene_rows: list[dict[str, str]]) -> dict[str, str]:
@@ -727,47 +732,42 @@ def parse_grn_rows_by_cell_type(
 
 
 def build_module_member_gene_entries(
-    member_gene_keys: set[str],
-    gene_rows_by_key: dict[str, dict[str, str] | list[dict[str, str]]],
-    deg_gene_keys: set[str],
-    grn_gene_keys: set[str],
+    member_candidate_keys: set[str],
+    candidate_rows_by_key: dict[str, dict[str, str]],
+    deg_candidate_keys: set[str],
+    grn_candidate_keys: set[str],
 ) -> list[dict[str, object]]:
     entries = []
-    for gene_key in member_gene_keys:
-        gene_rows = normalize_module_input_gene_rows(gene_rows_by_key[gene_key])
-        representative_row = select_preferred_module_gene_row(gene_rows)
-        present_in_deg = gene_key in deg_gene_keys
-        present_in_grn = gene_key in grn_gene_keys
-        provenance_sources = summarize_module_input_provenance_sources(gene_rows)
+    for candidate_key in member_candidate_keys:
+        gene_row = candidate_rows_by_key[candidate_key]
+        present_in_deg = candidate_key in deg_candidate_keys
+        present_in_grn = candidate_key in grn_candidate_keys
+        provenance_sources = extract_input_provenance_sources(gene_row)
         common_variant_support = as_float(
-            representative_row.get("common_variant_support")
+            gene_row.get("common_variant_support")
         )
         rare_variant_support = as_float(
-            representative_row.get("rare_variant_support")
+            gene_row.get("rare_variant_support")
         )
         genetic_score = mean_present_gene_score(
-            representative_row,
+            gene_row,
             ("common_variant_support", "rare_variant_support"),
         )
-        candidate_entity_ids = summarize_module_candidate_entity_ids(
-            gene_rows,
-            representative_row,
-        )
+        entity_id = gene_row.get("entity_id", "").strip()
+        match_confidence = gene_row.get("match_confidence", "").strip()
         entries.append(
             {
-                "entity_id": representative_row.get("entity_id", "").strip(),
-                "entity_label": representative_row.get("entity_label", "").strip(),
-                "approved_name": representative_row.get("approved_name", "").strip(),
+                "entity_id": entity_id,
+                "entity_label": gene_row.get("entity_label", "").strip(),
+                "approved_name": gene_row.get("approved_name", "").strip(),
                 "genetic_score": genetic_score,
                 "common_variant_support": common_variant_support,
                 "rare_variant_support": rare_variant_support,
-                "match_confidence": representative_row.get(
-                    "match_confidence", ""
-                ).strip(),
-                "candidate_row_count": len(gene_rows),
-                "candidate_entity_ids": candidate_entity_ids,
-                "candidate_match_confidences": summarize_module_candidate_match_confidences(
-                    gene_rows
+                "match_confidence": match_confidence,
+                "candidate_row_count": 1,
+                "candidate_entity_ids": [entity_id] if entity_id else [],
+                "candidate_match_confidences": (
+                    [match_confidence] if match_confidence else []
                 ),
                 "membership_sources": [
                     source
@@ -1033,27 +1033,38 @@ def fetch_psychencode_module_table(
     if limit is not None:
         input_rows = input_rows[:limit]
 
+    candidate_rows_by_key: dict[str, dict[str, str]] = {}
+    candidate_keys_by_gene_key: dict[str, list[str]] = defaultdict(list)
     gene_rows_by_key: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in input_rows:
         gene_key = normalize_gene_key(row.get("entity_label"))
-        if gene_key:
-            gene_rows_by_key[gene_key].append(row)
-    if not gene_rows_by_key:
+        if not gene_key:
+            continue
+        candidate_key = module_candidate_identity_key(row)
+        if candidate_key in candidate_rows_by_key:
+            continue
+        candidate_rows_by_key[candidate_key] = row
+        candidate_keys_by_gene_key[gene_key].append(candidate_key)
+        gene_rows_by_key[gene_key].append(row)
+    if not candidate_rows_by_key:
         raise PsychENCODEError("Input file did not contain entity_label values.")
     duplicate_input_gene_groups = summarize_duplicate_module_input_groups(gene_rows_by_key)
 
     deg_text = text_transport(BRAINSCOPE_DEG_COMBINED_URL)
     deg_rows_by_cell_type: dict[str, list[dict[str, str]]] = defaultdict(list)
+    deg_candidate_keys_by_cell_type: dict[str, set[str]] = defaultdict(set)
     deg_reader = csv.DictReader(io.StringIO(deg_text))
     for row in deg_reader:
         gene_key = normalize_gene_key(row.get("gene"))
         cell_type = row.get("cell_type", "").strip()
-        if gene_key in gene_rows_by_key and cell_type:
+        candidate_keys = candidate_keys_by_gene_key.get(gene_key, [])
+        if candidate_keys and cell_type:
             deg_rows_by_cell_type[cell_type].append(row)
+            deg_candidate_keys_by_cell_type[cell_type].update(candidate_keys)
 
     grn_rows_by_cell_type, grn_member_count = parse_grn_rows_by_cell_type(
         bytes_transport(BRAINSCOPE_GRN_ZIP_URL),
-        set(gene_rows_by_key),
+        set(candidate_keys_by_gene_key),
     )
 
     output_rows: list[dict[str, object]] = []
@@ -1063,25 +1074,24 @@ def fetch_psychencode_module_table(
     for cell_type in candidate_cell_types:
         deg_rows = deg_rows_by_cell_type.get(cell_type, [])
         grn_rows = grn_rows_by_cell_type.get(cell_type, [])
-        deg_gene_keys = {
-            normalize_gene_key(row.get("gene"))
-            for row in deg_rows
-            if normalize_gene_key(row.get("gene")) in gene_rows_by_key
-        }
-        grn_gene_keys = {
-            normalize_gene_key(row.get("TG"))
+        deg_candidate_keys = deg_candidate_keys_by_cell_type.get(cell_type, set())
+        grn_candidate_keys = {
+            candidate_key
             for row in grn_rows
-            if normalize_gene_key(row.get("TG")) in gene_rows_by_key
+            for candidate_key in candidate_keys_by_gene_key.get(
+                normalize_gene_key(row.get("TG")),
+                [],
+            )
         }
-        member_gene_keys = set(deg_gene_keys) | set(grn_gene_keys)
+        member_candidate_keys = set(deg_candidate_keys) | set(grn_candidate_keys)
         member_gene_entries = build_module_member_gene_entries(
-            member_gene_keys,
-            gene_rows_by_key,
-            deg_gene_keys,
-            grn_gene_keys,
+            member_candidate_keys,
+            candidate_rows_by_key,
+            deg_candidate_keys,
+            grn_candidate_keys,
         )
-        deg_gene_count = len(deg_gene_keys)
-        grn_target_gene_count = len(grn_gene_keys)
+        deg_gene_count = len(deg_candidate_keys)
+        grn_target_gene_count = len(grn_candidate_keys)
         member_source_breakdown = build_module_member_source_breakdown(
             member_gene_entries
         )
@@ -1212,7 +1222,7 @@ def fetch_psychencode_module_table(
         "input_file": str(input_file),
         "output_file": str(output_file),
         "input_row_count": len(input_rows),
-        "input_gene_count": len(gene_rows_by_key),
+        "input_gene_count": len(candidate_rows_by_key),
         "duplicate_input_gene_label_count": len(duplicate_input_gene_groups),
         "duplicate_input_gene_labels": duplicate_input_gene_groups,
         "row_count": len(output_rows),

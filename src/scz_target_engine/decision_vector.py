@@ -62,6 +62,24 @@ PR7_LEDGER_INPUTS = {
     ),
 }
 
+DOMAIN_RELEVANCE = {
+    "acute_positive_symptoms": frozenset({"acute_positive_symptoms"}),
+    "relapse_prevention": frozenset({"relapse_prevention"}),
+    "treatment_resistant_schizophrenia": frozenset(
+        {
+            "treatment_resistant_schizophrenia",
+            "clozapine_resistant_schizophrenia",
+        }
+    ),
+    "clozapine_resistant_schizophrenia": frozenset({"clozapine_resistant_schizophrenia"}),
+    "negative_symptoms": frozenset({"negative_symptoms"}),
+    "cognition": frozenset({"cognition"}),
+    "chr_transition_prevention": frozenset({"chr_transition_prevention"}),
+    "functioning_durable_recovery_relevance": frozenset(
+        {"functioning_durable_recovery_relevance"}
+    ),
+}
+
 
 @dataclass(frozen=True)
 class WeightedInputSpec:
@@ -125,6 +143,7 @@ class DomainHeadScore:
     total_head_count: int
     pending_head_names: tuple[str, ...]
     missing_head_names: tuple[str, ...]
+    projected_head_scores: tuple[tuple[str, float | None], ...]
 
 
 @dataclass(frozen=True)
@@ -376,16 +395,38 @@ def clamp_score(value: float) -> float:
     return round(max(0.0, min(1.0, value)), 6)
 
 
-def compute_failure_burden_score(target_ledger: TargetLedger) -> float:
-    failure_history = target_ledger.structural_failure_history
-    failure_event_count = int(failure_history["failure_event_count"])
+def iter_relevant_program_events(
+    target_ledger: TargetLedger,
+    domain_slug: str | None,
+) -> list[dict[str, object]]:
+    events = list(target_ledger.structural_failure_history["events"])
+    if domain_slug is None:
+        return events
+    relevant_domains = DOMAIN_RELEVANCE.get(domain_slug, frozenset({domain_slug}))
+    return [
+        event
+        for event in events
+        if str(event.get("where", {}).get("domain", "")) in relevant_domains
+    ]
+
+
+def compute_failure_burden_score(
+    target_ledger: TargetLedger,
+    domain_slug: str | None = None,
+) -> float:
+    relevant_events = [
+        event
+        for event in iter_relevant_program_events(target_ledger, domain_slug)
+        if event.get("failure_scope") != "nonfailure"
+    ]
+    failure_event_count = len(relevant_events)
     if failure_event_count == 0:
         return 1.0
 
     scope_penalty = max(
         (
             FAILURE_SCOPE_PENALTIES.get(str(scope), FAILURE_SCOPE_PENALTIES["unresolved"])
-            for scope in failure_history["failure_scopes"]
+            for scope in (event.get("failure_scope") for event in relevant_events)
         ),
         default=0.0,
     )
@@ -395,8 +436,7 @@ def compute_failure_burden_score(target_ledger: TargetLedger) -> float:
                 str(event.get("evidence_strength")),
                 FAILURE_EVIDENCE_PENALTIES["provisional"],
             )
-            for event in failure_history["events"]
-            if event.get("failure_scope") != "nonfailure"
+            for event in relevant_events
         ),
         default=0.0,
     )
@@ -425,35 +465,85 @@ def compute_directionality_confidence_score(target_ledger: TargetLedger) -> floa
     return clamp_score(score)
 
 
-def compute_subgroup_resolution_score(target_ledger: TargetLedger) -> float:
+def compute_subgroup_resolution_score(
+    target_ledger: TargetLedger,
+    domain_slug: str | None = None,
+) -> float:
     subgroup = target_ledger.subgroup_domain_relevance
-    failure_history = target_ledger.structural_failure_history
+    relevant_events = iter_relevant_program_events(target_ledger, domain_slug)
     score = 0.0
 
-    clinical_domain_count = len(subgroup["clinical_domains"])
+    clinical_domains = sorted(
+        {
+            str(event.get("where", {}).get("domain", ""))
+            for event in relevant_events
+            if event.get("where", {}).get("domain")
+        }
+    )
+    clinical_domain_count = len(clinical_domains if domain_slug is not None else subgroup["clinical_domains"])
     if clinical_domain_count == 1:
         score += 0.25
     elif clinical_domain_count > 1:
         score += 0.15
 
-    clinical_population_count = len(subgroup["clinical_populations"])
+    clinical_populations = sorted(
+        {
+            str(event.get("where", {}).get("population", ""))
+            for event in relevant_events
+            if event.get("where", {}).get("population")
+        }
+    )
+    clinical_population_count = len(
+        clinical_populations if domain_slug is not None else subgroup["clinical_populations"]
+    )
     if clinical_population_count == 1:
         score += 0.25
     elif clinical_population_count > 1:
         score += 0.15
 
-    if subgroup["mono_or_adjunct_contexts"]:
+    mono_or_adjunct_contexts = sorted(
+        {
+            str(event.get("mono_or_adjunct", ""))
+            for event in relevant_events
+            if event.get("mono_or_adjunct")
+        }
+    )
+    if (
+        mono_or_adjunct_contexts
+        if domain_slug is not None
+        else subgroup["mono_or_adjunct_contexts"]
+    ):
         score += 0.10
     if subgroup["psychencode_deg_top_cell_types"]:
         score += 0.15
     if subgroup["psychencode_grn_top_cell_types"]:
         score += 0.15
-    if "population" in failure_history["failure_scopes"]:
+    if any(event.get("failure_scope") == "population" for event in relevant_events):
         score -= 0.15
-    if "heterogeneity_or_subgroup_dilution" in failure_history["failure_taxonomies"]:
+    if any(
+        event.get("failure_reason_taxonomy") == "heterogeneity_or_subgroup_dilution"
+        for event in relevant_events
+    ):
         score -= 0.15
 
     return clamp_score(score)
+
+
+def project_head_score_for_domain(
+    head_name: str,
+    head_score: DecisionHeadScore,
+    target_ledger: TargetLedger | None,
+    domain_slug: str,
+) -> float | None:
+    if head_score.score is None:
+        return None
+    if target_ledger is None:
+        return head_score.score
+    if head_name == "failure_burden_score":
+        return compute_failure_burden_score(target_ledger, domain_slug=domain_slug)
+    if head_name == "subgroup_resolution_score":
+        return compute_subgroup_resolution_score(target_ledger, domain_slug=domain_slug)
+    return head_score.score
 
 
 def build_ledger_backed_head_score(
@@ -576,17 +666,26 @@ def build_decision_head_score(
 def build_domain_head_score(
     head_scores: dict[str, DecisionHeadScore],
     definition: DomainHeadDefinition,
+    target_ledger: TargetLedger | None = None,
 ) -> DomainHeadScore:
     weighted_values: list[tuple[float, float]] = []
     present_weight = 0.0
     available_head_count = 0
     pending_head_names: list[str] = []
     missing_head_names: list[str] = []
+    projected_head_scores: list[tuple[str, float | None]] = []
 
     for head_name, weight in definition.decision_head_weights:
         head_score = head_scores[head_name]
-        if head_score.score is not None:
-            weighted_values.append((head_score.score, weight))
+        projected_score = project_head_score_for_domain(
+            head_name,
+            head_score,
+            target_ledger,
+            definition.slug,
+        )
+        projected_head_scores.append((head_name, projected_score))
+        if projected_score is not None:
+            weighted_values.append((projected_score, weight))
             present_weight += weight
             available_head_count += 1
             continue
@@ -613,6 +712,7 @@ def build_domain_head_score(
         total_head_count=len(definition.decision_head_weights),
         pending_head_names=tuple(pending_head_names),
         missing_head_names=tuple(missing_head_names),
+        projected_head_scores=tuple(projected_head_scores),
     )
 
 
@@ -626,7 +726,7 @@ def build_decision_vector(
     )
     head_score_index = {score.head_name: score for score in head_scores}
     domain_head_scores = tuple(
-        build_domain_head_score(head_score_index, definition)
+        build_domain_head_score(head_score_index, definition, target_ledger)
         for definition in DOMAIN_HEAD_DEFINITIONS
     )
     return DecisionVectorV1(
@@ -682,6 +782,10 @@ def serialize_domain_head_score(score: DomainHeadScore) -> dict[str, object]:
         "total_head_count": score.total_head_count,
         "pending_head_names": list(score.pending_head_names),
         "missing_head_names": list(score.missing_head_names),
+        "projected_head_scores": {
+            head_name: projected_score
+            for head_name, projected_score in score.projected_head_scores
+        },
     }
 
 
@@ -770,6 +874,7 @@ def rank_domain_head_rows(vectors: list[DecisionVectorV1]) -> list[dict[str, obj
     for vector in vectors:
         head_score_index = {score.head_name: score for score in vector.head_scores}
         for domain_score in vector.domain_head_scores:
+            projected_head_score_index = dict(domain_score.projected_head_scores)
             row: dict[str, object] = {
                 "entity_type": vector.entity_type,
                 "entity_id": vector.entity_id,
@@ -795,7 +900,10 @@ def rank_domain_head_rows(vectors: list[DecisionVectorV1]) -> list[dict[str, obj
             }
             for head_definition in DECISION_HEAD_DEFINITIONS:
                 head_score = head_score_index[head_definition.name]
-                row[head_definition.name] = head_score.score
+                row[head_definition.name] = projected_head_score_index.get(
+                    head_definition.name,
+                    head_score.score,
+                )
                 row[f"{head_definition.name}_status"] = head_score.status
             rows.append(row)
 

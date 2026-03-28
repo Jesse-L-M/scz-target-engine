@@ -45,11 +45,21 @@ def make_failure_event(
     failure_scope: str,
     evidence_strength: str,
     failure_reason_taxonomy: str,
+    domain: str | None = None,
+    population: str | None = None,
+    mono_or_adjunct: str | None = None,
 ) -> dict[str, object]:
     return {
         "failure_scope": failure_scope,
         "evidence_strength": evidence_strength,
         "failure_reason_taxonomy": failure_reason_taxonomy,
+        "where": {
+            "domain": domain or "",
+            "population": population or "",
+            "phase": "",
+            "mono_or_adjunct": mono_or_adjunct or "",
+        },
+        "mono_or_adjunct": mono_or_adjunct or "",
     }
 
 
@@ -354,6 +364,182 @@ def test_domain_head_rankings_consume_numeric_pr7_heads() -> None:
     assert trs_rows[0]["domain_head_score_v1"] > trs_rows[1]["domain_head_score_v1"]
 
 
+def test_domain_head_rankings_keep_off_domain_subgroup_context_neutral() -> None:
+    lhs = make_ranked_entity(
+        entity_id="ENSGSUB1",
+        entity_label="SUB1",
+        layer_values={
+            "common_variant_support": 0.60,
+            "rare_variant_support": 0.60,
+            "cell_state_support": 0.60,
+            "developmental_regulatory_support": 0.60,
+            "tractability_compoundability": 0.60,
+        },
+        metadata={"generic_platform_baseline": "0.60"},
+        composite_score=0.6,
+        rank=1,
+    )
+    rhs = make_ranked_entity(
+        entity_id="ENSGSUB2",
+        entity_label="SUB2",
+        layer_values=dict(lhs.layer_values),
+        metadata=dict(lhs.metadata),
+        composite_score=0.6,
+        rank=2,
+    )
+
+    lhs_ledger = make_target_ledger(
+        entity_id=lhs.entity_id,
+        entity_label=lhs.entity_label,
+        failure_events=[
+            make_failure_event(
+                failure_scope="nonfailure",
+                evidence_strength="strong",
+                failure_reason_taxonomy="not_applicable_nonfailure",
+                domain="treatment_resistant_schizophrenia",
+                population="treatment-resistant adults",
+                mono_or_adjunct="monotherapy",
+            )
+        ],
+        psychencode_deg_top_cell_types=[{"cell_type": "Vip", "row_score": 0.2}],
+        psychencode_grn_top_cell_types=[{"cell_type": "L2.3.IT", "score": 0.8}],
+    )
+    rhs_ledger = make_target_ledger(
+        entity_id=rhs.entity_id,
+        entity_label=rhs.entity_label,
+        psychencode_deg_top_cell_types=[{"cell_type": "Vip", "row_score": 0.2}],
+        psychencode_grn_top_cell_types=[{"cell_type": "L2.3.IT", "score": 0.8}],
+    )
+
+    rows = rank_domain_head_rows(
+        build_decision_vectors(
+            [lhs, rhs],
+            ledger_index={
+                lhs.entity_id: lhs_ledger,
+                rhs.entity_id: rhs_ledger,
+            },
+        )
+    )
+    acute_rows = {
+        row["entity_label"]: row
+        for row in rows
+        if row["domain_slug"] == "acute_positive_symptoms"
+    }
+    trs_rows = {
+        row["entity_label"]: row
+        for row in rows
+        if row["domain_slug"] == "treatment_resistant_schizophrenia"
+    }
+
+    assert acute_rows["SUB1"]["subgroup_resolution_score"] == acute_rows["SUB2"][
+        "subgroup_resolution_score"
+    ]
+    assert acute_rows["SUB1"]["domain_head_score_v1"] == acute_rows["SUB2"][
+        "domain_head_score_v1"
+    ]
+    assert trs_rows["SUB1"]["subgroup_resolution_score"] > trs_rows["SUB2"][
+        "subgroup_resolution_score"
+    ]
+    assert trs_rows["SUB1"]["domain_head_score_v1"] > trs_rows["SUB2"][
+        "domain_head_score_v1"
+    ]
+
+
+def test_domain_head_rankings_keep_off_domain_failure_burden_neutral() -> None:
+    lhs = make_ranked_entity(
+        entity_id="ENSGFAIL1",
+        entity_label="FAIL1",
+        layer_values={
+            "common_variant_support": 0.60,
+            "rare_variant_support": 0.60,
+            "cell_state_support": 0.60,
+            "developmental_regulatory_support": 0.60,
+            "tractability_compoundability": 0.60,
+        },
+        metadata={"generic_platform_baseline": "0.60"},
+        composite_score=0.6,
+        rank=1,
+    )
+    rhs = make_ranked_entity(
+        entity_id="ENSGFAIL2",
+        entity_label="FAIL2",
+        layer_values=dict(lhs.layer_values),
+        metadata=dict(lhs.metadata),
+        composite_score=0.6,
+        rank=2,
+    )
+
+    lhs_ledger = make_target_ledger(
+        entity_id=lhs.entity_id,
+        entity_label=lhs.entity_label,
+        failure_events=[
+            make_failure_event(
+                failure_scope="nonfailure",
+                evidence_strength="strong",
+                failure_reason_taxonomy="not_applicable_nonfailure",
+                domain="acute_positive_symptoms",
+                population="adults with schizophrenia",
+                mono_or_adjunct="monotherapy",
+            ),
+            make_failure_event(
+                failure_scope="unresolved",
+                evidence_strength="moderate",
+                failure_reason_taxonomy="unresolved",
+                domain="acute_positive_symptoms",
+                population="adults with schizophrenia",
+                mono_or_adjunct="monotherapy",
+            )
+        ],
+    )
+    rhs_ledger = make_target_ledger(
+        entity_id=rhs.entity_id,
+        entity_label=rhs.entity_label,
+        failure_events=[
+            make_failure_event(
+                failure_scope="nonfailure",
+                evidence_strength="strong",
+                failure_reason_taxonomy="not_applicable_nonfailure",
+                domain="acute_positive_symptoms",
+                population="adults with schizophrenia",
+                mono_or_adjunct="monotherapy",
+            )
+        ],
+    )
+
+    rows = rank_domain_head_rows(
+        build_decision_vectors(
+            [lhs, rhs],
+            ledger_index={
+                lhs.entity_id: lhs_ledger,
+                rhs.entity_id: rhs_ledger,
+            },
+        )
+    )
+    acute_rows = {
+        row["entity_label"]: row
+        for row in rows
+        if row["domain_slug"] == "acute_positive_symptoms"
+    }
+    trs_rows = {
+        row["entity_label"]: row
+        for row in rows
+        if row["domain_slug"] == "treatment_resistant_schizophrenia"
+    }
+
+    assert acute_rows["FAIL1"]["failure_burden_score"] < acute_rows["FAIL2"][
+        "failure_burden_score"
+    ]
+    assert acute_rows["FAIL1"]["domain_head_score_v1"] == acute_rows["FAIL2"][
+        "domain_head_score_v1"
+    ]
+    assert trs_rows["FAIL1"]["failure_burden_score"] == trs_rows["FAIL2"][
+        "failure_burden_score"
+    ]
+    assert trs_rows["FAIL1"]["domain_head_score_v1"] == trs_rows["FAIL2"][
+        "domain_head_score_v1"
+    ]
+
+
 def test_domain_head_rankings_separate_use_cases() -> None:
     acute_favored = make_ranked_entity(
         entity_id="ENSGACUTE",
@@ -449,6 +635,18 @@ def test_decision_vector_payload_keeps_head_schema_and_domains() -> None:
     assert (
         gene_entity["domain_profiles"]["acute_positive_symptoms"]["label"]
         == "Acute positive symptoms"
+    )
+    assert (
+        gene_entity["domain_profiles"]["acute_positive_symptoms"]["projected_head_scores"][
+            "subgroup_resolution_score"
+        ]
+        == 0.3
+    )
+    assert (
+        gene_entity["domain_profiles"]["relapse_prevention"]["projected_head_scores"][
+            "failure_burden_score"
+        ]
+        == 1.0
     )
     assert gene_entity["head_scores"][0]["head_name"] == "human_support_score"
     assert gene_entity["domain_head_scores"][0]["domain_slug"] == "acute_positive_symptoms"

@@ -121,7 +121,7 @@ Each entity in `decision_vectors_v1.json` now exposes:
 - named head fields such as `human_support_score` and `biology_context_score`
 - matching `*_status` fields for those heads
 - a `decision_vector` object keyed by head name for the richer per-head payload
-- a `domain_profiles` object keyed by ontology slug for per-domain/per-stage inspection
+- a `domain_profiles` object keyed by ontology slug for per-domain/per-stage inspection, including `projected_head_scores` for the head values actually consumed by that profile
 
 ### Decision Heads
 
@@ -141,6 +141,7 @@ Each entity in `decision_vectors_v1.json` now exposes:
   - Count penalty: `0.15 * failure_event_count`, capped at `0.45`
   - Strongest scope penalty: `target 0.35`, `target_class 0.30`, `unresolved 0.25`, `population 0.20`, `endpoint 0.15`, `molecule 0.10`
   - Strongest evidence penalty: `strong 0.10`, `moderate 0.05`, `provisional 0.0`
+  - Domain profiles and `domain_head_rankings_v1.csv` project this head through the profile ontology bucket, so an acute-only failure event stays neutral for unrelated domains such as `negative_symptoms` or `treatment_resistant_schizophrenia`
   - Module semantics: not currently applicable because the merged PR7 ledger substrate is target-level only
 - `directionality_confidence`
   - Gene semantics: confidence that directionality is curated, concrete, and not heavily contradicted in the ledger
@@ -161,6 +162,7 @@ Each entity in `decision_vectors_v1.json` now exposes:
   - Add `0.15` when `psychencode_grn_top_cell_types` is non-empty
   - Subtract `0.15` when `failure_scopes` includes `population`
   - Subtract `0.15` when `failure_taxonomies` includes `heterogeneity_or_subgroup_dilution`
+  - Domain profiles and `domain_head_rankings_v1.csv` only consume the clinical-domain, population, regimen, and heterogeneity parts of this head when the ledger event domain matches the profile ontology bucket; PsychENCODE cell-state context remains global
   - Module semantics: not currently applicable because the merged PR7 ledger substrate is target-level only
 
 ### Domain / Stage Head Profiles
@@ -176,7 +178,7 @@ Canonical ontology buckets from `docs/ontology.md` now map to explicit `v1` prof
 - `chr_transition_prevention`
 - `functioning_durable_recovery_relevance`
 
-Each profile is a documented weighted blend over the `v1` decision heads. Gene-target rows now consume all six heads numerically when the PR7 ledger is present; module rows still compute over the available subset because the merged PR7 substrate is target-level only.
+Each profile is a documented weighted blend over the `v1` decision heads. Gene-target rows now consume all six heads numerically when the PR7 ledger is present, but `failure_burden_score` and `subgroup_resolution_score` are projected through the profile's ontology bucket before they affect that profile. Module rows still compute over the available subset because the merged PR7 substrate is target-level only.
 
 ### Legacy Comparison Contract
 

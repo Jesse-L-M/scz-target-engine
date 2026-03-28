@@ -235,6 +235,36 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     assert tcf4_negative["failure_burden_score"] == "1.0"
     assert tcf4_negative["directionality_confidence"] == "0.25"
     assert tcf4_negative["directionality_confidence_status"] == "available"
+    assert tcf4_negative["subgroup_resolution_score"] == "0.3"
+
+    drd2_negative = next(
+        row
+        for row in domain_rows
+        if row["entity_label"] == "DRD2" and row["domain_slug"] == "negative_symptoms"
+    )
+    drd2_trs = next(
+        row
+        for row in domain_rows
+        if row["entity_label"] == "DRD2"
+        and row["domain_slug"] == "treatment_resistant_schizophrenia"
+    )
+    assert drd2_negative["subgroup_resolution_score"] == "0.3"
+    assert drd2_trs["subgroup_resolution_score"] == "0.9"
+
+    chrm4_acute = next(
+        row
+        for row in domain_rows
+        if row["entity_label"] == "CHRM4"
+        and row["domain_slug"] == "acute_positive_symptoms"
+    )
+    chrm4_trs = next(
+        row
+        for row in domain_rows
+        if row["entity_label"] == "CHRM4"
+        and row["domain_slug"] == "treatment_resistant_schizophrenia"
+    )
+    assert chrm4_acute["failure_burden_score"] == "0.55"
+    assert chrm4_trs["failure_burden_score"] == "1.0"
 
     assert result["gene_target_ledger_file"].endswith("gene_target_ledgers.json")
     assert result["decision_vector_artifact"].endswith("decision_vectors_v1.json")

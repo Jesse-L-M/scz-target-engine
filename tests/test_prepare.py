@@ -2,7 +2,13 @@ import csv
 import json
 from pathlib import Path
 
-from scz_target_engine.prepare import ENGINE_LAYER_COLUMNS, prepare_gene_table, refresh_example_gene_table
+from scz_target_engine.prepare import (
+    ENGINE_LAYER_COLUMNS,
+    prepare_gene_table,
+    refresh_example_gene_table,
+    refresh_example_input_tables,
+    refresh_example_module_table,
+)
 
 
 def test_prepare_gene_table_preserves_explicit_identity_contract(tmp_path: Path) -> None:
@@ -488,3 +494,178 @@ def test_refresh_example_gene_table_fetches_sources_and_publishes_curated_csv(
     )
     assert result["published_output_file"] == str(output_file.resolve())
     assert result["curated_output_file"] == str(calls["prepared"])
+
+
+def test_refresh_example_module_table_defaults_to_candidate_registry_and_copies_metadata(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    output_file = tmp_path / "published" / "module_evidence.csv"
+    work_dir = tmp_path / "module-work"
+    candidate_file = work_dir / "registry" / "candidate_gene_registry.csv"
+    candidate_file.parent.mkdir(parents=True, exist_ok=True)
+    candidate_file.write_text("entity_id,entity_label\nENSG0001,DRD2\n", encoding="utf-8")
+
+    calls: dict[str, Path | None] = {}
+
+    def fake_refresh_candidate_registry(
+        *,
+        output_file: Path | None,
+        work_dir: Path | None = None,
+        disease_id: str | None = None,
+        disease_query: str | None = None,
+        include_pgc: bool = True,
+    ) -> dict[str, object]:
+        calls["registry_output_file"] = output_file
+        calls["registry_work_dir"] = work_dir
+        calls["registry_disease_id"] = disease_id
+        calls["registry_disease_query"] = disease_query
+        calls["registry_include_pgc"] = include_pgc
+        return {
+            "published_output_file": str(candidate_file.resolve()),
+            "registry": {"row_count": 1},
+        }
+
+    def fake_fetch_psychencode_module_table(
+        *,
+        input_file: Path,
+        output_file: Path,
+        limit: int | None = None,
+        text_transport=None,
+        bytes_transport=None,
+    ) -> dict[str, object]:
+        calls["module_input"] = input_file
+        calls["module_output"] = output_file
+        output_file.write_text(
+            (
+                "entity_id,entity_label,member_gene_genetic_enrichment,"
+                "cell_state_specificity,developmental_regulatory_relevance\n"
+                "psychencode:opc,BrainSCOPE OPC,0.4,0.3,0.8\n"
+            ),
+            encoding="utf-8",
+        )
+        output_file.with_suffix(".metadata.json").write_text(
+            json.dumps({"row_count": 1, "retained_cell_type_count": 1}, sort_keys=True),
+            encoding="utf-8",
+        )
+        return {"output_file": str(output_file), "row_count": 1}
+
+    monkeypatch.setattr(
+        "scz_target_engine.prepare.refresh_candidate_registry",
+        fake_refresh_candidate_registry,
+    )
+    monkeypatch.setattr(
+        "scz_target_engine.prepare.fetch_psychencode_module_table",
+        fake_fetch_psychencode_module_table,
+    )
+
+    result = refresh_example_module_table(
+        output_file=output_file,
+        work_dir=work_dir,
+    )
+
+    assert calls["registry_output_file"] is not None
+    assert Path(calls["registry_output_file"]) == candidate_file.resolve()
+    assert calls["registry_work_dir"] == work_dir.resolve()
+    assert calls["registry_disease_id"] is None
+    assert calls["registry_disease_query"] is None
+    assert calls["registry_include_pgc"] is True
+    assert calls["module_input"] == candidate_file.resolve()
+    assert calls["module_output"] == (
+        work_dir.resolve() / "psychencode" / "example_module_evidence.csv"
+    )
+    assert output_file.read_text(encoding="utf-8") == calls["module_output"].read_text(
+        encoding="utf-8"
+    )
+    assert output_file.with_suffix(".metadata.json").read_text(encoding="utf-8") == (
+        calls["module_output"].with_suffix(".metadata.json").read_text(encoding="utf-8")
+    )
+    assert result["input_file"] == str(candidate_file.resolve())
+    assert result["candidate_registry"] == {
+        "published_output_file": str(candidate_file.resolve()),
+        "registry": {"row_count": 1},
+    }
+
+
+def test_refresh_example_input_tables_rebuilds_modules_from_registry_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_file = tmp_path / "gene_seed.csv"
+    gene_output_file = tmp_path / "published" / "gene_evidence.csv"
+    module_output_file = tmp_path / "published" / "module_evidence.csv"
+    gene_work_dir = tmp_path / "gene-work"
+    module_work_dir = tmp_path / "module-work"
+    overrides_file = tmp_path / "overrides.json"
+    seed_file.write_text("entity_id,entity_label\nENSG0001,DRD2\n", encoding="utf-8")
+    overrides_file.write_text("{}", encoding="utf-8")
+
+    calls: dict[str, object] = {}
+
+    def fake_refresh_example_gene_table(
+        *,
+        seed_file: Path | None = None,
+        output_file: Path | None = None,
+        work_dir: Path | None = None,
+        disease_id: str | None = None,
+        disease_query: str | None = None,
+        overrides_file: Path | None = None,
+    ) -> dict[str, object]:
+        calls["gene_seed_file"] = seed_file
+        calls["gene_output_file"] = output_file
+        calls["gene_work_dir"] = work_dir
+        calls["gene_disease_id"] = disease_id
+        calls["gene_disease_query"] = disease_query
+        calls["gene_overrides_file"] = overrides_file
+        return {
+            "published_output_file": str(gene_output_file.resolve()),
+            "row_count": 1,
+        }
+
+    def fake_refresh_example_module_table(
+        *,
+        gene_file: Path | None = None,
+        output_file: Path | None = None,
+        work_dir: Path | None = None,
+    ) -> dict[str, object]:
+        calls["module_gene_file"] = gene_file
+        calls["module_output_file"] = output_file
+        calls["module_work_dir"] = work_dir
+        return {
+            "published_output_file": str(module_output_file.resolve()),
+            "candidate_registry": {"row_count": 1},
+        }
+
+    monkeypatch.setattr(
+        "scz_target_engine.prepare.refresh_example_gene_table",
+        fake_refresh_example_gene_table,
+    )
+    monkeypatch.setattr(
+        "scz_target_engine.prepare.refresh_example_module_table",
+        fake_refresh_example_module_table,
+    )
+
+    result = refresh_example_input_tables(
+        seed_file=seed_file,
+        gene_output_file=gene_output_file,
+        module_output_file=module_output_file,
+        gene_work_dir=gene_work_dir,
+        module_work_dir=module_work_dir,
+        disease_id="MONDO_0005090",
+        disease_query="schizophrenia",
+        overrides_file=overrides_file,
+    )
+
+    assert calls["gene_seed_file"] == seed_file
+    assert calls["gene_output_file"] == gene_output_file
+    assert calls["gene_work_dir"] == gene_work_dir
+    assert calls["gene_disease_id"] == "MONDO_0005090"
+    assert calls["gene_disease_query"] == "schizophrenia"
+    assert calls["gene_overrides_file"] == overrides_file
+    assert calls["module_gene_file"] is None
+    assert calls["module_output_file"] == module_output_file
+    assert calls["module_work_dir"] == module_work_dir
+    assert result["gene"]["published_output_file"] == str(gene_output_file.resolve())
+    assert result["module"]["published_output_file"] == str(
+        module_output_file.resolve()
+    )

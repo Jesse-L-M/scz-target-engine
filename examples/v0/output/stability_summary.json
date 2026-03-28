@@ -68,7 +68,7 @@
   "module": {
     "leave_one_out_overlaps": {
       "cell_state_specificity": 1.0,
-      "developmental_regulatory_relevance": 0.85,
+      "developmental_regulatory_relevance": 1.0,
       "member_gene_genetic_enrichment": 1.0
     },
     "leave_one_out_top10_ejections": {
@@ -79,19 +79,17 @@
     "pass_condition": true,
     "perturbation_overlaps": [
       1.0,
-      0.95,
       1.0,
       1.0,
-      0.95,
+      1.0,
+      1.0,
       1.0
     ],
     "survival_rates": {
-      "psychencode:ast": 1.0,
       "psychencode:chandelier": 1.0,
       "psychencode:l2_3_it": 1.0,
       "psychencode:l4_it": 1.0,
       "psychencode:l5_6_np": 1.0,
-      "psychencode:l5_et": 0.6666666666666666,
       "psychencode:l5_it": 1.0,
       "psychencode:l6_ct": 1.0,
       "psychencode:l6_it": 1.0,
@@ -99,9 +97,7 @@
       "psychencode:l6b": 1.0,
       "psychencode:lamp5": 1.0,
       "psychencode:lamp5_lhx6": 1.0,
-      "psychencode:oli": 0.8888888888888888,
       "psychencode:opc": 1.0,
-      "psychencode:pax6": 0.8888888888888888,
       "psychencode:pvalb": 1.0,
       "psychencode:sncg": 1.0,
       "psychencode:sst": 1.0,

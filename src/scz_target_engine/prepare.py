@@ -3,6 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 
+from scz_target_engine.ingest import (
+    DEFAULT_CANDIDATE_REGISTRY_OUTPUT_FILE,
+    refresh_candidate_registry,
+)
 from scz_target_engine.identity import (
     build_gene_identity_fields,
     build_seed_identity_match,
@@ -89,6 +93,11 @@ DEFAULT_EXAMPLE_GENE_WORK_DIR = REPO_ROOT / "data" / "processed" / "example_gene
 DEFAULT_EXAMPLE_MODULE_OUTPUT_FILE = REPO_ROOT / "examples" / "v0" / "input" / "module_evidence.csv"
 DEFAULT_EXAMPLE_MODULE_WORK_DIR = (
     REPO_ROOT / "data" / "processed" / "example_module_workflow"
+)
+DEFAULT_EXAMPLE_MODULE_INPUT_FILE = (
+    DEFAULT_EXAMPLE_MODULE_WORK_DIR
+    / "registry"
+    / DEFAULT_CANDIDATE_REGISTRY_OUTPUT_FILE.name
 )
 DEFAULT_EXAMPLE_GENE_DISEASE_QUERY = "schizophrenia"
 
@@ -468,9 +477,18 @@ def refresh_example_module_table(
     output_file: Path | None = None,
     work_dir: Path | None = None,
 ) -> dict[str, object]:
-    resolved_gene_file = (gene_file or DEFAULT_EXAMPLE_GENE_OUTPUT_FILE).resolve()
     resolved_output_file = (output_file or DEFAULT_EXAMPLE_MODULE_OUTPUT_FILE).resolve()
     resolved_work_dir = (work_dir or DEFAULT_EXAMPLE_MODULE_WORK_DIR).resolve()
+
+    candidate_registry_refresh = None
+    if gene_file is None:
+        candidate_registry_refresh = refresh_candidate_registry(
+            output_file=resolved_work_dir / "registry" / DEFAULT_EXAMPLE_MODULE_INPUT_FILE.name,
+            work_dir=resolved_work_dir,
+        )
+        resolved_gene_file = Path(candidate_registry_refresh["published_output_file"])
+    else:
+        resolved_gene_file = gene_file.resolve()
 
     module_file = resolved_work_dir / "psychencode" / "example_module_evidence.csv"
     module_file.parent.mkdir(parents=True, exist_ok=True)
@@ -483,12 +501,18 @@ def refresh_example_module_table(
     resolved_output_file.parent.mkdir(parents=True, exist_ok=True)
     if module_file != resolved_output_file:
         shutil.copyfile(module_file, resolved_output_file)
+        shutil.copyfile(
+            module_file.with_suffix(".metadata.json"),
+            resolved_output_file.with_suffix(".metadata.json"),
+        )
 
     return {
+        "input_file": str(resolved_gene_file),
         "gene_file": str(resolved_gene_file),
         "work_dir": str(resolved_work_dir),
         "published_output_file": str(resolved_output_file),
         "curated_output_file": str(module_file),
+        "candidate_registry": candidate_registry_refresh,
         "psychencode_modules": module_metadata,
     }
 
@@ -512,7 +536,6 @@ def refresh_example_input_tables(
         overrides_file=overrides_file,
     )
     module_refresh = refresh_example_module_table(
-        gene_file=Path(gene_refresh["published_output_file"]),
         output_file=module_output_file,
         work_dir=module_work_dir,
     )

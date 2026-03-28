@@ -31,7 +31,7 @@ The engine currently implements:
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
 - Implementation-ready ontology plus a checked-in program-history and failure-taxonomy substrate for later domain-aware reasoning
 - A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters as a fixture path
-- A checked-in curated module table derived from `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
+- A checked-in module fixture path rebuilt from the full-universe candidate registry plus `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
 - Live data fetchers:
   - `Open Targets` schizophrenia baseline via the official GraphQL API
   - `ChEMBL` tractability annotation for shortlist genes
@@ -47,7 +47,7 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 - `v0` is infrastructure, not the full target-engine vision.
 - `v0` is a public-evidence prioritization scaffold, not a validated decision authority.
 - `v0` does not yet score relapse prevention, negative symptoms, cognition, CHR/transition prevention, or durable recovery relevance separately.
-- `v0` now has a non-seed ingest path, but it does not yet claim a fully seed-independent end-to-end scoring rebuild.
+- `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
 - Warning overlays remain reporting-only.
 - Program-history and failure-taxonomy artifacts are checked in as curated substrate only; they do not yet affect numeric scoring.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
@@ -70,7 +70,8 @@ Refresh the example gene and module tables from the live source adapters:
 uv run scz-target-engine refresh-example-inputs
 ```
 
-`refresh-example-inputs` remains the fast fixture workflow for checked-in example inputs.
+`refresh-example-inputs` still publishes the checked-in example fixtures; the module side
+now rebuilds from the non-seed candidate registry while the gene side remains seed-driven.
 
 Then run the example build:
 
@@ -138,11 +139,12 @@ uv run scz-target-engine fetch-psychencode \
   --output-file data/processed/example_gene_workflow/psychencode/example_support.csv
 ```
 
-Fetch `PsychENCODE / BrainSCOPE` source-backed module evidence from a curated gene table:
+Fetch `PsychENCODE / BrainSCOPE` source-backed module evidence from the candidate registry
+or another provenance-bearing candidate input:
 
 ```bash
 uv run scz-target-engine fetch-psychencode-modules \
-  --input-file examples/v0/input/gene_evidence.csv \
+  --input-file data/processed/full_universe_ingest/registry/candidate_gene_registry.csv \
   --output-file data/processed/example_module_workflow/psychencode/example_module_evidence.csv
 ```
 
@@ -230,6 +232,11 @@ Required columns:
 - `member_gene_genetic_enrichment`
 - `cell_state_specificity`
 - `developmental_regulatory_relevance`
+
+Prepared module tables also carry admissibility and provenance context such as
+`psychencode_module_genetically_supported_gene_count`,
+`psychencode_module_member_source_breakdown_json`, and
+`psychencode_module_admissibility_json`.
 
 ### Warning Overlays
 

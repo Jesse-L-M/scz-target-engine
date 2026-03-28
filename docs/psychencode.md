@@ -7,8 +7,9 @@ It currently fills two engine columns:
 - `cell_state_support`
 - `developmental_regulatory_support`
 
-`fetch-psychencode-modules` uses the same official BrainSCOPE sources plus a curated
-gene evidence table to derive source-backed module rows for the module leaderboard.
+`fetch-psychencode-modules` uses the same official BrainSCOPE sources plus a broader
+candidate input, normally the PR5 candidate registry, to derive source-backed module
+rows for the module leaderboard.
 
 The first is a direct schizophrenia cell-state proxy from differential expression. The second is currently the regulatory half of the engine layer, derived from adult cell-type gene regulatory networks. `v0` does not yet add a separate developmental atlas on top of that.
 
@@ -32,7 +33,7 @@ uv run scz-target-engine fetch-psychencode \
 
 ```bash
 uv run scz-target-engine fetch-psychencode-modules \
-  --input-file examples/v0/input/gene_evidence.csv \
+  --input-file data/processed/full_universe_ingest/registry/candidate_gene_registry.csv \
   --output-file data/processed/example_module_workflow/psychencode/example_module_evidence.csv
 ```
 
@@ -84,13 +85,23 @@ cell type with:
 - `developmental_regulatory_relevance`
 - source context fields:
   - `psychencode_module_member_gene_count`
+  - `psychencode_module_genetically_supported_gene_count`
   - `psychencode_module_deg_gene_count`
   - `psychencode_module_grn_target_gene_count`
   - `psychencode_module_grn_edge_count`
   - `psychencode_module_unique_tf_count`
+  - `psychencode_module_member_source_breakdown_json`
+  - `psychencode_module_admissibility_json`
   - `psychencode_module_top_member_genes_json`
   - `psychencode_module_top_deg_genes_json`
+  - `psychencode_module_top_grn_targets_json`
   - `psychencode_module_top_tfs_json`
+
+The sidecar metadata JSON now also records:
+
+- retained modules with top-member provenance summaries
+- dropped cell types with explicit threshold failures
+- duplicate candidate-label groups that were aggregated instead of overwritten
 
 ## Normalization
 
@@ -122,7 +133,13 @@ For module derivation:
   matched member genes in that cell type
 - `developmental_regulatory_relevance` aggregates BrainSCOPE GRN edge strength, target
   breadth, and TF diversity for that cell type
-- cell types with fewer than `2` matched member genes are dropped
+- module membership is built from the broader candidate universe, not from shortlist
+  overlap alone
+- a retained module must have:
+  - at least `5` matched member genes
+  - at least `3` genetically supported member genes
+  - at least `2` matched DEG genes
+  - at least `2` matched GRN target genes
 
 ## Matching Rule
 

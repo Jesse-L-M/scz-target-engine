@@ -142,9 +142,9 @@ For the seed-driven phase:
 
 ## Module Table Prep
 
-`fetch-psychencode-modules` still derives a source-backed module table from:
+`fetch-psychencode-modules` now derives a source-backed module table from:
 
-- a curated gene evidence table
+- a broader candidate input, normally the PR5 candidate registry
 - live `PsychENCODE / BrainSCOPE` schizophrenia DEG rows
 - live `PsychENCODE / BrainSCOPE` adult cell-type GRNs
 
@@ -156,13 +156,26 @@ It emits an engine-ready module CSV with:
   - `member_gene_genetic_enrichment`
   - `cell_state_specificity`
   - `developmental_regulatory_relevance`
-- source context columns such as member-gene counts, top genes, and top TFs
+- source context columns such as:
+  - matched member-gene counts
+  - genetically supported member-gene counts
+  - DEG/GRN membership breakdown
+  - admissibility metadata
+  - duplicate-symbol-aware top member provenance
+  - top member genes, DEG genes, GRN targets, and TFs
 
-`v0` still keeps module derivation deliberately narrow:
+Module admissibility now requires:
 
-- modules are BrainSCOPE cell-type modules
-- module membership is driven by the current curated gene table, not all genes in the universe
-- cell types with fewer than `2` matched member genes are dropped
+- at least `5` matched member genes from the candidate universe
+- at least `3` member genes with nonzero genetic support
+- at least `2` matched DEG genes
+- at least `2` matched GRN target genes
+
+The sidecar metadata JSON preserves:
+
+- retained modules with summary top-member provenance
+- dropped cell types with explicit drop reasons and threshold counts
+- duplicate candidate-label groups that were aggregated at symbol level
 
 ## Workflow Wrappers
 
@@ -182,12 +195,15 @@ It emits an engine-ready module CSV with:
 
 `refresh-example-module-table` is the matching module fixture wrapper. It:
 
-- reads `examples/v0/input/gene_evidence.csv` by default
+- refreshes the PR5 candidate registry under its own workflow directory by default
+- reads `{work_dir}/registry/candidate_gene_registry.csv` unless an explicit input file
+  is provided
 - derives `PsychENCODE / BrainSCOPE` cell-type modules
 - writes the source-backed module snapshot under `data/processed/example_module_workflow/`
-- publishes the fixture snapshot to `examples/v0/input/module_evidence.csv`
+- publishes the fixture snapshot and metadata sidecar to `examples/v0/input/module_evidence.csv`
 
-`refresh-example-inputs` runs the gene fixture wrapper first and then the module fixture wrapper.
+`refresh-example-inputs` runs the gene fixture wrapper first and then refreshes modules from
+the module workflow's non-seed candidate registry rather than the checked-in gene fixture.
 
 ## Join Rules
 
@@ -218,7 +234,9 @@ For `prepare-gene-table`:
 
 ## Why This Matters
 
-This keeps the example workflow fast and deterministic while separating it from the real architecture shift: non-seed source pulls can now create an explicit candidate registry before later scoring or broader source coverage is added.
+This keeps the checked-in example workflow intact while moving module prep onto the real
+post-PR5 architecture: non-seed source pulls create an explicit candidate registry, and
+module derivation now consumes that broader universe instead of projecting the seed fixture.
 
 ## Example Workflows
 

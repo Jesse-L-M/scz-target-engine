@@ -25,7 +25,25 @@ PSYCHENCODE_MATCH_RULE = (
     "Exact official gene-symbol match only against BrainSCOPE DEG `gene` and GRN `TG` "
     "columns. Do not infer aliases without a curated, source-backed one-to-one exception."
 )
-PSYCHENCODE_MODULE_MIN_MEMBER_GENE_COUNT = 2
+PSYCHENCODE_MODULE_MIN_MEMBER_GENE_COUNT = 5
+PSYCHENCODE_MODULE_MIN_GENETIC_SUPPORT_GENE_COUNT = 3
+PSYCHENCODE_MODULE_MIN_DEG_GENE_COUNT = 2
+PSYCHENCODE_MODULE_MIN_GRN_TARGET_GENE_COUNT = 2
+MODULE_INPUT_PROVENANCE_SOURCE_ORDER = (
+    "seed",
+    "pgc",
+    "schema",
+    "psychencode",
+    "opentargets",
+    "chembl",
+)
+MODULE_MATCH_CONFIDENCE_PRIORITY = {
+    "id_confirmed": 4,
+    "source_confirmed": 3,
+    "source_conflict": 2,
+    "source_matched": 1,
+    "seed_only": 0,
+}
 
 TextTransport = Callable[[str], str]
 BytesTransport = Callable[[str], bytes]
@@ -481,6 +499,73 @@ def slugify_module_key(value: str) -> str:
     return slug or "unknown"
 
 
+def parse_json_array(value: str | None) -> list[str]:
+    if value in {None, ""}:
+        return []
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [
+        str(item).strip()
+        for item in parsed
+        if str(item).strip()
+    ]
+
+
+def truthy_string(value: str | None) -> bool:
+    return str(value or "").strip().lower() == "true"
+
+
+def ordered_unique_strings(
+    values: list[str],
+    *,
+    preferred_order: tuple[str, ...] = (),
+) -> list[str]:
+    cleaned = {
+        str(value).strip()
+        for value in values
+        if str(value).strip()
+    }
+    if not cleaned:
+        return []
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for value in preferred_order:
+        if value in cleaned and value not in seen:
+            ordered.append(value)
+            seen.add(value)
+    for value in sorted(cleaned):
+        if value not in seen:
+            ordered.append(value)
+            seen.add(value)
+    return ordered
+
+
+def extract_input_provenance_sources(gene_row: dict[str, str]) -> list[str]:
+    for field_name in ("registry_sources_json", "provenance_sources_json"):
+        sources = parse_json_array(gene_row.get(field_name))
+        if sources:
+            return sources
+
+    fallback_sources: list[str] = []
+    for source in MODULE_INPUT_PROVENANCE_SOURCE_ORDER:
+        if truthy_string(gene_row.get(f"source_present_{source}")):
+            fallback_sources.append(source)
+    return fallback_sources
+
+
+def module_membership_source_type(*, present_in_deg: bool, present_in_grn: bool) -> str:
+    if present_in_deg and present_in_grn:
+        return "deg_and_grn"
+    if present_in_deg:
+        return "deg_only"
+    return "grn_only"
+
+
 def mean_present_gene_score(row: dict[str, str], columns: tuple[str, ...]) -> float:
     values = [
         score
@@ -490,6 +575,120 @@ def mean_present_gene_score(row: dict[str, str], columns: tuple[str, ...]) -> fl
     if not values:
         return 0.0
     return mean(values)
+
+
+def normalize_module_input_gene_rows(
+    gene_rows: dict[str, str] | list[dict[str, str]],
+) -> list[dict[str, str]]:
+    if isinstance(gene_rows, list):
+        return gene_rows
+    return [gene_rows]
+
+
+def select_preferred_module_gene_row(gene_rows: list[dict[str, str]]) -> dict[str, str]:
+    if not gene_rows:
+        raise PsychENCODEError("Module derivation received an empty duplicate-gene group.")
+
+    return sorted(
+        gene_rows,
+        key=lambda row: (
+            -mean_present_gene_score(
+                row,
+                ("common_variant_support", "rare_variant_support"),
+            ),
+            -len(extract_input_provenance_sources(row)),
+            -int(row.get("registry_source_count") or 0),
+            -MODULE_MATCH_CONFIDENCE_PRIORITY.get(
+                row.get("match_confidence", "").strip(),
+                -1,
+            ),
+            normalize_gene_key(row.get("entity_id")),
+            normalize_gene_key(row.get("approved_name")),
+        ),
+    )[0]
+
+
+def summarize_module_candidate_entity_ids(
+    gene_rows: list[dict[str, str]],
+    representative_row: dict[str, str],
+) -> list[str]:
+    representative_entity_id = representative_row.get("entity_id", "").strip()
+    entity_ids = ordered_unique_strings(
+        [row.get("entity_id", "") for row in gene_rows],
+    )
+    if representative_entity_id and representative_entity_id in entity_ids:
+        entity_ids.remove(representative_entity_id)
+        return [representative_entity_id, *entity_ids]
+    if representative_entity_id:
+        return [representative_entity_id, *entity_ids]
+    return entity_ids
+
+
+def summarize_module_candidate_match_confidences(
+    gene_rows: list[dict[str, str]],
+) -> list[str]:
+    return sorted(
+        {
+            row.get("match_confidence", "").strip()
+            for row in gene_rows
+            if row.get("match_confidence", "").strip()
+        },
+        key=lambda value: (
+            -MODULE_MATCH_CONFIDENCE_PRIORITY.get(value, -1),
+            value,
+        ),
+    )
+
+
+def summarize_module_input_provenance_sources(
+    gene_rows: list[dict[str, str]],
+) -> list[str]:
+    return ordered_unique_strings(
+        [
+            source
+            for row in gene_rows
+            for source in extract_input_provenance_sources(row)
+        ],
+        preferred_order=MODULE_INPUT_PROVENANCE_SOURCE_ORDER,
+    )
+
+
+def summarize_duplicate_module_input_groups(
+    gene_rows_by_key: dict[str, list[dict[str, str]]],
+) -> list[dict[str, object]]:
+    duplicate_groups: list[dict[str, object]] = []
+    for gene_key, gene_rows in gene_rows_by_key.items():
+        if len(gene_rows) <= 1:
+            continue
+        representative_row = select_preferred_module_gene_row(gene_rows)
+        duplicate_groups.append(
+            {
+                "entity_label": representative_row.get("entity_label", "").strip()
+                or gene_key,
+                "representative_entity_id": representative_row.get(
+                    "entity_id", ""
+                ).strip(),
+                "candidate_row_count": len(gene_rows),
+                "candidate_entity_ids": summarize_module_candidate_entity_ids(
+                    gene_rows,
+                    representative_row,
+                ),
+                "provenance_sources": summarize_module_input_provenance_sources(
+                    gene_rows
+                ),
+                "match_confidences": summarize_module_candidate_match_confidences(
+                    gene_rows
+                ),
+            }
+        )
+    return sorted(
+        duplicate_groups,
+        key=lambda item: (
+            -int(item["candidate_row_count"]),
+            str(item["entity_label"]).lower(),
+            str(item["representative_entity_id"]).lower(),
+        ),
+    )
 
 
 def score_deg_row_for_module(row: dict[str, str]) -> float:
@@ -529,21 +728,58 @@ def parse_grn_rows_by_cell_type(
 
 def build_module_member_gene_entries(
     member_gene_keys: set[str],
-    gene_rows_by_key: dict[str, dict[str, str]],
+    gene_rows_by_key: dict[str, dict[str, str] | list[dict[str, str]]],
+    deg_gene_keys: set[str],
+    grn_gene_keys: set[str],
 ) -> list[dict[str, object]]:
     entries = []
     for gene_key in member_gene_keys:
-        gene_row = gene_rows_by_key[gene_key]
+        gene_rows = normalize_module_input_gene_rows(gene_rows_by_key[gene_key])
+        representative_row = select_preferred_module_gene_row(gene_rows)
+        present_in_deg = gene_key in deg_gene_keys
+        present_in_grn = gene_key in grn_gene_keys
+        provenance_sources = summarize_module_input_provenance_sources(gene_rows)
+        common_variant_support = as_float(
+            representative_row.get("common_variant_support")
+        )
+        rare_variant_support = as_float(
+            representative_row.get("rare_variant_support")
+        )
         genetic_score = mean_present_gene_score(
-            gene_row,
+            representative_row,
             ("common_variant_support", "rare_variant_support"),
+        )
+        candidate_entity_ids = summarize_module_candidate_entity_ids(
+            gene_rows,
+            representative_row,
         )
         entries.append(
             {
-                "entity_id": gene_row.get("entity_id", "").strip(),
-                "entity_label": gene_row.get("entity_label", "").strip(),
-                "approved_name": gene_row.get("approved_name", "").strip(),
+                "entity_id": representative_row.get("entity_id", "").strip(),
+                "entity_label": representative_row.get("entity_label", "").strip(),
+                "approved_name": representative_row.get("approved_name", "").strip(),
                 "genetic_score": genetic_score,
+                "common_variant_support": common_variant_support,
+                "rare_variant_support": rare_variant_support,
+                "match_confidence": representative_row.get(
+                    "match_confidence", ""
+                ).strip(),
+                "candidate_row_count": len(gene_rows),
+                "candidate_entity_ids": candidate_entity_ids,
+                "candidate_match_confidences": summarize_module_candidate_match_confidences(
+                    gene_rows
+                ),
+                "membership_sources": [
+                    source
+                    for source, present in (("deg", present_in_deg), ("grn", present_in_grn))
+                    if present
+                ],
+                "membership_source_type": module_membership_source_type(
+                    present_in_deg=present_in_deg,
+                    present_in_grn=present_in_grn,
+                ),
+                "provenance_sources": provenance_sources,
+                "provenance_source_count": len(provenance_sources),
             }
         )
     return sorted(
@@ -556,6 +792,30 @@ def build_module_member_gene_entries(
     )
 
 
+def summarize_module_member_gene_entries(
+    member_gene_entries: list[dict[str, object]],
+    *,
+    limit: int = 10,
+) -> list[dict[str, object]]:
+    return [
+        {
+            "entity_id": entry["entity_id"],
+            "entity_label": entry["entity_label"],
+            "approved_name": entry["approved_name"],
+            "genetic_score": round(float(entry["genetic_score"]), 6),
+            "common_variant_support": entry["common_variant_support"],
+            "rare_variant_support": entry["rare_variant_support"],
+            "match_confidence": entry["match_confidence"],
+            "candidate_row_count": entry["candidate_row_count"],
+            "candidate_entity_ids": entry["candidate_entity_ids"],
+            "candidate_match_confidences": entry["candidate_match_confidences"],
+            "membership_sources": entry["membership_sources"],
+            "provenance_sources": entry["provenance_sources"],
+        }
+        for entry in member_gene_entries[:limit]
+    ]
+
+
 def compute_module_gene_enrichment(member_gene_entries: list[dict[str, object]]) -> float:
     if not member_gene_entries:
         return 0.0
@@ -563,6 +823,69 @@ def compute_module_gene_enrichment(member_gene_entries: list[dict[str, object]])
     top_mean = mean_or_zero(genetic_scores[:5])
     breadth = sum(score >= 0.2 for score in genetic_scores) / len(genetic_scores)
     return round((0.75 * top_mean) + (0.25 * breadth), 6)
+
+
+def count_genetically_supported_members(member_gene_entries: list[dict[str, object]]) -> int:
+    return sum(
+        1
+        for entry in member_gene_entries
+        if float(entry["genetic_score"]) > 0.0
+    )
+
+
+def build_module_member_source_breakdown(
+    member_gene_entries: list[dict[str, object]],
+) -> dict[str, int]:
+    source_breakdown = Counter(
+        str(entry["membership_source_type"])
+        for entry in member_gene_entries
+    )
+    return {
+        "deg_and_grn": int(source_breakdown.get("deg_and_grn", 0)),
+        "deg_only": int(source_breakdown.get("deg_only", 0)),
+        "grn_only": int(source_breakdown.get("grn_only", 0)),
+    }
+
+
+def build_module_admissibility(
+    *,
+    member_gene_entries: list[dict[str, object]],
+    deg_gene_count: int,
+    grn_target_gene_count: int,
+    member_source_breakdown: dict[str, int],
+) -> dict[str, object]:
+    genetically_supported_gene_count = count_genetically_supported_members(
+        member_gene_entries
+    )
+    drop_reasons: list[str] = []
+    if len(member_gene_entries) < PSYCHENCODE_MODULE_MIN_MEMBER_GENE_COUNT:
+        drop_reasons.append(
+            "member_gene_count_below_minimum"
+        )
+    if genetically_supported_gene_count < PSYCHENCODE_MODULE_MIN_GENETIC_SUPPORT_GENE_COUNT:
+        drop_reasons.append(
+            "genetically_supported_member_gene_count_below_minimum"
+        )
+    if deg_gene_count < PSYCHENCODE_MODULE_MIN_DEG_GENE_COUNT:
+        drop_reasons.append("deg_gene_count_below_minimum")
+    if grn_target_gene_count < PSYCHENCODE_MODULE_MIN_GRN_TARGET_GENE_COUNT:
+        drop_reasons.append("grn_target_gene_count_below_minimum")
+
+    return {
+        "status": "kept" if not drop_reasons else "dropped",
+        "member_gene_count": len(member_gene_entries),
+        "genetically_supported_member_gene_count": genetically_supported_gene_count,
+        "deg_gene_count": deg_gene_count,
+        "grn_target_gene_count": grn_target_gene_count,
+        "member_source_breakdown": member_source_breakdown,
+        "minimum_member_gene_count": PSYCHENCODE_MODULE_MIN_MEMBER_GENE_COUNT,
+        "minimum_genetically_supported_member_gene_count": (
+            PSYCHENCODE_MODULE_MIN_GENETIC_SUPPORT_GENE_COUNT
+        ),
+        "minimum_deg_gene_count": PSYCHENCODE_MODULE_MIN_DEG_GENE_COUNT,
+        "minimum_grn_target_gene_count": PSYCHENCODE_MODULE_MIN_GRN_TARGET_GENE_COUNT,
+        "drop_reasons": drop_reasons,
+    }
 
 
 def compute_module_cell_state_specificity(
@@ -616,12 +939,13 @@ def compute_module_cell_state_specificity(
 
 def compute_module_regulatory_relevance(
     grn_rows: list[dict[str, str]],
-) -> tuple[float, list[dict[str, object]], int, int]:
+) -> tuple[float, list[dict[str, object]], list[dict[str, object]], int, int]:
     if not grn_rows:
-        return 0.0, [], 0, 0
+        return 0.0, [], [], 0, 0
 
     edge_weights: list[float] = []
     tf_weights: dict[str, list[float]] = defaultdict(list)
+    target_gene_weights: dict[str, list[float]] = defaultdict(list)
     target_gene_keys: set[str] = set()
     for row in grn_rows:
         edge_weight = as_float(row.get("edgeWeight")) or 0.0
@@ -629,6 +953,7 @@ def compute_module_regulatory_relevance(
         target_gene_key = normalize_gene_key(row.get("TG"))
         if target_gene_key:
             target_gene_keys.add(target_gene_key)
+            target_gene_weights[target_gene_key].append(edge_weight)
         edge_weights.append(edge_weight)
         if tf_name:
             tf_weights[tf_name].append(edge_weight)
@@ -666,7 +991,32 @@ def compute_module_regulatory_relevance(
         }
         for entry in ranked_tfs[:10]
     ]
-    return support, top_tfs, len(target_gene_keys), len(tf_weights)
+    ranked_targets = sorted(
+        (
+            {
+                "entity_label": target_gene_key,
+                "edge_count": len(weights),
+                "max_edge_weight": max(weights),
+                "mean_edge_weight": mean_or_zero(weights),
+            }
+            for target_gene_key, weights in target_gene_weights.items()
+        ),
+        key=lambda entry: (
+            -float(entry["max_edge_weight"]),
+            -int(entry["edge_count"]),
+            str(entry["entity_label"]),
+        ),
+    )
+    top_targets = [
+        {
+            "entity_label": entry["entity_label"],
+            "edge_count": int(entry["edge_count"]),
+            "max_edge_weight": round(float(entry["max_edge_weight"]), 6),
+            "mean_edge_weight": round(float(entry["mean_edge_weight"]), 6),
+        }
+        for entry in ranked_targets[:10]
+    ]
+    return support, top_tfs, top_targets, len(target_gene_keys), len(tf_weights)
 
 
 def fetch_psychencode_module_table(
@@ -683,13 +1033,14 @@ def fetch_psychencode_module_table(
     if limit is not None:
         input_rows = input_rows[:limit]
 
-    gene_rows_by_key = {
-        normalize_gene_key(row.get("entity_label")): row
-        for row in input_rows
-        if normalize_gene_key(row.get("entity_label"))
-    }
+    gene_rows_by_key: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in input_rows:
+        gene_key = normalize_gene_key(row.get("entity_label"))
+        if gene_key:
+            gene_rows_by_key[gene_key].append(row)
     if not gene_rows_by_key:
         raise PsychENCODEError("Input file did not contain entity_label values.")
+    duplicate_input_gene_groups = summarize_duplicate_module_input_groups(gene_rows_by_key)
 
     deg_text = text_transport(BRAINSCOPE_DEG_COMBINED_URL)
     deg_rows_by_cell_type: dict[str, list[dict[str, str]]] = defaultdict(list)
@@ -706,76 +1057,125 @@ def fetch_psychencode_module_table(
     )
 
     output_rows: list[dict[str, object]] = []
-    skipped_cell_types: list[str] = []
+    retained_modules: list[dict[str, object]] = []
+    dropped_modules: list[dict[str, object]] = []
     candidate_cell_types = sorted(set(deg_rows_by_cell_type) | set(grn_rows_by_cell_type))
     for cell_type in candidate_cell_types:
         deg_rows = deg_rows_by_cell_type.get(cell_type, [])
         grn_rows = grn_rows_by_cell_type.get(cell_type, [])
-        member_gene_keys = {
+        deg_gene_keys = {
             normalize_gene_key(row.get("gene"))
             for row in deg_rows
             if normalize_gene_key(row.get("gene")) in gene_rows_by_key
         }
-        member_gene_keys.update(
+        grn_gene_keys = {
             normalize_gene_key(row.get("TG"))
             for row in grn_rows
             if normalize_gene_key(row.get("TG")) in gene_rows_by_key
+        }
+        member_gene_keys = set(deg_gene_keys) | set(grn_gene_keys)
+        member_gene_entries = build_module_member_gene_entries(
+            member_gene_keys,
+            gene_rows_by_key,
+            deg_gene_keys,
+            grn_gene_keys,
         )
-        if len(member_gene_keys) < PSYCHENCODE_MODULE_MIN_MEMBER_GENE_COUNT:
-            skipped_cell_types.append(cell_type)
+        deg_gene_count = len(deg_gene_keys)
+        grn_target_gene_count = len(grn_gene_keys)
+        member_source_breakdown = build_module_member_source_breakdown(
+            member_gene_entries
+        )
+        top_member_genes = summarize_module_member_gene_entries(member_gene_entries)
+        admissibility = build_module_admissibility(
+            member_gene_entries=member_gene_entries,
+            deg_gene_count=deg_gene_count,
+            grn_target_gene_count=grn_target_gene_count,
+            member_source_breakdown=member_source_breakdown,
+        )
+        if admissibility["status"] != "kept":
+            dropped_modules.append(
+                {
+                    "cell_type": cell_type,
+                    "member_gene_count": len(member_gene_entries),
+                    "genetically_supported_member_gene_count": admissibility[
+                        "genetically_supported_member_gene_count"
+                    ],
+                    "deg_gene_count": deg_gene_count,
+                    "grn_target_gene_count": grn_target_gene_count,
+                    "member_source_breakdown": member_source_breakdown,
+                    "top_member_genes": top_member_genes,
+                    "drop_reasons": admissibility["drop_reasons"],
+                }
+            )
             continue
 
-        member_gene_entries = build_module_member_gene_entries(member_gene_keys, gene_rows_by_key)
         cell_state_specificity, top_deg_gene_entries = compute_module_cell_state_specificity(
             deg_rows
         )
-        developmental_regulatory_relevance, top_tfs, grn_target_gene_count, unique_tf_count = (
-            compute_module_regulatory_relevance(grn_rows)
-        )
+        (
+            developmental_regulatory_relevance,
+            top_tfs,
+            top_grn_targets,
+            _,
+            unique_tf_count,
+        ) = compute_module_regulatory_relevance(grn_rows)
         entity_id = f"psychencode:{slugify_module_key(cell_type)}"
-        output_rows.append(
+        output_row = {
+            "entity_id": entity_id,
+            "entity_label": f"BrainSCOPE {cell_type}",
+            "member_gene_genetic_enrichment": compute_module_gene_enrichment(
+                member_gene_entries
+            ),
+            "cell_state_specificity": cell_state_specificity,
+            "developmental_regulatory_relevance": developmental_regulatory_relevance,
+            "module_source": "BrainSCOPE / PsychENCODE",
+            "psychencode_module_cell_type": cell_type,
+            "psychencode_module_member_gene_count": len(member_gene_entries),
+            "psychencode_module_genetically_supported_gene_count": admissibility[
+                "genetically_supported_member_gene_count"
+            ],
+            "psychencode_module_deg_gene_count": deg_gene_count,
+            "psychencode_module_grn_target_gene_count": grn_target_gene_count,
+            "psychencode_module_grn_edge_count": len(grn_rows),
+            "psychencode_module_unique_tf_count": unique_tf_count,
+            "psychencode_module_member_source_breakdown_json": json.dumps(
+                member_source_breakdown,
+                sort_keys=True,
+            ),
+            "psychencode_module_admissibility_json": json.dumps(
+                admissibility,
+                sort_keys=True,
+            ),
+            "psychencode_module_member_genes_json": json.dumps(
+                [entry["entity_label"] for entry in member_gene_entries],
+                sort_keys=True,
+            ),
+            "psychencode_module_top_member_genes_json": json.dumps(
+                top_member_genes,
+                sort_keys=True,
+            ),
+            "psychencode_module_top_deg_genes_json": json.dumps(
+                top_deg_gene_entries,
+                sort_keys=True,
+            ),
+            "psychencode_module_top_grn_targets_json": json.dumps(
+                top_grn_targets,
+                sort_keys=True,
+            ),
+            "psychencode_module_top_tfs_json": json.dumps(top_tfs, sort_keys=True),
+        }
+        output_rows.append(output_row)
+        retained_modules.append(
             {
+                "cell_type": cell_type,
                 "entity_id": entity_id,
-                "entity_label": f"BrainSCOPE {cell_type}",
-                "member_gene_genetic_enrichment": compute_module_gene_enrichment(
-                    member_gene_entries
-                ),
-                "cell_state_specificity": cell_state_specificity,
-                "developmental_regulatory_relevance": developmental_regulatory_relevance,
-                "module_source": "BrainSCOPE / PsychENCODE",
-                "psychencode_module_cell_type": cell_type,
-                "psychencode_module_member_gene_count": len(member_gene_entries),
-                "psychencode_module_deg_gene_count": len(
-                    {
-                        normalize_gene_key(row.get("gene"))
-                        for row in deg_rows
-                        if normalize_gene_key(row.get("gene"))
-                    }
-                ),
-                "psychencode_module_grn_target_gene_count": grn_target_gene_count,
-                "psychencode_module_grn_edge_count": len(grn_rows),
-                "psychencode_module_unique_tf_count": unique_tf_count,
-                "psychencode_module_member_genes_json": json.dumps(
-                    [entry["entity_label"] for entry in member_gene_entries],
-                    sort_keys=True,
-                ),
-                "psychencode_module_top_member_genes_json": json.dumps(
-                    [
-                        {
-                            "entity_id": entry["entity_id"],
-                            "entity_label": entry["entity_label"],
-                            "approved_name": entry["approved_name"],
-                            "genetic_score": round(float(entry["genetic_score"]), 6),
-                        }
-                        for entry in member_gene_entries[:10]
-                    ],
-                    sort_keys=True,
-                ),
-                "psychencode_module_top_deg_genes_json": json.dumps(
-                    top_deg_gene_entries,
-                    sort_keys=True,
-                ),
-                "psychencode_module_top_tfs_json": json.dumps(top_tfs, sort_keys=True),
+                "entity_label": output_row["entity_label"],
+                "admissibility": admissibility,
+                "member_source_breakdown": member_source_breakdown,
+                "top_member_genes": top_member_genes,
+                "top_deg_genes": top_deg_gene_entries,
+                "top_grn_targets": top_grn_targets,
+                "top_tfs": top_tfs,
             }
         )
 
@@ -789,13 +1189,17 @@ def fetch_psychencode_module_table(
         "module_source",
         "psychencode_module_cell_type",
         "psychencode_module_member_gene_count",
+        "psychencode_module_genetically_supported_gene_count",
         "psychencode_module_deg_gene_count",
         "psychencode_module_grn_target_gene_count",
         "psychencode_module_grn_edge_count",
         "psychencode_module_unique_tf_count",
+        "psychencode_module_member_source_breakdown_json",
+        "psychencode_module_admissibility_json",
         "psychencode_module_member_genes_json",
         "psychencode_module_top_member_genes_json",
         "psychencode_module_top_deg_genes_json",
+        "psychencode_module_top_grn_targets_json",
         "psychencode_module_top_tfs_json",
     ]
     write_csv(output_file, output_rows, fieldnames)
@@ -807,15 +1211,32 @@ def fetch_psychencode_module_table(
         "grn_zip_url": BRAINSCOPE_GRN_ZIP_URL,
         "input_file": str(input_file),
         "output_file": str(output_file),
+        "input_row_count": len(input_rows),
         "input_gene_count": len(gene_rows_by_key),
+        "duplicate_input_gene_label_count": len(duplicate_input_gene_groups),
+        "duplicate_input_gene_labels": duplicate_input_gene_groups,
         "row_count": len(output_rows),
         "candidate_cell_type_count": len(candidate_cell_types),
         "deg_cell_type_count": len(deg_rows_by_cell_type),
         "grn_cell_type_count": len(grn_rows_by_cell_type),
         "grn_member_count": grn_member_count,
         "minimum_member_gene_count": PSYCHENCODE_MODULE_MIN_MEMBER_GENE_COUNT,
-        "skipped_cell_type_count": len(skipped_cell_types),
-        "skipped_cell_types": skipped_cell_types,
+        "minimum_genetically_supported_member_gene_count": (
+            PSYCHENCODE_MODULE_MIN_GENETIC_SUPPORT_GENE_COUNT
+        ),
+        "minimum_deg_gene_count": PSYCHENCODE_MODULE_MIN_DEG_GENE_COUNT,
+        "minimum_grn_target_gene_count": PSYCHENCODE_MODULE_MIN_GRN_TARGET_GENE_COUNT,
+        "retained_cell_type_count": len(output_rows),
+        "dropped_cell_type_count": len(dropped_modules),
+        "dropped_cell_types": [
+            module["cell_type"] for module in dropped_modules
+        ],
+        "dropped_modules": dropped_modules,
+        "retained_modules": retained_modules,
+        "skipped_cell_type_count": len(dropped_modules),
+        "skipped_cell_types": [
+            module["cell_type"] for module in dropped_modules
+        ],
     }
     write_json(output_file.with_suffix(".metadata.json"), metadata)
     return metadata

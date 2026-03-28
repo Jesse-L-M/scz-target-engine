@@ -7,7 +7,7 @@
 - Naive baseline overlap: 60.00%
 - Generic platform overlap: 80.00%
 - Gene heuristic-stable entities: 20
-- Module heuristic-stable entities: 19
+- Module heuristic-stable entities: 16
 - Gene entities with warnings: 14
 - Gene entities ineligible for ranking: 2
 
@@ -19,8 +19,8 @@
 - 5. DRD2 (0.360249)
 
 ## Top Modules
-- 1. BrainSCOPE OPC (0.577873)
-- 2. BrainSCOPE L4.IT (0.563742)
-- 3. BrainSCOPE Lamp5 (0.562035)
-- 4. BrainSCOPE L6.IT.Car3 (0.542773)
-- 5. BrainSCOPE L5.6.NP (0.528011)
+- 1. BrainSCOPE L2.3.IT (0.816286)
+- 2. BrainSCOPE Pvalb (0.81159)
+- 3. BrainSCOPE L6.CT (0.810485)
+- 4. BrainSCOPE OPC (0.803263)
+- 5. BrainSCOPE L4.IT (0.793762)

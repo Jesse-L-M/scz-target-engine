@@ -1,15 +1,15 @@
-# Target Cards
+# Public-Evidence Promising Cards
 
 ## GRIN2A (ENSG00000183454)
 
-- Verdict: advance
+- Verdict: public-evidence promising
 - Rank: 1
 - Composite score: 0.474147
-- Decision-grade: yes
+- Heuristic-stable: yes
 - Sensitivity survival rate: 100.00%
-- Decision basis:
-  - Eligible across the required evidence groups and stable enough for decision-grade use.
-  - Stability bar cleared: 100.00% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups and currently public-evidence promising under the v0 heuristic.
+  - Heuristic stability bar cleared: 100.00% survival vs 70% required.
   - No warnings are attached to this entity.
 - Evidence coverage:
   - 5/5 scoring layers present
@@ -29,14 +29,14 @@
 
 ## SETD1A (ENSG00000099381)
 
-- Verdict: advance
+- Verdict: public-evidence promising
 - Rank: 2
 - Composite score: 0.423842
-- Decision-grade: yes
+- Heuristic-stable: yes
 - Sensitivity survival rate: 100.00%
-- Decision basis:
-  - Eligible across the required evidence groups and stable enough for decision-grade use.
-  - Stability bar cleared: 100.00% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups and currently public-evidence promising under the v0 heuristic.
+  - Heuristic stability bar cleared: 100.00% survival vs 70% required.
   - Carries 2 warning(s); highest severity is low.
 - Evidence coverage:
   - 4/5 scoring layers present
@@ -59,14 +59,14 @@
 
 ## SLC6A1 (ENSG00000157103)
 
-- Verdict: advance
+- Verdict: public-evidence promising
 - Rank: 3
 - Composite score: 0.385576
-- Decision-grade: yes
+- Heuristic-stable: yes
 - Sensitivity survival rate: 100.00%
-- Decision basis:
-  - Eligible across the required evidence groups and stable enough for decision-grade use.
-  - Stability bar cleared: 100.00% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups and currently public-evidence promising under the v0 heuristic.
+  - Heuristic stability bar cleared: 100.00% survival vs 70% required.
   - Carries 1 warning(s); highest severity is low.
 - Evidence coverage:
   - 4/5 scoring layers present
@@ -88,14 +88,14 @@
 
 ## AKT3 (ENSG00000117020)
 
-- Verdict: advance
+- Verdict: public-evidence promising
 - Rank: 4
 - Composite score: 0.366324
-- Decision-grade: yes
+- Heuristic-stable: yes
 - Sensitivity survival rate: 100.00%
-- Decision basis:
-  - Eligible across the required evidence groups and stable enough for decision-grade use.
-  - Stability bar cleared: 100.00% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups and currently public-evidence promising under the v0 heuristic.
+  - Heuristic stability bar cleared: 100.00% survival vs 70% required.
   - No warnings are attached to this entity.
 - Evidence coverage:
   - 5/5 scoring layers present
@@ -115,14 +115,14 @@
 
 ## DRD2 (ENSG00000149295)
 
-- Verdict: advance
+- Verdict: public-evidence promising
 - Rank: 5
 - Composite score: 0.360249
-- Decision-grade: yes
+- Heuristic-stable: yes
 - Sensitivity survival rate: 93.33%
-- Decision basis:
-  - Eligible across the required evidence groups and stable enough for decision-grade use.
-  - Stability bar cleared: 93.33% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups and currently public-evidence promising under the v0 heuristic.
+  - Heuristic stability bar cleared: 93.33% survival vs 70% required.
   - Carries 1 warning(s); highest severity is high.
 - Evidence coverage:
   - 5/5 scoring layers present

@@ -7,7 +7,8 @@ top_n = 20
 
 [stability]
 perturbation_fraction = 0.20
-decision_grade_threshold = 0.70
+# Deprecated compatibility alias: decision_grade_threshold
+heuristic_stability_threshold = 0.70
 top10_ejection_limit = 0.50
 
 [gene_layers]

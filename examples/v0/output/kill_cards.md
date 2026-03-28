@@ -1,14 +1,15 @@
-# Kill Cards
+# Fragile Or Insufficient Evidence Cards
 
 ## C4A (ENSG00000244731)
 
-- Verdict: do not advance
+- Verdict: insufficient evidence
 - Rank: ineligible
 - Composite score: n/a
-- Decision-grade: no
+- Heuristic-stable: no
 - Sensitivity survival rate: 0.00%
-- Decision basis:
+- Evidence basis:
   - Ineligible because required biological support is missing.
+  - Current evidence is insufficient for ranked public-evidence prioritization in v0.
   - Carries 3 warning(s); highest severity is high.
 - Evidence coverage:
   - 2/5 scoring layers present
@@ -33,13 +34,14 @@
 
 ## CHRM4 (ENSG00000180720)
 
-- Verdict: do not advance
+- Verdict: insufficient evidence
 - Rank: ineligible
 - Composite score: n/a
-- Decision-grade: no
+- Heuristic-stable: no
 - Sensitivity survival rate: 0.00%
-- Decision basis:
+- Evidence basis:
   - Ineligible because required biological support is missing.
+  - Current evidence is insufficient for ranked public-evidence prioritization in v0.
   - Carries 3 warning(s); highest severity is high.
 - Evidence coverage:
   - 2/5 scoring layers present
@@ -64,13 +66,14 @@
 
 ## CSMD1 (ENSG00000183117)
 
-- Verdict: do not advance
+- Verdict: public-evidence fragile
 - Rank: 23
 - Composite score: 0.197032
-- Decision-grade: no
+- Heuristic-stable: no
 - Sensitivity survival rate: 0.00%
-- Decision basis:
-  - Missed the decision-grade stability bar: 0.00% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups, but public-evidence fragile under the v0 heuristic.
+  - Heuristic stability bar not cleared: 0.00% survival vs 70% required.
   - Carries 1 warning(s); highest severity is medium.
 - Evidence coverage:
   - 5/5 scoring layers present
@@ -91,13 +94,14 @@
 
 ## DLG2 (ENSG00000150672)
 
-- Verdict: do not advance
+- Verdict: public-evidence fragile
 - Rank: 24
 - Composite score: 0.120093
-- Decision-grade: no
+- Heuristic-stable: no
 - Sensitivity survival rate: 0.00%
-- Decision basis:
-  - Missed the decision-grade stability bar: 0.00% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups, but public-evidence fragile under the v0 heuristic.
+  - Heuristic stability bar not cleared: 0.00% survival vs 70% required.
   - Carries 1 warning(s); highest severity is low.
 - Evidence coverage:
   - 4/5 scoring layers present
@@ -119,13 +123,14 @@
 
 ## TCF4 (ENSG00000196628)
 
-- Verdict: do not advance
+- Verdict: public-evidence fragile
 - Rank: 22
 - Composite score: 0.197845
-- Decision-grade: no
+- Heuristic-stable: no
 - Sensitivity survival rate: 0.00%
-- Decision basis:
-  - Missed the decision-grade stability bar: 0.00% survival vs 70% required.
+- Evidence basis:
+  - Eligible across the required evidence groups, but public-evidence fragile under the v0 heuristic.
+  - Heuristic stability bar not cleared: 0.00% survival vs 70% required.
   - Carries 1 warning(s); highest severity is low.
 - Evidence coverage:
   - 4/5 scoring layers present

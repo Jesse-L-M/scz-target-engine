@@ -1,8 +1,10 @@
 # Schizophrenia Target Engine
 
-A systematic prioritisation engine for schizophrenia drug targets and biological modules, built on publicly available genomic and transcriptomic data.
+A transparent `v0` public-evidence prioritization scaffold for schizophrenia-oriented drug targets and biological modules, built on publicly available genomic and transcriptomic data.
 
-The core challenge in target selection is separating reproducible biological signal from accumulated intuition. This engine enforces explicit scoring contracts, runs quantitative stability analyses, and publishes both high-confidence targets and evidence-backed kill cards.
+The core challenge in target selection is separating reproducible biological signal from accumulated intuition. This engine makes the scoring contract explicit, runs quantitative stability analyses, and publishes report cards that show where the current public evidence looks promising, fragile, or insufficient.
+
+`v0` is not a validated target decision system. It does not justify `advance / do not advance` claims, it does not yet score symptom-domain or illness-stage use cases separately, and its warning overlays do not change numeric rank.
 
 ## V0 Scope
 
@@ -10,10 +12,12 @@ The core challenge in target selection is separating reproducible biological sig
 - Treatment-resistant schizophrenia annotated but not separately scored
 - Independent gene-level and module-level leaderboards
 - Warning overlays for prior clinical failure history and evidence gaps
+- Ontology vocabulary documented but not separately scored yet
+- Seed-linked example workflow; not yet seed-independent
 - Stability analysis:
   - Leave-one-layer-out ablation
   - `+/- 20%` weight perturbation
-  - Decision-grade threshold: `>= 70%` survival across sensitivity runs
+  - Heuristic-stability threshold: `>= 70%` survival across sensitivity runs
 
 ## Current State
 
@@ -33,6 +37,17 @@ The engine currently implements:
   - `PsychENCODE / BrainSCOPE` source-backed cell-type module derivation
 
 Raw-source ingestion from consortium data dumps is not yet implemented. V0 operates from curated tables with normalised layer scores in `[0, 1]`.
+
+## Claim Boundaries
+
+- `v0` is infrastructure, not the full target-engine vision.
+- `v0` is a public-evidence prioritization scaffold, not a validated decision authority.
+- `v0` does not yet score relapse prevention, negative symptoms, cognition, CHR/transition prevention, or durable recovery relevance separately.
+- `v0` is not yet seed-independent.
+- Warning overlays remain reporting-only.
+- Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
+
+See [docs/claim.md](docs/claim.md) for the current claim boundary, and [docs/ontology.md](docs/ontology.md) for the initial domain/stage vocabulary that `v0` does not separate yet.
 
 ## Quickstart
 
@@ -130,6 +145,8 @@ uv run --group dev pytest
 ## Repo Layout
 
 - [config/v0.toml](config/v0.toml): scoring and build config
+- [docs/claim.md](docs/claim.md): current capability and claim boundary for `v0`
+- [docs/ontology.md](docs/ontology.md): initial domain/stage vocabulary not yet separately scored
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract
@@ -180,4 +197,4 @@ Required columns:
 
 ## Design Principle
 
-The output must give a researcher a clear basis for what to pursue, what to deprioritise, and how sensitive those conclusions are to the underlying evidence.
+The output must give a researcher a transparent basis for comparing public evidence, spotting fragile rankings, and deciding what warrants deeper domain-specific review.

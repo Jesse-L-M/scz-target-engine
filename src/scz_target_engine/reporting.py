@@ -42,6 +42,7 @@ def build_decision_basis_lines(
     include_decision_grade: bool,
     decision_grade_threshold: float,
 ) -> list[str]:
+    _ = include_decision_grade
     lines: list[str] = []
     missing_groups = [
         group.label
@@ -52,17 +53,23 @@ def build_decision_basis_lines(
         lines.append(
             f"  - Ineligible because required {format_label_list(missing_groups)} is missing."
         )
-    elif include_decision_grade:
         lines.append(
-            "  - Eligible across the required evidence groups and stable enough for decision-grade use."
+            "  - Current evidence is insufficient for ranked public-evidence prioritization in v0."
+        )
+    elif entity.heuristic_stable:
+        lines.append(
+            "  - Eligible across the required evidence groups and currently public-evidence promising under the v0 heuristic."
         )
         lines.append(
-            f"  - Stability bar cleared: {entity.sensitivity_survival_rate:.2%} survival vs "
+            f"  - Heuristic stability bar cleared: {entity.sensitivity_survival_rate:.2%} survival vs "
             f"{decision_grade_threshold:.0%} required."
         )
     else:
         lines.append(
-            f"  - Missed the decision-grade stability bar: {entity.sensitivity_survival_rate:.2%} "
+            "  - Eligible across the required evidence groups, but public-evidence fragile under the v0 heuristic."
+        )
+        lines.append(
+            f"  - Heuristic stability bar not cleared: {entity.sensitivity_survival_rate:.2%} "
             f"survival vs {decision_grade_threshold:.0%} required."
         )
 
@@ -138,7 +145,7 @@ def ranked_entities_to_rows(entities: list[RankedEntity]) -> list[dict[str, obje
             "rank": entity.rank,
             "eligible": entity.eligible,
             "composite_score": entity.composite_score,
-            "decision_grade": entity.decision_grade,
+            "heuristic_stable": entity.heuristic_stable,
             "sensitivity_survival_rate": entity.sensitivity_survival_rate,
             "present_layer_count": present_layer_count,
             "missing_layers": " | ".join(missing_layers),
@@ -179,17 +186,20 @@ def build_cards_markdown(
         ]
         lines.append(f"## {entity.entity_label} ({entity.entity_id})")
         lines.append("")
-        if include_decision_grade:
-            lines.append("- Verdict: advance")
+        if entity.rank is None or not entity.eligible:
+            verdict = "insufficient evidence"
+        elif entity.heuristic_stable:
+            verdict = "public-evidence promising"
         else:
-            lines.append("- Verdict: do not advance")
+            verdict = "public-evidence fragile"
+        lines.append(f"- Verdict: {verdict}")
         lines.append(f"- Rank: {entity.rank if entity.rank is not None else 'ineligible'}")
         lines.append(f"- Composite score: {format_score(entity.composite_score)}")
-        lines.append(f"- Decision-grade: {'yes' if entity.decision_grade else 'no'}")
+        lines.append(f"- Heuristic-stable: {'yes' if entity.heuristic_stable else 'no'}")
         lines.append(
             f"- Sensitivity survival rate: {entity.sensitivity_survival_rate:.2%}"
         )
-        lines.append("- Decision basis:")
+        lines.append("- Evidence basis:")
         lines.extend(
             build_decision_basis_lines(
                 entity,
@@ -233,6 +243,10 @@ def build_summary_markdown(
     module_stability: StabilityResult,
     baseline_overlap: dict[str, object],
 ) -> str:
+    heuristic_stable_genes = [entity for entity in gene_entities if entity.heuristic_stable]
+    heuristic_stable_modules = [
+        entity for entity in module_entities if entity.heuristic_stable
+    ]
     gene_warning_entities = [entity for entity in gene_entities if entity.warning_count]
     gene_ineligible_entities = [entity for entity in gene_entities if not entity.eligible]
     top_gene_lines = [
@@ -255,6 +269,8 @@ def build_summary_markdown(
         f"- Module perturbation median overlap: {median(module_stability.perturbation_overlaps):.2%}",
         f"- Naive baseline overlap: {baseline_overlap['naive_overlap']:.2%}",
         f"- Generic platform overlap: {baseline_overlap['generic_overlap']:.2%}",
+        f"- Gene heuristic-stable entities: {len(heuristic_stable_genes)}",
+        f"- Module heuristic-stable entities: {len(heuristic_stable_modules)}",
         f"- Gene entities with warnings: {len(gene_warning_entities)}",
         f"- Gene entities ineligible for ranking: {len(gene_ineligible_entities)}",
         "",

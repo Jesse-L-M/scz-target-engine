@@ -130,6 +130,10 @@ class RankedEntity:
     warning_severity: str
     metadata: dict[str, str]
 
+    @property
+    def heuristic_stable(self) -> bool:
+        return self.decision_grade
+
 
 @dataclass(frozen=True)
 class StabilityResult:

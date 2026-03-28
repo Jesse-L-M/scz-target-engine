@@ -96,3 +96,23 @@ Prepared gene tables keep source-owned primitives as first-class columns. They s
 - rolled-up `v0` layer fields
 - metadata and provenance fields
 - primitive source groups for `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL`
+
+## Benchmark Snapshot Contract
+
+`PR9A` freezes the benchmark protocol in [docs/benchmarking.md](benchmarking.md).
+
+For time-sliced benchmarking, the current evidence sources are treated as release-scoped rather than row-dated:
+
+- `PGC`
+- `SCHEMA`
+- `PsychENCODE`
+- `Open Targets`
+- `ChEMBL`
+
+That means benchmark snapshots must either:
+
+- use a release or archived extract materialized on or before the benchmark `as_of_date`
+- or exclude the source from that snapshot
+
+The protocol does not allow current-source pulls to be projected backward into older snapshots.
+Undated or ambiguously dated evidence is excluded by default rather than admitted with warnings.

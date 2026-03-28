@@ -187,3 +187,14 @@ Each profile is a documented weighted blend over the `v1` decision heads. Gene-t
 - `heuristic_stable_v0` is the unchanged `v0` stability label
 
 Existing `v0` numeric outputs remain unchanged. `v1` exists beside them as a comparison and inspection layer.
+
+## Benchmark Boundary
+
+Benchmarking is now frozen as a separate protocol contract in [docs/benchmarking.md](benchmarking.md).
+
+Key boundary rules:
+
+- benchmark snapshots evaluate only evidence available on or before the snapshot `as_of_date`
+- later translational outcomes are recorded on a separate label channel
+- post-cutoff evidence refreshes do not count as benchmark labels
+- `v0` and `v1` can be benchmarked only through declared benchmark artifacts, not by wiring the runner directly into mutable current-head internals

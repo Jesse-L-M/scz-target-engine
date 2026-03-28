@@ -2,6 +2,8 @@
 
 This is the method contract the code is expected to honor.
 
+`v0` is a transparent public-evidence prioritization heuristic, not a validated target decision system.
+
 ## Entity Model
 
 Two separate entity types:
@@ -64,7 +66,7 @@ Warning inputs can come from two places:
 - manual warning CSV rows
 - automatic reporting warnings synthesized from obvious evidence gaps, such as missing required layer groups and missing source-backed coverage flags when those source-presence fields are present in the input table
 
-These overlays remain reporting-only in `v0`; they do not alter numeric score, rank, or the decision-grade threshold rule.
+These overlays remain reporting-only in `v0`; they do not alter numeric score, rank, or the heuristic-stability threshold rule.
 
 ## Baselines
 
@@ -80,10 +82,12 @@ Sensitivity runs:
 - leave-one-layer-out for each scored layer
 - `+/- 20%` perturbation for each layer weight, with renormalization
 
-Decision-grade rule:
+Heuristic-stability rule:
 
 - entity appears in the reference top `N`
 - entity survives in at least `70%` of sensitivity runs
+
+This rule is used to label rankings as more or less robust inside `v0`; it is not a validated go/no-go threshold.
 
 Pass condition:
 
@@ -94,5 +98,7 @@ Pass condition:
 
 - no TRS-specific scoring
 - no symptom-domain scoring
+- no illness-stage or relapse-prevention scoring heads
 - no numeric warning penalties
 - no raw-source ingest pipeline
+- no seed-independent claim

@@ -65,8 +65,11 @@ def test_build_cards_markdown_surfaces_decision_basis_and_source_coverage() -> N
         decision_grade_threshold=0.7,
     )
 
-    assert "- Decision basis:" in markdown
+    assert "- Verdict: insufficient evidence" in markdown
+    assert "- Heuristic-stable: no" in markdown
+    assert "- Evidence basis:" in markdown
     assert "Ineligible because required biological support is missing." in markdown
+    assert "Current evidence is insufficient for ranked public-evidence prioritization in v0." in markdown
     assert "- Evidence coverage:" in markdown
     assert "- Required group status:" in markdown
     assert "- Source coverage:" in markdown
@@ -116,6 +119,8 @@ def test_ranked_entities_to_rows_includes_warning_and_coverage_fields() -> None:
     rows = ranked_entities_to_rows([entity])
 
     assert rows[0]["present_layer_count"] == 4
+    assert rows[0]["heuristic_stable"] is True
     assert rows[0]["warning_count"] == 1
     assert rows[0]["warning_kinds"] == "source_coverage_gap"
     assert rows[0]["source_coverage_summary"].startswith("matched 2/5")
+    assert "decision_grade" not in rows[0]

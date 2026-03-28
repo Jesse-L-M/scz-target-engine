@@ -4,6 +4,8 @@
 
 That is deliberate. The scoring engine and its failure conditions need to stabilize before raw-source parsing grows the scope.
 
+These sources currently feed one shared schizophrenia `v0` scaffold. They do not yet back separate scoring heads for acute positive symptoms, relapse prevention, treatment-resistant subtypes, negative symptoms, cognition, CHR / transition prevention, or durable recovery relevance.
+
 ## Target V0 Sources
 
 ### PGC

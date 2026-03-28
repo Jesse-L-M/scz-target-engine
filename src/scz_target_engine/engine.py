@@ -80,7 +80,7 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         required_groups=GENE_REQUIRED_GROUPS,
         top_n=config.build.top_n,
         perturbation_fraction=config.stability.perturbation_fraction,
-        decision_grade_threshold=config.stability.decision_grade_threshold,
+        decision_grade_threshold=config.stability.heuristic_stability_threshold,
         top10_ejection_limit=config.stability.top10_ejection_limit,
     )
     module_stability = run_stability_analysis(
@@ -89,7 +89,7 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         required_groups=MODULE_REQUIRED_GROUPS,
         top_n=config.build.top_n,
         perturbation_fraction=config.stability.perturbation_fraction,
-        decision_grade_threshold=config.stability.decision_grade_threshold,
+        decision_grade_threshold=config.stability.heuristic_stability_threshold,
         top10_ejection_limit=config.stability.top10_ejection_limit,
     )
 
@@ -97,13 +97,13 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         gene_ranked,
         warning_index,
         gene_stability,
-        config.stability.decision_grade_threshold,
+        config.stability.heuristic_stability_threshold,
     )
     module_entities = annotate_ranked_entities(
         module_ranked,
         warning_index,
         module_stability,
-        config.stability.decision_grade_threshold,
+        config.stability.heuristic_stability_threshold,
     )
 
     baseline_overlap = compare_baseline_overlap(
@@ -118,12 +118,12 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
     top_targets = [
         entity
         for entity in gene_entities
-        if entity.rank is not None and entity.decision_grade
+        if entity.rank is not None and entity.heuristic_stable
     ]
     kill_cards = [
         entity
         for entity in gene_entities
-        if entity.rank is None or not entity.decision_grade
+        if entity.rank is None or not entity.heuristic_stable
     ]
     kill_cards.sort(
         key=lambda entity: (
@@ -156,21 +156,21 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
     write_text(
         output_dir / "target_cards.md",
         build_cards_markdown(
-            "Target Cards",
+            "Public-Evidence Promising Cards",
             top_targets,
             limit=5,
             include_decision_grade=True,
-            decision_grade_threshold=config.stability.decision_grade_threshold,
+            decision_grade_threshold=config.stability.heuristic_stability_threshold,
         ),
     )
     write_text(
         output_dir / "kill_cards.md",
         build_cards_markdown(
-            "Kill Cards",
+            "Fragile Or Insufficient Evidence Cards",
             kill_cards,
             limit=5,
             include_decision_grade=False,
-            decision_grade_threshold=config.stability.decision_grade_threshold,
+            decision_grade_threshold=config.stability.heuristic_stability_threshold,
         ),
     )
     write_text(

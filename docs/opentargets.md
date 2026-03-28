@@ -32,6 +32,14 @@ The fetcher:
   - one flattened column per observed datatype score
 - writes a JSON sidecar with fetch metadata
 
+## Primitive Prepared Fields
+
+When this output is merged into the prepared gene table, the `Open Targets` primitive block keeps:
+
+- disease and version metadata such as `opentargets_disease_id`, `opentargets_disease_name`, `opentargets_api_version`, and `opentargets_data_version`
+- `opentargets_datatype_scores_json`
+- one flattened `opentargets_datatype_*` column per observed datatype score
+
 ## Example
 
 ```bash

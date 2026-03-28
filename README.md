@@ -27,6 +27,7 @@ The engine currently implements:
 - Stability analysis and baseline comparisons
 - Markdown and CSV report generation
 - Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
+- Prepared gene tables that keep primitive `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL` source fields as first-class columns alongside the stable rolled-up `v0` layer inputs
 - Implementation-ready ontology plus a checked-in program-history and failure-taxonomy substrate for later domain-aware reasoning
 - A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters
 - A checked-in curated module table derived from `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
@@ -180,9 +181,15 @@ Required columns:
 
 Optional free-text columns are preserved in reports.
 
-Prepared gene tables also carry identity metadata such as `primary_gene_id`, `seed_entity_id`,
-`source_entity_ids_json`, `match_confidence`, and `match_provenance_json`. The legacy
-`canonical_entity_id` column is kept temporarily as a deprecated alias to `primary_gene_id`.
+Prepared gene tables also carry:
+
+- rolled-up `v0` layer inputs that remain numerically stable
+- identity and provenance metadata such as `primary_gene_id`, `seed_entity_id`,
+  `source_entity_ids_json`, `match_confidence`, and `match_provenance_json`
+- primitive source-field groups for `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL`
+
+The legacy `canonical_entity_id` column is kept temporarily as a deprecated alias to
+`primary_gene_id`. See [docs/prep.md](docs/prep.md) for the prepared-table contract.
 
 ### Module Evidence
 

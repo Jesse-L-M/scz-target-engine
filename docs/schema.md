@@ -29,6 +29,15 @@ The fetcher:
   - SCHEMA `Q meta`
   - positive burden-direction evidence in the published odds ratios
 
+## Primitive Prepared Fields
+
+When this output is merged into the prepared gene table, the `SCHEMA` primitive block keeps:
+
+- significance and effect primitives such as `schema_significance_signal` and `schema_effect_signal`
+- published burden counts, burden classes, p-values, q-values, and odds ratios under the `schema_*` prefix
+- provenance primitives such as `schema_match_status`, `schema_query`, `schema_query_key`, and override metadata
+- source identity context such as `schema_official_symbol`, `schema_hgnc_id`, `schema_omim_id`, and alias / constraint fields
+
 ## Rare-Variant Support Heuristic
 
 This score is explicitly a `SCHEMA rare-variant support` score, not a replacement for the consortium statistics.

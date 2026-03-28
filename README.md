@@ -26,6 +26,7 @@ The engine currently implements:
 - Manifest-driven scoring for curated evidence tables
 - Stability analysis and baseline comparisons
 - Markdown and CSV report generation
+- Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
 - A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters
 - A checked-in curated module table derived from `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
 - Live data fetchers:
@@ -174,6 +175,10 @@ Required columns:
 - `generic_platform_baseline`
 
 Optional free-text columns are preserved in reports.
+
+Prepared gene tables also carry identity metadata such as `primary_gene_id`, `seed_entity_id`,
+`source_entity_ids_json`, `match_confidence`, and `match_provenance_json`. The legacy
+`canonical_entity_id` column is kept temporarily as a deprecated alias to `primary_gene_id`.
 
 ### Module Evidence
 

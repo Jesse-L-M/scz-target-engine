@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import shutil
 
+from scz_target_engine.identity import (
+    build_gene_identity_fields,
+    build_seed_identity_match,
+    build_source_identity_match,
+)
 from scz_target_engine.io import read_csv_rows, write_csv, write_json
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
@@ -119,8 +123,6 @@ def prepare_gene_table(
         for layer_column in ENGINE_LAYER_COLUMNS:
             row.setdefault(layer_column, "")
 
-        row["seed_entity_id"] = seed_row.get("entity_id", "")
-        row["canonical_entity_id"] = seed_row.get("entity_id", "")
         row["source_present_pgc"] = "False"
         row["source_present_schema"] = "False"
         row["source_present_psychencode"] = "False"
@@ -132,7 +134,14 @@ def prepare_gene_table(
         row["opentargets_match_key"] = ""
         row["chembl_match_key"] = ""
 
-        provenance: list[str] = ["seed"]
+        source_matches = {
+            "seed": build_seed_identity_match(seed_row),
+            "pgc": build_source_identity_match("pgc", None, ""),
+            "schema": build_source_identity_match("schema", None, ""),
+            "psychencode": build_source_identity_match("psychencode", None, ""),
+            "opentargets": build_source_identity_match("opentargets", None, ""),
+            "chembl": build_source_identity_match("chembl", None, ""),
+        }
 
         pgc_row, pgc_match_key = match_row(seed_row, pgc_by_id, pgc_by_label)
         if pgc_row is not None:
@@ -140,13 +149,12 @@ def prepare_gene_table(
             row["source_present_pgc"] = "True"
             row["pgc_match_key"] = pgc_match_key
             row["common_variant_support"] = pgc_row.get("common_variant_support", "")
-            row["canonical_entity_id"] = pgc_row.get("entity_id", row["canonical_entity_id"])
             merge_source_fields(
                 row,
                 pgc_row,
                 skip_fields={"entity_id", "entity_label", "common_variant_support"},
             )
-            provenance.append("pgc")
+            source_matches["pgc"] = build_source_identity_match("pgc", pgc_row, pgc_match_key)
 
         schema_row, schema_match_key = match_row(seed_row, schema_by_id, schema_by_label)
         if schema_row is not None:
@@ -158,17 +166,16 @@ def prepare_gene_table(
                 row.get("approved_name", ""),
                 schema_row.get("approved_name", ""),
             )
-            if schema_row.get("schema_match_status") == "matched":
-                row["canonical_entity_id"] = schema_row.get(
-                    "entity_id",
-                    row["canonical_entity_id"],
-                )
             merge_source_fields(
                 row,
                 schema_row,
                 skip_fields={"entity_id", "entity_label", "approved_name", "rare_variant_support"},
             )
-            provenance.append("schema")
+            source_matches["schema"] = build_source_identity_match(
+                "schema",
+                schema_row,
+                schema_match_key,
+            )
 
         psychencode_row, psychencode_match_key = match_row(
             seed_row,
@@ -199,7 +206,11 @@ def prepare_gene_table(
                     "developmental_regulatory_support",
                 },
             )
-            provenance.append("psychencode")
+            source_matches["psychencode"] = build_source_identity_match(
+                "psychencode",
+                psychencode_row,
+                psychencode_match_key,
+            )
 
         ot_row, ot_match_key = match_row(seed_row, ot_by_id, ot_by_label)
         if ot_row is not None:
@@ -211,13 +222,16 @@ def prepare_gene_table(
                 row.get("approved_name", ""),
                 ot_row.get("approved_name", ""),
             )
-            row["canonical_entity_id"] = ot_row.get("entity_id", row["canonical_entity_id"])
             merge_source_fields(
                 row,
                 ot_row,
                 skip_fields={"entity_id", "entity_label", "approved_name", "generic_platform_baseline"},
             )
-            provenance.append("opentargets")
+            source_matches["opentargets"] = build_source_identity_match(
+                "opentargets",
+                ot_row,
+                ot_match_key,
+            )
 
         chembl_row, chembl_match_key = match_row(seed_row, chembl_by_id, chembl_by_label)
         if chembl_row is not None:
@@ -237,18 +251,33 @@ def prepare_gene_table(
                 chembl_row,
                 skip_fields={"entity_id", "entity_label", "approved_name", "tractability_compoundability"},
             )
-            provenance.append("chembl")
+            source_matches["chembl"] = build_source_identity_match(
+                "chembl",
+                chembl_row,
+                chembl_match_key,
+            )
 
-        row["provenance_sources_json"] = json.dumps(provenance)
+        identity_fields = build_gene_identity_fields(
+            seed_row,
+            source_matches,
+            keep_canonical_alias=True,
+        )
+        row["entity_id"] = identity_fields["primary_gene_id"]
+        row.update(identity_fields)
         prepared_rows.append(row)
 
     preferred_field_order = [
         "entity_id",
+        "primary_gene_id",
         "canonical_entity_id",
         "entity_label",
         "approved_name",
         *ENGINE_LAYER_COLUMNS,
         "seed_entity_id",
+        "source_entity_ids_json",
+        "match_confidence",
+        "match_provenance_json",
+        "provenance_sources_json",
         "source_present_pgc",
         "pgc_match_key",
         "source_present_schema",
@@ -259,7 +288,6 @@ def prepare_gene_table(
         "opentargets_match_key",
         "source_present_chembl",
         "chembl_match_key",
-        "provenance_sources_json",
     ]
     additional_fields = []
     seen = set(preferred_field_order)

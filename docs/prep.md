@@ -17,10 +17,39 @@ It emits an engine-ready CSV with:
 
 - required engine layer columns always present
 - source-owned columns merged in
-- `canonical_entity_id`
+- `primary_gene_id`
+- `seed_entity_id`
+- `source_entity_ids_json`
+- `match_confidence`
+- `match_provenance_json`
 - source match keys
 - source presence flags
-- provenance JSON
+- source-specific match status fields where available
+- deprecated `canonical_entity_id` compatibility alias resolved from `primary_gene_id`
+
+## Identity Contract
+
+For the current seed-driven phase:
+
+- `entity_id` and `primary_gene_id` resolve to the immutable row identity
+- `seed_entity_id` records the literal seed-row ID that drove the row
+- `source_entity_ids_json` records the matched ID from each source, or `null` when that source did not match
+- `match_provenance_json` preserves ordered per-source provenance with:
+  - `source`
+  - `matched`
+  - `entity_id`
+  - `entity_label`
+  - `match_key`
+  - `match_status`
+- `canonical_entity_id` is kept only as a deprecated compatibility alias and always resolves from `primary_gene_id`
+
+`match_confidence` is a compact summary of how strongly the prepared row identity is supported:
+
+- `seed_only`: no external source matched the row
+- `id_confirmed`: at least one external source matched on `entity_id` and no source produced a conflicting ID
+- `source_confirmed`: external sources matched without conflict, but confirmation depends on non-`entity_id` evidence
+- `source_conflict`: one or more matched sources carried a different source-side ID than the primary row identity
+- `source_matched`: fallback for a matched source row that did not carry a confirming ID
 
 ## Module Table Prep
 
@@ -71,10 +100,10 @@ For each source:
 
 1. match by `entity_id` first
 2. if that fails, match by `entity_label` exactly, case-insensitive
-3. if `PGC` matches, use its `entity_id` as `canonical_entity_id`
-4. if `SCHEMA` matches with a confirmed source match, overwrite `canonical_entity_id` with its `entity_id`
-5. if `Open Targets` matches, overwrite `canonical_entity_id` with its `entity_id`
-6. keep the seed row as the row driver, do not expand or drop rows
+3. keep the seed row as the row driver, do not expand or drop rows
+4. keep the primary row identity stable; do not let later sources overwrite it
+5. store source-side IDs in `source_entity_ids_json` instead of using join order as identity
+6. store ordered provenance details in `match_provenance_json` and compatibility source order in `provenance_sources_json`
 
 ## Why This Matters
 

@@ -64,7 +64,8 @@ Every benchmark snapshot is described by a `benchmark_snapshot_manifest` with:
 
 - `as_of_date`: the last date allowed for ranking evidence
 - `outcome_observation_closed_at`: the last date used to adjudicate future labels
-- `source_snapshots`: one cutoff entry per evidence source
+- `benchmark_question_id`: the frozen benchmark question id, not an arbitrary per-run label
+- `source_snapshots`: one explicit cutoff or exclusion entry for every frozen evidence source
 - `leakage_controls`: an explicit strict no-leakage block
 - `baseline_ids`: the frozen comparison set to evaluate
 
@@ -86,7 +87,7 @@ If a source does not expose reliable row-level dates, the benchmark protocol doe
 Instead it uses a stricter rule:
 
 - include the source only from a pre-cutoff archived release or pre-cutoff archived extract
-- otherwise exclude that source from the snapshot
+- otherwise include an explicit `included = false` snapshot entry with an `exclusion_reason`
 
 This is how the protocol represents the "no hindsight" rule without requiring this PR to generate historical backfills.
 

@@ -349,6 +349,11 @@ class BenchmarkSnapshotManifest:
         _require_text(self.snapshot_id, "snapshot_id")
         _require_text(self.cohort_id, "cohort_id")
         _require_text(self.benchmark_question_id, "benchmark_question_id")
+        if self.benchmark_question_id != BENCHMARK_QUESTION_V1.question_id:
+            raise ValueError(
+                "benchmark_question_id must match the frozen benchmark question id "
+                f"{BENCHMARK_QUESTION_V1.question_id}"
+            )
         as_of_date = _parse_iso_date(self.as_of_date, "as_of_date")
         outcome_closed_at = _parse_iso_date(
             self.outcome_observation_closed_at,
@@ -453,6 +458,15 @@ class BenchmarkSnapshotManifest:
                 raise ValueError(
                     f"{source_snapshot.source_name} missing_date_policy must match leakage controls"
                 )
+        missing_source_names = sorted(
+            set(known_source_rules).difference(seen_sources)
+        )
+        if missing_source_names:
+            missing_sources = ", ".join(missing_source_names)
+            raise ValueError(
+                "source_snapshots must account for every frozen source, missing: "
+                f"{missing_sources}"
+            )
 
     def to_dict(self) -> dict[str, object]:
         return {

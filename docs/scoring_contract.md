@@ -68,6 +68,9 @@ Warning inputs can come from two places:
 
 These overlays remain reporting-only in `v0`; they do not alter numeric score, rank, or the heuristic-stability threshold rule.
 
+`PR7` also emits structural failure-history and directionality ledger fields for later consumption.
+Those fields remain scoring-neutral in `v0`.
+
 ## Baselines
 
 - Naive baseline: `common_variant_support` only
@@ -100,5 +103,6 @@ Pass condition:
 - no symptom-domain scoring
 - no illness-stage or relapse-prevention scoring heads
 - no numeric warning penalties
+- no numeric failure-history or directionality penalties
 - no raw-source ingest pipeline
 - no fully seed-independent end-to-end scoring claim

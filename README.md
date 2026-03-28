@@ -26,10 +26,11 @@ The engine currently implements:
 - Manifest-driven scoring for curated evidence tables
 - Stability analysis and baseline comparisons
 - Markdown and CSV report generation
+- Scoring-neutral target-ledger JSON outputs with structural failure history and directionality hypotheses
 - Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
 - Prepared gene tables that keep primitive `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL` source fields as first-class columns alongside the stable rolled-up `v0` layer inputs
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
-- Implementation-ready ontology plus a checked-in program-history and failure-taxonomy substrate for later domain-aware reasoning
+- Implementation-ready ontology plus a checked-in program-history, failure-taxonomy, and directionality-hypothesis substrate for later domain-aware reasoning
 - A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters as a fixture path
 - A checked-in module fixture path rebuilt from the full-universe candidate registry plus `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
 - Live data fetchers:
@@ -49,10 +50,11 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 - `v0` does not yet score relapse prevention, negative symptoms, cognition, CHR/transition prevention, or durable recovery relevance separately.
 - `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
 - Warning overlays remain reporting-only.
-- Program-history and failure-taxonomy artifacts are checked in as curated substrate only; they do not yet affect numeric scoring.
+- Program-history, failure-taxonomy, and directionality-hypothesis artifacts now emit structural target ledgers, but they still do not affect numeric scoring.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
 
 See [docs/claim.md](docs/claim.md) for the current claim boundary, [docs/ontology.md](docs/ontology.md) for the implementation-ready domain and stage vocabulary, and [docs/program_history.md](docs/program_history.md) for the curated program-history substrate that remains scoring-neutral in `v0`.
+See [docs/ledger_contract.md](docs/ledger_contract.md) for the target-ledger output contract.
 
 ## Quickstart
 
@@ -83,6 +85,7 @@ uv run scz-target-engine build \
 ```
 
 `examples/v0/input/gene_evidence.csv` and `examples/v0/input/module_evidence.csv` are generated fixture snapshots from that refresh flow.
+The build now also emits `gene_target_ledgers.json`, a structured per-target artifact that stays scoring-neutral in `v0`.
 
 Build the registry manually from processed full-universe-capable sources:
 
@@ -182,6 +185,7 @@ uv run --group dev pytest
 - [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary not yet separately scored
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
+- [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract
 - [docs/chembl.md](docs/chembl.md): ChEMBL fetch contract

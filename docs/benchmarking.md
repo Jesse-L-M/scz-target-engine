@@ -75,9 +75,12 @@ The manifest lives in code as `BenchmarkSnapshotManifest` in [src/scz_target_eng
 For every included evidence source:
 
 - `allowed_data_through <= as_of_date`
-- `materialized_at <= as_of_date`
+- `evidence_frozen_at <= as_of_date`
+- `source_name`, `cutoff_mode`, and per-source leakage policies must match the frozen source cutoff rules
 - future-dated records are rejected
 - missing cutoff metadata is not silently tolerated
+
+`materialized_at` may be later than the benchmark `as_of_date` if the snapshot was reconstructed from a pre-cutoff archived release or extract. The anti-leakage requirement applies to when the evidence was frozen, not when a later PR regenerated the manifest from that frozen evidence.
 
 If a source does not expose reliable row-level dates, the benchmark protocol does not guess.
 Instead it uses a stricter rule:
@@ -96,7 +99,7 @@ It freezes these requirements:
 - a snapshot manifest is required
 - future evidence cannot enter the ranking inputs
 - future outcome labels cannot be reused as model inputs
-- pre-cutoff materialization is required for included evidence artifacts
+- pre-cutoff evidence freezing is required for included evidence artifacts
 - undated sources default to `exclude_source`
 - missing cutoff definitions default to `reject_snapshot`
 - benchmark execution cannot depend on current head internals that are not already present in frozen artifacts
@@ -115,7 +118,7 @@ The current evidence stack is frozen as release-scoped for benchmarking:
 
 All five currently use release or archived-extract semantics rather than record-level timestamp semantics in the protocol. That means:
 
-- historical benchmark slices require a release archived and materialized on or before the snapshot date
+- historical benchmark slices require a release or archived extract frozen on or before the snapshot date
 - if such an archive does not exist, the source is excluded
 - this PR does not backfill or synthesize those historical archives
 
@@ -141,6 +144,7 @@ Notes:
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` are frozen protocol comparison labels so future benchmark runs remain comparable across the PR8.1 transition.
 - `chembl_only` applies only where tractability context exists and is not a module baseline.
 - `random_with_coverage` must match entity type, cohort size, and coverage masks.
+- a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest.
 
 The code contract for the matrix lives in `FROZEN_BASELINE_MATRIX`.
 

@@ -242,6 +242,7 @@ class SourceSnapshot:
     source_version: str
     cutoff_mode: str
     allowed_data_through: str
+    evidence_frozen_at: str | None
     materialized_at: str
     evidence_timestamp_field: str | None
     missing_date_policy: str
@@ -255,7 +256,13 @@ class SourceSnapshot:
         if self.cutoff_mode not in VALID_CUTOFF_MODES:
             raise ValueError("cutoff_mode must be a supported snapshot cutoff mode")
         _parse_iso_date(self.allowed_data_through, "allowed_data_through")
-        _parse_iso_date(self.materialized_at, "materialized_at")
+        materialized_at = _parse_iso_date(self.materialized_at, "materialized_at")
+        evidence_frozen_at = None
+        if self.evidence_frozen_at not in {None, ""}:
+            evidence_frozen_at = _parse_iso_date(
+                str(self.evidence_frozen_at),
+                "evidence_frozen_at",
+            )
         if (
             self.cutoff_mode == RECORD_TIMESTAMP_CUTOFF
             and not self.evidence_timestamp_field
@@ -267,6 +274,15 @@ class SourceSnapshot:
             raise ValueError("missing_date_policy must be a supported policy")
         if self.future_record_policy != REJECT_SNAPSHOT_POLICY:
             raise ValueError("future_record_policy must remain reject_snapshot")
+        if self.included and evidence_frozen_at is None:
+            raise ValueError("included sources must record evidence_frozen_at")
+        if (
+            evidence_frozen_at is not None
+            and materialized_at < evidence_frozen_at
+        ):
+            raise ValueError(
+                "materialized_at cannot be earlier than evidence_frozen_at"
+            )
         if not self.included and not self.exclusion_reason:
             raise ValueError("excluded sources must record exclusion_reason")
         if self.included and self.exclusion_reason:
@@ -278,6 +294,7 @@ class SourceSnapshot:
             "source_version": self.source_version,
             "cutoff_mode": self.cutoff_mode,
             "allowed_data_through": self.allowed_data_through,
+            "evidence_frozen_at": self.evidence_frozen_at,
             "materialized_at": self.materialized_at,
             "evidence_timestamp_field": self.evidence_timestamp_field,
             "missing_date_policy": self.missing_date_policy,
@@ -293,6 +310,11 @@ class SourceSnapshot:
             source_version=str(payload["source_version"]),
             cutoff_mode=str(payload["cutoff_mode"]),
             allowed_data_through=str(payload["allowed_data_through"]),
+            evidence_frozen_at=(
+                None
+                if payload.get("evidence_frozen_at") in {None, ""}
+                else str(payload["evidence_frozen_at"])
+            ),
             materialized_at=str(payload["materialized_at"]),
             evidence_timestamp_field=(
                 None
@@ -345,26 +367,69 @@ class BenchmarkSnapshotManifest:
             raise ValueError("source_snapshots must contain at least one source entry")
         if not self.baseline_ids:
             raise ValueError("baseline_ids must contain at least one benchmark baseline")
+        if len(self.baseline_ids) != len(set(self.baseline_ids)):
+            raise ValueError("baseline_ids must not repeat baseline_id")
 
         seen_sources: set[str] = set()
-        known_baseline_ids = set(FROZEN_BASELINE_IDS)
+        known_baselines = {
+            baseline.baseline_id: baseline for baseline in FROZEN_BASELINE_MATRIX
+        }
+        snapshot_entity_types = set(self.entity_types)
         for baseline_id in self.baseline_ids:
-            if baseline_id not in known_baseline_ids:
+            baseline_definition = known_baselines.get(baseline_id)
+            if baseline_definition is None:
                 raise ValueError(f"unknown baseline_id: {baseline_id}")
+            if not snapshot_entity_types.intersection(
+                baseline_definition.entity_types
+            ):
+                raise ValueError(
+                    f"baseline_id {baseline_id} does not apply to snapshot entity_types"
+                )
 
+        known_source_rules = {
+            source_rule.source_name: source_rule
+            for source_rule in SOURCE_CUTOFF_RULES_V1
+        }
         for source_snapshot in self.source_snapshots:
             if source_snapshot.source_name in seen_sources:
                 raise ValueError("source_snapshots must not repeat source_name")
             seen_sources.add(source_snapshot.source_name)
+
+            expected_source_rule = known_source_rules.get(source_snapshot.source_name)
+            if expected_source_rule is None:
+                raise ValueError(
+                    f"{source_snapshot.source_name} is missing a frozen cutoff rule"
+                )
+            if source_snapshot.cutoff_mode != expected_source_rule.cutoff_mode:
+                raise ValueError(
+                    f"{source_snapshot.source_name} cutoff_mode does not match the frozen cutoff rule"
+                )
+            if (
+                source_snapshot.evidence_timestamp_field
+                != expected_source_rule.evidence_timestamp_field
+            ):
+                raise ValueError(
+                    f"{source_snapshot.source_name} evidence_timestamp_field does not match the frozen cutoff rule"
+                )
+            if (
+                source_snapshot.missing_date_policy
+                != expected_source_rule.missing_date_policy
+            ):
+                raise ValueError(
+                    f"{source_snapshot.source_name} missing_date_policy does not match the frozen cutoff rule"
+                )
+            if (
+                source_snapshot.future_record_policy
+                != expected_source_rule.future_record_policy
+            ):
+                raise ValueError(
+                    f"{source_snapshot.source_name} future_record_policy does not match the frozen cutoff rule"
+                )
             if not source_snapshot.included:
                 continue
             allowed_data_through = _parse_iso_date(
                 source_snapshot.allowed_data_through,
                 f"{source_snapshot.source_name}.allowed_data_through",
-            )
-            materialized_at = _parse_iso_date(
-                source_snapshot.materialized_at,
-                f"{source_snapshot.source_name}.materialized_at",
             )
             if allowed_data_through > as_of_date:
                 raise ValueError(
@@ -372,10 +437,14 @@ class BenchmarkSnapshotManifest:
                 )
             if (
                 self.leakage_controls.require_precutoff_materialization
-                and materialized_at > as_of_date
+                and _parse_iso_date(
+                    str(source_snapshot.evidence_frozen_at),
+                    f"{source_snapshot.source_name}.evidence_frozen_at",
+                )
+                > as_of_date
             ):
                 raise ValueError(
-                    f"{source_snapshot.source_name} materialized_at exceeds as_of_date"
+                    f"{source_snapshot.source_name} evidence_frozen_at exceeds as_of_date"
                 )
             if (
                 source_snapshot.missing_date_policy
@@ -662,7 +731,7 @@ SOURCE_CUTOFF_RULES_V1 = (
     SourceCutoffRule(
         source_name="PGC",
         cutoff_mode=SOURCE_RELEASE_CUTOFF,
-        cutoff_reference="pgc_release_date_or_precutoff_archive_materialized_at",
+        cutoff_reference="pgc_release_date_or_precutoff_archive_frozen_at",
         evidence_timestamp_field=None,
         missing_date_policy=EXCLUDE_SOURCE_POLICY,
         future_record_policy=REJECT_SNAPSHOT_POLICY,
@@ -678,7 +747,7 @@ SOURCE_CUTOFF_RULES_V1 = (
     SourceCutoffRule(
         source_name="SCHEMA",
         cutoff_mode=SOURCE_RELEASE_CUTOFF,
-        cutoff_reference="schema_release_date_or_precutoff_archive_materialized_at",
+        cutoff_reference="schema_release_date_or_precutoff_archive_frozen_at",
         evidence_timestamp_field=None,
         missing_date_policy=EXCLUDE_SOURCE_POLICY,
         future_record_policy=REJECT_SNAPSHOT_POLICY,
@@ -694,7 +763,7 @@ SOURCE_CUTOFF_RULES_V1 = (
         source_name="PsychENCODE",
         cutoff_mode=SOURCE_RELEASE_CUTOFF,
         cutoff_reference=(
-            "psychencode_release_date_or_precutoff_archive_materialized_at"
+            "psychencode_release_date_or_precutoff_archive_frozen_at"
         ),
         evidence_timestamp_field=None,
         missing_date_policy=EXCLUDE_SOURCE_POLICY,
@@ -712,7 +781,7 @@ SOURCE_CUTOFF_RULES_V1 = (
         source_name="Open Targets",
         cutoff_mode=SOURCE_RELEASE_CUTOFF,
         cutoff_reference=(
-            "opentargets_release_date_or_precutoff_archive_materialized_at"
+            "opentargets_release_date_or_precutoff_archive_frozen_at"
         ),
         evidence_timestamp_field=None,
         missing_date_policy=EXCLUDE_SOURCE_POLICY,
@@ -729,7 +798,7 @@ SOURCE_CUTOFF_RULES_V1 = (
     SourceCutoffRule(
         source_name="ChEMBL",
         cutoff_mode=SOURCE_RELEASE_CUTOFF,
-        cutoff_reference="chembl_release_date_or_precutoff_archive_materialized_at",
+        cutoff_reference="chembl_release_date_or_precutoff_archive_frozen_at",
         evidence_timestamp_field=None,
         missing_date_policy=EXCLUDE_SOURCE_POLICY,
         future_record_policy=REJECT_SNAPSHOT_POLICY,
@@ -924,7 +993,10 @@ BENCHMARK_ARTIFACT_SCHEMAS_V1 = (
                 name="source_snapshots",
                 field_type="object[]",
                 required=True,
-                description="Per-source cutoff and materialization entries.",
+                description=(
+                    "Per-source cutoff and provenance entries, including allowed_data_through, "
+                    "evidence_frozen_at, and materialized_at."
+                ),
             ),
             ArtifactField(
                 name="leakage_controls",

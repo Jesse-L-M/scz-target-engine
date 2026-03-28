@@ -116,3 +116,11 @@ That means benchmark snapshots must either:
 
 The protocol does not allow current-source pulls to be projected backward into older snapshots.
 Undated or ambiguously dated evidence is excluded by default rather than admitted with warnings.
+
+`PR9B` now materializes this explicitly in snapshot artifacts:
+
+- every frozen source gets one `SourceSnapshot` entry
+- included sources are backed by an archived descriptor plus a verified archive file digest
+- excluded sources set `included = false` and record a concrete `exclusion_reason`
+
+The checked-in deterministic fixture flow for this behavior lives under `data/benchmark/fixtures/scz_small/`.

@@ -11,6 +11,11 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
         return list(reader)
 
 
+def read_json(path: Path) -> object:
+    with path.open(encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def write_csv(path: Path, rows: list[dict[str, object]], fieldnames: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:

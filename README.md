@@ -31,6 +31,7 @@ The engine currently implements:
 - Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
 - Prepared gene tables that keep primitive `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL` source fields as first-class columns alongside the stable rolled-up `v0` layer inputs
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
+- Runner-free benchmark snapshot and cohort artifact builders that materialize frozen manifests, explicit source inclusions/exclusions, and future-label cohorts from archived source descriptors
 - Implementation-ready ontology plus a checked-in program-history, failure-taxonomy, and directionality-hypothesis substrate for later domain-aware reasoning
 - A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters as a fixture path
 - A checked-in module fixture path rebuilt from the full-universe candidate registry plus `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
@@ -52,6 +53,7 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 - `v1` domain/stage scores now combine human-support, biology-context, and intervention-readiness heads with numeric PR7-backed failure, directionality, and subgroup heads for gene targets.
 - `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
 - Benchmarking is protocol-defined but not runner-implemented yet; see [docs/benchmarking.md](docs/benchmarking.md).
+- Benchmark artifact materialization is implemented, but benchmark metric execution and baseline-matrix runs are still intentionally deferred.
 - Warning overlays remain reporting-only.
 - Program-history, failure-taxonomy, and directionality-hypothesis artifacts now emit structural target ledgers. Those ledgers feed numeric `v1` head scoring for gene targets, while shared `v0` outputs remain unchanged.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
@@ -186,6 +188,26 @@ Run tests:
 uv run --group dev pytest
 ```
 
+Build the deterministic runner-free benchmark fixture artifacts:
+
+```bash
+uv run scz-target-engine build-benchmark-snapshot \
+  --request-file data/benchmark/fixtures/scz_small/snapshot_request.json \
+  --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json \
+  --output-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --materialized-at 2026-03-28
+
+uv run scz-target-engine build-benchmark-cohort \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv \
+  --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv \
+  --output-file data/benchmark/generated/scz_small/cohort_labels.csv
+```
+
+That fixture flow writes a real `benchmark_snapshot_manifest` plus a real
+`benchmark_cohort_labels` artifact, with explicit inclusion or exclusion accounting
+for every frozen source. It does not run baselines or compute benchmark metrics.
+
 ## Repo Layout
 
 - [config/v0.toml](config/v0.toml): scoring and build config
@@ -194,6 +216,7 @@ uv run --group dev pytest
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, snapshot semantics, leakage controls, baseline matrix, and artifact schemas
+- [data/benchmark](data/benchmark): deterministic benchmark fixture archives and runner-free artifact flow
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract

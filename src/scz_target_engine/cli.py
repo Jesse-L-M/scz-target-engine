@@ -5,6 +5,11 @@ import json
 from pathlib import Path
 import sys
 
+from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
+from scz_target_engine.benchmark_snapshots import (
+    materialize_benchmark_snapshot_manifest,
+    read_benchmark_snapshot_manifest,
+)
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
 from scz_target_engine.ingest import refresh_candidate_registry
@@ -113,11 +118,43 @@ def build_parser() -> argparse.ArgumentParser:
     refresh_inputs_parser.add_argument("--disease-query")
     refresh_inputs_parser.add_argument("--overrides-file")
 
+    benchmark_snapshot_parser = subparsers.add_parser("build-benchmark-snapshot")
+    benchmark_snapshot_parser.add_argument("--request-file", required=True)
+    benchmark_snapshot_parser.add_argument("--archive-index-file", required=True)
+    benchmark_snapshot_parser.add_argument("--output-file", required=True)
+    benchmark_snapshot_parser.add_argument("--materialized-at", required=True)
+
+    benchmark_cohort_parser = subparsers.add_parser("build-benchmark-cohort")
+    benchmark_cohort_parser.add_argument("--manifest-file", required=True)
+    benchmark_cohort_parser.add_argument("--cohort-members-file", required=True)
+    benchmark_cohort_parser.add_argument("--future-outcomes-file", required=True)
+    benchmark_cohort_parser.add_argument("--output-file", required=True)
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.command == "build-benchmark-snapshot":
+        result = materialize_benchmark_snapshot_manifest(
+            request_file=Path(args.request_file).resolve(),
+            archive_index_file=Path(args.archive_index_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            materialized_at=args.materialized_at,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "build-benchmark-cohort":
+        result = materialize_benchmark_cohort_labels(
+            manifest=read_benchmark_snapshot_manifest(Path(args.manifest_file).resolve()),
+            cohort_members_file=Path(args.cohort_members_file).resolve(),
+            future_outcomes_file=Path(args.future_outcomes_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
 
     if args.command == "fetch-opentargets":
         result = fetch_opentargets_baseline(

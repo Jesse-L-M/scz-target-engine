@@ -297,3 +297,45 @@ def test_cli_refresh_example_inputs_parser_accepts_optional_paths() -> None:
     assert args.gene_work_dir == "data/processed/example-gene"
     assert args.module_work_dir == "data/processed/example-module"
     assert args.disease_query == "schizophrenia"
+
+
+def test_cli_build_benchmark_snapshot_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "build-benchmark-snapshot",
+            "--request-file",
+            "snapshot_request.json",
+            "--archive-index-file",
+            "source_archives.json",
+            "--output-file",
+            "snapshot_manifest.json",
+            "--materialized-at",
+            "2026-03-28",
+        ]
+    )
+    assert args.command == "build-benchmark-snapshot"
+    assert args.request_file == "snapshot_request.json"
+    assert args.archive_index_file == "source_archives.json"
+    assert args.output_file == "snapshot_manifest.json"
+    assert args.materialized_at == "2026-03-28"
+
+
+def test_cli_build_benchmark_cohort_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "build-benchmark-cohort",
+            "--manifest-file",
+            "snapshot_manifest.json",
+            "--cohort-members-file",
+            "cohort_members.csv",
+            "--future-outcomes-file",
+            "future_outcomes.csv",
+            "--output-file",
+            "cohort_labels.csv",
+        ]
+    )
+    assert args.command == "build-benchmark-cohort"
+    assert args.manifest_file == "snapshot_manifest.json"
+    assert args.cohort_members_file == "cohort_members.csv"
+    assert args.future_outcomes_file == "future_outcomes.csv"
+    assert args.output_file == "cohort_labels.csv"

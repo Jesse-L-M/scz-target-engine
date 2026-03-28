@@ -4,7 +4,7 @@ A transparent `v0` public-evidence prioritization scaffold for schizophrenia-ori
 
 The core challenge in target selection is separating reproducible biological signal from accumulated intuition. This engine makes the scoring contract explicit, runs quantitative stability analyses, and publishes report cards that show where the current public evidence looks promising, fragile, or insufficient.
 
-`v0` is not a validated target decision system. It does not justify `advance / do not advance` claims, it does not yet score symptom-domain or illness-stage use cases separately, and its warning overlays do not change numeric rank.
+`v0` is not a validated target decision system. It does not justify `advance / do not advance` claims, and its warning overlays do not change numeric rank. The build now also emits an additive `v1` decision-vector layer with domain/stage heads, while leaving all existing `v0` numeric outputs unchanged.
 
 ## V0 Scope
 
@@ -12,7 +12,7 @@ The core challenge in target selection is separating reproducible biological sig
 - Treatment-resistant schizophrenia annotated but not separately scored
 - Independent gene-level and module-level leaderboards
 - Warning overlays for prior clinical failure history and evidence gaps
-- Ontology vocabulary documented but not separately scored yet
+- Ontology vocabulary documented and exposed through additive `v1` domain/stage heads
 - Non-seed candidate-registry ingest plus a seed-linked example fixture workflow
 - Stability analysis:
   - Leave-one-layer-out ablation
@@ -27,6 +27,7 @@ The engine currently implements:
 - Stability analysis and baseline comparisons
 - Markdown and CSV report generation
 - Scoring-neutral target-ledger JSON outputs with structural failure history and directionality hypotheses
+- Additive `v1` decision vectors plus per-domain/per-stage ranking artifacts
 - Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
 - Prepared gene tables that keep primitive `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL` source fields as first-class columns alongside the stable rolled-up `v0` layer inputs
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
@@ -47,7 +48,8 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 
 - `v0` is infrastructure, not the full target-engine vision.
 - `v0` is a public-evidence prioritization scaffold, not a validated decision authority.
-- `v0` does not yet score relapse prevention, negative symptoms, cognition, CHR/transition prevention, or durable recovery relevance separately.
+- `v1` decision vectors are an explicit multi-head output layer, not a validated clinical advancement authority.
+- `v1` domain/stage scores currently rely on human-support, biology-context, and intervention-readiness heads; PR7-backed failure, directionality, and subgroup heads remain explicit unscored placeholders on top of the landed substrate.
 - `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
 - Warning overlays remain reporting-only.
 - Program-history, failure-taxonomy, and directionality-hypothesis artifacts now emit structural target ledgers, but they still do not affect numeric scoring.
@@ -86,6 +88,11 @@ uv run scz-target-engine build \
 
 `examples/v0/input/gene_evidence.csv` and `examples/v0/input/module_evidence.csv` are generated fixture snapshots from that refresh flow.
 The build now also emits `gene_target_ledgers.json`, a structured per-target artifact that stays scoring-neutral in `v0`.
+
+The build now also emits:
+
+- `decision_vectors_v1.json`: nested per-entity `v1` decision vectors with named head fields, a keyed `decision_vector` object, and domain/stage scores
+- `domain_head_rankings_v1.csv`: per-domain/per-stage `v1` ranking rows with side-by-side `heuristic_score_v0` comparison fields
 
 Build the registry manually from processed full-universe-capable sources:
 
@@ -182,7 +189,7 @@ uv run --group dev pytest
 
 - [config/v0.toml](config/v0.toml): scoring and build config
 - [docs/claim.md](docs/claim.md): current capability and claim boundary for `v0`
-- [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary not yet separately scored
+- [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary consumed by the additive `v1` head layer
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract

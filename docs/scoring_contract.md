@@ -106,3 +106,60 @@ Pass condition:
 - no numeric failure-history or directionality penalties
 - no raw-source ingest pipeline
 - no fully seed-independent end-to-end scoring claim
+
+## V1 Decision Vector Overlay
+
+`v1` is additive. It does not mutate `v0` weights, eligibility, ranks, stability rules, or existing output files.
+
+The build emits:
+
+- `decision_vectors_v1.json`: nested per-entity decision vectors plus domain/stage head outputs
+- `domain_head_rankings_v1.csv`: flat per-domain/per-stage ranks with side-by-side `heuristic_score_v0` comparison columns
+
+Each entity in `decision_vectors_v1.json` now exposes:
+
+- named head fields such as `human_support_score` and `biology_context_score`
+- matching `*_status` fields for those heads
+- a `decision_vector` object keyed by head name for the richer per-head payload
+- a `domain_profiles` object keyed by ontology slug for per-domain/per-stage inspection
+
+### Decision Heads
+
+- `human_support_score`
+  - Gene semantics: mean of `common_variant_support` and `rare_variant_support`
+  - Module semantics: `member_gene_genetic_enrichment`
+- `biology_context_score`
+  - Gene semantics: mean of `cell_state_support` and `developmental_regulatory_support`
+  - Module semantics: mean of `cell_state_specificity` and `developmental_regulatory_relevance`
+- `intervention_readiness_score`
+  - Gene semantics: weighted blend of `tractability_compoundability` and `generic_platform_baseline`
+  - Module semantics: not currently applicable; modules are not direct intervention objects in this build
+- `failure_burden_score`
+  - PR7-backed structural substrate is now available, but PR8 keeps the numeric head explicit and unscored
+- `directionality_confidence`
+  - PR7-backed directionality substrate is now available, but PR8 keeps the numeric head explicit and unscored
+- `subgroup_resolution_score`
+  - PR7-backed subgroup and heterogeneity substrate is now available structurally, but PR8 leaves the numeric head explicit and unscored
+
+### Domain / Stage Head Profiles
+
+Canonical ontology buckets from `docs/ontology.md` now map to explicit `v1` profiles:
+
+- `acute_positive_symptoms`
+- `relapse_prevention`
+- `treatment_resistant_schizophrenia`
+- `clozapine_resistant_schizophrenia`
+- `negative_symptoms`
+- `cognition`
+- `chr_transition_prevention`
+- `functioning_durable_recovery_relevance`
+
+Each profile is a documented weighted blend over the `v1` decision heads. Scores are computed over the available head subset, and each output row carries a coverage fraction plus explicit PR7-substrate status fields where numeric semantics remain intentionally deferred.
+
+### Legacy Comparison Contract
+
+- `heuristic_score_v0` in `v1` artifacts is the unchanged `v0` `composite_score`
+- `heuristic_rank_v0` is the unchanged `v0` rank
+- `heuristic_stable_v0` is the unchanged `v0` stability label
+
+Existing `v0` numeric outputs remain unchanged. `v1` exists beside them as a comparison and inspection layer.

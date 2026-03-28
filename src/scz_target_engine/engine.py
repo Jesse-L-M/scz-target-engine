@@ -4,6 +4,11 @@ from dataclasses import asdict
 from pathlib import Path
 
 from scz_target_engine.config import EngineConfig
+from scz_target_engine.decision_vector import (
+    build_decision_vector_payload,
+    build_decision_vectors,
+    rank_domain_head_rows,
+)
 from scz_target_engine.io import read_csv_rows, write_csv, write_json, write_text
 from scz_target_engine.ledger import (
     build_target_ledgers,
@@ -152,6 +157,9 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         if ledger is None:
             continue
         row.update(ledger_summary_fields(ledger))
+    gene_vectors = build_decision_vectors(gene_entities)
+    module_vectors = build_decision_vectors(module_entities)
+    domain_head_rows = rank_domain_head_rows(gene_vectors + module_vectors)
 
     top_targets = [
         entity
@@ -200,6 +208,15 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
             repo_root=repo_root,
         ),
     )
+    write_json(
+        output_dir / "decision_vectors_v1.json",
+        build_decision_vector_payload(gene_vectors, module_vectors),
+    )
+    write_csv(
+        output_dir / "domain_head_rankings_v1.csv",
+        domain_head_rows,
+        fieldnames=list(domain_head_rows[0].keys()) if domain_head_rows else [],
+    )
     write_text(
         output_dir / "target_cards.md",
         build_cards_markdown(
@@ -242,4 +259,6 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         ),
         "gene_warning_count": len([entity for entity in gene_entities if entity.warning_count]),
         "gene_target_ledger_file": str((output_dir / "gene_target_ledgers.json").resolve()),
+        "decision_vector_artifact": str(output_dir / "decision_vectors_v1.json"),
+        "domain_head_ranking_artifact": str(output_dir / "domain_head_rankings_v1.csv"),
     }

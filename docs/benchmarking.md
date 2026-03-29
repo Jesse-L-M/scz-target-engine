@@ -308,7 +308,7 @@ through the emitted domain-head contract by taking the mean available
 
 The current interval payloads use percentile bootstrap confidence intervals with:
 
-- resample unit `entity`
+- resample unit `entity`, sampled with replacement and replayed in original rank order within each bootstrap replicate
 - explicit bootstrap iteration count on every payload
 - explicit random seed on every payload
 - deterministic test mode via a fixed seed and reduced iteration count

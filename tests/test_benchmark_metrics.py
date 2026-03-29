@@ -1,8 +1,11 @@
+import random
 from pathlib import Path
 
 from scz_target_engine.benchmark_metrics import (
     BenchmarkConfidenceIntervalPayload,
     BenchmarkMetricOutputPayload,
+    RankedEvaluationRow,
+    _resample_rows_preserving_rank_order,
     build_ranked_evaluation_rows,
     calculate_metric_values,
     estimate_bootstrap_intervals,
@@ -67,6 +70,40 @@ def test_estimate_bootstrap_intervals_is_deterministic() -> None:
     ]
     assert point_estimate == 0.833333
     assert interval_low <= point_estimate <= interval_high
+
+
+def test_estimate_bootstrap_intervals_preserve_original_rank_order_in_replicates() -> None:
+    rows = (
+        RankedEvaluationRow(entity_id="gene_a", relevant=False),
+        RankedEvaluationRow(entity_id="gene_b", relevant=False),
+        RankedEvaluationRow(entity_id="gene_c", relevant=False),
+        RankedEvaluationRow(entity_id="gene_d", relevant=True),
+    )
+
+    resampled_rows = _resample_rows_preserving_rank_order(rows, random.Random(0))
+    assert [row.entity_id for row in resampled_rows] == [
+        "gene_a",
+        "gene_c",
+        "gene_d",
+        "gene_d",
+    ]
+
+    intervals = estimate_bootstrap_intervals(
+        rows,
+        iterations=1,
+        random_seed=0,
+    )
+
+    assert intervals["mean_reciprocal_rank_any_positive_outcome"] == (
+        0.25,
+        0.333333,
+        0.333333,
+    )
+    assert intervals["average_precision_any_positive_outcome"] == (
+        0.25,
+        0.416667,
+        0.416667,
+    )
 
 
 def test_build_ranked_evaluation_rows_keeps_uncovered_admissible_entities() -> None:

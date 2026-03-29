@@ -369,6 +369,20 @@ def _percentile(sorted_values: list[float], quantile: float) -> float:
     return lower_value + ((upper_value - lower_value) * fraction)
 
 
+def _resample_rows_preserving_rank_order(
+    rows: tuple[RankedEvaluationRow, ...],
+    rng: random.Random,
+) -> tuple[RankedEvaluationRow, ...]:
+    sampled_counts = [0] * len(rows)
+    for _ in range(len(rows)):
+        sampled_counts[rng.randrange(len(rows))] += 1
+    return tuple(
+        row
+        for row, sampled_count in zip(rows, sampled_counts)
+        for _ in range(sampled_count)
+    )
+
+
 def estimate_bootstrap_intervals(
     rows: tuple[RankedEvaluationRow, ...],
     *,
@@ -391,10 +405,7 @@ def estimate_bootstrap_intervals(
         for metric_name in metric_values
     }
     for _ in range(iterations):
-        resampled_rows = tuple(
-            rows[rng.randrange(len(rows))]
-            for _ in range(len(rows))
-        )
+        resampled_rows = _resample_rows_preserving_rank_order(rows, rng)
         resampled_metrics = calculate_metric_values(resampled_rows)
         for metric_name, metric_value in resampled_metrics.items():
             samples[metric_name].append(metric_value)

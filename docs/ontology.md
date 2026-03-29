@@ -1,6 +1,9 @@
 # Ontology
 
-This document defines the implementation-ready disease-domain and illness-stage vocabulary used by the repo's curated data. `v0` still does not score these buckets separately yet, but later code should use the canonical slugs here instead of inventing new labels ad hoc.
+This document defines the implementation-ready disease-domain and illness-stage vocabulary
+used by the repo's curated data and emitted `v1` domain/stage profiles. Shared `v0`
+scores still do not rank these buckets separately, but current `v1` outputs already use
+the canonical slugs here instead of inventing new labels ad hoc.
 
 ## Usage Rules
 

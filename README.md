@@ -1,65 +1,54 @@
 # Schizophrenia Target Engine
 
-A transparent `v0` public-evidence prioritization scaffold for schizophrenia-oriented drug targets and biological modules, built on publicly available genomic and transcriptomic data.
+A transparent schizophrenia target-decision scaffold that now ships three concrete
+layers on `main`: a stable `v0` evidence-ranking reference path, additive `v1`
+decision-vector outputs, and a fixture-scale benchmark path built from frozen
+snapshot, cohort, and runner artifacts.
 
-The core challenge in target selection is separating reproducible biological signal from accumulated intuition. This engine makes the scoring contract explicit, runs quantitative stability analyses, and publishes report cards that show where the current public evidence looks promising, fragile, or insufficient.
+The core challenge in target selection is separating reproducible biological signal
+from accumulated intuition. This repo makes the scoring contract explicit, keeps the
+shared `v0` numeric outputs stable, adds inspectable `v1` heads without changing those
+`v0` scores, and emits benchmark artifacts that can be rerun end to end from checked-in
+fixtures.
 
-`v0` is not a validated target decision system. It does not justify `advance / do not advance` claims, and its warning overlays do not change numeric rank. The build now also emits an additive `v1` decision-vector layer with domain/stage heads, while leaving all existing `v0` numeric outputs unchanged. The repo also freezes a benchmark protocol contract for later time-sliced evaluation without yet implementing the runner.
+## What Ships On Main
 
-## V0 Scope
-
-- Schizophrenia core only
-- Treatment-resistant schizophrenia annotated but not separately scored
-- Independent gene-level and module-level leaderboards
-- Warning overlays for prior clinical failure history and evidence gaps
-- Ontology vocabulary documented and exposed through additive `v1` domain/stage heads
-- Non-seed candidate-registry ingest plus a seed-linked example fixture workflow
-- Stability analysis:
-  - Leave-one-layer-out ablation
-  - `+/- 20%` weight perturbation
-  - Heuristic-stability threshold: `>= 70%` survival across sensitivity runs
-
-## Current State
-
-The engine currently implements:
-
-- Manifest-driven scoring for curated evidence tables
-- Stability analysis and baseline comparisons
-- Markdown and CSV report generation
-- Scoring-neutral target-ledger JSON outputs with structural failure history and directionality hypotheses
+- A `v0` reference build for schizophrenia gene and module ranking, with sensitivity analysis, markdown/CSV reports, and warning overlays that remain reporting-only
 - Additive `v1` decision vectors plus per-domain/per-stage ranking artifacts
-- Explicit prepared-gene identity contract with stable primary IDs and per-source provenance
-- Prepared gene tables that keep primitive `PGC`, `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL` source fields as first-class columns alongside the stable rolled-up `v0` layer inputs
+- PR7 scoring-neutral target ledgers with failure history, directionality hypotheses, and source primitives
+- PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort labels, runner manifests, metric payloads, and confidence interval payloads
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
-- Runner-free benchmark snapshot and cohort artifact builders that materialize frozen manifests, explicit source inclusions/exclusions, and future-label cohorts from archived source descriptors
-- Implementation-ready ontology plus a checked-in program-history, failure-taxonomy, and directionality-hypothesis substrate for later domain-aware reasoning
-- A seed gene shortlist with a checked-in curated gene table refreshed from live source adapters as a fixture path
-- A checked-in module fixture path rebuilt from the full-universe candidate registry plus `PsychENCODE / BrainSCOPE` cell-type DEG and GRN assets
-- Live data fetchers:
-  - `Open Targets` schizophrenia baseline via the official GraphQL API
-  - `ChEMBL` tractability annotation for shortlist genes
-  - `PGC` schizophrenia prioritised genes from the `scz2022` release
-  - `SCHEMA` rare-variant support via the official results browser API, with a curated alias override layer for unresolved symbols
-  - `PsychENCODE / BrainSCOPE` schizophrenia DEG and adult cell-type GRN support
-  - `PsychENCODE / BrainSCOPE` source-backed cell-type module derivation
+- A checked-in example scoring fixture path under `examples/v0/`, where `v0` still exists as the reference workflow and `v1` outputs are emitted alongside it when you rerun the build
+- Live fetchers for `Open Targets`, `ChEMBL`, `PGC`, `SCHEMA`, and `PsychENCODE / BrainSCOPE`
 
-Raw-source ingestion from consortium data dumps is not yet implemented. V0 operates from curated tables with normalised layer scores in `[0, 1]`.
+Raw consortium-dump ingestion is still not implemented. The current scoring path
+operates from curated tables with normalized layer scores in `[0, 1]`.
 
-## Claim Boundaries
+## Claim Boundary
 
-- `v0` is infrastructure, not the full target-engine vision.
-- `v0` is a public-evidence prioritization scaffold, not a validated decision authority.
-- `v1` decision vectors are an explicit multi-head output layer, not a validated clinical advancement authority.
+- `v0` is infrastructure, not a validated target decision system.
+- `v1` is an additive multi-head output layer, not a validated clinical advancement authority.
+- Warning overlays and structural ledgers do not change shared `v0` score, rank, or `heuristic_stable`.
 - `v1` domain/stage scores now combine human-support, biology-context, and intervention-readiness heads with numeric PR7-backed failure, directionality, and subgroup heads for gene targets.
-- `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
-- Benchmark execution now runs the frozen `available_now` baseline set against archived snapshot/cohort artifacts, while protocol-only baselines remain explicit and skipped; see [docs/benchmarking.md](docs/benchmarking.md).
+- Benchmark execution now runs the frozen `available_now` baseline set against archived snapshot/cohort artifacts, while protocol-only baselines remain explicit and skipped.
 - Benchmark metric payloads and percentile-bootstrap confidence interval payloads are emitted without changing current `v0` or `v1` scoring semantics.
-- Warning overlays remain reporting-only.
-- Program-history, failure-taxonomy, and directionality-hypothesis artifacts now emit structural target ledgers. Those ledgers feed numeric `v1` head scoring for gene targets, while shared `v0` outputs remain unchanged.
+- `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
 
-See [docs/claim.md](docs/claim.md) for the current claim boundary, [docs/ontology.md](docs/ontology.md) for the implementation-ready domain and stage vocabulary, and [docs/program_history.md](docs/program_history.md) for the curated program-history substrate that remains scoring-neutral in `v0`.
-See [docs/ledger_contract.md](docs/ledger_contract.md) for the target-ledger output contract.
+## Current Limitations
+
+- Historical benchmark archives are fixture-scale. The checked-in archive set under `data/benchmark/fixtures/scz_small/` is a small deterministic test path, not a production backfill catalog.
+- Benchmark breadth is still limited to the frozen schizophrenia question, a small deterministic cohort, and the current `available_now` baseline subset.
+- Benchmark outputs are diagnostic artifacts. They are not proof of calibration, threshold quality, or deployment readiness.
+- Calibration work, decision-threshold setting, and broader operating-point evaluation remain future work.
+- Raw-source ingestion from consortium dumps is still future work.
+
+See [docs/claim.md](docs/claim.md) for the current claim boundary,
+[docs/ontology.md](docs/ontology.md) for the domain/stage vocabulary emitted by `v1`,
+and [docs/program_history.md](docs/program_history.md) for the curated program-history
+substrate. See [docs/ledger_contract.md](docs/ledger_contract.md) for the target-ledger
+output contract and [docs/benchmarking.md](docs/benchmarking.md) for the canonical
+benchmark workflow.
 
 ## Quickstart
 
@@ -96,6 +85,10 @@ The build now also emits:
 
 - `decision_vectors_v1.json`: nested per-entity `v1` decision vectors with named head fields, a keyed `decision_vector` object, and domain/stage scores
 - `domain_head_rankings_v1.csv`: per-domain/per-stage `v1` ranking rows with side-by-side `heuristic_score_v0` comparison fields
+
+The checked-in `examples/v0/output/` fixtures still capture the legacy shared `v0`
+example outputs. Re-run the build if you want current `gene_target_ledgers.json`,
+`decision_vectors_v1.json`, and `domain_head_rankings_v1.csv`.
 
 Build the registry manually from processed full-universe-capable sources:
 
@@ -188,7 +181,11 @@ Run tests:
 uv run --group dev pytest
 ```
 
-Build the deterministic benchmark fixture artifacts:
+## Canonical Benchmark Workflow
+
+The canonical end-to-end benchmark path in this repo is the checked-in deterministic
+fixture under `data/benchmark/fixtures/scz_small/` plus generated outputs under
+`data/benchmark/generated/scz_small/`.
 
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
@@ -208,13 +205,26 @@ uv run scz-target-engine run-benchmark \
   --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
   --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json \
   --output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --config config/v0.toml \
   --deterministic-test-mode
 ```
 
-That fixture flow writes a real `benchmark_snapshot_manifest` plus a real
-`benchmark_cohort_labels` artifact, executes the requested `available_now`
-baselines only, and emits run manifests plus metric and interval payloads with
-explicit inclusion or exclusion accounting for every frozen source.
+Artifact layout:
+
+- `data/benchmark/fixtures/scz_small/`: checked-in fixture request, archive index, archived source extracts, cohort membership, and future outcomes
+- `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
+- `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
+- `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
+- `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_metric_output_payload` files
+- `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_confidence_interval_payload` files
+
+Operator notes:
+
+- Re-run the three commands in order whenever the snapshot request, archive descriptors, future-outcome labels, code version, or benchmark parameters change.
+- Re-running the snapshot or cohort commands overwrites the manifest and label files at the same paths.
+- Re-running `run-benchmark` writes run-id keyed payload directories. Changing code version or parameters changes the run id. Identical inputs overwrite the same run-id files.
+- The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
+- Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs, not the generated benchmark outputs.
 
 ## Repo Layout
 
@@ -223,8 +233,8 @@ explicit inclusion or exclusion accounting for every frozen source.
 - [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary consumed by the additive `v1` head layer
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
-- [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, snapshot semantics, leakage controls, baseline matrix, and artifact schemas
-- [data/benchmark](data/benchmark): deterministic benchmark fixture archives and end-to-end runner flow
+- [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, canonical workflow, artifact layout, and current runner boundary
+- [data/benchmark](data/benchmark): checked-in benchmark fixtures plus the canonical generated benchmark output path under `data/benchmark/generated/`
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract

@@ -123,4 +123,12 @@ Undated or ambiguously dated evidence is excluded by default rather than admitte
 - included sources are backed by an archived descriptor plus a verified archive file digest
 - excluded sources set `included = false` and record a concrete `exclusion_reason`
 
-The checked-in deterministic fixture flow for this behavior lives under `data/benchmark/fixtures/scz_small/`.
+`PR9C` now consumes those archived inputs in the runner:
+
+- only `available_now` baselines listed in the snapshot manifest execute
+- the runner emits `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
+- there is still no fallback from missing archived inputs to current live source data
+
+The checked-in deterministic fixture flow for this behavior lives under
+`data/benchmark/fixtures/scz_small/`, with canonical generated outputs under
+`data/benchmark/generated/scz_small/`.

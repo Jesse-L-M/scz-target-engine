@@ -873,14 +873,14 @@ def _build_interval_payload_path(
 def _metric_slice_notes(
     *,
     covered_count: int,
-    eligible_count: int,
+    admissible_count: int,
     positive_count: int,
     deterministic_test_mode: bool,
 ) -> str:
     notes = (
         "relevance=any_positive_outcome;"
         f" positives={positive_count};"
-        f" covered_entities={covered_count}/{eligible_count}"
+        f" covered_entities={covered_count}/{admissible_count}"
     )
     if deterministic_test_mode:
         notes += "; deterministic_test_mode=true"
@@ -1039,9 +1039,24 @@ def run_benchmark(
         started_at = execution_timestamp or _utc_now()
 
         for entity_type in baseline.entity_types:
-            predictions = predictions_by_type.get(entity_type, ())
-            if not predictions:
+            admissible_entities = context.cohort_entities.get(entity_type, ())
+            if not admissible_entities:
                 continue
+            admissible_entity_ids = tuple(
+                entity_id for entity_id, _ in admissible_entities
+            )
+            admissible_entity_id_set = set(admissible_entity_ids)
+            predictions = predictions_by_type.get(entity_type, ())
+            ranked_entity_ids = tuple(
+                prediction.entity_id for prediction in predictions
+            )
+            covered_count = len(
+                {
+                    entity_id
+                    for entity_id in ranked_entity_ids
+                    if entity_id in admissible_entity_id_set
+                }
+            )
             for horizon in BENCHMARK_QUESTION_V1.evaluation_horizons:
                 relevance_index = build_positive_relevance_index(
                     context.cohort_labels,
@@ -1049,19 +1064,14 @@ def run_benchmark(
                     horizon=horizon,
                 )
                 ranked_rows = build_ranked_evaluation_rows(
-                    tuple(prediction.entity_id for prediction in predictions),
+                    admissible_entity_ids,
+                    ranked_entity_ids,
                     relevance_index,
                 )
-                if not ranked_rows:
-                    baseline_notes.append(
-                        f"{entity_type}/{horizon} emitted no ranked rows after coverage filtering"
-                    )
-                    continue
-                eligible_count = len(relevance_index)
                 positive_count = count_relevant(ranked_rows)
                 slice_notes = _metric_slice_notes(
-                    covered_count=len(ranked_rows),
-                    eligible_count=eligible_count,
+                    covered_count=covered_count,
+                    admissible_count=len(admissible_entity_ids),
                     positive_count=positive_count,
                     deterministic_test_mode=deterministic_test_mode,
                 )

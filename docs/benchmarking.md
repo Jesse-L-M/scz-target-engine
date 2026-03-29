@@ -193,7 +193,7 @@ Notes:
 - `v1_current` is the current additive `v1` output evaluated as shipped.
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` are frozen protocol comparison labels so future benchmark runs remain comparable across the PR8.1 transition.
 - `chembl_only` applies only where tractability context exists and is not a module baseline.
-- `random_with_coverage` must match entity type, cohort size, and coverage masks.
+- `random_with_coverage` must randomize over the full admissible cohort for an entity type and be evaluated with the same full-cohort semantics as the primary baselines.
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest.
 
 The code contract for the matrix lives in `FROZEN_BASELINE_MATRIX`.
@@ -281,6 +281,10 @@ Current metric payloads treat
 `future_schizophrenia_program_advanced`, and
 `future_schizophrenia_positive_signal`
 as the positive retrieval target for each `(entity_type, horizon)` slice.
+Primary metrics are computed on the full admissible cohort for that slice.
+If a baseline cannot score an admissible entity, that entity remains in evaluation
+as a deterministic bottom-tier row and the emitted `notes` keep coverage explicit
+as `covered_entities=<covered>/<admissible>`.
 `future_schizophrenia_negative_signal` and
 `no_qualifying_future_outcome` remain explicit in the label artifact but are
 treated as non-relevant for the current metric bundle.

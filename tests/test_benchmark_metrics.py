@@ -16,6 +16,7 @@ from scz_target_engine.benchmark_metrics import (
 def test_calculate_metric_values_returns_rank_and_top_k_metrics() -> None:
     rows = build_ranked_evaluation_rows(
         ("gene_a", "gene_b", "gene_c"),
+        ("gene_a", "gene_b", "gene_c"),
         {
             "gene_a": True,
             "gene_b": False,
@@ -39,6 +40,7 @@ def test_calculate_metric_values_returns_rank_and_top_k_metrics() -> None:
 
 def test_estimate_bootstrap_intervals_is_deterministic() -> None:
     rows = build_ranked_evaluation_rows(
+        ("gene_a", "gene_b", "gene_c", "gene_d"),
         ("gene_a", "gene_b", "gene_c", "gene_d"),
         {
             "gene_a": True,
@@ -65,6 +67,36 @@ def test_estimate_bootstrap_intervals_is_deterministic() -> None:
     ]
     assert point_estimate == 0.833333
     assert interval_low <= point_estimate <= interval_high
+
+
+def test_build_ranked_evaluation_rows_keeps_uncovered_admissible_entities() -> None:
+    rows = build_ranked_evaluation_rows(
+        ("gene_a", "gene_b", "gene_c", "gene_d"),
+        ("gene_a", "gene_c"),
+        {
+            "gene_a": True,
+            "gene_b": True,
+            "gene_c": False,
+            "gene_d": False,
+        },
+    )
+
+    assert [row.entity_id for row in rows] == [
+        "gene_a",
+        "gene_c",
+        "gene_b",
+        "gene_d",
+    ]
+    assert calculate_metric_values(rows) == {
+        "average_precision_any_positive_outcome": 0.833333,
+        "mean_reciprocal_rank_any_positive_outcome": 1.0,
+        "precision_at_1_any_positive_outcome": 1.0,
+        "precision_at_3_any_positive_outcome": 0.666667,
+        "precision_at_5_any_positive_outcome": 0.5,
+        "recall_at_1_any_positive_outcome": 0.5,
+        "recall_at_3_any_positive_outcome": 1.0,
+        "recall_at_5_any_positive_outcome": 1.0,
+    }
 
 
 def test_metric_payload_helpers_round_trip(tmp_path: Path) -> None:

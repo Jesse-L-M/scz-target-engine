@@ -250,15 +250,32 @@ def build_positive_relevance_index(
 
 
 def build_ranked_evaluation_rows(
+    admissible_entity_ids: tuple[str, ...],
     ranked_entity_ids: tuple[str, ...],
     relevance_index: dict[str, bool],
 ) -> tuple[RankedEvaluationRow, ...]:
+    admissible_entity_id_set = set(admissible_entity_ids)
+    seen_entity_ids: set[str] = set()
+    ordered_entity_ids: list[str] = []
+
+    for entity_id in ranked_entity_ids:
+        if entity_id not in admissible_entity_id_set or entity_id in seen_entity_ids:
+            continue
+        seen_entity_ids.add(entity_id)
+        ordered_entity_ids.append(entity_id)
+
+    for entity_id in admissible_entity_ids:
+        if entity_id in seen_entity_ids:
+            continue
+        seen_entity_ids.add(entity_id)
+        ordered_entity_ids.append(entity_id)
+
     return tuple(
         RankedEvaluationRow(
             entity_id=entity_id,
             relevant=relevance_index.get(entity_id, False),
         )
-        for entity_id in ranked_entity_ids
+        for entity_id in ordered_entity_ids
     )
 
 

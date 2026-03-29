@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
+from scz_target_engine.benchmark_runner import materialize_benchmark_run
 from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
     read_benchmark_snapshot_manifest,
@@ -130,6 +131,24 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark_cohort_parser.add_argument("--future-outcomes-file", required=True)
     benchmark_cohort_parser.add_argument("--output-file", required=True)
 
+    benchmark_run_parser = subparsers.add_parser("run-benchmark")
+    benchmark_run_parser.add_argument("--manifest-file", required=True)
+    benchmark_run_parser.add_argument("--cohort-labels-file", required=True)
+    benchmark_run_parser.add_argument("--archive-index-file", required=True)
+    benchmark_run_parser.add_argument("--output-dir", required=True)
+    benchmark_run_parser.add_argument("--config")
+    benchmark_run_parser.add_argument("--bootstrap-iterations", type=int)
+    benchmark_run_parser.add_argument(
+        "--bootstrap-confidence-level",
+        type=float,
+        default=0.95,
+    )
+    benchmark_run_parser.add_argument("--random-seed", type=int, default=17)
+    benchmark_run_parser.add_argument(
+        "--deterministic-test-mode",
+        action="store_true",
+    )
+
     return parser
 
 
@@ -152,6 +171,21 @@ def main(argv: list[str] | None = None) -> int:
             cohort_members_file=Path(args.cohort_members_file).resolve(),
             future_outcomes_file=Path(args.future_outcomes_file).resolve(),
             output_file=Path(args.output_file).resolve(),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "run-benchmark":
+        result = materialize_benchmark_run(
+            manifest_file=Path(args.manifest_file).resolve(),
+            cohort_labels_file=Path(args.cohort_labels_file).resolve(),
+            archive_index_file=Path(args.archive_index_file).resolve(),
+            output_dir=Path(args.output_dir).resolve(),
+            config_file=Path(args.config).resolve() if args.config else None,
+            bootstrap_iterations=args.bootstrap_iterations,
+            bootstrap_confidence_level=args.bootstrap_confidence_level,
+            random_seed=args.random_seed,
+            deterministic_test_mode=args.deterministic_test_mode,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

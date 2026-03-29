@@ -1,7 +1,7 @@
 # Benchmark Protocol
 
-This repo now freezes the benchmark contract before any full runner implementation lands,
-and it now materializes runner-free snapshot/cohort artifacts on top of that frozen contract.
+This repo now freezes the benchmark contract, materializes real snapshot/cohort artifacts,
+and executes the available-now benchmark matrix on top of those archived inputs.
 
 `PR9A` defined:
 
@@ -16,12 +16,18 @@ and it now materializes runner-free snapshot/cohort artifacts on top of that fro
 - `build-benchmark-cohort`: real cohort / future-label materialization keyed to a snapshot
 - a checked-in deterministic fixture flow under `data/benchmark/fixtures/scz_small/`
 
+`PR9C` adds:
+
+- `run-benchmark`: actual execution for the frozen `available_now` baselines
+- `benchmark_model_run_manifest` emission for each executed baseline
+- `benchmark_metric_output_payload` emission for ranking and top-k metrics
+- `benchmark_confidence_interval_payload` emission using deterministic percentile bootstrap
+
 It does not implement:
 
-- the benchmark runner
 - historical source backfills
 - synthetic historical snapshot generation
-- wiring benchmark execution into current head internals
+- protocol-only baseline execution without the required archived artifacts
 
 ## Frozen Benchmark Question
 
@@ -120,7 +126,8 @@ It freezes these requirements:
 - missing cutoff definitions default to `reject_snapshot`
 - benchmark execution cannot depend on current head internals that are not already present in frozen artifacts
 
-That last rule keeps this PR protocol-only. Later runner work may evaluate `v0` or `v1` outputs, but it must do so through declared artifacts rather than by coupling directly to mutable head internals.
+That last rule keeps benchmark execution tied to declared artifacts rather than mutable
+current-head internals.
 
 ## Source-Specific Cutoff Behavior
 
@@ -144,7 +151,7 @@ The archive-descriptor loader and resolver live in
 
 ## Snapshot Materialization Workflow
 
-The runner-free snapshot builder expects two inputs:
+The snapshot builder expects two inputs:
 
 - a snapshot request JSON with snapshot identity, cutoff dates, entity types, and baseline ids
 - a source archive index JSON that lists archived source descriptors with archive paths and SHA256 digests
@@ -186,14 +193,14 @@ Notes:
 - `v1_current` is the current additive `v1` output evaluated as shipped.
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` are frozen protocol comparison labels so future benchmark runs remain comparable across the PR8.1 transition.
 - `chembl_only` applies only where tractability context exists and is not a module baseline.
-- `random_with_coverage` must match entity type, cohort size, and coverage masks.
+- `random_with_coverage` must randomize over the full admissible cohort for an entity type and be evaluated with the same full-cohort semantics as the primary baselines.
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest.
 
 The code contract for the matrix lives in `FROZEN_BASELINE_MATRIX`.
 
 ## Artifact Schemas
 
-The later benchmark runner must read and write these schema families exactly:
+The benchmark runner reads and writes these schema families exactly:
 
 - `benchmark_snapshot_manifest`
 - `benchmark_cohort_labels`
@@ -238,6 +245,74 @@ At a minimum they define:
 - metric names, values, horizons, and cohort sizes
 - confidence interval bounds, bootstrap counts, and resample units
 
+## Current Runner Coverage
+
+The current runner executes only baselines whose frozen protocol status is
+`available_now` and which are explicitly listed in the snapshot manifest's
+`baseline_ids`.
+
+Implemented executable baselines:
+
+1. `pgc_only`
+2. `schema_only`
+3. `opentargets_only`
+4. `v0_current`
+5. `v1_current`
+6. `chembl_only`
+7. `random_with_coverage`
+
+Explicit protocol-only baselines that remain declared but non-executed:
+
+1. `v1_pre_numeric_pr7_heads`
+2. `v1_post_numeric_pr7_heads`
+
+The runner consumes:
+
+- a built `benchmark_snapshot_manifest`
+- a built `benchmark_cohort_labels` artifact
+- the archived source descriptor index used to resolve the actual archived source files
+
+There is still no fallback from a missing archived source to current live data.
+
+### Metric Bundle
+
+Current metric payloads treat
+`future_schizophrenia_program_started`,
+`future_schizophrenia_program_advanced`, and
+`future_schizophrenia_positive_signal`
+as the positive retrieval target for each `(entity_type, horizon)` slice.
+Primary metrics are computed on the full admissible cohort for that slice.
+If a baseline cannot score an admissible entity, that entity remains in evaluation
+as a deterministic bottom-tier row and the emitted `notes` keep coverage explicit
+as `covered_entities=<covered>/<admissible>`.
+`future_schizophrenia_negative_signal` and
+`no_qualifying_future_outcome` remain explicit in the label artifact but are
+treated as non-relevant for the current metric bundle.
+
+The runner emits:
+
+- `average_precision_any_positive_outcome`
+- `mean_reciprocal_rank_any_positive_outcome`
+- `precision_at_1_any_positive_outcome`
+- `precision_at_3_any_positive_outcome`
+- `precision_at_5_any_positive_outcome`
+- `recall_at_1_any_positive_outcome`
+- `recall_at_3_any_positive_outcome`
+- `recall_at_5_any_positive_outcome`
+
+The `v1_current` benchmark comparator resolves the current additive `v1` output
+through the emitted domain-head contract by taking the mean available
+`domain_head_score_v1` across domain profiles for each entity.
+
+### Interval Method
+
+The current interval payloads use percentile bootstrap confidence intervals with:
+
+- resample unit `entity`, sampled with replacement and replayed in original rank order within each bootstrap replicate
+- explicit bootstrap iteration count on every payload
+- explicit random seed on every payload
+- deterministic test mode via a fixed seed and reduced iteration count
+
 ## Implementation Boundary
 
 This protocol is meant to be stable enough that later benchmark PRs can:
@@ -252,11 +327,24 @@ without changing the meaning of the benchmark itself.
 ## Deterministic Fixture Flow
 
 A small checked-in fixture path now lives under `data/benchmark/fixtures/scz_small/`.
-It proves the full runner-free path end-to-end:
+It proves the full benchmark path end-to-end:
 
 - build a snapshot manifest
 - emit explicit source inclusions and exclusions
 - build a cohort / label artifact
+- execute the requested `available_now` baselines
+- emit run manifests, metric payloads, and confidence interval payloads
+
+Example command:
+
+```bash
+uv run scz-target-engine run-benchmark \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
+  --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json \
+  --output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --deterministic-test-mode
+```
 
 The fixture intentionally includes:
 

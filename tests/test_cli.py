@@ -339,3 +339,102 @@ def test_cli_build_benchmark_cohort_parser_accepts_files() -> None:
     assert args.cohort_members_file == "cohort_members.csv"
     assert args.future_outcomes_file == "future_outcomes.csv"
     assert args.output_file == "cohort_labels.csv"
+
+
+def test_cli_run_benchmark_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "run-benchmark",
+            "--manifest-file",
+            "snapshot_manifest.json",
+            "--cohort-labels-file",
+            "cohort_labels.csv",
+            "--archive-index-file",
+            "source_archives.json",
+            "--output-dir",
+            "runner_outputs",
+            "--bootstrap-iterations",
+            "25",
+            "--deterministic-test-mode",
+        ]
+    )
+    assert args.command == "run-benchmark"
+    assert args.manifest_file == "snapshot_manifest.json"
+    assert args.cohort_labels_file == "cohort_labels.csv"
+    assert args.archive_index_file == "source_archives.json"
+    assert args.output_dir == "runner_outputs"
+    assert args.bootstrap_iterations == 25
+    assert args.deterministic_test_mode is True
+
+
+def test_cli_run_benchmark_runs(monkeypatch, tmp_path: Path) -> None:
+    manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    archive_index_file = tmp_path / "source_archives.json"
+    output_dir = tmp_path / "runner_outputs"
+    config_file = tmp_path / "config.toml"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_benchmark_run(
+        *,
+        manifest_file: Path,
+        cohort_labels_file: Path,
+        archive_index_file: Path,
+        output_dir: Path,
+        config_file: Path | None,
+        code_version: str | None = None,
+        bootstrap_iterations: int | None = None,
+        bootstrap_confidence_level: float = 0.95,
+        random_seed: int = 17,
+        deterministic_test_mode: bool = False,
+        execution_timestamp: str | None = None,
+    ) -> dict[str, object]:
+        calls["manifest_file"] = manifest_file
+        calls["cohort_labels_file"] = cohort_labels_file
+        calls["archive_index_file"] = archive_index_file
+        calls["output_dir"] = output_dir
+        calls["config_file"] = config_file
+        calls["bootstrap_iterations"] = bootstrap_iterations
+        calls["bootstrap_confidence_level"] = bootstrap_confidence_level
+        calls["random_seed"] = random_seed
+        calls["deterministic_test_mode"] = deterministic_test_mode
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_benchmark_run",
+        fake_materialize_benchmark_run,
+    )
+
+    exit_code = main(
+        [
+            "run-benchmark",
+            "--manifest-file",
+            str(manifest_file),
+            "--cohort-labels-file",
+            str(cohort_labels_file),
+            "--archive-index-file",
+            str(archive_index_file),
+            "--output-dir",
+            str(output_dir),
+            "--config",
+            str(config_file),
+            "--bootstrap-iterations",
+            "25",
+            "--bootstrap-confidence-level",
+            "0.9",
+            "--random-seed",
+            "23",
+            "--deterministic-test-mode",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["manifest_file"] == manifest_file.resolve()
+    assert calls["cohort_labels_file"] == cohort_labels_file.resolve()
+    assert calls["archive_index_file"] == archive_index_file.resolve()
+    assert calls["output_dir"] == output_dir.resolve()
+    assert calls["config_file"] == config_file.resolve()
+    assert calls["bootstrap_iterations"] == 25
+    assert calls["bootstrap_confidence_level"] == 0.9
+    assert calls["random_seed"] == 23
+    assert calls["deterministic_test_mode"] is True

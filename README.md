@@ -52,8 +52,8 @@ Raw-source ingestion from consortium data dumps is not yet implemented. V0 opera
 - `v1` decision vectors are an explicit multi-head output layer, not a validated clinical advancement authority.
 - `v1` domain/stage scores now combine human-support, biology-context, and intervention-readiness heads with numeric PR7-backed failure, directionality, and subgroup heads for gene targets.
 - `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
-- Benchmarking is protocol-defined but not runner-implemented yet; see [docs/benchmarking.md](docs/benchmarking.md).
-- Benchmark artifact materialization is implemented, but benchmark metric execution and baseline-matrix runs are still intentionally deferred.
+- Benchmark execution now runs the frozen `available_now` baseline set against archived snapshot/cohort artifacts, while protocol-only baselines remain explicit and skipped; see [docs/benchmarking.md](docs/benchmarking.md).
+- Benchmark metric payloads and percentile-bootstrap confidence interval payloads are emitted without changing current `v0` or `v1` scoring semantics.
 - Warning overlays remain reporting-only.
 - Program-history, failure-taxonomy, and directionality-hypothesis artifacts now emit structural target ledgers. Those ledgers feed numeric `v1` head scoring for gene targets, while shared `v0` outputs remain unchanged.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
@@ -188,7 +188,7 @@ Run tests:
 uv run --group dev pytest
 ```
 
-Build the deterministic runner-free benchmark fixture artifacts:
+Build the deterministic benchmark fixture artifacts:
 
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
@@ -202,11 +202,19 @@ uv run scz-target-engine build-benchmark-cohort \
   --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv \
   --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv \
   --output-file data/benchmark/generated/scz_small/cohort_labels.csv
+
+uv run scz-target-engine run-benchmark \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
+  --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json \
+  --output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --deterministic-test-mode
 ```
 
 That fixture flow writes a real `benchmark_snapshot_manifest` plus a real
-`benchmark_cohort_labels` artifact, with explicit inclusion or exclusion accounting
-for every frozen source. It does not run baselines or compute benchmark metrics.
+`benchmark_cohort_labels` artifact, executes the requested `available_now`
+baselines only, and emits run manifests plus metric and interval payloads with
+explicit inclusion or exclusion accounting for every frozen source.
 
 ## Repo Layout
 
@@ -216,7 +224,7 @@ for every frozen source. It does not run baselines or compute benchmark metrics.
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, snapshot semantics, leakage controls, baseline matrix, and artifact schemas
-- [data/benchmark](data/benchmark): deterministic benchmark fixture archives and runner-free artifact flow
+- [data/benchmark](data/benchmark): deterministic benchmark fixture archives and end-to-end runner flow
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract

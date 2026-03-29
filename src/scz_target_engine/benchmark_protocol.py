@@ -934,10 +934,10 @@ FROZEN_BASELINE_MATRIX = (
         entity_types=(GENE_ENTITY_TYPE, MODULE_ENTITY_TYPE),
         required_inputs=(),
         coverage_rule=(
-            "Draw random rankings within entity type while matching admissible cohort size and coverage masks."
+            "Draw random rankings within entity type across the full admissible cohort and evaluate them with the benchmark's primary full-cohort semantics."
         ),
         status=AVAILABLE_NOW_STATUS,
-        description="Coverage-matched random baseline for sanity-checking ranking lift.",
+        description="Admissible-cohort random baseline for sanity-checking ranking lift.",
     ),
 )
 

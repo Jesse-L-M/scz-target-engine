@@ -263,6 +263,23 @@ def _resolve_source_snapshot(
         and _parse_iso_date(descriptor.evidence_frozen_at, "evidence_frozen_at")
         <= cutoff_date
     ]
+    if eligible:
+        newest_allowed_data_through = eligible[0].allowed_data_through
+        newest_evidence_frozen_at = eligible[0].evidence_frozen_at
+        ambiguous_descriptors = [
+            descriptor
+            for descriptor in eligible
+            if descriptor.allowed_data_through == newest_allowed_data_through
+            and descriptor.evidence_frozen_at == newest_evidence_frozen_at
+        ]
+        if len(ambiguous_descriptors) > 1:
+            versions = ", ".join(
+                descriptor.source_version for descriptor in ambiguous_descriptors
+            )
+            raise ValueError(
+                f"{source_name} has multiple eligible archive descriptors for "
+                f"{newest_allowed_data_through}/{newest_evidence_frozen_at}: {versions}"
+            )
 
     validation_failures: list[str] = []
     for descriptor in eligible:

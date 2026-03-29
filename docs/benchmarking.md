@@ -153,8 +153,9 @@ For each frozen source, the builder:
 
 1. finds the latest descriptor whose `allowed_data_through` and `evidence_frozen_at` are both `<= as_of_date`
 2. validates that the referenced archive file exists and matches the declared SHA256 digest
-3. emits an included `SourceSnapshot` when validation succeeds
-4. emits an excluded `SourceSnapshot` with an explicit `exclusion_reason` when no valid pre-cutoff archive is available
+3. rejects the archive index if multiple eligible descriptors tie on the newest cutoff dates, because that makes source provenance ambiguous
+4. emits an included `SourceSnapshot` when validation succeeds
+5. emits an excluded `SourceSnapshot` with an explicit `exclusion_reason` when no valid pre-cutoff archive is available
 
 Example command:
 
@@ -224,6 +225,10 @@ uv run scz-target-engine build-benchmark-cohort \
 
 For each `(entity, horizon, label_name)` triple, the materializer emits a deterministic row.
 `no_qualifying_future_outcome` is computed by the builder rather than supplied in the raw future-outcomes input.
+Future-outcome rows outside the valid label window are rejected rather than silently ignored:
+
+- `outcome_date` must be strictly after `as_of_date`
+- `outcome_date` must be `<= outcome_observation_closed_at`
 
 At a minimum they define:
 

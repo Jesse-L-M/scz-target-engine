@@ -1,6 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 from scz_target_engine.benchmark_snapshots import (
+    SourceArchiveDescriptor,
+    SnapshotBuildRequest,
     build_benchmark_snapshot_manifest,
     load_snapshot_build_request,
     load_source_archive_descriptors,
@@ -87,3 +91,47 @@ def test_snapshot_builder_excludes_missing_archive_file_explicitly(tmp_path: Pat
     )
     assert pgc_snapshot.included is False
     assert "archive file missing" in pgc_snapshot.exclusion_reason
+
+
+def test_snapshot_builder_rejects_ambiguous_same_date_descriptors() -> None:
+    pgc_archive = (
+        FIXTURE_DIR / "archives" / "pgc" / "scz2022_fixture.csv"
+    ).resolve()
+    manifest_request = SnapshotBuildRequest(
+        snapshot_id="scz_fixture_2024_06_30",
+        cohort_id="scz_fixture_small",
+        benchmark_question_id="scz_translational_ranking_v1",
+        as_of_date="2024-06-30",
+        outcome_observation_closed_at="2029-06-30",
+        entity_types=("gene",),
+        baseline_ids=("pgc_only",),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="PGC has multiple eligible archive descriptors",
+    ):
+        build_benchmark_snapshot_manifest(
+            manifest_request,
+            (
+                SourceArchiveDescriptor(
+                    source_name="PGC",
+                    source_version="v9",
+                    archive_file=str(pgc_archive),
+                    archive_format="csv",
+                    allowed_data_through="2024-06-15",
+                    evidence_frozen_at="2024-06-15",
+                    sha256="6f471ddec2b00b0ce76c3a5b547c022f4c5ae39b77be6ff437d5b2b1c26d9403",
+                ),
+                SourceArchiveDescriptor(
+                    source_name="PGC",
+                    source_version="v10",
+                    archive_file=str(pgc_archive),
+                    archive_format="csv",
+                    allowed_data_through="2024-06-15",
+                    evidence_frozen_at="2024-06-15",
+                    sha256="6f471ddec2b00b0ce76c3a5b547c022f4c5ae39b77be6ff437d5b2b1c26d9403",
+                ),
+            ),
+            materialized_at="2026-03-28",
+        )

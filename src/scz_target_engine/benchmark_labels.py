@@ -227,6 +227,7 @@ def build_benchmark_cohort_labels(
     }
     grouped_outcomes: dict[tuple[str, str], list[FutureOutcomeRecord]] = {}
     for outcome in future_outcomes:
+        outcome_date = _parse_iso_date(outcome.outcome_date, "outcome_date")
         if outcome.entity_type not in snapshot_entity_types:
             raise ValueError(
                 f"future outcome {outcome.entity_type}/{outcome.entity_id} is outside the snapshot entity_types"
@@ -234,6 +235,15 @@ def build_benchmark_cohort_labels(
         if (outcome.entity_type, outcome.entity_id) not in member_keys:
             raise ValueError(
                 f"future outcome {outcome.entity_type}/{outcome.entity_id} does not match any cohort member"
+            )
+        if outcome_date <= as_of_date:
+            raise ValueError(
+                f"future outcome {outcome.entity_type}/{outcome.entity_id} must be after as_of_date"
+            )
+        if outcome_date > outcome_closed_at:
+            raise ValueError(
+                "future outcome "
+                f"{outcome.entity_type}/{outcome.entity_id} exceeds outcome_observation_closed_at"
             )
         grouped_outcomes.setdefault((outcome.entity_type, outcome.entity_id), []).append(outcome)
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from scz_target_engine.benchmark_labels import (
+    FutureOutcomeRecord,
     OBSERVED_LABEL_VALUE,
     build_benchmark_cohort_labels,
     load_cohort_members,
@@ -101,3 +102,49 @@ def test_materialize_benchmark_cohort_labels_round_trips_fixture_flow(
         load_cohort_members(FIXTURE_DIR / "cohort_members.csv"),
         load_future_outcomes(FIXTURE_DIR / "future_outcomes.csv"),
     )
+
+
+def test_build_benchmark_cohort_labels_rejects_precutoff_outcomes() -> None:
+    manifest = build_fixture_manifest()
+
+    try:
+        build_benchmark_cohort_labels(
+            manifest,
+            load_cohort_members(FIXTURE_DIR / "cohort_members.csv"),
+            (
+                FutureOutcomeRecord(
+                    entity_type="gene",
+                    entity_id="ENSG00000151067",
+                    outcome_label="future_schizophrenia_program_started",
+                    outcome_date="2024-06-01",
+                    label_source="fixture_program_history",
+                ),
+            ),
+        )
+    except ValueError as exc:
+        assert "must be after as_of_date" in str(exc)
+    else:
+        raise AssertionError("expected pre-cutoff future outcome to be rejected")
+
+
+def test_build_benchmark_cohort_labels_rejects_post_observation_outcomes() -> None:
+    manifest = build_fixture_manifest()
+
+    try:
+        build_benchmark_cohort_labels(
+            manifest,
+            load_cohort_members(FIXTURE_DIR / "cohort_members.csv"),
+            (
+                FutureOutcomeRecord(
+                    entity_type="gene",
+                    entity_id="ENSG00000151067",
+                    outcome_label="future_schizophrenia_program_started",
+                    outcome_date="2030-01-01",
+                    label_source="fixture_program_history",
+                ),
+            ),
+        )
+    except ValueError as exc:
+        assert "exceeds outcome_observation_closed_at" in str(exc)
+    else:
+        raise AssertionError("expected post-observation future outcome to be rejected")

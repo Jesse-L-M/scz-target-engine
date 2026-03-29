@@ -2,14 +2,17 @@
 
 `program_history` is the curated substrate for landmark schizophrenia program events that later ranking, warning overlays, and domain-specific reasoning can consume. This dataset is intentionally checked in before any scoring integration.
 
-`PR7` now consumes this substrate into scoring-neutral target ledgers. The ledger output stays structural: it does not change numeric rank, but it does make failure evidence machine-readable.
+`PR7` now consumes this substrate into scoring-neutral target ledgers. `PR8.1` then uses
+those ledger fields inside numeric `v1` gene heads while leaving shared `v0` numeric
+outputs unchanged.
 
 ## Current Boundary
 
 - This directory records externally documented program events.
-- It does not yet change numeric ranking.
+- It does not itself change shared `v0` numeric ranking.
+- It now feeds target-ledger structure and downstream `v1` gene heads.
 - It does not yet adjudicate a full historical ledger for every target class.
-- It does not yet implement domain heads.
+- Its checked-in historical coverage is still curation-scale rather than exhaustive.
 
 ## Row Granularity
 

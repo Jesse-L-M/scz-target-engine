@@ -11,4 +11,6 @@ Files:
 See [docs/program_history.md](../../../docs/program_history.md) for schema, curation standards, and maintainer rules.
 See [docs/ledger_contract.md](../../../docs/ledger_contract.md) for the emitted target-ledger contract.
 
-This data is substrate only in `v0`. It now feeds structural ledger outputs, but it is still not wired into numeric ranking.
+This data is substrate only for shared `v0` scores. It now feeds structural ledger
+outputs and downstream `v1` gene heads, while shared `v0` numeric ranking remains
+unchanged.

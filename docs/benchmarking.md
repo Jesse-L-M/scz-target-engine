@@ -1,13 +1,20 @@
 # Benchmark Protocol
 
-This repo now freezes the benchmark contract before any full runner implementation lands.
+This repo now freezes the benchmark contract before any full runner implementation lands,
+and it now materializes runner-free snapshot/cohort artifacts on top of that frozen contract.
 
-`PR9A` is protocol-only. It defines:
+`PR9A` defined:
 
 - the benchmark question
 - the date-cutoff and no-leakage rules
 - the frozen baseline matrix
 - the input and output artifact schemas that later benchmark PRs must honor
+
+`PR9B` adds:
+
+- `build-benchmark-snapshot`: real manifest materialization from archived source descriptors
+- `build-benchmark-cohort`: real cohort / future-label materialization keyed to a snapshot
+- a checked-in deterministic fixture flow under `data/benchmark/fixtures/scz_small/`
 
 It does not implement:
 
@@ -70,6 +77,7 @@ Every benchmark snapshot is described by a `benchmark_snapshot_manifest` with:
 - `baseline_ids`: the frozen comparison set to evaluate
 
 The manifest lives in code as `BenchmarkSnapshotManifest` in [src/scz_target_engine/benchmark_protocol.py](../src/scz_target_engine/benchmark_protocol.py).
+The materializer lives in [src/scz_target_engine/benchmark_snapshots.py](../src/scz_target_engine/benchmark_snapshots.py).
 
 ### Date-Cutoff Rules
 
@@ -90,6 +98,13 @@ Instead it uses a stricter rule:
 - otherwise include an explicit `included = false` snapshot entry with an `exclusion_reason`
 
 This is how the protocol represents the "no hindsight" rule without requiring this PR to generate historical backfills.
+`PR9B` now materializes that rule directly: every frozen source receives one `SourceSnapshot`
+entry, and the inclusion state is explicit on the artifact itself through:
+
+- `included = true` for an admitted archived source descriptor
+- `included = false` plus a non-empty `exclusion_reason` when no valid pre-cutoff archive exists
+
+There is no fallback path from a missing historical archive to current live source data.
 
 ## No-Leakage Contract
 
@@ -124,6 +139,33 @@ All five currently use release or archived-extract semantics rather than record-
 - this PR does not backfill or synthesize those historical archives
 
 The code contract for these rules lives in `SOURCE_CUTOFF_RULES_V1`.
+The archive-descriptor loader and resolver live in
+[src/scz_target_engine/benchmark_snapshots.py](../src/scz_target_engine/benchmark_snapshots.py).
+
+## Snapshot Materialization Workflow
+
+The runner-free snapshot builder expects two inputs:
+
+- a snapshot request JSON with snapshot identity, cutoff dates, entity types, and baseline ids
+- a source archive index JSON that lists archived source descriptors with archive paths and SHA256 digests
+
+For each frozen source, the builder:
+
+1. finds the latest descriptor whose `allowed_data_through` and `evidence_frozen_at` are both `<= as_of_date`
+2. validates that the referenced archive file exists and matches the declared SHA256 digest
+3. rejects the archive index if multiple eligible descriptors tie on the newest cutoff dates, because that makes source provenance ambiguous
+4. emits an included `SourceSnapshot` when validation succeeds
+5. emits an excluded `SourceSnapshot` with an explicit `exclusion_reason` when no valid pre-cutoff archive is available
+
+Example command:
+
+```bash
+uv run scz-target-engine build-benchmark-snapshot \
+  --request-file data/benchmark/fixtures/scz_small/snapshot_request.json \
+  --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json \
+  --output-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --materialized-at 2026-03-28
+```
 
 ## Frozen Baseline Matrix
 
@@ -161,6 +203,33 @@ The later benchmark runner must read and write these schema families exactly:
 
 Those schemas are frozen in code as `BENCHMARK_ARTIFACT_SCHEMAS_V1`.
 
+The cohort / label materializer now lives in
+[src/scz_target_engine/benchmark_labels.py](../src/scz_target_engine/benchmark_labels.py).
+It consumes:
+
+- a built snapshot manifest
+- a cohort-membership CSV that represents the ranking-side admissible cohort
+- a future-outcomes CSV that represents label-side adjudication inputs
+
+This separation keeps ranking inputs distinct from post-cutoff outcome labels.
+
+Example command:
+
+```bash
+uv run scz-target-engine build-benchmark-cohort \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv \
+  --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv \
+  --output-file data/benchmark/generated/scz_small/cohort_labels.csv
+```
+
+For each `(entity, horizon, label_name)` triple, the materializer emits a deterministic row.
+`no_qualifying_future_outcome` is computed by the builder rather than supplied in the raw future-outcomes input.
+Future-outcome rows outside the valid label window are rejected rather than silently ignored:
+
+- `outcome_date` must be strictly after `as_of_date`
+- `outcome_date` must be `<= outcome_observation_closed_at`
+
 At a minimum they define:
 
 - snapshot identity and evidence boundary
@@ -179,3 +248,20 @@ This protocol is meant to be stable enough that later benchmark PRs can:
 - publish metric and interval payloads
 
 without changing the meaning of the benchmark itself.
+
+## Deterministic Fixture Flow
+
+A small checked-in fixture path now lives under `data/benchmark/fixtures/scz_small/`.
+It proves the full runner-free path end-to-end:
+
+- build a snapshot manifest
+- emit explicit source inclusions and exclusions
+- build a cohort / label artifact
+
+The fixture intentionally includes:
+
+- `PGC`, `Open Targets`, and `PsychENCODE`
+- explicit exclusion for `SCHEMA` because no archived descriptor is provided
+- explicit exclusion for `ChEMBL` because the only checked-in archive is after the snapshot cutoff
+
+This keeps tests fast and deterministic while preserving the real artifact contracts that later runner work will consume.

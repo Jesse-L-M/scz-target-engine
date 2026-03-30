@@ -6,6 +6,7 @@ behavior on `main`.
 ## Boundary
 
 - `scz_target_engine.app`: user-facing entrypoints such as the CLI
+- `scz_target_engine.artifacts`: artifact schema registration and runtime validation helpers
 - `scz_target_engine.benchmark`: benchmark protocol, snapshot/cohort builders, metrics, and runner
 - `scz_target_engine.core`: shared support code such as config loading, identity helpers, and file IO
 - `scz_target_engine.domain`: ranking, ledgers, decision vectors, and reporting helpers

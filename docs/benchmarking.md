@@ -196,6 +196,11 @@ Those schemas are frozen in code as `BENCHMARK_ARTIFACT_SCHEMAS_V1`.
 The supporting request files `snapshot_request.json` and `source_archives.json` are
 operator inputs, not part of `BENCHMARK_ARTIFACT_SCHEMAS_V1`.
 
+The matching registered schema files now live under
+`schemas/artifact_schemas/benchmark_*.json`.
+Runtime loading and validation for these artifacts is exposed through
+`scz_target_engine.artifacts`.
+
 Canonical generated locations:
 
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: `benchmark_snapshot_manifest`

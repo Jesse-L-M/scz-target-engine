@@ -1,0 +1,85 @@
+{
+  "artifact_name": "benchmark_model_run_manifest",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Runner-emitted benchmark run manifest.",
+  "key_fields": [
+    "run_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Run manifest schema version."
+    },
+    {
+      "name": "run_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable run identifier."
+    },
+    {
+      "name": "snapshot_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Snapshot identifier."
+    },
+    {
+      "name": "baseline_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Frozen baseline identifier."
+    },
+    {
+      "name": "model_family",
+      "field_type": "string",
+      "required": true,
+      "description": "Logical model family."
+    },
+    {
+      "name": "code_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Code version used for the run."
+    },
+    {
+      "name": "input_artifacts",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Resolved input artifact references."
+    },
+    {
+      "name": "started_at",
+      "field_type": "datetime",
+      "required": true,
+      "description": "Run start timestamp."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "completed_at",
+      "field_type": "datetime",
+      "required": false,
+      "description": "Run completion timestamp."
+    },
+    {
+      "name": "parameterization",
+      "field_type": "object",
+      "required": false,
+      "description": "Runner parameterization block."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional execution notes."
+    }
+  ]
+}

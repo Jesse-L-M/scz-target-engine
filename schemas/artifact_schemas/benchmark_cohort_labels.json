@@ -1,0 +1,83 @@
+{
+  "artifact_name": "benchmark_cohort_labels",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Benchmark cohort label rows.",
+  "key_fields": [
+    "cohort_id",
+    "entity_type",
+    "entity_id",
+    "label_name",
+    "horizon"
+  ],
+  "required_fields": [
+    {
+      "name": "cohort_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Benchmark cohort identifier."
+    },
+    {
+      "name": "snapshot_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Snapshot identifier."
+    },
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type."
+    },
+    {
+      "name": "entity_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable entity identifier."
+    },
+    {
+      "name": "entity_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable entity label."
+    },
+    {
+      "name": "label_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Frozen label name."
+    },
+    {
+      "name": "label_value",
+      "field_type": "string",
+      "required": true,
+      "description": "Observed true/false label state."
+    },
+    {
+      "name": "horizon",
+      "field_type": "string",
+      "required": true,
+      "description": "Evaluation horizon."
+    },
+    {
+      "name": "label_source",
+      "field_type": "string",
+      "required": true,
+      "description": "Outcome label source."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "outcome_date",
+      "field_type": "date",
+      "required": false,
+      "description": "Observed outcome date when present."
+    },
+    {
+      "name": "label_notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional label notes."
+    }
+  ]
+}

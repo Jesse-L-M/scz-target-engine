@@ -47,8 +47,9 @@ See [docs/claim.md](docs/claim.md) for the current claim boundary,
 [docs/ontology.md](docs/ontology.md) for the domain/stage vocabulary emitted by `v1`,
 and [docs/program_history.md](docs/program_history.md) for the curated program-history
 substrate. See [docs/ledger_contract.md](docs/ledger_contract.md) for the target-ledger
-output contract and [docs/benchmarking.md](docs/benchmarking.md) for the canonical
-benchmark workflow.
+output contract, [docs/benchmarking.md](docs/benchmarking.md) for the canonical
+benchmark workflow, and [docs/artifact_schemas.md](docs/artifact_schemas.md) for the
+registered artifact families and runtime validation surface.
 
 ## Quickstart
 
@@ -226,9 +227,29 @@ Operator notes:
 - The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
 - Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs, not the generated benchmark outputs.
 
+## Artifact Schemas
+
+Current benchmark, ledger, and `v1` artifact families are registered under
+`schemas/artifact_schemas/`.
+
+The runtime loader and validator surface lives under `scz_target_engine.artifacts`.
+It can load and validate:
+
+- `benchmark_snapshot_manifest`
+- `benchmark_cohort_labels`
+- `benchmark_model_run_manifest`
+- `benchmark_metric_output_payload`
+- `benchmark_confidence_interval_payload`
+- `gene_target_ledgers`
+- `decision_vectors_v1`
+- `domain_head_rankings_v1`
+
+See [docs/artifact_schemas.md](docs/artifact_schemas.md) for details and example usage.
+
 ## Repo Layout
 
 - [config/v0.toml](config/v0.toml): scoring and build config
+- [docs/artifact_schemas.md](docs/artifact_schemas.md): registered output schemas plus validation usage
 - [docs/claim.md](docs/claim.md): current capability and claim boundary for `v0`
 - [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary consumed by the additive `v1` head layer
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
@@ -236,6 +257,7 @@ Operator notes:
 - [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, canonical workflow, artifact layout, and current runner boundary
 - [data/benchmark](data/benchmark): checked-in benchmark fixtures plus the canonical generated benchmark output path under `data/benchmark/generated/`
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
+- [schemas/artifact_schemas](schemas/artifact_schemas): registered schema files for current emitted artifact families
 - [docs/source_manifest.md](docs/source_manifest.md): source roles and intended upstream inputs
 - [docs/opentargets.md](docs/opentargets.md): Open Targets fetch contract
 - [docs/chembl.md](docs/chembl.md): ChEMBL fetch contract

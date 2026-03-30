@@ -13,6 +13,10 @@ Each `build` now emits:
 
 These outputs are structural only. They do not change composite scores, ranks, eligibility, or `heuristic_stable`.
 
+The registered schema for `gene_target_ledgers.json` now lives under
+`schemas/artifact_schemas/gene_target_ledgers.json`.
+Runtime loading and validation is exposed through `scz_target_engine.artifacts`.
+
 ## `gene_target_ledgers.json` Shape
 
 Top-level payload fields:

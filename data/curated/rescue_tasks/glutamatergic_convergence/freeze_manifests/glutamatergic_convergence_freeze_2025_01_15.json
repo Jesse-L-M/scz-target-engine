@@ -1,0 +1,76 @@
+{
+  "schema_name": "rescue_freeze_manifest",
+  "schema_version": "v1",
+  "freeze_manifest_id": "glutamatergic_convergence_freeze_2025_01_15",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "glutamatergic_convergence_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/glutamatergic_convergence_rescue_task.json",
+  "governance_status": "active",
+  "freeze_scope": "task_bundle",
+  "cutoff_date": "2025-01-15",
+  "frozen_at": "2025-01-16",
+  "leakage_boundary_policy_id": "strict_rescue_task_boundary_v1",
+  "current_head_policy": "reject_unfrozen_current_head_state",
+  "source_snapshots": [
+    {
+      "source_id": "glutamatergic_convergence_hubs_2025_01_15",
+      "source_name": "atlas_convergence",
+      "snapshot_id": "glutamatergic-convergence-v1",
+      "captured_at": "2025-01-15",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-01-15/convergence_hubs.csv",
+      "sha256": "dc13d50f66bea2ebff08d12fe7f5c5c900ac64c460fc843b0e3e8e8a1238cf50",
+      "description": "Pre-cutoff convergence-hub snapshot regenerated from the dedicated glutamatergic atlas fixture with the shipped atlas-convergence-hubs/v1 builder."
+    },
+    {
+      "source_id": "glutamatergic_hub_axis_members_2025_01_15",
+      "source_name": "atlas_convergence",
+      "snapshot_id": "glutamatergic-convergence-axis-members-v1",
+      "captured_at": "2025-01-15",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-01-15/hub_axis_members.csv",
+      "sha256": "e0bfe6aab98550885b8e9b58970e4adacc6c75e1f8403945764c20f1d2505bd4",
+      "description": "Pre-cutoff hub-axis membership snapshot that preserves per-axis support, missingness, and uncertainty for the glutamatergic convergence panel."
+    },
+    {
+      "source_id": "glutamatergic_hub_evidence_links_2025_01_15",
+      "source_name": "atlas_convergence",
+      "snapshot_id": "glutamatergic-convergence-evidence-links-v1",
+      "captured_at": "2025-01-15",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-01-15/hub_evidence_links.csv",
+      "sha256": "18127178e90cd6b2722e2a0a68edfc5a14df828e9b4ddf6f59cbdb52479a78a4",
+      "description": "Pre-cutoff evidence-link snapshot used to preserve explicit provenance back to tensor slices for each glutamatergic convergence hub."
+    },
+    {
+      "source_id": "glutamatergic_manual_outcomes_2025_06_30",
+      "source_name": "manual_outcomes",
+      "snapshot_id": "glutamatergic-manual-outcomes-v1",
+      "captured_at": "2025-06-30",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-06-30/manual_outcomes.csv",
+      "sha256": "450e40b0f5606af2508f21d1a3f0159cd10c2989e1ca7ca03444b50c9aea003d",
+      "description": "Post-cutoff manual rescue review outcomes held out for offline evaluation only."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "glutamatergic_convergence_ranking_inputs_2025_01_15",
+      "artifact_contract_id": "candidate_universe",
+      "dataset_role": "ranking_input",
+      "availability": "pre_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_ranking_inputs.json",
+      "expected_output_path": "data/curated/rescue_tasks/glutamatergic_convergence/frozen/glutamatergic_convergence_ranking_inputs_2025_01_15.csv"
+    },
+    {
+      "dataset_id": "glutamatergic_convergence_evaluation_labels_2025_06_30",
+      "artifact_contract_id": "evaluation_labels",
+      "dataset_role": "evaluation_target",
+      "availability": "post_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_evaluation_labels.json",
+      "expected_output_path": "data/curated/rescue_tasks/glutamatergic_convergence/frozen/glutamatergic_convergence_evaluation_labels_2025_06_30.csv"
+    }
+  ],
+  "description": "Active freeze manifest for the glutamatergic convergence rescue lane. The pre-cutoff snapshots preserve the shipped convergence-hub framing, and the post-cutoff manual outcomes stay isolated in the evaluation-only channel.",
+  "notes": "This freeze binds PR-43 to the checked-in ranking-input and evaluation-label CSVs under data/curated/rescue_tasks/glutamatergic_convergence/frozen/."
+}

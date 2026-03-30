@@ -1,0 +1,8 @@
+{
+  "study": {
+    "id": "pgc_scz2022",
+    "name": "PGC schizophrenia 2022 prioritized genes"
+  },
+  "scope_boundary": "Fixture-scale PGC prioritized-gene rows for glutamatergic genes derived from the checked-in v0 evidence table.",
+  "derived_from": "examples/v0/input/gene_evidence.csv"
+}

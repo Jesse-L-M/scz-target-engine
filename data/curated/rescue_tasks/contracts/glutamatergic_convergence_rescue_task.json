@@ -1,0 +1,76 @@
+{
+  "schema_name": "rescue_task_contract",
+  "schema_version": "v1",
+  "contract_version": "rescue-contract-v1",
+  "suite_id": "scz_rescue_contract_suite",
+  "suite_label": "Schizophrenia Rescue Task Suite",
+  "task_id": "glutamatergic_convergence_rescue_task",
+  "task_label": "Glutamatergic convergence rescue task",
+  "task_type": "gene_rescue_ranking",
+  "disease": "schizophrenia",
+  "entity_type": "gene",
+  "summary": "Governed schizophrenia gene rescue task that freezes glutamatergic candidates against the shipped atlas convergence-hub framing so downstream rescue work consumes only checked-in frozen hub-state artifacts.",
+  "contract_scope": "rescue_only",
+  "artifact_contracts": [
+    {
+      "artifact_id": "candidate_universe",
+      "artifact_label": "Frozen glutamatergic convergence ranking inputs",
+      "io_direction": "consumes",
+      "channel": "ranking_input",
+      "availability": "pre_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Frozen glutamatergic convergence-hub and axis-membership features captured on or before the rescue cutoff.",
+      "leakage_rule": "Must be materialized only from the checked-in pre-cutoff convergence-hub snapshot and must not re-open raw atlas sources or post-cutoff adjudications."
+    },
+    {
+      "artifact_id": "evaluation_labels",
+      "artifact_label": "Held-out glutamatergic rescue outcomes",
+      "io_direction": "consumes",
+      "channel": "evaluation_target",
+      "availability": "post_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Held-out post-cutoff rescue review outcomes for the frozen glutamatergic candidate set.",
+      "leakage_rule": "May close after the rescue cutoff but must never flow back into ranking-input construction, split assignment, or feature tuning."
+    },
+    {
+      "artifact_id": "ranked_predictions",
+      "artifact_label": "Ranked glutamatergic rescue predictions",
+      "io_direction": "emits",
+      "channel": "task_output",
+      "availability": "derived",
+      "file_format": "csv",
+      "required": true,
+      "description": "Ordered rescue predictions emitted by a future glutamatergic convergence task runner.",
+      "leakage_rule": "Must be derived only from the frozen ranking-input artifact declared by this contract and must not embed hidden post-cutoff labels."
+    },
+    {
+      "artifact_id": "task_context",
+      "artifact_label": "Task context metadata",
+      "io_direction": "consumes",
+      "channel": "task_metadata",
+      "availability": "operator_supplied",
+      "file_format": "json",
+      "required": false,
+      "description": "Optional operator metadata documenting the intended cutoff, evaluation window, and rescue scope.",
+      "leakage_rule": "May describe rescue scope and review process but must not summarize post-cutoff label outcomes beyond what the frozen evaluation dataset exposes."
+    }
+  ],
+  "leakage_boundary": {
+    "policy_id": "strict_rescue_task_boundary_v1",
+    "requires_explicit_cutoff": true,
+    "requires_explicit_artifact_contracts": true,
+    "forbid_post_cutoff_artifacts_in_ranking": true,
+    "forbid_evaluation_labels_in_ranking": true,
+    "freeze_manifest_required": true,
+    "freeze_manifest_policy": "schema_validated_rescue_governance_v1",
+    "dataset_cards_required": true,
+    "task_card_required": true,
+    "split_manifest_required": true,
+    "raw_to_frozen_lineage_required": true,
+    "current_head_policy": "reject_unfrozen_current_head_state",
+    "notes": "PR-40 and PR-40A governance stays intact here: downstream rescue work must validate the checked-in task card, dataset cards, freeze manifest, split manifest, and lineage before it can read the frozen glutamatergic convergence lane."
+  },
+  "notes": "PR-43 must load only the frozen CSV artifacts referenced by the task card under data/curated/rescue_tasks/glutamatergic_convergence/ and must not read data/raw/rescue/ or atlas source tables directly."
+}

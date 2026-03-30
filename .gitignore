@@ -7,6 +7,8 @@ __pycache__/
 
 data/raw/*
 !data/raw/README.md
+!data/raw/rescue/
+!data/raw/rescue/**
 !data/raw/sources/
 !data/raw/sources/README.md
 data/processed/*

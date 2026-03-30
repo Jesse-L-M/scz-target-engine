@@ -1,0 +1,120 @@
+{
+  "schema_name": "rescue_raw_to_frozen_lineage",
+  "schema_version": "v1",
+  "lineage_id": "glutamatergic_convergence_raw_to_frozen_lineage_2025_01_16",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "glutamatergic_convergence_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/glutamatergic_convergence_rescue_task.json",
+  "governance_status": "active",
+  "freeze_manifest_path": "data/curated/rescue_tasks/glutamatergic_convergence/freeze_manifests/glutamatergic_convergence_freeze_2025_01_15.json",
+  "raw_sources": [
+    {
+      "source_id": "glutamatergic_convergence_hubs_2025_01_15",
+      "source_name": "atlas_convergence",
+      "snapshot_id": "glutamatergic-convergence-v1",
+      "captured_at": "2025-01-15",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-01-15/convergence_hubs.csv",
+      "sha256": "dc13d50f66bea2ebff08d12fe7f5c5c900ac64c460fc843b0e3e8e8a1238cf50",
+      "description": "Pre-cutoff convergence-hub snapshot captured from the shipped atlas-convergence-hubs/v1 builder."
+    },
+    {
+      "source_id": "glutamatergic_hub_axis_members_2025_01_15",
+      "source_name": "atlas_convergence",
+      "snapshot_id": "glutamatergic-convergence-axis-members-v1",
+      "captured_at": "2025-01-15",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-01-15/hub_axis_members.csv",
+      "sha256": "e0bfe6aab98550885b8e9b58970e4adacc6c75e1f8403945764c20f1d2505bd4",
+      "description": "Pre-cutoff hub-axis membership snapshot that preserves the mechanistic-axis support states for the rescue candidate set."
+    },
+    {
+      "source_id": "glutamatergic_hub_evidence_links_2025_01_15",
+      "source_name": "atlas_convergence",
+      "snapshot_id": "glutamatergic-convergence-evidence-links-v1",
+      "captured_at": "2025-01-15",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-01-15/hub_evidence_links.csv",
+      "sha256": "18127178e90cd6b2722e2a0a68edfc5a14df828e9b4ddf6f59cbdb52479a78a4",
+      "description": "Pre-cutoff evidence-link snapshot that preserves provenance back to tensor slices and source rows."
+    },
+    {
+      "source_id": "glutamatergic_manual_outcomes_2025_06_30",
+      "source_name": "manual_outcomes",
+      "snapshot_id": "glutamatergic-manual-outcomes-v1",
+      "captured_at": "2025-06-30",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/rescue/glutamatergic_convergence/2025-06-30/manual_outcomes.csv",
+      "sha256": "450e40b0f5606af2508f21d1a3f0159cd10c2989e1ca7ca03444b50c9aea003d",
+      "description": "Post-cutoff manual rescue outcomes held out for evaluation only."
+    }
+  ],
+  "transformation_steps": [
+    {
+      "step_id": "capture_convergence_exports",
+      "step_label": "Capture convergence hub exports",
+      "step_kind": "extract",
+      "input_ids": [
+        "glutamatergic_convergence_hubs_2025_01_15",
+        "glutamatergic_hub_axis_members_2025_01_15",
+        "glutamatergic_hub_evidence_links_2025_01_15"
+      ],
+      "output_ids": [
+        "captured_glutamatergic_convergence_exports"
+      ],
+      "description": "Capture the pre-cutoff convergence hub, axis membership, and evidence-link snapshots into a rescue-facing provenance bundle."
+    },
+    {
+      "step_id": "flatten_hub_state_features",
+      "step_label": "Flatten hub and axis states",
+      "step_kind": "join",
+      "input_ids": [
+        "captured_glutamatergic_convergence_exports"
+      ],
+      "output_ids": [
+        "flattened_glutamatergic_hub_state_rows"
+      ],
+      "description": "Join hub-level and axis-level convergence fields into one gene-grain rescue feature table while preserving explicit hub semantics and provenance references."
+    },
+    {
+      "step_id": "freeze_glutamatergic_ranking_inputs",
+      "step_label": "Freeze glutamatergic ranking inputs",
+      "step_kind": "freeze",
+      "input_ids": [
+        "flattened_glutamatergic_hub_state_rows"
+      ],
+      "output_ids": [
+        "glutamatergic_convergence_ranking_inputs_2025_01_15"
+      ],
+      "description": "Freeze the joined convergence-hub feature table into the governed ranking-input CSV consumed by downstream rescue work."
+    },
+    {
+      "step_id": "hold_out_manual_outcomes",
+      "step_label": "Hold out post-cutoff manual outcomes",
+      "step_kind": "label_holdout",
+      "input_ids": [
+        "glutamatergic_manual_outcomes_2025_06_30"
+      ],
+      "output_ids": [
+        "glutamatergic_convergence_evaluation_labels_2025_06_30"
+      ],
+      "description": "Freeze the post-cutoff manual rescue review outcomes into an evaluation-only label table that stays outside ranking-input construction."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "glutamatergic_convergence_ranking_inputs_2025_01_15",
+      "dataset_card_path": "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_ranking_inputs.json",
+      "availability": "pre_cutoff",
+      "produced_by_step_id": "freeze_glutamatergic_ranking_inputs"
+    },
+    {
+      "dataset_id": "glutamatergic_convergence_evaluation_labels_2025_06_30",
+      "dataset_card_path": "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_evaluation_labels.json",
+      "availability": "post_cutoff",
+      "produced_by_step_id": "hold_out_manual_outcomes"
+    }
+  ],
+  "description": "Active raw-to-frozen lineage for the glutamatergic convergence rescue lane. The lineage traces shipped convergence-hub exports into the frozen ranking inputs and keeps post-cutoff outcomes isolated in the evaluation channel.",
+  "notes": "The lineage is intentionally explicit so downstream task implementations can stay on the frozen CSV surface and avoid creating a raw-data ingestion path."
+}

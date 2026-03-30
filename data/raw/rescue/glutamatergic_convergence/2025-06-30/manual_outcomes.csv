@@ -1,0 +1,5 @@
+gene_id,gene_symbol,follow_up_priority,decision,decision_owner,adjudicated_at,review_window,label_rationale
+ENSG00000155511,GRIA1,0,hold,rescue-governance-review,2025-06-30,2025H1,"Clinical translation support is present, but cross-source variant-to-gene support is still absent in the frozen convergence snapshot."
+ENSG00000183454,GRIN2A,1,advance,rescue-governance-review,2025-06-30,2025H1,Cross-source disease-association and variant-to-gene convergence stayed intact through the cutoff and met the rescue review bar.
+ENSG00000198822,GRM3,1,advance,rescue-governance-review,2025-06-30,2025H1,The frozen convergence hub retained full three-axis support with consistent cross-source provenance and was advanced for follow-up.
+ENSG00000168959,GRM5,0,deprioritize,rescue-governance-review,2025-06-30,2025H1,The frozen convergence hub remained single-source with mixed missingness and did not clear the held-out follow-up threshold.

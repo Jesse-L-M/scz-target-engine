@@ -26,15 +26,28 @@ from scz_target_engine.rescue.governance import (
     read_rescue_task_card,
     validate_rescue_governance_bundle,
 )
+from scz_target_engine.rescue.glutamatergic_convergence import (
+    GLUTAMATERGIC_CONVERGENCE_ATLAS_FIXTURE_MANIFEST_PATH,
+    GLUTAMATERGIC_CONVERGENCE_EVALUATION_LABELS_PATH,
+    GLUTAMATERGIC_CONVERGENCE_RANKING_INPUTS_PATH,
+    GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH,
+    GlutamatergicConvergenceRescueBundle,
+    load_glutamatergic_convergence_rescue_bundle,
+)
 
 __all__ = [
     "DEFAULT_RESCUE_TASK_REGISTRY_PATH",
+    "GLUTAMATERGIC_CONVERGENCE_ATLAS_FIXTURE_MANIFEST_PATH",
+    "GLUTAMATERGIC_CONVERGENCE_EVALUATION_LABELS_PATH",
+    "GLUTAMATERGIC_CONVERGENCE_RANKING_INPUTS_PATH",
+    "GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH",
     "RESCUE_DATASET_CARD_ARTIFACT_NAME",
     "RESCUE_FREEZE_MANIFEST_ARTIFACT_NAME",
     "RESCUE_RAW_TO_FROZEN_LINEAGE_ARTIFACT_NAME",
     "RESCUE_SPLIT_MANIFEST_ARTIFACT_NAME",
     "RESCUE_TASK_CONTRACT_ARTIFACT_NAME",
     "RESCUE_TASK_CARD_ARTIFACT_NAME",
+    "GlutamatergicConvergenceRescueBundle",
     "RescueArtifactContract",
     "RescueDatasetCard",
     "RescueFreezeManifest",
@@ -53,6 +66,7 @@ __all__ = [
     "load_rescue_suite_contracts",
     "load_rescue_task_contracts",
     "load_rescue_task_registrations",
+    "load_glutamatergic_convergence_rescue_bundle",
     "read_rescue_task_contract",
     "read_rescue_task_card",
     "resolve_rescue_suite_contract",

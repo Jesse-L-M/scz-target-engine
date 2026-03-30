@@ -1,0 +1,9 @@
+{
+  "snapshot_id": "glutamatergic-convergence-2025-01-15",
+  "captured_at": "2025-01-15",
+  "contract_version": "atlas-convergence-hubs/v1",
+  "atlas_ingest_manifest_file": "data/curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json",
+  "tensor_manifest_file": ".context/glutamatergic_convergence_generated/tensor/tensor_manifest.json",
+  "convergence_manifest_file": "data/raw/rescue/glutamatergic_convergence/2025-01-15/convergence_manifest.json",
+  "scope_boundary": "Frozen rescue-facing capture of the shipped convergence-hub framing for a glutamatergic schizophrenia gene panel."
+}

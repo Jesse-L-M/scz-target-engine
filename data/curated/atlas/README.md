@@ -5,6 +5,8 @@ This directory holds the deterministic atlas tensor fixture and its source manif
 Files:
 
 - `example_ingest_manifest.json`: checked-in atlas ingest-style manifest consumed by the taxonomy and tensor builders
+- `glutamatergic_convergence_fixture/`: rescue-facing atlas fixture that exercises the
+  same convergence-hub contract on a glutamatergic gene panel
 - `example_sources/`: small processed source tables plus metadata sidecars
 - `example_raw/`: staged-artifact manifests and placeholder raw artifacts referenced by the ingest manifest
 

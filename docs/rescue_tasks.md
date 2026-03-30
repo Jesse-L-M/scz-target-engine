@@ -124,3 +124,31 @@ The normal artifact path now enforces the same bundle checks. A
 `load_artifact(..., artifact_name="rescue_task_card")` call fails if the referenced
 dataset cards, freeze manifests, split manifests, or lineage artifacts are missing or
 broken.
+
+## Active Glutamatergic Convergence Lane
+
+The repo now also ships an active rescue family under:
+
+- `data/curated/rescue_tasks/glutamatergic_convergence/`
+
+Its provenance snapshots live under:
+
+- `data/raw/rescue/glutamatergic_convergence/`
+
+The ranking-input freeze is anchored to the shipped convergence-hub framing generated
+from the dedicated atlas fixture:
+
+- `data/curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json`
+
+Downstream rescue implementations must stay on the frozen CSV surface and must not
+re-open either the raw rescue snapshots or the atlas fixture inputs.
+
+```python
+from scz_target_engine.rescue import load_glutamatergic_convergence_rescue_bundle
+
+bundle = load_glutamatergic_convergence_rescue_bundle()
+assert bundle.governance_bundle.task_card.task_id == (
+    "glutamatergic_convergence_rescue_task"
+)
+assert len(bundle.ranking_input_rows) == 4
+```

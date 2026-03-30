@@ -1,0 +1,5 @@
+{
+  "source_name": "pgc",
+  "dataset_name": "glutamatergic_prioritized_genes",
+  "scope_boundary": "Fixture raw-manifest stub used only for atlas provenance tests."
+}

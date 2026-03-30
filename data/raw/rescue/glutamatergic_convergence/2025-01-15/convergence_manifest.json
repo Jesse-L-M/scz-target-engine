@@ -1,0 +1,14 @@
+{
+  "contract_version": "atlas-convergence-hubs/v1",
+  "emitted_artifacts": {
+    "convergence_hubs_file": "/Users/jessemerrigan/conductor/workspaces/scz-target-engine/prague-v2/.context/glutamatergic_convergence_generated/convergence/convergence_hubs.csv",
+    "hub_axis_members_file": "/Users/jessemerrigan/conductor/workspaces/scz-target-engine/prague-v2/.context/glutamatergic_convergence_generated/convergence/hub_axis_members.csv",
+    "hub_evidence_links_file": "/Users/jessemerrigan/conductor/workspaces/scz-target-engine/prague-v2/.context/glutamatergic_convergence_generated/convergence/hub_evidence_links.csv"
+  },
+  "evidence_link_count": 88,
+  "evidence_tensor_file": "/Users/jessemerrigan/conductor/workspaces/scz-target-engine/prague-v2/.context/glutamatergic_convergence_generated/tensor/evidence_tensor.csv",
+  "hub_axis_member_count": 12,
+  "hub_count": 4,
+  "output_dir": "/Users/jessemerrigan/conductor/workspaces/scz-target-engine/prague-v2/.context/glutamatergic_convergence_generated/convergence",
+  "tensor_manifest_file": "/Users/jessemerrigan/conductor/workspaces/scz-target-engine/prague-v2/.context/glutamatergic_convergence_generated/tensor/tensor_manifest.json"
+}

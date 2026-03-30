@@ -64,7 +64,10 @@ def test_rescue_registry_groups_example_task_under_single_suite() -> None:
 
     assert len(suites) == 1
     assert suites[0].suite_id == "scz_rescue_contract_suite"
-    assert suites[0].tasks[0].task_id == "example_scz_gene_rescue_task"
+    assert {task.task_id for task in suites[0].tasks} == {
+        "example_scz_gene_rescue_task",
+        "glutamatergic_convergence_rescue_task",
+    }
     assert DEFAULT_RESCUE_TASK_REGISTRY_PATH.exists()
 
 

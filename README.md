@@ -99,10 +99,16 @@ The build now also emits:
 
 - `decision_vectors_v1.json`: nested per-entity `v1` decision vectors with named head fields, a keyed `decision_vector` object, and domain/stage scores
 - `domain_head_rankings_v1.csv`: per-domain/per-stage `v1` ranking rows with side-by-side `heuristic_score_v0` comparison fields
+- `policy_decision_vectors_v2.json`: multi-policy additive decision vectors with explicit uncertainty and replay-risk adjustments
+- `policy_pareto_fronts_v1.json`: Pareto-front tiers over the ordered policy score vector
+
+Those policy outputs are driven by checked-in TOML under `config/policies/`; they do
+not mutate `v0` or `v1`.
 
 The checked-in `examples/v0/output/` fixtures still capture the legacy shared `v0`
 example outputs. Re-run the build if you want current `gene_target_ledgers.json`,
-`decision_vectors_v1.json`, and `domain_head_rankings_v1.csv`.
+`decision_vectors_v1.json`, `policy_decision_vectors_v2.json`,
+`domain_head_rankings_v1.csv`, and `policy_pareto_fronts_v1.json`.
 
 Build the registry manually from processed full-universe-capable sources:
 
@@ -347,7 +353,9 @@ It can load and validate:
 - `rescue_task_contract`
 - `gene_target_ledgers`
 - `decision_vectors_v1`
+- `policy_decision_vectors_v2`
 - `domain_head_rankings_v1`
+- `policy_pareto_fronts_v1`
 
 See [docs/artifact_schemas.md](docs/artifact_schemas.md) for details and example usage.
 

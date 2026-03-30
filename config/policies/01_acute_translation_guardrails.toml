@@ -1,0 +1,28 @@
+policy_id = "acute_translation_guardrails_v1"
+label = "Acute translation guardrails"
+description = "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively."
+
+[domain_weights]
+acute_positive_symptoms = 0.40
+relapse_prevention = 0.25
+treatment_resistant_schizophrenia = 0.10
+negative_symptoms = 0.05
+cognition = 0.05
+chr_transition_prevention = 0.05
+functioning_durable_recovery_relevance = 0.10
+
+[adjustments]
+low_coverage_penalty = 0.12
+missing_head_penalty = 0.03
+partial_head_penalty = 0.015
+warning_penalty_per_warning = 0.02
+directionality_open_risk_penalty = 0.01
+directionality_contradiction_penalty = 0.02
+directionality_falsification_penalty = 0.01
+replay_supported_penalty = 0.18
+replay_inconclusive_penalty = 0.08
+replay_not_supported_bonus = 0.04
+replay_supporting_reason_penalty = 0.02
+replay_offsetting_reason_bonus = 0.015
+replay_uncertainty_reason_penalty = 0.01
+replay_uncertainty_flag_penalty = 0.01

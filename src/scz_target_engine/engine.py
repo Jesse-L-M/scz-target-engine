@@ -15,6 +15,7 @@ from scz_target_engine.ledger import (
     ledger_summary_fields,
     target_ledgers_to_payload,
 )
+from scz_target_engine.policy import build_policy_artifacts
 from scz_target_engine.reporting import (
     build_cards_markdown,
     build_summary_markdown,
@@ -160,6 +161,12 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
     gene_vectors = build_decision_vectors(gene_entities, ledger_index=target_ledger_index)
     module_vectors = build_decision_vectors(module_entities)
     domain_head_rows = rank_domain_head_rows(gene_vectors + module_vectors)
+    policy_vector_payload, policy_pareto_payload = build_policy_artifacts(
+        gene_vectors,
+        module_vectors,
+        ledger_index=target_ledger_index,
+        repo_root=repo_root,
+    )
 
     top_targets = [
         entity
@@ -212,10 +219,18 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         output_dir / "decision_vectors_v1.json",
         build_decision_vector_payload(gene_vectors, module_vectors),
     )
+    write_json(
+        output_dir / "policy_decision_vectors_v2.json",
+        policy_vector_payload,
+    )
     write_csv(
         output_dir / "domain_head_rankings_v1.csv",
         domain_head_rows,
         fieldnames=list(domain_head_rows[0].keys()) if domain_head_rows else [],
+    )
+    write_json(
+        output_dir / "policy_pareto_fronts_v1.json",
+        policy_pareto_payload,
     )
     write_text(
         output_dir / "target_cards.md",
@@ -260,5 +275,7 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         "gene_warning_count": len([entity for entity in gene_entities if entity.warning_count]),
         "gene_target_ledger_file": str((output_dir / "gene_target_ledgers.json").resolve()),
         "decision_vector_artifact": str(output_dir / "decision_vectors_v1.json"),
+        "policy_decision_vector_artifact": str(output_dir / "policy_decision_vectors_v2.json"),
         "domain_head_ranking_artifact": str(output_dir / "domain_head_rankings_v1.csv"),
+        "policy_pareto_front_artifact": str(output_dir / "policy_pareto_fronts_v1.json"),
     }

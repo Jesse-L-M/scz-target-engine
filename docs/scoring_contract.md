@@ -188,6 +188,55 @@ Each profile is a documented weighted blend over the `v1` decision heads. Gene-t
 
 Existing `v0` numeric outputs remain unchanged. `v1` exists beside them as a comparison and inspection layer.
 
+## Policy Decision Vectors, V2
+
+`v2` is also additive. It consumes the existing `v1` domain profiles plus explicit
+uncertainty and replay-risk inputs, then evaluates each entity under multiple
+checked-in policy configs from `config/policies/`.
+
+The build now also emits:
+
+- `policy_decision_vectors_v2.json`: nested per-entity policy vectors keyed by
+  `policy_id`, including domain contributions, explicit adjustments, and the replay
+  reasoning consumed by that policy
+- `policy_pareto_fronts_v1.json`: Pareto-front tiers over the ordered multi-policy
+  score vector, kept separate from any scalar `v0` or `v1` rank
+
+Each checked-in policy stays explicit and inspectable:
+
+- a weighted blend over existing `v1` domain profiles
+- a primary operating domain, derived from the highest policy weight
+- explicit penalties or bonuses for coverage gaps, warnings, directionality risks,
+  and replay-risk status or reason counts
+
+What changes between policies:
+
+- which `v1` domain profiles matter most
+- how strongly uncertainty is penalized
+- whether replay evidence lands as a bonus, a caution flag, or a stronger penalty
+
+What does not change:
+
+- `v0` score, eligibility, rank, warning non-effect, or heuristic stability
+- `v1` decision-head semantics or domain-profile semantics
+- benchmark or rescue protocol semantics
+
+Concrete checked-in example path:
+
+```bash
+uv run scz-target-engine build \
+  --config config/v0.toml \
+  --input-dir examples/v0/input \
+  --output-dir .context/policy-example
+```
+
+In that example build, `DRD2` scores materially higher under
+`refractory_discovery_upside_v1` than under `acute_translation_guardrails_v1`.
+The shift is inspectable in `policy_decision_vectors_v2.json`: the acute policy
+evaluates replay in `acute_positive_symptoms` and lands on `replay_inconclusive`,
+while the refractory policy evaluates `treatment_resistant_schizophrenia` and lands
+on `replay_not_supported`.
+
 ## Benchmark Boundary
 
 Benchmarking is now frozen as a separate protocol contract in [docs/benchmarking.md](benchmarking.md).

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
 
@@ -71,7 +72,9 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     assert (tmp_path / "kill_cards.md").exists()
     assert (tmp_path / "gene_target_ledgers.json").exists()
     assert (tmp_path / "decision_vectors_v1.json").exists()
+    assert (tmp_path / "policy_decision_vectors_v2.json").exists()
     assert (tmp_path / "domain_head_rankings_v1.csv").exists()
+    assert (tmp_path / "policy_pareto_fronts_v1.json").exists()
 
     target_cards = (tmp_path / "target_cards.md").read_text(encoding="utf-8")
     assert "# Public-Evidence Promising Cards" in target_cards
@@ -279,6 +282,12 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     assert result["gene_target_ledger_file"].endswith("gene_target_ledgers.json")
     assert result["decision_vector_artifact"].endswith("decision_vectors_v1.json")
     assert result["domain_head_ranking_artifact"].endswith("domain_head_rankings_v1.csv")
+    assert result["policy_decision_vector_artifact"].endswith(
+        "policy_decision_vectors_v2.json"
+    )
+    assert result["policy_pareto_front_artifact"].endswith(
+        "policy_pareto_fronts_v1.json"
+    )
 
     with Path("examples/v0/output/gene_rankings.csv").open(
         newline="", encoding="utf-8"
@@ -328,3 +337,62 @@ def test_build_outputs_uses_repo_substrate_when_config_is_copied(
     assert result["gene_ranked_count"] == 24
     assert (tmp_path / "copied-build-output" / "gene_target_ledgers.json").exists()
     assert (tmp_path / "copied-build-output" / "decision_vectors_v1.json").exists()
+
+
+def test_build_outputs_emits_policy_vectors_and_pareto_fronts(tmp_path: Path) -> None:
+    config = load_config(Path("config/v0.toml"))
+    build_outputs(
+        config,
+        Path("examples/v0/input").resolve(),
+        tmp_path,
+    )
+
+    policy_vectors = json.loads((tmp_path / "policy_decision_vectors_v2.json").read_text())
+    assert policy_vectors["schema_version"] == "v2"
+    assert [policy["policy_id"] for policy in policy_vectors["policy_definitions"]] == [
+        "acute_translation_guardrails_v1",
+        "refractory_discovery_upside_v1",
+    ]
+    drd2 = next(
+        entity
+        for entity in policy_vectors["entities"]["gene"]
+        if entity["entity_label"] == "DRD2"
+    )
+    assert (
+        drd2["policy_vector"]["acute_translation_guardrails_v1"]["score"]
+        < drd2["policy_vector"]["refractory_discovery_upside_v1"]["score"]
+    )
+    assert (
+        drd2["policy_vector"]["acute_translation_guardrails_v1"]["uncertainty_context"][
+            "replay_risk"
+        ]["status"]
+        == "replay_inconclusive"
+    )
+    assert (
+        drd2["policy_vector"]["refractory_discovery_upside_v1"]["uncertainty_context"][
+            "replay_risk"
+        ]["status"]
+        == "replay_not_supported"
+    )
+
+    pareto_fronts = json.loads((tmp_path / "policy_pareto_fronts_v1.json").read_text())
+    assert pareto_fronts["schema_version"] == "v1"
+    assert pareto_fronts["policy_ids"] == [
+        "acute_translation_guardrails_v1",
+        "refractory_discovery_upside_v1",
+    ]
+    gene_fronts = {
+        row["entity_label"]: row
+        for row in pareto_fronts["entity_types"]["gene"]
+    }
+    assert gene_fronts["DRD2"]["pareto_front"] == 1
+    assert gene_fronts["GRIN2A"]["pareto_front"] == 1
+
+    assert (
+        load_artifact(tmp_path / "policy_decision_vectors_v2.json").artifact_name
+        == "policy_decision_vectors_v2"
+    )
+    assert (
+        load_artifact(tmp_path / "policy_pareto_fronts_v1.json").artifact_name
+        == "policy_pareto_fronts_v1"
+    )

@@ -36,7 +36,9 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
         "rescue_task_contract",
         "gene_target_ledgers",
         "decision_vectors_v1",
+        "policy_decision_vectors_v2",
         "domain_head_rankings_v1",
+        "policy_pareto_fronts_v1",
     }
 
 
@@ -70,14 +72,20 @@ def test_example_build_artifacts_validate_against_registered_schemas(
 
     ledger_artifact = load_artifact(tmp_path / "gene_target_ledgers.json")
     decision_vector_artifact = load_artifact(tmp_path / "decision_vectors_v1.json")
+    policy_vector_artifact = load_artifact(tmp_path / "policy_decision_vectors_v2.json")
     domain_ranking_artifact = load_artifact(tmp_path / "domain_head_rankings_v1.csv")
+    policy_pareto_artifact = load_artifact(tmp_path / "policy_pareto_fronts_v1.json")
 
     assert ledger_artifact.artifact_name == "gene_target_ledgers"
     assert ledger_artifact.payload["target_count"] == len(ledger_artifact.payload["targets"])
     assert decision_vector_artifact.artifact_name == "decision_vectors_v1"
     assert set(decision_vector_artifact.payload["entities"]) == {"gene", "module"}
+    assert policy_vector_artifact.artifact_name == "policy_decision_vectors_v2"
+    assert set(policy_vector_artifact.payload["entities"]) == {"gene", "module"}
     assert domain_ranking_artifact.artifact_name == "domain_head_rankings_v1"
     assert len(domain_ranking_artifact.payload) > 0
+    assert policy_pareto_artifact.artifact_name == "policy_pareto_fronts_v1"
+    assert set(policy_pareto_artifact.payload["entity_types"]) == {"gene", "module"}
 
 
 def test_benchmark_fixture_artifacts_validate_against_registered_schemas(

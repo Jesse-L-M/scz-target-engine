@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from scz_target_engine.decision_vector import (
     DOMAIN_HEAD_DEFINITIONS,
@@ -10,6 +11,7 @@ from scz_target_engine.decision_vector import (
     serialize_decision_vector,
 )
 from scz_target_engine.ledger import TargetLedger
+from scz_target_engine.policy import build_policy_artifacts
 from scz_target_engine.scoring import RankedEntity
 
 
@@ -684,3 +686,118 @@ def test_serialize_decision_vector_exposes_named_head_fields() -> None:
     assert serialized["subgroup_resolution_score"] == 0.3
     assert serialized["decision_vector"]["failure_burden_score"]["status"] == "available"
     assert "negative_symptoms" in serialized["domain_profiles"]
+
+
+def test_policy_vectors_diverge_across_checked_in_policies() -> None:
+    entity = make_ranked_entity(
+        entity_id="ENSGPOLICY1",
+        entity_label="POLICY1",
+        layer_values={
+            "common_variant_support": 0.95,
+            "rare_variant_support": 0.90,
+            "cell_state_support": 0.35,
+            "developmental_regulatory_support": 0.25,
+            "tractability_compoundability": 0.95,
+        },
+        metadata={"generic_platform_baseline": "0.90"},
+        composite_score=0.68,
+        rank=1,
+    )
+    ledger = make_target_ledger(
+        entity_id=entity.entity_id,
+        entity_label=entity.entity_label,
+        psychencode_deg_top_cell_types=[{"cell_type": "Vip", "row_score": 0.2}],
+        psychencode_grn_top_cell_types=[{"cell_type": "L2.3.IT", "score": 0.8}],
+    )
+
+    payload, _ = build_policy_artifacts(
+        [build_decision_vector(entity, ledger)],
+        [],
+        ledger_index={entity.entity_id: ledger},
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    policy_vector = payload["entities"]["gene"][0]["policy_vector"]
+    assert (
+        policy_vector["acute_translation_guardrails_v1"]["score"]
+        > policy_vector["refractory_discovery_upside_v1"]["score"]
+    )
+    assert (
+        policy_vector["acute_translation_guardrails_v1"]["primary_domain_slug"]
+        == "acute_positive_symptoms"
+    )
+    assert (
+        policy_vector["refractory_discovery_upside_v1"]["primary_domain_slug"]
+        == "treatment_resistant_schizophrenia"
+    )
+
+
+def test_policy_pareto_fronts_preserve_cross_policy_tradeoffs() -> None:
+    acute_favored = make_ranked_entity(
+        entity_id="ENSGPOLICYACUTE",
+        entity_label="ACUTE",
+        layer_values={
+            "common_variant_support": 0.95,
+            "rare_variant_support": 0.90,
+            "cell_state_support": 0.35,
+            "developmental_regulatory_support": 0.25,
+            "tractability_compoundability": 0.95,
+        },
+        metadata={"generic_platform_baseline": "0.90"},
+        composite_score=0.68,
+        rank=1,
+    )
+    biology_favored = make_ranked_entity(
+        entity_id="ENSGPOLICYBIO",
+        entity_label="BIO",
+        layer_values={
+            "common_variant_support": 0.60,
+            "rare_variant_support": 0.55,
+            "cell_state_support": 0.95,
+            "developmental_regulatory_support": 0.90,
+            "tractability_compoundability": 0.20,
+        },
+        metadata={"generic_platform_baseline": "0.30"},
+        composite_score=0.62,
+        rank=2,
+    )
+    ledger_index = {
+        acute_favored.entity_id: make_target_ledger(
+            entity_id=acute_favored.entity_id,
+            entity_label=acute_favored.entity_label,
+            psychencode_deg_top_cell_types=[{"cell_type": "Vip", "row_score": 0.2}],
+            psychencode_grn_top_cell_types=[{"cell_type": "L2.3.IT", "score": 0.8}],
+        ),
+        biology_favored.entity_id: make_target_ledger(
+            entity_id=biology_favored.entity_id,
+            entity_label=biology_favored.entity_label,
+            psychencode_deg_top_cell_types=[{"cell_type": "Vip", "row_score": 0.2}],
+            psychencode_grn_top_cell_types=[{"cell_type": "L2.3.IT", "score": 0.8}],
+        ),
+    }
+
+    vectors = build_decision_vectors(
+        [acute_favored, biology_favored],
+        ledger_index=ledger_index,
+    )
+    _, pareto_payload = build_policy_artifacts(
+        vectors,
+        [],
+        ledger_index=ledger_index,
+        repo_root=Path(__file__).resolve().parents[1],
+    )
+
+    rows = {
+        row["entity_label"]: row
+        for row in pareto_payload["entity_types"]["gene"]
+    }
+    assert rows["ACUTE"]["pareto_front"] == 1
+    assert rows["BIO"]["pareto_front"] == 1
+    assert (
+        rows["ACUTE"]["policy_scores"]["acute_translation_guardrails_v1"]
+        > rows["BIO"]["policy_scores"]["acute_translation_guardrails_v1"]
+    )
+    assert (
+        rows["BIO"]["policy_scores"]["refractory_discovery_upside_v1"]
+        > rows["ACUTE"]["policy_scores"]["refractory_discovery_upside_v1"]
+    )

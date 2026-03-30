@@ -2,7 +2,7 @@
   "artifact_name": "rescue_task_contract",
   "schema_version": "v1",
   "file_format": "json",
-  "description": "Registry-backed rescue task contract artifact.",
+  "description": "Registry-backed rescue task contract artifact that anchors the governed rescue data lane.",
   "key_fields": [
     "task_id"
   ],

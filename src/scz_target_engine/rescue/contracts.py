@@ -10,7 +10,7 @@ from scz_target_engine.io import read_json
 
 RESCUE_TASK_CONTRACT_ARTIFACT_NAME = "rescue_task_contract"
 STRICT_RESCUE_LEAKAGE_POLICY_ID = "strict_rescue_task_boundary_v1"
-DEFERRED_FREEZE_MANIFEST_POLICY = "deferred_until_pr40a"
+SCHEMA_VALIDATED_RESCUE_GOVERNANCE_POLICY = "schema_validated_rescue_governance_v1"
 CURRENT_HEAD_POLICY = "reject_unfrozen_current_head_state"
 VALID_CONTRACT_SCOPES = ("rescue_only", "benchmark_bridge_documented")
 VALID_ARTIFACT_CHANNELS = (
@@ -140,8 +140,12 @@ class RescueLeakageBoundary:
     requires_explicit_artifact_contracts: bool = True
     forbid_post_cutoff_artifacts_in_ranking: bool = True
     forbid_evaluation_labels_in_ranking: bool = True
-    freeze_manifest_required: bool = False
-    freeze_manifest_policy: str = DEFERRED_FREEZE_MANIFEST_POLICY
+    freeze_manifest_required: bool = True
+    freeze_manifest_policy: str = SCHEMA_VALIDATED_RESCUE_GOVERNANCE_POLICY
+    dataset_cards_required: bool = True
+    task_card_required: bool = True
+    split_manifest_required: bool = True
+    raw_to_frozen_lineage_required: bool = True
     current_head_policy: str = CURRENT_HEAD_POLICY
     notes: str = ""
 
@@ -162,14 +166,22 @@ class RescueLeakageBoundary:
             raise ValueError(
                 "forbid_evaluation_labels_in_ranking must remain enabled"
             )
-        if self.freeze_manifest_required:
+        if not self.freeze_manifest_required:
             raise ValueError(
-                "freeze_manifest_required must stay disabled until PR-40A lands"
+                "freeze_manifest_required must remain enabled for rescue governance"
             )
-        if self.freeze_manifest_policy != DEFERRED_FREEZE_MANIFEST_POLICY:
+        if self.freeze_manifest_policy != SCHEMA_VALIDATED_RESCUE_GOVERNANCE_POLICY:
             raise ValueError(
-                "freeze_manifest_policy must remain deferred_until_pr40a"
+                "freeze_manifest_policy must remain schema_validated_rescue_governance_v1"
             )
+        if not self.dataset_cards_required:
+            raise ValueError("dataset_cards_required must remain enabled")
+        if not self.task_card_required:
+            raise ValueError("task_card_required must remain enabled")
+        if not self.split_manifest_required:
+            raise ValueError("split_manifest_required must remain enabled")
+        if not self.raw_to_frozen_lineage_required:
+            raise ValueError("raw_to_frozen_lineage_required must remain enabled")
         if self.current_head_policy != CURRENT_HEAD_POLICY:
             raise ValueError(
                 "current_head_policy must remain reject_unfrozen_current_head_state"
@@ -185,6 +197,10 @@ class RescueLeakageBoundary:
             "forbid_evaluation_labels_in_ranking": self.forbid_evaluation_labels_in_ranking,
             "freeze_manifest_required": self.freeze_manifest_required,
             "freeze_manifest_policy": self.freeze_manifest_policy,
+            "dataset_cards_required": self.dataset_cards_required,
+            "task_card_required": self.task_card_required,
+            "split_manifest_required": self.split_manifest_required,
+            "raw_to_frozen_lineage_required": self.raw_to_frozen_lineage_required,
             "current_head_policy": self.current_head_policy,
             "notes": self.notes,
         }
@@ -213,7 +229,28 @@ class RescueLeakageBoundary:
                 payload["freeze_manifest_required"],
                 "freeze_manifest_required",
             ),
-            freeze_manifest_policy=str(payload["freeze_manifest_policy"]),
+            freeze_manifest_policy=str(
+                payload.get(
+                    "freeze_manifest_policy",
+                    SCHEMA_VALIDATED_RESCUE_GOVERNANCE_POLICY,
+                )
+            ),
+            dataset_cards_required=_require_bool(
+                payload.get("dataset_cards_required", True),
+                "dataset_cards_required",
+            ),
+            task_card_required=_require_bool(
+                payload.get("task_card_required", True),
+                "task_card_required",
+            ),
+            split_manifest_required=_require_bool(
+                payload.get("split_manifest_required", True),
+                "split_manifest_required",
+            ),
+            raw_to_frozen_lineage_required=_require_bool(
+                payload.get("raw_to_frozen_lineage_required", True),
+                "raw_to_frozen_lineage_required",
+            ),
             current_head_policy=str(payload["current_head_policy"]),
             notes=str(payload["notes"]),
         )

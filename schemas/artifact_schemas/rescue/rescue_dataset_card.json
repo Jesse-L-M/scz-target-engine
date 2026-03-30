@@ -1,0 +1,151 @@
+{
+  "artifact_name": "rescue_dataset_card",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Schema-validated governance card for a rescue dataset that satisfies a declared rescue task artifact contract.",
+  "key_fields": [
+    "dataset_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue dataset card schema version."
+    },
+    {
+      "name": "dataset_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable rescue dataset identifier."
+    },
+    {
+      "name": "dataset_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable rescue dataset label."
+    },
+    {
+      "name": "suite_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue suite identifier."
+    },
+    {
+      "name": "task_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue task identifier."
+    },
+    {
+      "name": "contract_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Repo-relative path to the rescue task contract artifact."
+    },
+    {
+      "name": "artifact_contract_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact contract id satisfied by this dataset card."
+    },
+    {
+      "name": "dataset_role",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue artifact channel represented by the dataset."
+    },
+    {
+      "name": "availability",
+      "field_type": "string",
+      "required": true,
+      "description": "Cutoff availability class for the dataset."
+    },
+    {
+      "name": "governance_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Whether the card is an example, planned, or active artifact."
+    },
+    {
+      "name": "source_stage",
+      "field_type": "string",
+      "required": true,
+      "description": "Lifecycle stage for the governed dataset."
+    },
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type covered by the dataset."
+    },
+    {
+      "name": "record_grain",
+      "field_type": "string",
+      "required": true,
+      "description": "Record grain of the dataset rows."
+    },
+    {
+      "name": "primary_key_fields",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Primary key columns for the dataset."
+    },
+    {
+      "name": "contains_post_cutoff_labels",
+      "field_type": "boolean",
+      "required": true,
+      "description": "Whether the dataset contains post-cutoff labels or adjudications."
+    },
+    {
+      "name": "allowed_uses",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Permitted downstream uses for the dataset."
+    },
+    {
+      "name": "freeze_manifest_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Repo-relative path to the governing rescue freeze manifest."
+    },
+    {
+      "name": "lineage_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Repo-relative path to the raw-to-frozen lineage artifact."
+    },
+    {
+      "name": "expected_output_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Planned or materialized output location for the dataset."
+    },
+    {
+      "name": "file_format",
+      "field_type": "string",
+      "required": true,
+      "description": "Declared file format for the dataset."
+    },
+    {
+      "name": "description",
+      "field_type": "string",
+      "required": true,
+      "description": "Short governance summary for the dataset."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional rescue dataset card notes."
+    }
+  ]
+}

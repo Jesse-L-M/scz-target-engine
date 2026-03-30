@@ -9,7 +9,7 @@
   "task_type": "gene_rescue_ranking",
   "disease": "schizophrenia",
   "entity_type": "gene",
-  "summary": "Contract-only example rescue task that fixes identity, leakage boundaries, and future artifact expectations before rescue data freezes or implementations ship.",
+  "summary": "Governed example rescue task that fixes identity, leakage boundaries, and the required governance artifacts before downstream rescue data freezes or implementations ship.",
   "contract_scope": "rescue_only",
   "artifact_contracts": [
     {
@@ -63,10 +63,14 @@
     "requires_explicit_artifact_contracts": true,
     "forbid_post_cutoff_artifacts_in_ranking": true,
     "forbid_evaluation_labels_in_ranking": true,
-    "freeze_manifest_required": false,
-    "freeze_manifest_policy": "deferred_until_pr40a",
+    "freeze_manifest_required": true,
+    "freeze_manifest_policy": "schema_validated_rescue_governance_v1",
+    "dataset_cards_required": true,
+    "task_card_required": true,
+    "split_manifest_required": true,
+    "raw_to_frozen_lineage_required": true,
     "current_head_policy": "reject_unfrozen_current_head_state",
-    "notes": "Freeze manifests and governance records are deferred to PR-40A, but rescue tasks already require explicit cutoff-aware artifact contracts and must not fall back to current-head state."
+    "notes": "Rescue tasks now require schema-validated dataset cards, task cards, freeze manifests, split manifests, and raw-to-frozen lineage before downstream freeze work can consume the lane."
   },
-  "notes": "This example rescue task remains separate from the benchmark registry-backed scz_translational_task."
+  "notes": "This example rescue task remains separate from the benchmark registry-backed scz_translational_task and now points at a schema-validated governance bundle under data/curated/rescue_tasks/governance/."
 }

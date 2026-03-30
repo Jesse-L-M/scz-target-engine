@@ -1,0 +1,109 @@
+{
+  "artifact_name": "rescue_freeze_manifest",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Schema-validated freeze manifest for a governed rescue task data lane.",
+  "key_fields": [
+    "freeze_manifest_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue freeze manifest schema version."
+    },
+    {
+      "name": "freeze_manifest_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable rescue freeze manifest identifier."
+    },
+    {
+      "name": "suite_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue suite identifier."
+    },
+    {
+      "name": "task_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue task identifier."
+    },
+    {
+      "name": "contract_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Repo-relative path to the rescue task contract artifact."
+    },
+    {
+      "name": "governance_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Whether the freeze manifest is an example, planned, or active artifact."
+    },
+    {
+      "name": "freeze_scope",
+      "field_type": "string",
+      "required": true,
+      "description": "Whether the freeze covers only ranking inputs or the full task bundle."
+    },
+    {
+      "name": "cutoff_date",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue cutoff date that separates ranking inputs from held-out outcomes."
+    },
+    {
+      "name": "frozen_at",
+      "field_type": "string",
+      "required": true,
+      "description": "Date when the governed freeze was assembled."
+    },
+    {
+      "name": "leakage_boundary_policy_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Leakage policy enforced by the rescue task contract."
+    },
+    {
+      "name": "current_head_policy",
+      "field_type": "string",
+      "required": true,
+      "description": "Current-head state policy enforced for rescue freezes."
+    },
+    {
+      "name": "source_snapshots",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Raw upstream snapshots used to build the governed freeze."
+    },
+    {
+      "name": "frozen_datasets",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Frozen datasets emitted by the governed rescue freeze."
+    },
+    {
+      "name": "description",
+      "field_type": "string",
+      "required": true,
+      "description": "Short governance summary for the rescue freeze."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional rescue freeze manifest notes."
+    }
+  ]
+}

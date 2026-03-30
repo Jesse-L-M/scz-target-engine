@@ -10,6 +10,11 @@ that future task work can consume without changing current build semantics.
 - `benchmark_model_run_manifest`
 - `benchmark_metric_output_payload`
 - `benchmark_confidence_interval_payload`
+- `rescue_dataset_card`
+- `rescue_task_card`
+- `rescue_freeze_manifest`
+- `rescue_split_manifest`
+- `rescue_raw_to_frozen_lineage`
 - `rescue_task_contract`
 - `gene_target_ledgers`
 - `decision_vectors_v1`
@@ -17,7 +22,8 @@ that future task work can consume without changing current build semantics.
 - `domain_head_rankings_v1`
 - `policy_pareto_fronts_v1`
 
-The schema files live under `schemas/artifact_schemas/`.
+The schema files live under `schemas/artifact_schemas/`. Rescue governance schemas
+now live under `schemas/artifact_schemas/rescue/`.
 
 ## Runtime Validation
 
@@ -58,9 +64,15 @@ benchmark code:
 - `BenchmarkMetricOutputPayload`
 - `BenchmarkConfidenceIntervalPayload`
 
-For rescue task contracts, validation now returns the typed rescue contract model:
+For rescue task contracts and governance artifacts, validation now returns typed
+rescue models:
 
 - `RescueTaskContract`
+- `RescueDatasetCard`
+- `RescueTaskCard`
+- `RescueFreezeManifest`
+- `RescueSplitManifest`
+- `RescueRawToFrozenLineage`
 
 The registry-driven benchmark path keeps those same emitted families. The additive
 contract provenance fields live on the manifest artifacts:
@@ -83,13 +95,28 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
 - `policy_pareto_fronts_v1` validates the ordered policy dimensions and the grouped
   Pareto-front rows emitted for genes and modules
 - `rescue_task_contract` validates registry-backed rescue task identity, artifact
-  interface declarations, and the strict no-leakage rescue boundary that precedes
-  `PR-40A`
+  interface declarations, and the strict no-leakage rescue boundary
+- `rescue_dataset_card` validates that a governed rescue dataset card resolves back
+  to a declared rescue task artifact contract
+- `rescue_task_card` validates that the checked-in governance bundle points at the
+  declared rescue contract and strict leakage policy, and `load_artifact(...,
+  artifact_name=\"rescue_task_card\")` now runs the full cross-file bundle validation
+  instead of only checking the task-card file in isolation
+- the rescue registry path now requires the registered `task_card_file` to pass that
+  same normal `load_artifact(..., artifact_name=\"rescue_task_card\")` validation
+  before it will return a registered rescue task contract
+- `rescue_freeze_manifest` validates the cutoff, current-head policy, upstream raw
+  snapshots, and governed frozen outputs
+- `rescue_split_manifest` validates deterministic split declarations against a frozen
+  ranking-input dataset
+- `rescue_raw_to_frozen_lineage` validates the raw-source to transformation-step to
+  frozen-dataset chain that later rescue-data PRs must preserve
 
 ## Scope Boundary
 
 - The registry covers current emitted artifact families plus explicit contract artifacts.
-- Rescue task contracts are registered as contract artifacts, not as emitted task data.
+- Rescue task contracts and rescue governance records are registered as contract
+  artifacts, not as emitted task data.
 - The registry does not change build outputs or benchmark semantics.
 - `snapshot_request.json` and `source_archives.json` remain operator inputs, not
   registered emitted artifact families.

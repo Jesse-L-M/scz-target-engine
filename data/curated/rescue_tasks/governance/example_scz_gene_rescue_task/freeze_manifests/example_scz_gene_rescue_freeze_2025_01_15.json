@@ -1,0 +1,66 @@
+{
+  "schema_name": "rescue_freeze_manifest",
+  "schema_version": "v1",
+  "freeze_manifest_id": "example_scz_gene_rescue_freeze_2025_01_15",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "example_scz_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/example_scz_gene_rescue_task.json",
+  "governance_status": "example",
+  "freeze_scope": "task_bundle",
+  "cutoff_date": "2025-01-15",
+  "frozen_at": "2025-01-16",
+  "leakage_boundary_policy_id": "strict_rescue_task_boundary_v1",
+  "current_head_policy": "reject_unfrozen_current_head_state",
+  "source_snapshots": [
+    {
+      "source_id": "opentargets_24_12_gene_associations",
+      "source_name": "opentargets",
+      "snapshot_id": "ot-2024-12-scz",
+      "captured_at": "2025-01-12",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/sources/opentargets/scz_ot_2024_12.json",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "description": "Pre-cutoff Open Targets schizophrenia association snapshot used for the governed ranking input universe."
+    },
+    {
+      "source_id": "pgc_scz_2024_gene_scores",
+      "source_name": "pgc",
+      "snapshot_id": "pgc-scz-2024",
+      "captured_at": "2025-01-10",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/sources/pgc/scz_2024_gene_scores.csv",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "description": "Pre-cutoff PGC schizophrenia gene ranking snapshot used in the governed candidate universe."
+    },
+    {
+      "source_id": "clinical_outcomes_q2_2025",
+      "source_name": "internal_outcomes",
+      "snapshot_id": "outcomes-2025q2",
+      "captured_at": "2025-06-30",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/sources/internal/example_scz_gene_rescue_outcomes_2025q2.csv",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "description": "Post-cutoff outcome adjudications reserved for evaluation only."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "example_scz_gene_ranking_inputs_2025_01_15",
+      "artifact_contract_id": "candidate_universe",
+      "dataset_role": "ranking_input",
+      "availability": "pre_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/dataset_cards/example_scz_gene_ranking_inputs.json",
+      "expected_output_path": "data/processed/rescue/example_scz_gene_rescue_task/frozen/example_scz_gene_ranking_inputs_2025_01_15.csv"
+    },
+    {
+      "dataset_id": "example_scz_gene_evaluation_labels_2025_06_30",
+      "artifact_contract_id": "evaluation_labels",
+      "dataset_role": "evaluation_target",
+      "availability": "post_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/dataset_cards/example_scz_gene_evaluation_labels.json",
+      "expected_output_path": "data/processed/rescue/example_scz_gene_rescue_task/frozen/example_scz_gene_evaluation_labels_2025_06_30.csv"
+    }
+  ],
+  "description": "Example freeze manifest that documents the cutoff, upstream snapshots, and governed output slots required before rescue data enters downstream workflows.",
+  "notes": "No task-specific frozen datasets are checked in yet. The manifest exists to define the contract that PR-40B, PR-40C, and PR-40D must satisfy."
+}

@@ -1,0 +1,26 @@
+{
+  "schema_name": "rescue_task_card",
+  "schema_version": "v1",
+  "task_card_id": "example_scz_gene_rescue_task_governance_v1",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "example_scz_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/example_scz_gene_rescue_task.json",
+  "governance_status": "example",
+  "owner": "rescue-data-governance",
+  "summary": "Example governance bundle for the schizophrenia gene rescue task. Downstream rescue-data PRs must replace the example status with active manifests before task-specific freeze work lands.",
+  "leakage_boundary_policy_id": "strict_rescue_task_boundary_v1",
+  "dataset_card_paths": [
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/dataset_cards/example_scz_gene_ranking_inputs.json",
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/dataset_cards/example_scz_gene_evaluation_labels.json"
+  ],
+  "freeze_manifest_paths": [
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/freeze_manifests/example_scz_gene_rescue_freeze_2025_01_15.json"
+  ],
+  "split_manifest_paths": [
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/split_manifests/example_scz_gene_rescue_split_2025_01_16.json"
+  ],
+  "lineage_paths": [
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/lineage/example_scz_gene_raw_to_frozen_lineage_2025_01_16.json"
+  ],
+  "notes": "This task card is intentionally example-only, but every referenced governance artifact already validates and uses repo-relative paths that downstream rescue-data PRs can copy."
+}

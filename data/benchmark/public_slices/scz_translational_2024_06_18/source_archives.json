@@ -11,16 +11,6 @@
       "source_version": "scz2022_fixture"
     },
     {
-      "allowed_data_through": "2024-06-20",
-      "archive_file": "archives/opentargets/24_03_fixture.csv",
-      "archive_format": "csv",
-      "evidence_frozen_at": "2024-06-20",
-      "notes": "Fixture Open Targets archived pull used for deterministic snapshot tests.",
-      "sha256": "08bd5918a2a573f86d6d7cc8cf804d97ab1e47f1153f8027f5cd0fc66436e815",
-      "source_name": "Open Targets",
-      "source_version": "24.03_fixture"
-    },
-    {
       "allowed_data_through": "2024-06-18",
       "archive_file": "archives/psychencode/brainscope_fixture.json",
       "archive_format": "json",
@@ -29,16 +19,6 @@
       "sha256": "f030adfdb6aa996d9aa7de873528ab052cd512c696e622fd878a18d62f7ebe2d",
       "source_name": "PsychENCODE",
       "source_version": "brainscope_fixture"
-    },
-    {
-      "allowed_data_through": "2024-07-15",
-      "archive_file": "archives/chembl/chembl35_fixture.json",
-      "archive_format": "json",
-      "evidence_frozen_at": "2024-07-15",
-      "notes": "Future-only ChEMBL archive fixture to prove explicit exclusion before cutoff.",
-      "sha256": "dabda6d9d9170bc4efd8173dfd2e9b64fd6a84af977bca287d5fa580f65eb390",
-      "source_name": "ChEMBL",
-      "source_version": "chembl35_fixture"
     }
   ]
 }

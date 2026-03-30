@@ -26,24 +26,24 @@
         },
         {
           "allowed_data_through": "2024-06-15",
-          "exclusion_reason": "latest archived release 2024-06-18 is after requested cutoff 2024-06-15",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-15",
           "included": false,
           "source_name": "PsychENCODE",
-          "source_version": "brainscope_fixture"
+          "source_version": "unavailable"
         },
         {
           "allowed_data_through": "2024-06-15",
-          "exclusion_reason": "latest archived release 2024-06-20 is after requested cutoff 2024-06-15",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-15",
           "included": false,
           "source_name": "Open Targets",
-          "source_version": "24.03_fixture"
+          "source_version": "unavailable"
         },
         {
           "allowed_data_through": "2024-06-15",
-          "exclusion_reason": "latest archived release 2024-07-15 is after requested cutoff 2024-06-15",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-15",
           "included": false,
           "source_name": "ChEMBL",
-          "source_version": "chembl35_fixture"
+          "source_version": "unavailable"
         }
       ],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_06_15/future_outcomes.csv",
@@ -74,17 +74,17 @@
         },
         {
           "allowed_data_through": "2024-06-18",
-          "exclusion_reason": "latest archived release 2024-06-20 is after requested cutoff 2024-06-18",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-18",
           "included": false,
           "source_name": "Open Targets",
-          "source_version": "24.03_fixture"
+          "source_version": "unavailable"
         },
         {
           "allowed_data_through": "2024-06-18",
-          "exclusion_reason": "latest archived release 2024-07-15 is after requested cutoff 2024-06-18",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-18",
           "included": false,
           "source_name": "ChEMBL",
-          "source_version": "chembl35_fixture"
+          "source_version": "unavailable"
         }
       ],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_06_18/future_outcomes.csv",
@@ -116,10 +116,10 @@
         },
         {
           "allowed_data_through": "2024-06-20",
-          "exclusion_reason": "latest archived release 2024-07-15 is after requested cutoff 2024-06-20",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-20",
           "included": false,
           "source_name": "ChEMBL",
-          "source_version": "chembl35_fixture"
+          "source_version": "unavailable"
         }
       ],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_06_20/future_outcomes.csv",

@@ -515,6 +515,8 @@ class BenchmarkSnapshotManifest:
             payload["benchmark_suite_id"] = self.benchmark_suite_id
         if self.benchmark_task_id:
             payload["benchmark_task_id"] = self.benchmark_task_id
+        if self.task_registry_path:
+            payload["task_registry_path"] = self.task_registry_path
         return payload
 
     @classmethod

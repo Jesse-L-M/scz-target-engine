@@ -15,6 +15,7 @@ from scz_target_engine.benchmark_registry import (
     resolve_benchmark_task_contract,
 )
 from scz_target_engine.benchmark_snapshots import (
+    SourceArchiveDescriptor,
     SnapshotBuildRequest,
     build_benchmark_snapshot_manifest,
     load_snapshot_build_request,
@@ -94,6 +95,7 @@ class PublicBenchmarkSliceSpec:
     as_of_date: str
     snapshot_request: SnapshotBuildRequest
     source_fixture_dir: Path
+    archive_descriptors: tuple[SourceArchiveDescriptor, ...]
     source_statuses: tuple[PublicSliceSourceStatus, ...]
     notes: str = ""
 
@@ -215,6 +217,23 @@ def _build_slice_request(
     )
 
 
+def _descriptors_allowed_at_cutoff(
+    descriptors: tuple[SourceArchiveDescriptor, ...],
+    *,
+    as_of_date: str,
+) -> tuple[SourceArchiveDescriptor, ...]:
+    cutoff_date = _parse_iso_date(as_of_date, "as_of_date")
+    return tuple(
+        descriptor
+        for descriptor in descriptors
+        if _archive_activation_date(
+            allowed_data_through=descriptor.allowed_data_through,
+            evidence_frozen_at=descriptor.evidence_frozen_at,
+        )
+        <= cutoff_date
+    )
+
+
 def _source_statuses_from_manifest(
     manifest: object,
 ) -> tuple[PublicSliceSourceStatus, ...]:
@@ -307,6 +326,10 @@ def _build_public_slice_specs(
     slice_specs: list[PublicBenchmarkSliceSpec] = []
 
     for as_of_date in candidate_cutoff_dates:
+        slice_archive_descriptors = _descriptors_allowed_at_cutoff(
+            archive_descriptors,
+            as_of_date=as_of_date,
+        )
         slice_request = _build_slice_request(
             base_request=base_request,
             task_contract=task_contract,
@@ -315,7 +338,7 @@ def _build_public_slice_specs(
         )
         manifest = build_benchmark_snapshot_manifest(
             slice_request,
-            archive_descriptors,
+            slice_archive_descriptors,
             materialized_at=as_of_date,
             task_registry_path=task_registry_path,
         )
@@ -338,6 +361,7 @@ def _build_public_slice_specs(
                 as_of_date=as_of_date,
                 snapshot_request=slice_request,
                 source_fixture_dir=source_fixture_dir,
+                archive_descriptors=slice_archive_descriptors,
                 source_statuses=source_statuses,
                 notes=slice_request.notes,
             )
@@ -387,6 +411,25 @@ def _copy_fixture_file(source_path: Path, destination_path: Path) -> None:
     shutil.copy2(source_path, destination_path)
 
 
+def _slice_archive_descriptor_payload(
+    descriptor: SourceArchiveDescriptor,
+    *,
+    archive_index_base_dir: Path,
+) -> dict[str, object]:
+    archive_path = Path(descriptor.archive_file).resolve()
+    archive_file = archive_path.relative_to(archive_index_base_dir.resolve())
+    return {
+        "source_name": descriptor.source_name,
+        "source_version": descriptor.source_version,
+        "archive_file": str(archive_file),
+        "archive_format": descriptor.archive_format,
+        "allowed_data_through": descriptor.allowed_data_through,
+        "evidence_frozen_at": descriptor.evidence_frozen_at,
+        "sha256": descriptor.sha256,
+        "notes": descriptor.notes,
+    }
+
+
 def materialize_public_benchmark_slices(
     *,
     output_dir: Path | None = None,
@@ -404,7 +447,7 @@ def materialize_public_benchmark_slices(
         benchmark_task_id=benchmark_task_id or DEFAULT_PUBLIC_SLICE_TASK_ID,
         task_registry_path=task_registry_path,
     )
-    archive_root = task_contract.fixture_paths.archive_index_file.parent / "archives"
+    archive_index_base_dir = task_contract.fixture_paths.archive_index_file.parent
 
     for slice_spec in plan.slices:
         slice_dir = resolved_output_dir / slice_spec.slice_id
@@ -420,15 +463,26 @@ def materialize_public_benchmark_slices(
             task_contract.fixture_paths.future_outcomes_file,
             slice_dir / "future_outcomes.csv",
         )
-        _copy_fixture_file(
-            task_contract.fixture_paths.archive_index_file,
+        write_json(
             slice_dir / "source_archives.json",
+            {
+                "archives": [
+                    _slice_archive_descriptor_payload(
+                        descriptor,
+                        archive_index_base_dir=archive_index_base_dir,
+                    )
+                    for descriptor in slice_spec.archive_descriptors
+                ]
+            },
         )
-        if archive_root.exists():
-            shutil.copytree(
-                archive_root,
-                slice_dir / "archives",
-                dirs_exist_ok=True,
+        for descriptor in slice_spec.archive_descriptors:
+            source_archive_path = Path(descriptor.archive_file).resolve()
+            relative_archive_path = source_archive_path.relative_to(
+                archive_index_base_dir.resolve()
+            )
+            _copy_fixture_file(
+                source_archive_path,
+                slice_dir / relative_archive_path,
             )
 
     result = plan.to_dict(output_dir=resolved_output_dir)

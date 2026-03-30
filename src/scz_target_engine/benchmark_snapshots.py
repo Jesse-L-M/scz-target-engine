@@ -128,6 +128,8 @@ class SnapshotBuildRequest:
             payload["benchmark_suite_id"] = self.benchmark_suite_id
         if self.benchmark_task_id:
             payload["benchmark_task_id"] = self.benchmark_task_id
+        if self.task_registry_path:
+            payload["task_registry_path"] = self.task_registry_path
         return payload
 
     @classmethod
@@ -401,11 +403,14 @@ def build_benchmark_snapshot_manifest(
     task_registry_path: Path | None = None,
 ) -> BenchmarkSnapshotManifest:
     _parse_iso_date(materialized_at, "materialized_at")
+    effective_task_registry_path = task_registry_path
+    if effective_task_registry_path is None and request.task_registry_path:
+        effective_task_registry_path = Path(request.task_registry_path).resolve()
     task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=request.benchmark_task_id or None,
         benchmark_question_id=request.benchmark_question_id,
         benchmark_suite_id=request.benchmark_suite_id or None,
-        task_registry_path=task_registry_path,
+        task_registry_path=effective_task_registry_path,
     )
     protocol = task_contract.protocol
     descriptors_by_source: dict[str, tuple[SourceArchiveDescriptor, ...]] = {
@@ -454,8 +459,8 @@ def build_benchmark_snapshot_manifest(
         baseline_ids=request.baseline_ids,
         notes=request.notes,
         task_registry_path=(
-            str(task_registry_path.resolve())
-            if task_registry_path is not None
+            str(effective_task_registry_path.resolve())
+            if effective_task_registry_path is not None
             else request.task_registry_path
         ),
     )

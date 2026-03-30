@@ -13,7 +13,7 @@ Current axes:
 
 - `mechanistic_axis:disease-association`
   - `opentargets.generic_platform_baseline`
-  - `opentargets.datatype.genetic_association`
+  - `opentargets.datatype.genetic-association`
   - `pgc.common_variant_support`
 - `mechanistic_axis:clinical-translation`
   - `opentargets.datatype.clinical`

@@ -140,6 +140,11 @@ Notes:
 The benchmark suite is now driven by the checked-in task registry at
 `data/curated/rescue_tasks/task_registry.csv`.
 
+That benchmark registry remains benchmark-specific. Rescue-task identity now lives in
+the adjacent `data/curated/rescue_tasks/rescue_task_registry.csv` plus validated
+`rescue_task_contract` JSON files, so benchmark lookups do not become ambiguous as
+rescue tasks are added.
+
 The current explicit task row is:
 
 - suite: `scz_translational_suite`
@@ -199,6 +204,7 @@ Supporting operator inputs:
 - `cohort_members.csv`: admissible ranking cohort membership
 - `future_outcomes.csv`: post-cutoff label adjudication input
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract source of truth
+- `data/curated/rescue_tasks/rescue_task_registry.csv`: rescue-task identity and contract index kept separate from the shipped benchmark registry
 
 Snapshot materialization behavior:
 

@@ -24,7 +24,7 @@ def _schema_signature(schema: object) -> tuple[object, ...]:
     )
 
 
-def test_artifact_registry_covers_current_output_families() -> None:
+def test_artifact_registry_covers_current_output_and_contract_families() -> None:
     schemas = list_artifact_schemas()
 
     assert {schema.artifact_name for schema in schemas} == {
@@ -33,6 +33,7 @@ def test_artifact_registry_covers_current_output_families() -> None:
         "benchmark_model_run_manifest",
         "benchmark_metric_output_payload",
         "benchmark_confidence_interval_payload",
+        "rescue_task_contract",
         "gene_target_ledgers",
         "decision_vectors_v1",
         "domain_head_rankings_v1",
@@ -143,3 +144,17 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
             load_artifact(Path(interval_file)).artifact_name
             == "benchmark_confidence_interval_payload"
         )
+
+
+def test_example_rescue_task_contract_validates_against_registered_schema() -> None:
+    rescue_contract_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/contracts/example_scz_gene_rescue_task.json"
+        ).resolve()
+    )
+
+    assert rescue_contract_artifact.artifact_name == "rescue_task_contract"
+    assert rescue_contract_artifact.payload.task_id == "example_scz_gene_rescue_task"
+    assert rescue_contract_artifact.payload.leakage_boundary.policy_id == (
+        "strict_rescue_task_boundary_v1"
+    )

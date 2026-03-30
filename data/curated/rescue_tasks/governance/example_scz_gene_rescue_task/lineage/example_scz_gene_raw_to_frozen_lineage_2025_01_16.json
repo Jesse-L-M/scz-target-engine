@@ -61,7 +61,7 @@
         "normalized_pre_cutoff_gene_rows"
       ],
       "output_ids": [
-        "ranking_input_freeze_rows"
+        "example_scz_gene_ranking_inputs_2025_01_15"
       ],
       "description": "Freeze the normalized pre-cutoff evidence into the governed ranking-input dataset declared by the dataset card."
     },
@@ -73,7 +73,7 @@
         "clinical_outcomes_q2_2025"
       ],
       "output_ids": [
-        "held_out_outcome_rows"
+        "example_scz_gene_evaluation_labels_2025_06_30"
       ],
       "description": "Convert post-cutoff adjudications into an evaluation-only label table that stays outside ranking feature construction."
     }

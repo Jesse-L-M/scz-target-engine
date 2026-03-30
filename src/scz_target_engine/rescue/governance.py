@@ -145,6 +145,53 @@ def _read_json_mapping(path: Path, artifact_name: str) -> dict[str, Any]:
     return _require_mapping(payload, artifact_name)
 
 
+def _validate_source_cutoff_alignment(
+    source_snapshots: tuple["RescueSourceSnapshot", ...],
+    *,
+    cutoff: date,
+    context: str,
+) -> None:
+    for source in source_snapshots:
+        captured_at = _parse_date(source.captured_at, f"{context}.captured_at")
+        if source.availability == "pre_cutoff" and captured_at > cutoff:
+            raise ValueError(
+                f"{context} pre_cutoff sources must not be captured after cutoff_date"
+            )
+        if source.availability == "post_cutoff" and captured_at <= cutoff:
+            raise ValueError(
+                f"{context} post_cutoff sources must be captured after cutoff_date"
+            )
+
+
+def _reconcile_sources_against_freeze_manifest(
+    raw_sources: tuple["RescueSourceSnapshot", ...],
+    freeze_manifest: "RescueFreezeManifest",
+) -> None:
+    raw_sources_by_id = {source.source_id: source for source in raw_sources}
+    freeze_sources_by_id = {
+        source.source_id: source for source in freeze_manifest.source_snapshots
+    }
+    if set(raw_sources_by_id) != set(freeze_sources_by_id):
+        raise ValueError(
+            "raw_sources must match the source_snapshot ids declared by the freeze manifest"
+        )
+
+    for source_id, raw_source in raw_sources_by_id.items():
+        freeze_source = freeze_sources_by_id[source_id]
+        for field_name in (
+            "availability",
+            "source_path",
+            "captured_at",
+            "snapshot_id",
+            "sha256",
+        ):
+            if getattr(raw_source, field_name) != getattr(freeze_source, field_name):
+                raise ValueError(
+                    "raw_sources must match the freeze manifest for "
+                    f"{field_name}: {source_id}"
+                )
+
+
 @dataclass(frozen=True)
 class RescueDatasetCard:
     schema_name: str
@@ -541,16 +588,18 @@ class RescueFreezeManifest:
             artifact.artifact_id: artifact for artifact in contract.artifact_contracts
         }
         includes_post_cutoff_output = False
-        for source in self.source_snapshots:
-            captured_at = _parse_date(source.captured_at, "captured_at")
-            if source.availability == "pre_cutoff" and captured_at > cutoff:
-                raise ValueError(
-                    "pre_cutoff source snapshots must not be captured after cutoff_date"
-                )
-            if source.availability == "post_cutoff" and captured_at <= cutoff:
-                raise ValueError(
-                    "post_cutoff source snapshots must be captured after cutoff_date"
-                )
+        _validate_source_cutoff_alignment(
+            self.source_snapshots,
+            cutoff=cutoff,
+            context="source_snapshots",
+        )
+        if (
+            self.freeze_scope == "ranking_only"
+            and any(source.availability == "post_cutoff" for source in self.source_snapshots)
+        ):
+            raise ValueError(
+                "ranking_only freeze manifests must not include post_cutoff source snapshots"
+            )
 
         for dataset in self.frozen_datasets:
             contract_artifact = contract_artifacts.get(dataset.artifact_contract_id)
@@ -890,19 +939,15 @@ class RescueRawToFrozenLineage:
         _require_unique(frozen_dataset_ids, "frozen_datasets")
 
         cutoff = _parse_date(freeze_manifest.cutoff_date, "freeze_manifest.cutoff_date")
-        for source in self.raw_sources:
-            captured_at = _parse_date(source.captured_at, "captured_at")
-            if source.availability == "pre_cutoff" and captured_at > cutoff:
-                raise ValueError(
-                    "pre_cutoff raw_sources must not be captured after the freeze cutoff"
-                )
-            if source.availability == "post_cutoff" and captured_at <= cutoff:
-                raise ValueError(
-                    "post_cutoff raw_sources must be captured after the freeze cutoff"
-                )
+        _validate_source_cutoff_alignment(
+            self.raw_sources,
+            cutoff=cutoff,
+            context="raw_sources",
+        )
+        _reconcile_sources_against_freeze_manifest(self.raw_sources, freeze_manifest)
 
         known_ids = set(raw_source_ids)
-        produced_ids: set[str] = set()
+        outputs_by_step_id: dict[str, set[str]] = {}
         for step in self.transformation_steps:
             missing_inputs = sorted(input_id for input_id in step.input_ids if input_id not in known_ids)
             if missing_inputs:
@@ -917,7 +962,7 @@ class RescueRawToFrozenLineage:
                     + ", ".join(duplicate_outputs)
                 )
             known_ids.update(step.output_ids)
-            produced_ids.update(step.output_ids)
+            outputs_by_step_id[step.step_id] = set(step.output_ids)
 
         known_step_ids = set(step_ids)
         freeze_datasets = {dataset.dataset_id: dataset for dataset in freeze_manifest.frozen_datasets}
@@ -925,6 +970,10 @@ class RescueRawToFrozenLineage:
             if dataset.produced_by_step_id not in known_step_ids:
                 raise ValueError(
                     "frozen_datasets must reference a known transformation step"
+                )
+            if dataset.dataset_id not in outputs_by_step_id[dataset.produced_by_step_id]:
+                raise ValueError(
+                    "frozen_datasets produced_by_step_id must point to a step that emits the dataset_id"
                 )
             freeze_dataset = freeze_datasets.get(dataset.dataset_id)
             if freeze_dataset is None:
@@ -1081,15 +1130,13 @@ def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceB
         dataset.dataset_id: path_text
         for dataset, path_text in zip(dataset_cards, task_card.dataset_card_paths)
     }
-    freeze_dataset_by_id = {
-        dataset.dataset_id: dataset
-        for freeze_manifest in freeze_manifests
-        for dataset in freeze_manifest.frozen_datasets
+    freeze_manifest_by_path = {
+        path_text: freeze_manifest
+        for path_text, freeze_manifest in zip(task_card.freeze_manifest_paths, freeze_manifests)
     }
-    lineage_dataset_by_id = {
-        dataset.dataset_id: dataset
-        for lineage in lineages
-        for dataset in lineage.frozen_datasets
+    lineage_by_path = {
+        path_text: lineage
+        for path_text, lineage in zip(task_card.lineage_paths, lineages)
     }
     for dataset in dataset_cards:
         if dataset.freeze_manifest_path not in task_card_freeze_paths:
@@ -1102,7 +1149,19 @@ def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceB
             )
         if dataset.suite_id != contract.suite_id or dataset.task_id != contract.task_id:
             raise ValueError("dataset cards must match the referenced rescue task contract")
-        freeze_dataset = freeze_dataset_by_id[dataset.dataset_id]
+        freeze_manifest = freeze_manifest_by_path[dataset.freeze_manifest_path]
+        freeze_dataset = next(
+            (
+                item
+                for item in freeze_manifest.frozen_datasets
+                if item.dataset_id == dataset.dataset_id
+            ),
+            None,
+        )
+        if freeze_dataset is None:
+            raise ValueError(
+                "dataset cards must match dataset ids declared by their referenced freeze manifest"
+            )
         if freeze_dataset.dataset_card_path != dataset_path_by_id[dataset.dataset_id]:
             raise ValueError(
                 "freeze manifest dataset_card_path values must match the task card dataset paths"
@@ -1115,7 +1174,17 @@ def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceB
             raise ValueError(
                 "freeze manifest expected_output_path values must match the dataset cards"
             )
-        lineage_dataset = lineage_dataset_by_id[dataset.dataset_id]
+        lineage = lineage_by_path[dataset.lineage_path]
+        lineage_dataset = next(
+            (
+                item for item in lineage.frozen_datasets if item.dataset_id == dataset.dataset_id
+            ),
+            None,
+        )
+        if lineage_dataset is None:
+            raise ValueError(
+                "dataset cards must match dataset ids declared by their referenced lineage artifact"
+            )
         if lineage_dataset.dataset_card_path != dataset_path_by_id[dataset.dataset_id]:
             raise ValueError(
                 "lineage dataset_card_path values must match the task-card dataset card paths"
@@ -1132,6 +1201,10 @@ def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceB
             raise ValueError("split manifests must match the referenced rescue suite_id")
         if split_manifest.task_id != contract.task_id:
             raise ValueError("split manifests must match the referenced rescue task_id")
+        if split_manifest.freeze_manifest_path not in task_card_freeze_paths:
+            raise ValueError(
+                "split manifests must reference a freeze manifest declared by the task card"
+            )
         source_dataset = dataset_by_id.get(split_manifest.source_dataset_id)
         if source_dataset is None:
             raise ValueError(
@@ -1139,6 +1212,10 @@ def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceB
             )
         if source_dataset.dataset_role != "ranking_input":
             raise ValueError("split manifests must split a ranking_input dataset")
+        if source_dataset.freeze_manifest_path != split_manifest.freeze_manifest_path:
+            raise ValueError(
+                "split manifests must reference the exact freeze_manifest_path declared by the source dataset card"
+            )
 
     for lineage in lineages:
         if lineage.suite_id != contract.suite_id:

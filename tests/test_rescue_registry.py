@@ -20,6 +20,18 @@ EXAMPLE_CONTRACT_PATH = Path(
 EXAMPLE_TASK_CARD_PATH = Path(
     "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/task_card.json"
 )
+EXAMPLE_FREEZE_MANIFEST_PATH = Path(
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+    "freeze_manifests/example_scz_gene_rescue_freeze_2025_01_15.json"
+)
+EXAMPLE_SPLIT_MANIFEST_PATH = Path(
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+    "split_manifests/example_scz_gene_rescue_split_2025_01_16.json"
+)
+EXAMPLE_LINEAGE_PATH = Path(
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+    "lineage/example_scz_gene_raw_to_frozen_lineage_2025_01_16.json"
+)
 
 
 def test_rescue_registry_resolves_example_contract() -> None:
@@ -171,4 +183,100 @@ def test_rescue_task_card_validation_rejects_missing_required_field(
         load_artifact(
             task_card_path,
             artifact_name="rescue_task_card",
+        )
+
+
+def test_ranking_only_freeze_manifest_rejects_post_cutoff_source_snapshot(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(EXAMPLE_FREEZE_MANIFEST_PATH.read_text(encoding="utf-8"))
+    payload["freeze_scope"] = "ranking_only"
+    payload["frozen_datasets"] = [payload["frozen_datasets"][0]]
+    freeze_manifest_path = tmp_path / "bad_ranking_only_freeze.json"
+    freeze_manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="ranking_only freeze manifests must not include post_cutoff source snapshots",
+    ):
+        load_artifact(
+            freeze_manifest_path,
+            artifact_name="rescue_freeze_manifest",
+        )
+
+
+def test_rescue_governance_bundle_rejects_split_manifest_bound_to_wrong_freeze(
+    tmp_path: Path,
+) -> None:
+    alternate_freeze_payload = json.loads(
+        EXAMPLE_FREEZE_MANIFEST_PATH.read_text(encoding="utf-8")
+    )
+    alternate_freeze_payload["freeze_manifest_id"] = (
+        "example_scz_gene_rescue_freeze_2025_01_15_alt"
+    )
+    alternate_freeze_path = tmp_path / "alternate_freeze_manifest.json"
+    alternate_freeze_path.write_text(
+        json.dumps(alternate_freeze_payload, indent=2),
+        encoding="utf-8",
+    )
+
+    split_payload = json.loads(EXAMPLE_SPLIT_MANIFEST_PATH.read_text(encoding="utf-8"))
+    split_payload["freeze_manifest_path"] = str(alternate_freeze_path)
+    split_path = tmp_path / "bad_split_manifest.json"
+    split_path.write_text(json.dumps(split_payload, indent=2), encoding="utf-8")
+
+    task_card_payload = json.loads(EXAMPLE_TASK_CARD_PATH.read_text(encoding="utf-8"))
+    task_card_payload["freeze_manifest_paths"] = [
+        task_card_payload["freeze_manifest_paths"][0],
+        str(alternate_freeze_path),
+    ]
+    task_card_payload["split_manifest_paths"] = [str(split_path)]
+    task_card_path = tmp_path / "bad_task_card_freeze_binding.json"
+    task_card_path.write_text(
+        json.dumps(task_card_payload, indent=2),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="split manifests must reference the exact freeze_manifest_path declared by the source dataset card",
+    ):
+        validate_rescue_governance_bundle(task_card_path)
+
+
+def test_rescue_lineage_rejects_produced_by_step_without_dataset_output(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(EXAMPLE_LINEAGE_PATH.read_text(encoding="utf-8"))
+    payload["frozen_datasets"][0]["produced_by_step_id"] = "normalize_pre_cutoff_sources"
+    lineage_path = tmp_path / "bad_lineage_step_binding.json"
+    lineage_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="produced_by_step_id must point to a step that emits the dataset_id",
+    ):
+        load_artifact(
+            lineage_path,
+            artifact_name="rescue_raw_to_frozen_lineage",
+        )
+
+
+def test_rescue_lineage_rejects_raw_source_drift_from_freeze_manifest(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(EXAMPLE_LINEAGE_PATH.read_text(encoding="utf-8"))
+    payload["raw_sources"][0]["source_path"] = (
+        "data/raw/sources/opentargets/drifted_snapshot.json"
+    )
+    lineage_path = tmp_path / "bad_lineage_source_drift.json"
+    lineage_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="raw_sources must match the freeze manifest for source_path",
+    ):
+        load_artifact(
+            lineage_path,
+            artifact_name="rescue_raw_to_frozen_lineage",
         )

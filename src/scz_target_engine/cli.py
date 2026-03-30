@@ -24,6 +24,16 @@ from scz_target_engine.benchmark_snapshots import (
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
 from scz_target_engine.ingest import refresh_candidate_registry
+from scz_target_engine.io import read_json, write_csv
+from scz_target_engine.program_memory import (
+    apply_program_memory_adjudication,
+    build_program_memory_adjudication_record,
+    build_program_memory_harvest_batch,
+    build_program_memory_harvest_review_rows,
+    load_program_memory_harvest_batch,
+    write_program_memory_adjudication_outputs,
+    write_program_memory_harvest_batch,
+)
 from scz_target_engine.prepare import (
     prepare_gene_table,
     refresh_example_gene_table,
@@ -65,6 +75,29 @@ def _configure_build_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--config", required=True)
     parser.add_argument("--input-dir")
     parser.add_argument("--output-dir")
+
+
+def _configure_program_memory_harvest_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--input-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--harvest-id", required=True)
+    parser.add_argument("--harvester", required=True)
+    parser.add_argument("--created-at")
+    parser.add_argument("--review-file")
+
+
+def _configure_program_memory_adjudicate_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--harvest-file", required=True)
+    parser.add_argument("--decisions-file", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--adjudication-id", required=True)
+    parser.add_argument("--reviewer", required=True)
+    parser.add_argument("--reviewed-at")
+    parser.add_argument("--notes")
 
 
 def _configure_fetch_opentargets_parser(parser: argparse.ArgumentParser) -> None:
@@ -255,6 +288,16 @@ COMMAND_ROUTES = (
     CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
     CommandRoute("build", ("engine", "build"), _configure_build_parser),
     CommandRoute(
+        "program-memory-harvest",
+        ("program-memory", "harvest"),
+        _configure_program_memory_harvest_parser,
+    ),
+    CommandRoute(
+        "program-memory-adjudicate",
+        ("program-memory", "adjudicate"),
+        _configure_program_memory_adjudicate_parser,
+    ),
+    CommandRoute(
         "fetch-opentargets",
         ("sources", "opentargets"),
         _configure_fetch_opentargets_parser,
@@ -414,6 +457,32 @@ def _resolve_repo_root_from_config_path(config_path: Path) -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _load_json_object(path: Path) -> dict[str, object]:
+    payload = read_json(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"expected JSON object in {path}")
+    return payload
+
+
+def _load_program_memory_decision_payloads(path: Path) -> tuple[list[dict[str, object]], str]:
+    payload = read_json(path)
+    if isinstance(payload, list):
+        if not all(isinstance(item, dict) for item in payload):
+            raise ValueError(f"program memory decisions must be JSON objects: {path}")
+        return list(payload), ""
+    if isinstance(payload, dict):
+        decisions = payload.get("decisions")
+        if not isinstance(decisions, list):
+            raise ValueError(
+                "program memory decision files must contain a decisions list"
+            )
+        if not all(isinstance(item, dict) for item in decisions):
+            raise ValueError(f"program memory decisions must be JSON objects: {path}")
+        notes = payload.get("notes")
+        return list(decisions), str(notes) if notes is not None else ""
+    raise ValueError(f"unsupported program memory decisions payload in {path}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="scz-target-engine")
     subparsers = parser.add_subparsers(dest="_segment_0", required=True)
@@ -432,6 +501,91 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.command == "program-memory-harvest":
+        payload = _load_json_object(Path(args.input_file).resolve())
+        source_documents = payload.get("source_documents")
+        suggestions = payload.get("suggestions", payload.get("machine_suggestions"))
+        if not isinstance(source_documents, list) or not isinstance(suggestions, list):
+            raise ValueError(
+                "program memory harvest input files require source_documents and suggestions lists"
+            )
+        harvest = build_program_memory_harvest_batch(
+            harvest_id=args.harvest_id,
+            harvester=args.harvester,
+            created_at=args.created_at or "",
+            source_document_payloads=source_documents,
+            suggestion_payloads=suggestions,
+        )
+        output_file = Path(args.output_file).resolve()
+        write_program_memory_harvest_batch(output_file, harvest)
+        review_rows = build_program_memory_harvest_review_rows(harvest)
+        if args.review_file:
+            review_file = Path(args.review_file).resolve()
+            write_csv(
+                review_file,
+                review_rows,
+                fieldnames=list(review_rows[0].keys()) if review_rows else [],
+            )
+        print(
+            json.dumps(
+                {
+                    "harvest_id": harvest.harvest_id,
+                    "harvester": harvest.harvester,
+                    "source_document_count": len(harvest.source_documents),
+                    "suggestion_count": len(harvest.suggestions),
+                    "output_file": str(output_file),
+                    "review_file": (
+                        str(Path(args.review_file).resolve()) if args.review_file else None
+                    ),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if args.command == "program-memory-adjudicate":
+        harvest_file = Path(args.harvest_file).resolve()
+        decisions_file = Path(args.decisions_file).resolve()
+        harvest = load_program_memory_harvest_batch(harvest_file)
+        decision_payloads, decision_notes = _load_program_memory_decision_payloads(
+            decisions_file
+        )
+        adjudication = build_program_memory_adjudication_record(
+            adjudication_id=args.adjudication_id,
+            harvest_id=harvest.harvest_id,
+            reviewer=args.reviewer,
+            reviewed_at=args.reviewed_at or "",
+            decision_payloads=decision_payloads,
+            notes=args.notes if args.notes is not None else decision_notes,
+        )
+        outcome = apply_program_memory_adjudication(harvest, adjudication)
+        output_dir = Path(args.output_dir).resolve()
+        dataset = write_program_memory_adjudication_outputs(
+            output_dir,
+            adjudication,
+            outcome,
+        )
+        print(
+            json.dumps(
+                {
+                    "adjudication_id": adjudication.adjudication_id,
+                    "harvest_id": adjudication.harvest_id,
+                    "reviewer": adjudication.reviewer,
+                    "accepted_event_count": len(dataset.events),
+                    "accepted_directionality_count": len(
+                        dataset.directionality_hypotheses
+                    ),
+                    "rejected_suggestion_ids": list(outcome.rejected_suggestion_ids),
+                    "pending_suggestion_ids": list(outcome.pending_suggestion_ids),
+                    "output_dir": str(output_dir),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
 
     if args.command == "build-benchmark-snapshot":
         result = materialize_benchmark_snapshot_manifest(

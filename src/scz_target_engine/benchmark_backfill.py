@@ -411,6 +411,34 @@ def _copy_fixture_file(source_path: Path, destination_path: Path) -> None:
     shutil.copy2(source_path, destination_path)
 
 
+def _looks_like_public_slice_dir(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    return any(
+        (path / file_name).exists()
+        for file_name in (
+            "snapshot_request.json",
+            "source_archives.json",
+            "cohort_members.csv",
+            "future_outcomes.csv",
+        )
+    )
+
+
+def _prune_obsolete_slice_dirs(
+    *,
+    output_dir: Path,
+    active_slice_ids: set[str],
+) -> None:
+    if not output_dir.exists():
+        return
+    for child in output_dir.iterdir():
+        if child.name in active_slice_ids:
+            continue
+        if _looks_like_public_slice_dir(child):
+            shutil.rmtree(child)
+
+
 def _slice_archive_descriptor_payload(
     descriptor: SourceArchiveDescriptor,
     *,
@@ -448,6 +476,11 @@ def materialize_public_benchmark_slices(
         task_registry_path=task_registry_path,
     )
     archive_index_base_dir = task_contract.fixture_paths.archive_index_file.parent
+    active_slice_ids = {slice_spec.slice_id for slice_spec in plan.slices}
+    _prune_obsolete_slice_dirs(
+        output_dir=resolved_output_dir,
+        active_slice_ids=active_slice_ids,
+    )
 
     for slice_spec in plan.slices:
         slice_dir = resolved_output_dir / slice_spec.slice_id

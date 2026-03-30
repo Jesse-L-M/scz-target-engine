@@ -7,8 +7,6 @@ from pathlib import Path
 import sys
 from typing import Callable
 
-import scz_target_engine.benchmark_runner as benchmark_runner_module
-
 from scz_target_engine.atlas.ingest import refresh_atlas_candidate_registry
 from scz_target_engine.atlas.sources import (
     fetch_atlas_opentargets_baseline,
@@ -473,97 +471,6 @@ def _resolve_repo_root_from_config_path(config_path: Path) -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _materialize_benchmark_run_with_manifest_provenance(
-    *,
-    manifest_file: Path,
-    cohort_labels_file: Path,
-    archive_index_file: Path,
-    output_dir: Path,
-    config_file: Path | None,
-    bootstrap_iterations: int | None,
-    bootstrap_confidence_level: float,
-    random_seed: int,
-    deterministic_test_mode: bool,
-) -> dict[str, object]:
-    try:
-        manifest = read_benchmark_snapshot_manifest(manifest_file)
-    except (FileNotFoundError, ValueError):
-        manifest = None
-    task_registry_path = None
-    if manifest is not None and getattr(manifest, "task_registry_path", ""):
-        task_registry_path = Path(manifest.task_registry_path).resolve()
-    if task_registry_path is None:
-        return materialize_benchmark_run(
-            manifest_file=manifest_file,
-            cohort_labels_file=cohort_labels_file,
-            archive_index_file=archive_index_file,
-            output_dir=output_dir,
-            config_file=config_file,
-            bootstrap_iterations=bootstrap_iterations,
-            bootstrap_confidence_level=bootstrap_confidence_level,
-            random_seed=random_seed,
-            deterministic_test_mode=deterministic_test_mode,
-        )
-
-    original_resolve = benchmark_runner_module.resolve_benchmark_task_contract
-    original_read_manifest = benchmark_runner_module.read_benchmark_snapshot_manifest
-
-    def _resolve_with_registry_provenance(
-        *,
-        benchmark_task_id: str | None = None,
-        benchmark_question_id: str | None = None,
-        benchmark_suite_id: str | None = None,
-        task_registry_path: Path | None = None,
-    ):
-        return original_resolve(
-            benchmark_task_id=benchmark_task_id,
-            benchmark_question_id=benchmark_question_id,
-            benchmark_suite_id=benchmark_suite_id,
-            task_registry_path=(
-                task_registry_path
-                if task_registry_path is not None
-                else task_registry_path_from_manifest
-            ),
-        )
-
-    def _read_manifest_with_registry_provenance(
-        path: Path,
-        *,
-        task_registry_path: Path | None = None,
-    ):
-        return original_read_manifest(
-            path,
-            task_registry_path=(
-                task_registry_path
-                if task_registry_path is not None
-                else task_registry_path_from_manifest
-            ),
-        )
-
-    task_registry_path_from_manifest = task_registry_path
-    benchmark_runner_module.resolve_benchmark_task_contract = (
-        _resolve_with_registry_provenance
-    )
-    benchmark_runner_module.read_benchmark_snapshot_manifest = (
-        _read_manifest_with_registry_provenance
-    )
-    try:
-        return materialize_benchmark_run(
-            manifest_file=manifest_file,
-            cohort_labels_file=cohort_labels_file,
-            archive_index_file=archive_index_file,
-            output_dir=output_dir,
-            config_file=config_file,
-            bootstrap_iterations=bootstrap_iterations,
-            bootstrap_confidence_level=bootstrap_confidence_level,
-            random_seed=random_seed,
-            deterministic_test_mode=deterministic_test_mode,
-        )
-    finally:
-        benchmark_runner_module.resolve_benchmark_task_contract = original_resolve
-        benchmark_runner_module.read_benchmark_snapshot_manifest = original_read_manifest
-
-
 def _load_json_object(path: Path) -> dict[str, object]:
     payload = read_json(path)
     if not isinstance(payload, dict):
@@ -715,7 +622,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "run-benchmark":
-        result = _materialize_benchmark_run_with_manifest_provenance(
+        result = materialize_benchmark_run(
             manifest_file=Path(args.manifest_file).resolve(),
             cohort_labels_file=Path(args.cohort_labels_file).resolve(),
             archive_index_file=Path(args.archive_index_file).resolve(),

@@ -14,9 +14,6 @@ from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
     read_benchmark_snapshot_manifest,
 )
-from scz_target_engine.cli import main
-
-
 FIXTURE_DIR = (
     Path(__file__).resolve().parents[1]
     / "data"
@@ -259,6 +256,32 @@ def test_public_slice_builder_reports_sparse_archive_coverage_limitation(
     )
 
 
+def test_regenerating_with_smaller_plan_prunes_obsolete_sibling_slice_dirs(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "public_slices"
+    materialize_public_benchmark_slices(
+        output_dir=output_dir,
+        benchmark_task_id="scz_translational_task",
+    )
+    assert (output_dir / "scz_translational_2024_06_15").exists()
+    assert (output_dir / "scz_translational_2024_06_18").exists()
+    assert (output_dir / "scz_translational_2024_06_20").exists()
+
+    task_registry_path, _fixture_dir = _write_sparse_custom_registry_fixture(tmp_path)
+    result = materialize_public_benchmark_slices(
+        output_dir=output_dir,
+        benchmark_task_id="sparse_fixture_task",
+        task_registry_path=task_registry_path,
+    )
+
+    assert result["public_slice_ids"] == ["sparse_fixture_2024_06_15"]
+    assert (output_dir / "sparse_fixture_2024_06_15").exists()
+    assert not (output_dir / "scz_translational_2024_06_15").exists()
+    assert not (output_dir / "scz_translational_2024_06_18").exists()
+    assert not (output_dir / "scz_translational_2024_06_20").exists()
+
+
 def test_custom_registry_slice_round_trips_through_emitted_slice_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -283,21 +306,11 @@ def test_custom_registry_slice_round_trips_through_emitted_slice_artifacts(
     cohort_labels_file = generated_dir / "cohort_labels.csv"
     runner_output_dir = generated_dir / "runner_outputs"
 
-    assert (
-        main(
-            [
-                "build-benchmark-snapshot",
-                "--request-file",
-                str(slice_dir / "snapshot_request.json"),
-                "--archive-index-file",
-                str(slice_dir / "source_archives.json"),
-                "--output-file",
-                str(snapshot_manifest_file),
-                "--materialized-at",
-                "2026-03-30",
-            ]
-        )
-        == 0
+    materialize_benchmark_snapshot_manifest(
+        request_file=slice_dir / "snapshot_request.json",
+        archive_index_file=slice_dir / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-03-30",
     )
     snapshot_manifest_payload = json.loads(
         snapshot_manifest_file.read_text(encoding="utf-8")
@@ -306,39 +319,21 @@ def test_custom_registry_slice_round_trips_through_emitted_slice_artifacts(
         task_registry_path.resolve()
     )
 
-    assert (
-        main(
-            [
-                "build-benchmark-cohort",
-                "--manifest-file",
-                str(snapshot_manifest_file),
-                "--cohort-members-file",
-                str(slice_dir / "cohort_members.csv"),
-                "--future-outcomes-file",
-                str(slice_dir / "future_outcomes.csv"),
-                "--output-file",
-                str(cohort_labels_file),
-            ]
-        )
-        == 0
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        cohort_members_file=slice_dir / "cohort_members.csv",
+        future_outcomes_file=slice_dir / "future_outcomes.csv",
+        output_file=cohort_labels_file,
     )
-    assert (
-        main(
-            [
-                "run-benchmark",
-                "--manifest-file",
-                str(snapshot_manifest_file),
-                "--cohort-labels-file",
-                str(cohort_labels_file),
-                "--archive-index-file",
-                str(slice_dir / "source_archives.json"),
-                "--output-dir",
-                str(runner_output_dir),
-                "--config",
-                str(Path("config/v0.toml").resolve()),
-                "--deterministic-test-mode",
-            ]
-        )
-        == 0
+    run_result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=slice_dir / "source_archives.json",
+        output_dir=runner_output_dir,
+        config_file=Path("config/v0.toml").resolve(),
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-03-30T00:00:00Z",
     )
+    assert run_result["benchmark_task_id"] == "sparse_fixture_task"
     assert list((runner_output_dir / "run_manifests").glob("*.json"))

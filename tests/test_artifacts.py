@@ -1,4 +1,7 @@
+import json
 from pathlib import Path
+
+import pytest
 
 from scz_target_engine.artifacts import load_artifact, list_artifact_schemas
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
@@ -86,6 +89,41 @@ def test_example_build_artifacts_validate_against_registered_schemas(
     assert len(domain_ranking_artifact.payload) > 0
     assert policy_pareto_artifact.artifact_name == "policy_pareto_fronts_v1"
     assert set(policy_pareto_artifact.payload["entity_types"]) == {"gene", "module"}
+
+
+def test_policy_decision_vector_artifact_rejects_invalid_definition_payloads(
+    tmp_path: Path,
+) -> None:
+    config = load_config(Path("config/v0.toml"))
+    build_outputs(
+        config,
+        Path("examples/v0/input").resolve(),
+        tmp_path,
+    )
+
+    payload = json.loads((tmp_path / "policy_decision_vectors_v2.json").read_text())
+    payload["policy_definitions"][0]["domain_weights"][0]["weight"] = 0.0
+    invalid_weight_path = tmp_path / "invalid_policy_weight.json"
+    invalid_weight_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must be positive"):
+        load_artifact(
+            invalid_weight_path,
+            artifact_name="policy_decision_vectors_v2",
+        )
+
+    payload = json.loads((tmp_path / "policy_decision_vectors_v2.json").read_text())
+    del payload["policy_definitions"][0]["adjustment_weights"][
+        "directionality_open_risk_penalty"
+    ]
+    missing_adjustment_path = tmp_path / "invalid_policy_adjustment.json"
+    missing_adjustment_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="directionality_open_risk_penalty is required"):
+        load_artifact(
+            missing_adjustment_path,
+            artifact_name="policy_decision_vectors_v2",
+        )
 
 
 def test_benchmark_fixture_artifacts_validate_against_registered_schemas(

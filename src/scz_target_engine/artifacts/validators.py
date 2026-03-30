@@ -36,6 +36,7 @@ from scz_target_engine.decision_vector import (
 )
 from scz_target_engine.io import read_json
 from scz_target_engine.ledger import TargetLedger
+from scz_target_engine.policy.config import REQUIRED_POLICY_ADJUSTMENT_FIELDS
 from scz_target_engine.rescue.contracts import (
     RescueTaskContract,
     read_rescue_task_contract,
@@ -934,28 +935,25 @@ def _validate_policy_definition_payloads(
                 weight_payload.get("weight"),
                 f"policy_definitions[{index}].domain_weights[{weight_index}].weight",
             ) or 0.0
+            if weight_payload.get("weight") is None:
+                raise ValueError(
+                    f"policy_definitions[{index}].domain_weights[{weight_index}].weight is required"
+                )
+            if float(weight_payload["weight"]) <= 0:
+                raise ValueError(
+                    f"policy_definitions[{index}].domain_weights[{weight_index}].weight must be positive"
+                )
         if abs(weight_total - 1.0) > 1e-6:
             raise ValueError(f"policy_definitions[{index}].domain_weights must sum to 1.0")
         adjustment_weights = _require_mapping(
             payload.get("adjustment_weights"),
             f"policy_definitions[{index}].adjustment_weights",
         )
-        for adjustment_name in (
-            "low_coverage_penalty",
-            "missing_head_penalty",
-            "partial_head_penalty",
-            "warning_penalty_per_warning",
-            "directionality_open_risk_penalty",
-            "directionality_contradiction_penalty",
-            "directionality_falsification_penalty",
-            "replay_supported_penalty",
-            "replay_inconclusive_penalty",
-            "replay_not_supported_bonus",
-            "replay_supporting_reason_penalty",
-            "replay_offsetting_reason_bonus",
-            "replay_uncertainty_reason_penalty",
-            "replay_uncertainty_flag_penalty",
-        ):
+        for adjustment_name in REQUIRED_POLICY_ADJUSTMENT_FIELDS:
+            if adjustment_name not in adjustment_weights:
+                raise ValueError(
+                    f"policy_definitions[{index}].adjustment_weights.{adjustment_name} is required"
+                )
             _require_optional_number(
                 adjustment_weights.get(adjustment_name),
                 f"policy_definitions[{index}].adjustment_weights.{adjustment_name}",
@@ -1359,6 +1357,25 @@ def _validate_policy_pareto_fronts(
                         "policy_pareto_fronts_v1.entity_types."
                         f"{entity_type}[{index}].{count_field} must be non-negative"
                     )
+            _require_bool(
+                row.get("complete_policy_vector"),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].complete_policy_vector"
+                ),
+            )
+            missing_policy_score_count = _require_int(
+                row.get("missing_policy_score_count"),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].missing_policy_score_count"
+                ),
+            )
+            if missing_policy_score_count < 0:
+                raise ValueError(
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].missing_policy_score_count must be non-negative"
+                )
             _require_optional_number(
                 row.get("heuristic_score_v0"),
                 (

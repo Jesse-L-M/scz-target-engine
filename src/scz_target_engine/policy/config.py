@@ -7,6 +7,24 @@ import tomllib
 from scz_target_engine.decision_vector import DOMAIN_HEAD_DEFINITIONS
 
 
+REQUIRED_POLICY_ADJUSTMENT_FIELDS = (
+    "low_coverage_penalty",
+    "missing_head_penalty",
+    "partial_head_penalty",
+    "warning_penalty_per_warning",
+    "directionality_open_risk_penalty",
+    "directionality_contradiction_penalty",
+    "directionality_falsification_penalty",
+    "replay_supported_penalty",
+    "replay_inconclusive_penalty",
+    "replay_not_supported_bonus",
+    "replay_supporting_reason_penalty",
+    "replay_offsetting_reason_bonus",
+    "replay_uncertainty_reason_penalty",
+    "replay_uncertainty_flag_penalty",
+)
+
+
 @dataclass(frozen=True)
 class PolicyAdjustmentWeights:
     low_coverage_penalty: float
@@ -143,7 +161,10 @@ def _load_policy_definition(
                 f"{path}.domain_weights contains unknown domain {domain_slug!r}; "
                 f"available domains: {available}"
             )
-        weight = float(weight_value)
+        weight = _require_number(
+            weight_value,
+            f"{path}.domain_weights.{domain_slug}",
+        )
         if weight <= 0:
             raise ValueError(f"{path}.domain_weights.{domain_slug} must be positive")
         domain_weights.append((domain_slug, weight))
@@ -156,39 +177,75 @@ def _load_policy_definition(
 
     adjustment_payload = _require_mapping(raw.get("adjustments"), f"{path}.adjustments")
     adjustment_weights = PolicyAdjustmentWeights(
-        low_coverage_penalty=float(adjustment_payload["low_coverage_penalty"]),
-        missing_head_penalty=float(adjustment_payload["missing_head_penalty"]),
-        partial_head_penalty=float(adjustment_payload["partial_head_penalty"]),
-        warning_penalty_per_warning=float(
-            adjustment_payload["warning_penalty_per_warning"]
+        low_coverage_penalty=_require_number_key(
+            adjustment_payload,
+            "low_coverage_penalty",
+            f"{path}.adjustments",
         ),
-        directionality_open_risk_penalty=float(
-            adjustment_payload["directionality_open_risk_penalty"]
+        missing_head_penalty=_require_number_key(
+            adjustment_payload,
+            "missing_head_penalty",
+            f"{path}.adjustments",
         ),
-        directionality_contradiction_penalty=float(
-            adjustment_payload["directionality_contradiction_penalty"]
+        partial_head_penalty=_require_number_key(
+            adjustment_payload,
+            "partial_head_penalty",
+            f"{path}.adjustments",
         ),
-        directionality_falsification_penalty=float(
-            adjustment_payload["directionality_falsification_penalty"]
+        warning_penalty_per_warning=_require_number_key(
+            adjustment_payload,
+            "warning_penalty_per_warning",
+            f"{path}.adjustments",
         ),
-        replay_supported_penalty=float(adjustment_payload["replay_supported_penalty"]),
-        replay_inconclusive_penalty=float(
-            adjustment_payload["replay_inconclusive_penalty"]
+        directionality_open_risk_penalty=_require_number_key(
+            adjustment_payload,
+            "directionality_open_risk_penalty",
+            f"{path}.adjustments",
         ),
-        replay_not_supported_bonus=float(
-            adjustment_payload["replay_not_supported_bonus"]
+        directionality_contradiction_penalty=_require_number_key(
+            adjustment_payload,
+            "directionality_contradiction_penalty",
+            f"{path}.adjustments",
         ),
-        replay_supporting_reason_penalty=float(
-            adjustment_payload["replay_supporting_reason_penalty"]
+        directionality_falsification_penalty=_require_number_key(
+            adjustment_payload,
+            "directionality_falsification_penalty",
+            f"{path}.adjustments",
         ),
-        replay_offsetting_reason_bonus=float(
-            adjustment_payload["replay_offsetting_reason_bonus"]
+        replay_supported_penalty=_require_number_key(
+            adjustment_payload,
+            "replay_supported_penalty",
+            f"{path}.adjustments",
         ),
-        replay_uncertainty_reason_penalty=float(
-            adjustment_payload["replay_uncertainty_reason_penalty"]
+        replay_inconclusive_penalty=_require_number_key(
+            adjustment_payload,
+            "replay_inconclusive_penalty",
+            f"{path}.adjustments",
         ),
-        replay_uncertainty_flag_penalty=float(
-            adjustment_payload["replay_uncertainty_flag_penalty"]
+        replay_not_supported_bonus=_require_number_key(
+            adjustment_payload,
+            "replay_not_supported_bonus",
+            f"{path}.adjustments",
+        ),
+        replay_supporting_reason_penalty=_require_number_key(
+            adjustment_payload,
+            "replay_supporting_reason_penalty",
+            f"{path}.adjustments",
+        ),
+        replay_offsetting_reason_bonus=_require_number_key(
+            adjustment_payload,
+            "replay_offsetting_reason_bonus",
+            f"{path}.adjustments",
+        ),
+        replay_uncertainty_reason_penalty=_require_number_key(
+            adjustment_payload,
+            "replay_uncertainty_reason_penalty",
+            f"{path}.adjustments",
+        ),
+        replay_uncertainty_flag_penalty=_require_number_key(
+            adjustment_payload,
+            "replay_uncertainty_flag_penalty",
+            f"{path}.adjustments",
         ),
     )
 
@@ -217,3 +274,22 @@ def _require_text(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
     return value.strip()
+
+
+def _require_number(value: object, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field_name} must be a number")
+    return float(value)
+
+
+def _require_number_key(
+    payload: dict[str, object],
+    key: str,
+    field_name: str,
+) -> float:
+    if key not in payload:
+        required_fields = ", ".join(REQUIRED_POLICY_ADJUSTMENT_FIELDS)
+        raise ValueError(
+            f"{field_name}.{key} is required; expected adjustment keys: {required_fields}"
+        )
+    return _require_number(payload[key], f"{field_name}.{key}")

@@ -11,7 +11,10 @@ from scz_target_engine.decision_vector import (
     serialize_decision_vector,
 )
 from scz_target_engine.ledger import TargetLedger
-from scz_target_engine.policy import build_policy_artifacts
+from scz_target_engine.policy import (
+    build_policy_artifacts,
+    build_policy_pareto_front_payload,
+)
 from scz_target_engine.scoring import RankedEntity
 
 
@@ -801,3 +804,54 @@ def test_policy_pareto_fronts_preserve_cross_policy_tradeoffs() -> None:
         rows["BIO"]["policy_scores"]["refractory_discovery_upside_v1"]
         > rows["ACUTE"]["policy_scores"]["refractory_discovery_upside_v1"]
     )
+
+
+def test_policy_pareto_fronts_demote_missing_score_rows_behind_complete_rows() -> None:
+    payload = build_policy_pareto_front_payload(
+        [
+            {
+                "entity_type": "gene",
+                "entity_id": "complete",
+                "entity_label": "COMPLETE",
+                "policy_vector": {
+                    "acute_translation_guardrails_v1": {"score": 0.7},
+                    "refractory_discovery_upside_v1": {"score": 0.6},
+                },
+                "heuristic_score_v0": 0.5,
+                "heuristic_rank_v0": 1,
+                "heuristic_stable_v0": True,
+                "warning_count": 0,
+                "warning_severity": "none",
+            },
+            {
+                "entity_type": "gene",
+                "entity_id": "partial",
+                "entity_label": "PARTIAL",
+                "policy_vector": {
+                    "acute_translation_guardrails_v1": {"score": 0.8},
+                    "refractory_discovery_upside_v1": {"score": None},
+                },
+                "heuristic_score_v0": 0.4,
+                "heuristic_rank_v0": 2,
+                "heuristic_stable_v0": False,
+                "warning_count": 1,
+                "warning_severity": "medium",
+            },
+        ],
+        [],
+        policy_ids=[
+            "acute_translation_guardrails_v1",
+            "refractory_discovery_upside_v1",
+        ],
+    )
+
+    rows = {
+        row["entity_label"]: row
+        for row in payload["entity_types"]["gene"]
+    }
+    assert rows["COMPLETE"]["pareto_front"] == 1
+    assert rows["COMPLETE"]["complete_policy_vector"] is True
+    assert rows["COMPLETE"]["missing_policy_score_count"] == 0
+    assert rows["PARTIAL"]["pareto_front"] == 2
+    assert rows["PARTIAL"]["complete_policy_vector"] is False
+    assert rows["PARTIAL"]["missing_policy_score_count"] == 1

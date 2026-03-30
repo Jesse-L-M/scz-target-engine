@@ -7,6 +7,7 @@ import pytest
 from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
+from scz_target_engine.policy import load_policy_definitions
 
 
 def test_validate_inputs_counts_example_rows() -> None:
@@ -55,6 +56,43 @@ def test_load_config_rejects_conflicting_stability_threshold_keys(
 
     with pytest.raises(ValueError, match="must match"):
         load_config(config_path)
+
+
+def test_load_policy_definitions_rejects_missing_adjustment_keys(
+    tmp_path: Path,
+) -> None:
+    policy_file = tmp_path / "broken_policy.toml"
+    policy_file.write_text(
+        "\n".join(
+            [
+                'policy_id = "broken_policy_v1"',
+                'label = "Broken policy"',
+                'description = "Missing one required adjustment key."',
+                "",
+                "[domain_weights]",
+                "acute_positive_symptoms = 1.0",
+                "",
+                "[adjustments]",
+                "low_coverage_penalty = 0.1",
+                "missing_head_penalty = 0.1",
+                "partial_head_penalty = 0.1",
+                "warning_penalty_per_warning = 0.1",
+                "directionality_contradiction_penalty = 0.1",
+                "directionality_falsification_penalty = 0.1",
+                "replay_supported_penalty = 0.1",
+                "replay_inconclusive_penalty = 0.1",
+                "replay_not_supported_bonus = 0.1",
+                "replay_supporting_reason_penalty = 0.1",
+                "replay_offsetting_reason_bonus = 0.1",
+                "replay_uncertainty_reason_penalty = 0.1",
+                "replay_uncertainty_flag_penalty = 0.1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="adjustments.directionality_open_risk_penalty is required"):
+        load_policy_definitions(tmp_path)
 
 
 def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:

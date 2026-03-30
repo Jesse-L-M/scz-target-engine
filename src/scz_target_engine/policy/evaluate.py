@@ -390,11 +390,21 @@ def _build_pareto_rows(
         }
         for entity in entities
     ]
+    for row in rows:
+        missing_policy_score_count = sum(
+            1
+            for score in row["policy_scores"].values()
+            if score is None
+        )
+        row["missing_policy_score_count"] = missing_policy_score_count
+        row["complete_policy_vector"] = missing_policy_score_count == 0
     dominance_counts: list[tuple[int, int]] = []
     for row in rows:
         dominated_by_count = 0
         dominates_count = 0
         for other in rows:
+            if not row["complete_policy_vector"] or not other["complete_policy_vector"]:
+                continue
             if row is other:
                 continue
             if _dominates(other, row, policy_ids=policy_ids):
@@ -406,11 +416,13 @@ def _build_pareto_rows(
         rows,
         dominance_counts,
         strict=True,
-    ):
+        ):
         row["dominated_by_count"] = dominated_by_count
         row["dominates_count"] = dominates_count
 
-    remaining = list(rows)
+    complete_rows = [row for row in rows if row["complete_policy_vector"]]
+    partial_rows = [row for row in rows if not row["complete_policy_vector"]]
+    remaining = list(complete_rows)
     current_front = 1
     while remaining:
         front_rows = [
@@ -426,10 +438,17 @@ def _build_pareto_rows(
             row["pareto_front"] = current_front
         remaining = [row for row in remaining if row not in front_rows]
         current_front += 1
+    if partial_rows:
+        # Rows with missing policy scores are not Pareto-eligible against complete vectors.
+        fallback_front = current_front if complete_rows else 1
+        for row in partial_rows:
+            row["pareto_front"] = fallback_front
 
     rows.sort(
         key=lambda row: (
             int(row["pareto_front"]),
+            not bool(row["complete_policy_vector"]),
+            int(row["missing_policy_score_count"]),
             -sum(
                 float(score)
                 for score in row["policy_scores"].values()

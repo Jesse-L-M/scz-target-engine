@@ -155,7 +155,38 @@ def test_assess_counterfactual_replay_risk_explains_non_replay_case() -> None:
     )
 
 
-def test_assess_counterfactual_replay_risk_detects_class_replay(tmp_path: Path) -> None:
+def test_limit_is_presentation_only_for_checked_in_chrm4_example() -> None:
+    full = assess_counterfactual_replay_risk(
+        Path("data/curated/program_history/v2"),
+        InterventionProposal(
+            target_symbol="CHRM4",
+            domain="acute_positive_symptoms",
+            mono_or_adjunct="monotherapy",
+        ),
+    )
+    limited = assess_counterfactual_replay_risk(
+        Path("data/curated/program_history/v2"),
+        InterventionProposal(
+            target_symbol="CHRM4",
+            domain="acute_positive_symptoms",
+            mono_or_adjunct="monotherapy",
+        ),
+        limit=1,
+    )
+
+    assert full.status == "replay_not_supported"
+    assert limited.status == full.status
+    assert limited.analog_search.summary.matched_event_count == 2
+    assert len(limited.analog_search.matched_analogs) == 1
+    assert len(limited.analog_search.all_matched_analogs) == 2
+    assert [reason.event_id for reason in limited.offsetting_reasons] == [
+        "cobenfy-xanomeline-trospium-approval-us-2024"
+    ]
+
+
+def test_assess_counterfactual_replay_risk_detects_molecule_only_class_replay(
+    tmp_path: Path,
+) -> None:
     dataset_dir = make_v2_dataset(
         tmp_path,
         assets=[
@@ -199,7 +230,7 @@ def test_assess_counterfactual_replay_risk_detects_class_replay(tmp_path: Path) 
     assessment = assess_counterfactual_replay_risk(
         dataset_dir,
         InterventionProposal(
-            target_class="test class",
+            molecule="asset-a",
             domain="acute_positive_symptoms",
             population="adults with schizophrenia",
             mono_or_adjunct="monotherapy",
@@ -211,6 +242,67 @@ def test_assess_counterfactual_replay_risk_detects_class_replay(tmp_path: Path) 
         "class-failure"
     ]
     assert assessment.supporting_reasons[0].failure_scope == "target_class"
+    assert not assessment.offsetting_reasons
+
+
+def test_assess_counterfactual_replay_risk_detects_molecule_only_target_replay(
+    tmp_path: Path,
+) -> None:
+    dataset_dir = make_v2_dataset(
+        tmp_path,
+        assets=[
+            {
+                "asset_id": "asset-a",
+                "molecule": "asset-a",
+                "target": "TEST1",
+                "target_symbols_json": '["TEST1"]',
+                "target_class": "test class",
+                "mechanism": "mechanism a",
+                "modality": "small_molecule",
+            }
+        ],
+        events=[
+            {
+                "event_id": "target-failure",
+                "asset_id": "asset-a",
+                "sponsor": "Sponsor A",
+                "population": "adults with schizophrenia",
+                "domain": "acute_positive_symptoms",
+                "mono_or_adjunct": "monotherapy",
+                "phase": "phase_2",
+                "event_type": "topline_readout",
+                "event_date": "2024-01-01",
+                "primary_outcome_result": "did_not_meet_primary_endpoint",
+                "failure_reason_taxonomy": "probable_target_invalidity",
+                "confidence": "high",
+                "notes": "target baggage",
+                "sort_order": "1",
+            }
+        ],
+        provenance=[
+            {
+                "event_id": "target-failure",
+                "source_tier": "company_press_release",
+                "source_url": "https://example.com/target",
+            }
+        ],
+    )
+
+    assessment = assess_counterfactual_replay_risk(
+        dataset_dir,
+        InterventionProposal(
+            molecule="asset-a",
+            domain="acute_positive_symptoms",
+            population="adults with schizophrenia",
+            mono_or_adjunct="monotherapy",
+        ),
+    )
+
+    assert assessment.status == "replay_supported"
+    assert [reason.event_id for reason in assessment.supporting_reasons] == [
+        "target-failure"
+    ]
+    assert assessment.supporting_reasons[0].failure_scope == "target"
     assert not assessment.offsetting_reasons
 
 

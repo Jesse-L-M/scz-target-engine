@@ -131,8 +131,10 @@ class AnalogSearchSummary:
 @dataclass(frozen=True)
 class AnalogSearchResult:
     proposal: InterventionProposal
+    inferred_target_symbols: tuple[str, ...]
     inferred_target_classes: tuple[str, ...]
     matched_analogs: tuple[ProgramMemoryAnalog, ...]
+    all_matched_analogs: tuple[ProgramMemoryAnalog, ...]
     summary: AnalogSearchSummary
     uncertainty_flags: tuple[UncertaintyFlag, ...]
 
@@ -146,7 +148,12 @@ def retrieve_program_memory_analogs(
     _validate_proposal(proposal)
     dataset = _coerce_dataset(dataset_or_path)
     dataset_dir = _resolve_dataset_dir(dataset_or_path)
-    inferred_target_classes = _infer_target_classes(dataset, proposal)
+    inferred_target_symbols = _infer_target_symbols(dataset, proposal)
+    inferred_target_classes = _infer_target_classes(
+        dataset,
+        proposal,
+        inferred_target_symbols,
+    )
     assets_by_id = {
         asset.asset_id: asset
         for asset in dataset.assets
@@ -167,6 +174,7 @@ def retrieve_program_memory_analogs(
             proposal,
             asset,
             event,
+            inferred_target_symbols,
             inferred_target_classes,
         )
         if not _has_biological_anchor(match_reasons):
@@ -211,30 +219,38 @@ def retrieve_program_memory_analogs(
         )
 
     analogs.sort(key=_analog_sort_key, reverse=True)
+    full_analogs = analogs
+    displayed_analogs = analogs
     if limit is not None:
-        analogs = analogs[:limit]
+        displayed_analogs = analogs[:limit]
 
     summary = AnalogSearchSummary(
-        matched_event_count=len(analogs),
-        failure_event_count=sum(1 for analog in analogs if analog.is_failure),
-        nonfailure_event_count=sum(1 for analog in analogs if analog.is_nonfailure),
+        matched_event_count=len(full_analogs),
+        failure_event_count=sum(1 for analog in full_analogs if analog.is_failure),
+        nonfailure_event_count=sum(1 for analog in full_analogs if analog.is_nonfailure),
         exact_target_match_count=sum(
-            1 for analog in analogs if analog.has_match("target_symbol")
+            1 for analog in full_analogs if analog.has_match("target_symbol")
         ),
         target_class_match_count=sum(
-            1 for analog in analogs if analog.has_match("target_class")
+            1 for analog in full_analogs if analog.has_match("target_class")
         ),
         molecule_match_count=sum(
-            1 for analog in analogs if analog.has_match("molecule")
+            1 for analog in full_analogs if analog.has_match("molecule")
         ),
     )
     return AnalogSearchResult(
         proposal=proposal,
+        inferred_target_symbols=inferred_target_symbols,
         inferred_target_classes=inferred_target_classes,
-        matched_analogs=tuple(analogs),
+        matched_analogs=tuple(displayed_analogs),
+        all_matched_analogs=tuple(full_analogs),
         summary=summary,
         uncertainty_flags=tuple(
-            _build_search_uncertainty_flags(proposal, inferred_target_classes, analogs)
+            _build_search_uncertainty_flags(
+                proposal,
+                inferred_target_classes,
+                full_analogs,
+            )
         ),
     )
 
@@ -273,24 +289,49 @@ def _validate_proposal(proposal: InterventionProposal) -> None:
 def _infer_target_classes(
     dataset: ProgramMemoryDataset,
     proposal: InterventionProposal,
+    inferred_target_symbols: tuple[str, ...],
 ) -> tuple[str, ...]:
     target_classes: list[str] = []
     provided_target_class = clean_text(proposal.target_class)
     if provided_target_class:
         target_classes.append(provided_target_class)
 
+    proposal_molecule = clean_text(proposal.molecule)
+    for asset in dataset.assets:
+        if proposal_molecule and _normalize_text(proposal_molecule) == _normalize_text(
+            asset.molecule
+        ):
+            target_classes.append(asset.target_class)
+
+    for asset in dataset.assets:
+        if any(symbol in asset.target_symbols for symbol in inferred_target_symbols):
+            target_classes.append(asset.target_class)
+    return tuple(_dedupe_preserve_order(target_classes))
+
+
+def _infer_target_symbols(
+    dataset: ProgramMemoryDataset,
+    proposal: InterventionProposal,
+) -> tuple[str, ...]:
+    target_symbols: list[str] = []
     proposal_symbol = _normalize_target_symbol(proposal.target_symbol)
     if proposal_symbol:
-        for asset in dataset.assets:
-            if proposal_symbol in asset.target_symbols and asset.target_class:
-                target_classes.append(asset.target_class)
-    return tuple(_dedupe_preserve_order(target_classes))
+        target_symbols.append(proposal_symbol)
+
+    proposal_molecule = clean_text(proposal.molecule)
+    for asset in dataset.assets:
+        if proposal_molecule and _normalize_text(proposal_molecule) == _normalize_text(
+            asset.molecule
+        ):
+            target_symbols.extend(asset.target_symbols)
+    return tuple(_dedupe_preserve_order(list(target_symbols)))
 
 
 def _build_match_reasons(
     proposal: InterventionProposal,
     asset: ProgramMemoryAsset,
     event: ProgramMemoryEvent,
+    inferred_target_symbols: tuple[str, ...],
     inferred_target_classes: tuple[str, ...],
 ) -> list[AnalogReason]:
     reasons: list[AnalogReason] = []
@@ -325,6 +366,28 @@ def _build_match_reasons(
                 ),
             )
         )
+    elif not proposal_symbol and inferred_target_symbols:
+        matched_symbol = next(
+            (
+                symbol
+                for symbol in inferred_target_symbols
+                if symbol in asset.target_symbols
+            ),
+            "",
+        )
+        if matched_symbol:
+            reasons.append(
+                AnalogReason(
+                    dimension="target_symbol",
+                    relation="inferred_from_molecule",
+                    proposal_value=proposal_molecule,
+                    record_value=matched_symbol,
+                    explanation=(
+                        f"Proposal molecule {proposal_molecule} maps to checked-in "
+                        f"target symbol {matched_symbol}, which this event shares."
+                    ),
+                )
+            )
 
     normalized_target_classes = {
         _normalize_text(target_class): target_class
@@ -343,6 +406,13 @@ def _build_match_reasons(
             proposal_value = proposal_symbol
             explanation = (
                 f"Proposal target symbol {proposal_symbol} maps to checked-in "
+                f"target class {asset.target_class}, which this event shares."
+            )
+        elif not clean_text(proposal.target_class) and proposal_molecule:
+            relation = "inferred_from_molecule"
+            proposal_value = proposal_molecule
+            explanation = (
+                f"Proposal molecule {proposal_molecule} maps to checked-in "
                 f"target class {asset.target_class}, which this event shares."
             )
         reasons.append(

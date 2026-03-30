@@ -67,7 +67,7 @@ def assess_counterfactual_replay_risk(
     offsetting_reasons: list[CounterfactualReason] = []
     uncertainty_reasons: list[CounterfactualReason] = []
 
-    for analog in analog_search.matched_analogs:
+    for analog in analog_search.all_matched_analogs:
         if analog.is_nonfailure:
             if _is_domain_aligned(analog, proposal):
                 offsetting_reasons.append(_build_nonfailure_reason(analog))

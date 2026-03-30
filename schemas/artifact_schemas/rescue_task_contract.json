@@ -1,0 +1,109 @@
+{
+  "artifact_name": "rescue_task_contract",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Registry-backed rescue task contract artifact.",
+  "key_fields": [
+    "task_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue task contract schema version."
+    },
+    {
+      "name": "contract_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Version for the registry-backed rescue contract shape."
+    },
+    {
+      "name": "suite_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue suite identifier."
+    },
+    {
+      "name": "suite_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable rescue suite label."
+    },
+    {
+      "name": "task_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable rescue task identifier."
+    },
+    {
+      "name": "task_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable rescue task label."
+    },
+    {
+      "name": "task_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue task type label."
+    },
+    {
+      "name": "disease",
+      "field_type": "string",
+      "required": true,
+      "description": "Disease area covered by the rescue task."
+    },
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type covered by the rescue task."
+    },
+    {
+      "name": "summary",
+      "field_type": "string",
+      "required": true,
+      "description": "Short summary of the rescue task."
+    },
+    {
+      "name": "contract_scope",
+      "field_type": "string",
+      "required": true,
+      "description": "Whether the contract stays rescue-only or documents an intentional benchmark bridge."
+    },
+    {
+      "name": "artifact_contracts",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Explicit future artifact interfaces and leakage rules for the rescue task."
+    },
+    {
+      "name": "leakage_boundary",
+      "field_type": "object",
+      "required": true,
+      "description": "Strict rescue leakage policy block."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "benchmark_task_bridge_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional benchmark task identifier when a bridge is intentionally documented."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional rescue task notes."
+    }
+  ]
+}

@@ -36,6 +36,10 @@ from scz_target_engine.decision_vector import (
 )
 from scz_target_engine.io import read_json
 from scz_target_engine.ledger import TargetLedger
+from scz_target_engine.rescue.contracts import (
+    RescueTaskContract,
+    read_rescue_task_contract,
+)
 
 
 def _load_json_mapping(path: Path) -> dict[str, object]:
@@ -208,6 +212,19 @@ def _validate_benchmark_confidence_interval_payload(
         context=f"{schema.artifact_name} artifact {path}",
     )
     return read_benchmark_confidence_interval_payload(path)
+
+
+def _validate_rescue_task_contract(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> RescueTaskContract:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return read_rescue_task_contract(path)
 
 
 def _validate_structural_failure_history(
@@ -957,6 +974,7 @@ _ARTIFACT_VALIDATORS = {
     "benchmark_model_run_manifest": _validate_benchmark_model_run_manifest,
     "benchmark_metric_output_payload": _validate_benchmark_metric_output_payload,
     "benchmark_confidence_interval_payload": _validate_benchmark_confidence_interval_payload,
+    "rescue_task_contract": _validate_rescue_task_contract,
     "gene_target_ledgers": _validate_gene_target_ledgers,
     "decision_vectors_v1": _validate_decision_vectors,
     "domain_head_rankings_v1": _validate_domain_head_rankings,

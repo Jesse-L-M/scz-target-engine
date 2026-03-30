@@ -58,6 +58,8 @@ substrate. See [docs/ledger_contract.md](docs/ledger_contract.md) for the target
 output contract, [docs/benchmarking.md](docs/benchmarking.md) for the canonical
 benchmark workflow, and [docs/artifact_schemas.md](docs/artifact_schemas.md) for the
 registered artifact families and runtime validation surface. See
+[docs/rescue_tasks.md](docs/rescue_tasks.md) for the dedicated rescue registry and
+contract surface. See
 [docs/atlas_source_ingest.md](docs/atlas_source_ingest.md) for the staged raw-source
 contract and atlas ingest boundary, and [docs/atlas_tensor.md](docs/atlas_tensor.md)
 for the taxonomy/tensor contract layered on top of that ingest foundation.
@@ -263,6 +265,10 @@ The suite/task contract source of truth lives in
 `scz_translational_task` in suite `scz_translational_suite`, and it maps directly to
 the checked-in `scz_small` fixture inputs. The emitted snapshot and run manifests
 carry `benchmark_suite_id` and `benchmark_task_id` as optional provenance fields.
+Rescue tasks now use the separate
+`data/curated/rescue_tasks/rescue_task_registry.csv` index plus validated
+`rescue_task_contract` JSON files, so the shipped benchmark registry remains benchmark
+only.
 
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
@@ -290,6 +296,8 @@ Artifact layout:
 
 - `data/benchmark/fixtures/scz_small/`: checked-in fixture request, archive index, archived source extracts, cohort membership, and future outcomes
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract for the current schizophrenia benchmark
+- `data/curated/rescue_tasks/rescue_task_registry.csv`: dedicated registry for rescue task identity and contract lookup
+- `data/curated/rescue_tasks/contracts/*.json`: validated rescue task contract artifacts
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
@@ -317,6 +325,7 @@ It can load and validate:
 - `benchmark_model_run_manifest`
 - `benchmark_metric_output_payload`
 - `benchmark_confidence_interval_payload`
+- `rescue_task_contract`
 - `gene_target_ledgers`
 - `decision_vectors_v1`
 - `domain_head_rankings_v1`
@@ -333,6 +342,7 @@ See [docs/artifact_schemas.md](docs/artifact_schemas.md) for details and example
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, canonical workflow, artifact layout, and current runner boundary
+- [docs/rescue_tasks.md](docs/rescue_tasks.md): dedicated rescue registry shape, contract surface, and leakage boundary
 - [data/benchmark](data/benchmark): checked-in benchmark fixtures plus the canonical generated benchmark output path under `data/benchmark/generated/`
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [schemas/artifact_schemas](schemas/artifact_schemas): registered schema files for current emitted artifact families

@@ -1,0 +1,4 @@
+entity_id,entity_label,approved_name,generic_platform_baseline,opentargets_disease_id,opentargets_disease_name,opentargets_api_version,opentargets_data_version,opentargets_datatype_scores_json,opentargets_datatype_clinical,opentargets_datatype_genetic_association
+ENSG00000149295,DRD2,dopamine receptor D2,0.7446,MONDO_0005090,schizophrenia,26.03.0,26.03,"{""clinical"": 0.9, ""genetic_association"": 0.7}",0.9,0.7
+ENSG00000181555,SETD1A,SET domain containing 1A,0.5231,MONDO_0005090,schizophrenia,26.03.0,26.03,"{""genetic_association"": 0.4}",,0.4
+ENSG00000170365,ZNF804A,zinc finger protein 804A,0.3312,MONDO_0005090,schizophrenia,26.03.0,26.03,"{""clinical"": 0.2, ""genetic_association"": 0.35}",0.2,0.35

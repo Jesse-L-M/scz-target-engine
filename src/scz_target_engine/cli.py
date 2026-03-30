@@ -14,6 +14,8 @@ from scz_target_engine.atlas.sources import (
     fetch_atlas_opentargets_baseline,
     fetch_atlas_pgc_scz2022_prioritized_genes,
 )
+from scz_target_engine.atlas.taxonomy import materialize_atlas_taxonomy
+from scz_target_engine.atlas.tensor import materialize_atlas_tensor
 from scz_target_engine.benchmark_backfill import materialize_public_benchmark_slices
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
@@ -150,6 +152,17 @@ def _configure_atlas_refresh_candidate_registry_parser(
     parser.add_argument("--disease-id")
     parser.add_argument("--disease-query")
     parser.add_argument("--skip-pgc", action="store_true")
+
+
+def _configure_atlas_build_taxonomy_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--ingest-manifest-file", required=True)
+    parser.add_argument("--output-dir")
+
+
+def _configure_atlas_build_tensor_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--ingest-manifest-file", required=True)
+    parser.add_argument("--output-dir")
+    parser.add_argument("--taxonomy-dir")
 
 
 def _configure_prepare_gene_table_parser(parser: argparse.ArgumentParser) -> None:
@@ -296,6 +309,16 @@ COMMAND_ROUTES = (
         "atlas-refresh-candidate-registry",
         ("atlas", "ingest", "candidate-registry"),
         _configure_atlas_refresh_candidate_registry_parser,
+    ),
+    CommandRoute(
+        "atlas-build-taxonomy",
+        ("atlas", "build", "taxonomy"),
+        _configure_atlas_build_taxonomy_parser,
+    ),
+    CommandRoute(
+        "atlas-build-tensor",
+        ("atlas", "build", "tensor"),
+        _configure_atlas_build_tensor_parser,
     ),
     CommandRoute(
         "prepare-gene-table",
@@ -660,6 +683,23 @@ def main(argv: list[str] | None = None) -> int:
             disease_id=args.disease_id,
             disease_query=args.disease_query,
             include_pgc=not args.skip_pgc,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "atlas-build-taxonomy":
+        result = materialize_atlas_taxonomy(
+            ingest_manifest_file=Path(args.ingest_manifest_file).resolve(),
+            output_dir=Path(args.output_dir).resolve() if args.output_dir else None,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "atlas-build-tensor":
+        result = materialize_atlas_tensor(
+            ingest_manifest_file=Path(args.ingest_manifest_file).resolve(),
+            output_dir=Path(args.output_dir).resolve() if args.output_dir else None,
+            taxonomy_dir=Path(args.taxonomy_dir).resolve() if args.taxonomy_dir else None,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

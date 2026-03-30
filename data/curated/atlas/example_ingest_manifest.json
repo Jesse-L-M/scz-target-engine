@@ -1,0 +1,40 @@
+{
+  "contract_version": "atlas-ingest-foundation/v1",
+  "materialized_at": "2026-03-30",
+  "raw_source_root": "example_raw",
+  "scope_boundary": "Checked-in deterministic atlas tensor fixture. It preserves source provenance handles and staged artifact identity for tensor verification, but it is not a live-source ingest backfill and it does not feed scoring.",
+  "sources": {
+    "opentargets": {
+      "contract_version": "atlas-source-contract/v1",
+      "materialized_at": "2026-03-30",
+      "processed_metadata_file": "example_sources/opentargets/schizophrenia_baseline.metadata.json",
+      "processed_output_file": "example_sources/opentargets/schizophrenia_baseline.csv",
+      "raw_manifest_file": "example_raw/opentargets/manifest.json",
+      "source_contract": {
+        "adapter_name": "atlas.sources.opentargets",
+        "dataset_name": "schizophrenia_baseline",
+        "preserved_output_contract": "scz_target_engine.sources.opentargets.fetch_opentargets_baseline",
+        "processed_artifact_name": "schizophrenia_baseline.csv",
+        "scope_boundary": "Fixture-scale processed Open Targets baseline rows plus staged request/response artifact identity.",
+        "source_name": "opentargets",
+        "upstream_artifact_kind": "graphql_request_response_pages"
+      }
+    },
+    "pgc": {
+      "contract_version": "atlas-source-contract/v1",
+      "materialized_at": "2026-03-30",
+      "processed_metadata_file": "example_sources/pgc/scz2022_prioritized_genes.metadata.json",
+      "processed_output_file": "example_sources/pgc/scz2022_prioritized_genes.csv",
+      "raw_manifest_file": "example_raw/pgc/manifest.json",
+      "source_contract": {
+        "adapter_name": "atlas.sources.pgc_scz2022",
+        "dataset_name": "scz2022_prioritized_genes",
+        "preserved_output_contract": "scz_target_engine.sources.pgc.fetch_pgc_scz2022_prioritized_genes",
+        "processed_artifact_name": "scz2022_prioritized_genes.csv",
+        "scope_boundary": "Fixture-scale processed PGC prioritized-gene rows plus staged release-artifact identity.",
+        "source_name": "pgc",
+        "upstream_artifact_kind": "release_metadata_plus_workbook_bytes"
+      }
+    }
+  }
+}

@@ -11,6 +11,13 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
         return list(reader)
 
 
+def read_csv_table(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        return list(reader.fieldnames or []), rows
+
+
 def read_json(path: Path) -> object:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)

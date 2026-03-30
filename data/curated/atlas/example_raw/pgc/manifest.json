@@ -1,0 +1,56 @@
+{
+  "artifacts": [
+    {
+      "artifact_name": "001_figshare_article_19426775.json",
+      "extra_metadata": {},
+      "media_type": "application/json",
+      "path": "data/curated/atlas/example_raw/pgc/001_figshare_article_19426775.json",
+      "relative_path": "example_raw/pgc/001_figshare_article_19426775.json",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "size_bytes": 128
+    },
+    {
+      "artifact_name": "002_scz2022-extended-data-table1.xlsx",
+      "extra_metadata": {
+        "url": "https://example.test/scz2022.xlsx"
+      },
+      "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "path": "data/curated/atlas/example_raw/pgc/002_scz2022-extended-data-table1.xlsx",
+      "relative_path": "example_raw/pgc/002_scz2022-extended-data-table1.xlsx",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "size_bytes": 24
+    }
+  ],
+  "contract_version": "atlas-source-contract/v1",
+  "dataset_slug": "scz2022-prioritized-genes",
+  "error": null,
+  "materialized_at": "2026-03-30",
+  "processed_artifacts": [
+    {
+      "exists": true,
+      "path": "data/curated/atlas/example_sources/pgc/scz2022_prioritized_genes.csv"
+    }
+  ],
+  "raw_artifact_count": 2,
+  "raw_stage_dir": "data/curated/atlas/example_raw/pgc",
+  "request_metadata": {
+    "article_id": 19426775,
+    "output_file": "data/curated/atlas/example_sources/pgc/scz2022_prioritized_genes.csv",
+    "workbook_name": "scz2022-Extended-Data-Table1.xlsx"
+  },
+  "source_contract": {
+    "adapter_name": "atlas.sources.pgc_scz2022",
+    "dataset_name": "scz2022_prioritized_genes",
+    "preserved_output_contract": "scz_target_engine.sources.pgc.fetch_pgc_scz2022_prioritized_genes",
+    "processed_artifact_name": "scz2022_prioritized_genes.csv",
+    "scope_boundary": "Fixture-scale processed PGC prioritized-gene rows plus staged release-artifact identity.",
+    "source_name": "pgc",
+    "upstream_artifact_kind": "release_metadata_plus_workbook_bytes"
+  },
+  "status": "completed",
+  "upstream_metadata": {
+    "article_id": 19426775,
+    "row_count": 3,
+    "workbook_name": "scz2022-Extended-Data-Table1.xlsx"
+  }
+}

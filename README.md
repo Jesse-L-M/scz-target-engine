@@ -26,8 +26,10 @@ operates from curated tables with normalized layer scores in `[0, 1]`.
 Atlas now also has an additive raw-source staging foundation for adapter-backed
 `Open Targets` and `PGC` pulls. It writes provenance-bearing request/download
 captures under `data/raw/sources/` and can rebuild a candidate registry through
-`atlas ingest candidate-registry`, but that foundation still does not implement
-consortium-dump parsing.
+`atlas ingest candidate-registry`. Atlas also now has additive taxonomy/tensor
+builders that materialize provenance-bearing evidence slices, missingness,
+conflict, and structural uncertainty from an ingest manifest, but that
+foundation still does not implement consortium-dump parsing.
 
 ## Claim Boundary
 
@@ -56,8 +58,11 @@ substrate. See [docs/ledger_contract.md](docs/ledger_contract.md) for the target
 output contract, [docs/benchmarking.md](docs/benchmarking.md) for the canonical
 benchmark workflow, and [docs/artifact_schemas.md](docs/artifact_schemas.md) for the
 registered artifact families and runtime validation surface. See
+[docs/rescue_tasks.md](docs/rescue_tasks.md) for the dedicated rescue registry and
+contract surface. See
 [docs/atlas_source_ingest.md](docs/atlas_source_ingest.md) for the staged raw-source
-contract and atlas ingest boundary.
+contract and atlas ingest boundary, and [docs/atlas_tensor.md](docs/atlas_tensor.md)
+for the taxonomy/tensor contract layered on top of that ingest foundation.
 
 ## Quickstart
 
@@ -200,6 +205,7 @@ that call the same handlers with the same flags:
 - `sources schema`, `sources psychencode support`, `sources psychencode modules`
 - `registry build`, `registry refresh`
 - `atlas sources opentargets`, `atlas sources pgc scz2022`, `atlas ingest candidate-registry`
+- `atlas build taxonomy`, `atlas build tensor`
 - `prepare gene-table`, `prepare example-gene-table`, `prepare example-module-table`, `prepare example-inputs`
 - `benchmark snapshot`, `benchmark cohort`, `benchmark run`
 
@@ -236,6 +242,18 @@ That atlas path stages raw adapter captures under `.context/atlas/raw/`, rebuild
 same candidate-registry contract from processed source outputs, and keeps the existing
 `registry refresh` workflow unchanged.
 
+Deterministic atlas tensor example:
+
+```bash
+uv run scz-target-engine atlas build tensor \
+  --ingest-manifest-file data/curated/atlas/example_ingest_manifest.json \
+  --output-dir .context/atlas/example_tensor
+```
+
+That tensor path consumes the checked-in fixture manifest under `data/curated/atlas/`
+and emits taxonomy, provenance, alignment, and evidence-tensor artifacts without
+calling live APIs.
+
 ## Canonical Benchmark Workflow
 
 The canonical end-to-end benchmark path in this repo is the checked-in deterministic
@@ -247,6 +265,10 @@ The suite/task contract source of truth lives in
 `scz_translational_task` in suite `scz_translational_suite`, and it maps directly to
 the checked-in `scz_small` fixture inputs. The emitted snapshot and run manifests
 carry `benchmark_suite_id` and `benchmark_task_id` as optional provenance fields.
+Rescue tasks now use the separate
+`data/curated/rescue_tasks/rescue_task_registry.csv` index plus validated
+`rescue_task_contract` JSON files, so the shipped benchmark registry remains benchmark
+only.
 
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
@@ -276,6 +298,8 @@ Artifact layout:
 - `data/benchmark/public_slices/catalog.json`: checked-in catalog of honest public cutoffs derived from the registry-backed `scz_small` fixture
 - `data/benchmark/public_slices/scz_translational_2024_06_15/`, `data/benchmark/public_slices/scz_translational_2024_06_18/`, `data/benchmark/public_slices/scz_translational_2024_06_20/`: checked-in public historical slice inputs with explicit cutoff semantics and copied archived source extracts
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract for the current schizophrenia benchmark
+- `data/curated/rescue_tasks/rescue_task_registry.csv`: dedicated registry for rescue task identity and contract lookup
+- `data/curated/rescue_tasks/contracts/*.json`: validated rescue task contract artifacts
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
@@ -306,6 +330,7 @@ It can load and validate:
 - `benchmark_model_run_manifest`
 - `benchmark_metric_output_payload`
 - `benchmark_confidence_interval_payload`
+- `rescue_task_contract`
 - `gene_target_ledgers`
 - `decision_vectors_v1`
 - `domain_head_rankings_v1`
@@ -322,6 +347,7 @@ See [docs/artifact_schemas.md](docs/artifact_schemas.md) for details and example
 - [docs/program_history.md](docs/program_history.md): curated landmark program-history schema and curation rules
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, canonical workflow, artifact layout, and current runner boundary
+- [docs/rescue_tasks.md](docs/rescue_tasks.md): dedicated rescue registry shape, contract surface, and leakage boundary
 - [data/benchmark](data/benchmark): checked-in benchmark fixtures plus the canonical generated benchmark output path under `data/benchmark/generated/`
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [schemas/artifact_schemas](schemas/artifact_schemas): registered schema files for current emitted artifact families

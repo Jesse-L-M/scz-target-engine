@@ -1,7 +1,7 @@
 # Artifact Schemas
 
-`PR-01` registers the artifact families the repo already emits today without changing
-their meaning.
+The artifact registry covers the families the repo emits today plus contract artifacts
+that future task work can consume without changing current build semantics.
 
 ## Registered Families
 
@@ -10,6 +10,7 @@ their meaning.
 - `benchmark_model_run_manifest`
 - `benchmark_metric_output_payload`
 - `benchmark_confidence_interval_payload`
+- `rescue_task_contract`
 - `gene_target_ledgers`
 - `decision_vectors_v1`
 - `domain_head_rankings_v1`
@@ -55,6 +56,10 @@ benchmark code:
 - `BenchmarkMetricOutputPayload`
 - `BenchmarkConfidenceIntervalPayload`
 
+For rescue task contracts, validation now returns the typed rescue contract model:
+
+- `RescueTaskContract`
+
 The registry-driven benchmark path keeps those same emitted families. The additive
 contract provenance fields live on the manifest artifacts:
 
@@ -70,10 +75,14 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
   against the current `v1` definitions
 - `domain_head_rankings_v1` validates the emitted flat ranking columns against the
   current `v1` head set
+- `rescue_task_contract` validates registry-backed rescue task identity, artifact
+  interface declarations, and the strict no-leakage rescue boundary that precedes
+  `PR-40A`
 
 ## Scope Boundary
 
-- The registry covers current emitted artifact families only.
+- The registry covers current emitted artifact families plus explicit contract artifacts.
+- Rescue task contracts are registered as contract artifacts, not as emitted task data.
 - The registry does not change build outputs or benchmark semantics.
 - `snapshot_request.json` and `source_archives.json` remain operator inputs, not
   registered emitted artifact families.

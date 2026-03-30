@@ -1,0 +1,72 @@
+{
+  "schema_name": "rescue_task_contract",
+  "schema_version": "v1",
+  "contract_version": "rescue-contract-v1",
+  "suite_id": "scz_rescue_contract_suite",
+  "suite_label": "Schizophrenia Rescue Task Suite",
+  "task_id": "example_scz_gene_rescue_task",
+  "task_label": "Example schizophrenia gene rescue task",
+  "task_type": "gene_rescue_ranking",
+  "disease": "schizophrenia",
+  "entity_type": "gene",
+  "summary": "Contract-only example rescue task that fixes identity, leakage boundaries, and future artifact expectations before rescue data freezes or implementations ship.",
+  "contract_scope": "rescue_only",
+  "artifact_contracts": [
+    {
+      "artifact_id": "candidate_universe",
+      "artifact_label": "Candidate universe snapshot",
+      "io_direction": "consumes",
+      "channel": "ranking_input",
+      "availability": "pre_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Registry-backed rescue candidate universe and pre-cutoff features.",
+      "leakage_rule": "Must be materialized from rescue evidence frozen on or before the rescue cutoff and must exclude post-cutoff outcomes or later source refreshes."
+    },
+    {
+      "artifact_id": "evaluation_labels",
+      "artifact_label": "Outcome adjudication labels",
+      "io_direction": "consumes",
+      "channel": "evaluation_target",
+      "availability": "post_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Post-cutoff rescue outcomes used only for task evaluation.",
+      "leakage_rule": "May close after the rescue cutoff but must never be exposed to feature construction, ranking, or threshold selection."
+    },
+    {
+      "artifact_id": "ranked_predictions",
+      "artifact_label": "Ranked rescue predictions",
+      "io_direction": "emits",
+      "channel": "task_output",
+      "availability": "derived",
+      "file_format": "csv",
+      "required": true,
+      "description": "Ordered rescue predictions emitted by a future rescue runner.",
+      "leakage_rule": "Must be derived only from ranking inputs allowed by this contract and must not embed hidden evaluation labels or post-cutoff features."
+    },
+    {
+      "artifact_id": "task_context",
+      "artifact_label": "Task context metadata",
+      "io_direction": "consumes",
+      "channel": "task_metadata",
+      "availability": "operator_supplied",
+      "file_format": "json",
+      "required": false,
+      "description": "Operator-supplied metadata documenting intended cutoff and cohort scope.",
+      "leakage_rule": "May describe task scope and cutoff intent but must not summarize post-cutoff outcome adjudications."
+    }
+  ],
+  "leakage_boundary": {
+    "policy_id": "strict_rescue_task_boundary_v1",
+    "requires_explicit_cutoff": true,
+    "requires_explicit_artifact_contracts": true,
+    "forbid_post_cutoff_artifacts_in_ranking": true,
+    "forbid_evaluation_labels_in_ranking": true,
+    "freeze_manifest_required": false,
+    "freeze_manifest_policy": "deferred_until_pr40a",
+    "current_head_policy": "reject_unfrozen_current_head_state",
+    "notes": "Freeze manifests and governance records are deferred to PR-40A, but rescue tasks already require explicit cutoff-aware artifact contracts and must not fall back to current-head state."
+  },
+  "notes": "This example rescue task remains separate from the benchmark registry-backed scz_translational_task."
+}

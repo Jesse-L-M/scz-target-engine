@@ -1,0 +1,23 @@
+{
+  "api_url": "https://api.platform.opentargets.org/api/v4/graphql",
+  "api_version": {
+    "suffix": null,
+    "x": "26",
+    "y": "03",
+    "z": "0"
+  },
+  "data_version": {
+    "iteration": null,
+    "month": "03",
+    "year": "26"
+  },
+  "disease": {
+    "id": "MONDO_0005090",
+    "name": "schizophrenia"
+  },
+  "max_pages": 1,
+  "output_file": "data/curated/atlas/example_sources/opentargets/schizophrenia_baseline.csv",
+  "page_size": 500,
+  "row_count": 3,
+  "source": "Open Targets GraphQL API"
+}

@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass
 
 ATLAS_SOURCE_CONTRACT_VERSION = "atlas-source-contract/v1"
 ATLAS_INGEST_CONTRACT_VERSION = "atlas-ingest-foundation/v1"
+ATLAS_TAXONOMY_CONTRACT_VERSION = "atlas-context-taxonomy/v1"
+ATLAS_TENSOR_CONTRACT_VERSION = "atlas-evidence-tensor/v1"
 
 
 @dataclass(frozen=True)

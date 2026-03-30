@@ -92,6 +92,17 @@ def test_materialize_convergence_hubs_emits_axis_and_tensor_links(
         "pgc:scz2022-prioritized-genes",
     ]
 
+    genetic_association_links = [
+        row
+        for row in evidence_rows
+        if row["feature_id"] == "opentargets.datatype.genetic-association"
+    ]
+    assert len(genetic_association_links) == 8
+    assert {
+        tuple(json.loads(row["linked_axis_ids_json"]))
+        for row in genetic_association_links
+    } == {("mechanistic_axis:disease-association",)}
+
     manifest = json.loads(Path(result["manifest_file"]).read_text(encoding="utf-8"))
     assert manifest["contract_version"] == "atlas-convergence-hubs/v1"
     assert manifest["hub_count"] == 4

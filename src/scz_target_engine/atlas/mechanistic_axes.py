@@ -548,7 +548,7 @@ def _mechanistic_axis_specs() -> tuple[MechanisticAxisSpec, ...]:
             ),
             feature_ids=(
                 "opentargets.generic_platform_baseline",
-                "opentargets.datatype.genetic_association",
+                "opentargets.datatype.genetic-association",
                 "pgc.common_variant_support",
             ),
         ),

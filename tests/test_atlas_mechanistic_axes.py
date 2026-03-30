@@ -42,6 +42,9 @@ def test_materialize_mechanistic_axes_emits_traceable_profiles(
     assert drd2_disease["source_coverage_state"] == "cross_source"
     assert drd2_disease["conflict_state"] == "none"
     assert drd2_disease["uncertainty_max_level"] == "low"
+    assert "opentargets.datatype.genetic-association" in json.loads(
+        drd2_disease["expected_feature_ids_json"]
+    )
     assert json.loads(drd2_disease["observed_source_names_json"]) == ["opentargets", "pgc"]
 
     cacna1c_disease = rows_by_key[("CACNA1C", "mechanistic_axis:disease-association")]
@@ -49,6 +52,20 @@ def test_materialize_mechanistic_axes_emits_traceable_profiles(
     assert cacna1c_disease["source_coverage_state"] == "single_source"
     assert cacna1c_disease["missingness_state"] == "source_absent"
     assert json.loads(cacna1c_disease["observed_source_names_json"]) == ["pgc"]
+    assert "opentargets.datatype.genetic-association" in json.loads(
+        cacna1c_disease["expected_feature_ids_json"]
+    )
+
+    genetic_association_links = [
+        row
+        for row in evidence_rows
+        if row["axis_id"] == "mechanistic_axis:disease-association"
+        and row["feature_id"] == "opentargets.datatype.genetic-association"
+    ]
+    assert len(genetic_association_links) == 8
+    assert {
+        row["tensor_channel"] for row in genetic_association_links
+    } == {"missingness", "observed", "uncertainty"}
 
     setd1a_clinical = rows_by_key[("SETD1A", "mechanistic_axis:clinical-translation")]
     assert setd1a_clinical["support_state"] == "unobserved"

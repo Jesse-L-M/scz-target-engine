@@ -1,5 +1,7 @@
+import csv
 import json
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -16,6 +18,8 @@ from scz_target_engine.rescue.registry import (
     resolve_rescue_task_contract,
 )
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 EXAMPLE_CONTRACT_PATH = Path(
     "data/curated/rescue_tasks/contracts/example_scz_gene_rescue_task.json"
@@ -57,6 +61,31 @@ NPC_LINEAGE_PATH = Path(
     "scz_npc_signature_reversal_rescue_task/"
     "lineage/scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31.json"
 )
+INTERNEURON_CONTRACT_PATH = Path(
+    "data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json"
+)
+INTERNEURON_TASK_CARD_PATH = Path(
+    "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/task_card.json"
+)
+INTERNEURON_FREEZE_MANIFEST_PATH = Path(
+    "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+    "freeze_manifests/interneuron_gene_rescue_freeze_2023_12_31.json"
+)
+INTERNEURON_SYNAPSE_SPLIT_MANIFEST_PATH = Path(
+    "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+    "split_manifests/interneuron_synapse_split_2026_03_31.json"
+)
+INTERNEURON_ARBOR_SPLIT_MANIFEST_PATH = Path(
+    "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+    "split_manifests/interneuron_arbor_split_2026_03_31.json"
+)
+INTERNEURON_LINEAGE_PATH = Path(
+    "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+    "lineage/interneuron_gene_raw_to_frozen_lineage_2026_03_31.json"
+)
+def _count_csv_rows(path: Path) -> int:
+    with path.open(encoding="utf-8", newline="") as handle:
+        return sum(1 for _ in csv.DictReader(handle))
 
 
 def test_rescue_registry_resolves_example_contract() -> None:
@@ -103,6 +132,7 @@ def test_rescue_registry_groups_tasks_under_single_suite() -> None:
     assert {task.task_id for task in suites[0].tasks} == {
         "example_scz_gene_rescue_task",
         "scz_npc_signature_reversal_rescue_task",
+        "interneuron_gene_rescue_task",
     }
     assert DEFAULT_RESCUE_TASK_REGISTRY_PATH.exists()
 
@@ -115,6 +145,31 @@ def test_rescue_contract_artifact_loads_through_artifact_registry() -> None:
     assert contract_artifact.payload.artifact_contracts[2].artifact_id == (
         "ranked_predictions"
     )
+
+
+def test_rescue_registry_resolves_interneuron_contract() -> None:
+    task_contract = resolve_rescue_task_contract(
+        rescue_task_id="interneuron_gene_rescue_task"
+    )
+
+    assert task_contract.suite_id == "scz_rescue_contract_suite"
+    assert task_contract.contract_scope == "rescue_only"
+    assert task_contract.entity_type == "gene"
+    assert {artifact.artifact_id for artifact in task_contract.artifact_contracts} == {
+        "interneuron_synapse_candidates",
+        "interneuron_arbor_candidates",
+        "post_cutoff_followup_labels",
+        "ranked_predictions",
+        "task_context",
+    }
+    assert {
+        artifact.channel for artifact in task_contract.artifact_contracts
+    } == {
+        "ranking_input",
+        "evaluation_target",
+        "task_output",
+        "task_metadata",
+    }
 
 
 def test_rescue_contract_validation_rejects_missing_required_channel(
@@ -171,7 +226,6 @@ def test_example_rescue_governance_bundle_validates_from_task_card() -> None:
         "example_scz_gene_raw_to_frozen_lineage_2025_01_16"
     )
 
-
 def test_npc_rescue_governance_bundle_validates_from_task_card() -> None:
     bundle = validate_rescue_governance_bundle(NPC_TASK_CARD_PATH.resolve())
 
@@ -202,6 +256,62 @@ def test_npc_frozen_bundle_loads_from_registry_id() -> None:
     assert bundle.evaluation_target.card.dataset_role == "evaluation_target"
     assert len(bundle.ranking_input.rows) == 15614
     assert len(bundle.evaluation_target.rows) == 15614
+
+
+def test_interneuron_rescue_governance_bundle_validates_from_task_card() -> None:
+    bundle = validate_rescue_governance_bundle(INTERNEURON_TASK_CARD_PATH.resolve())
+
+    assert bundle.task_card.task_id == "interneuron_gene_rescue_task"
+    assert bundle.contract.task_id == "interneuron_gene_rescue_task"
+    assert {dataset.dataset_id for dataset in bundle.dataset_cards} == {
+        "interneuron_synapse_ranking_inputs_2023_12_31",
+        "interneuron_arbor_ranking_inputs_2023_12_31",
+        "interneuron_followup_labels_2026_03_31",
+    }
+    assert bundle.freeze_manifests[0].freeze_manifest_id == (
+        "interneuron_gene_rescue_freeze_2023_12_31"
+    )
+    assert {manifest.source_dataset_id for manifest in bundle.split_manifests} == {
+        "interneuron_synapse_ranking_inputs_2023_12_31",
+        "interneuron_arbor_ranking_inputs_2023_12_31",
+    }
+    assert bundle.lineages[0].lineage_id == (
+        "interneuron_gene_raw_to_frozen_lineage_2026_03_31"
+    )
+
+
+def test_interneuron_frozen_outputs_exist_and_match_governed_bundle() -> None:
+    bundle = validate_rescue_governance_bundle(INTERNEURON_TASK_CARD_PATH.resolve())
+    row_counts = {
+        dataset.dataset_id: _count_csv_rows(REPO_ROOT / dataset.expected_output_path)
+        for dataset in bundle.dataset_cards
+    }
+
+    assert row_counts == {
+        "interneuron_synapse_ranking_inputs_2023_12_31": 5,
+        "interneuron_arbor_ranking_inputs_2023_12_31": 4,
+        "interneuron_followup_labels_2026_03_31": 8,
+    }
+
+
+def test_interneuron_example_load_script_reports_frozen_row_counts() -> None:
+    result = subprocess.run(
+        ["python3", "scripts/rescue/load_interneuron_bundle.py"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+
+    assert payload["task_id"] == "interneuron_gene_rescue_task"
+    assert payload["freeze_manifest_ids"] == ["interneuron_gene_rescue_freeze_2023_12_31"]
+    assert payload["dataset_row_counts"] == {
+        "interneuron_arbor_ranking_inputs_2023_12_31": 4,
+        "interneuron_followup_labels_2026_03_31": 8,
+        "interneuron_synapse_ranking_inputs_2023_12_31": 5,
+    }
 
 
 def test_rescue_registry_rejects_registry_contract_identity_mismatch(

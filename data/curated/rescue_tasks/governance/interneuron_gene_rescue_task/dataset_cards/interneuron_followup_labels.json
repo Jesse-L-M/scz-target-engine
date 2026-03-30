@@ -1,0 +1,29 @@
+{
+  "schema_name": "rescue_dataset_card",
+  "schema_version": "v1",
+  "dataset_id": "interneuron_followup_labels_2026_03_31",
+  "dataset_label": "Interneuron rescue post-cutoff follow-up labels",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "interneuron_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json",
+  "artifact_contract_id": "post_cutoff_followup_labels",
+  "dataset_role": "evaluation_target",
+  "availability": "post_cutoff",
+  "governance_status": "active",
+  "source_stage": "frozen",
+  "entity_type": "gene",
+  "record_grain": "gene",
+  "primary_key_fields": [
+    "gene_id"
+  ],
+  "contains_post_cutoff_labels": true,
+  "allowed_uses": [
+    "offline_evaluation"
+  ],
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/freeze_manifests/interneuron_gene_rescue_freeze_2023_12_31.json",
+  "lineage_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/lineage/interneuron_gene_raw_to_frozen_lineage_2026_03_31.json",
+  "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_followup_labels_2026_03_31.csv",
+  "file_format": "csv",
+  "description": "Held-out post-cutoff follow-up labels used only to evaluate whether the frozen interneuron rescue candidates were later reinforced.",
+  "notes": "The label set is intentionally small and manually curated, but it is isolated from ranking inputs by contract and manifest."
+}

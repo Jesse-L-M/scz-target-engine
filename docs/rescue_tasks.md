@@ -72,6 +72,32 @@ The task card is the top-level governance entry point. It binds one rescue task
 contract to the checked-in dataset cards, freeze manifest, split manifest, and
 raw-to-frozen lineage artifacts that later rescue-data PRs must materialize.
 
+## Active Interneuron Family
+
+`PR-40C` now ships one active rescue family for downstream interneuron work:
+
+- `data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json`
+- `data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/task_card.json`
+- `data/raw/rescue/interneuron_synapse/interneuron_synapse_candidate_snapshot_2023_12_31.csv`
+- `data/raw/rescue/interneuron_arbor/interneuron_arbor_candidate_snapshot_2023_12_31.csv`
+- `data/raw/rescue/interneuron_followup/interneuron_followup_adjudications_2026_03_31.csv`
+- `data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_synapse_ranking_inputs_2023_12_31.csv`
+- `data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_arbor_ranking_inputs_2023_12_31.csv`
+- `data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_followup_labels_2026_03_31.csv`
+
+The active family keeps two ranking-input datasets (`synapse`, `arbor`) separate
+under one task contract and binds both to a shared held-out post-cutoff follow-up
+label table.
+
+The checked-in example validation and load path is:
+
+```bash
+python3 scripts/rescue/load_interneuron_bundle.py
+```
+
+That script validates the full governance bundle from the task card and then opens
+each checked-in frozen CSV referenced by the dataset cards.
+
 ## Leakage Boundary After PR-40A
 
 The rescue leakage policy is explicit and now requires schema-validated governance

@@ -212,6 +212,27 @@ def test_example_rescue_task_contract_validates_against_registered_schema() -> N
     assert rescue_contract_artifact.payload.leakage_boundary.freeze_manifest_required
 
 
+def test_interneuron_rescue_task_contract_validates_against_registered_schema() -> None:
+    rescue_contract_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json"
+        ).resolve()
+    )
+
+    assert rescue_contract_artifact.artifact_name == "rescue_task_contract"
+    assert rescue_contract_artifact.payload.task_id == "interneuron_gene_rescue_task"
+    assert rescue_contract_artifact.payload.entity_type == "gene"
+    assert {
+        artifact.artifact_id for artifact in rescue_contract_artifact.payload.artifact_contracts
+    } == {
+        "interneuron_synapse_candidates",
+        "interneuron_arbor_candidates",
+        "post_cutoff_followup_labels",
+        "ranked_predictions",
+        "task_context",
+    }
+
+
 def test_example_rescue_governance_artifacts_validate_against_registered_schemas() -> None:
     task_card_artifact = load_artifact(
         Path(
@@ -271,7 +292,6 @@ def test_example_rescue_governance_artifacts_validate_against_registered_schemas
         "example_scz_gene_ranking_inputs_2025_01_15",
         "example_scz_gene_evaluation_labels_2025_06_30",
     }
-
 
 def test_npc_rescue_task_contract_validates_against_registered_schema() -> None:
     rescue_contract_artifact = load_artifact(
@@ -353,4 +373,84 @@ def test_npc_rescue_governance_artifacts_validate_against_registered_schemas() -
     } == {
         "scz_npc_signature_reversal_ranking_inputs_2020_12_31",
         "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
+    }
+
+
+def test_interneuron_rescue_governance_artifacts_validate_against_registered_schemas() -> None:
+    task_card_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "interneuron_gene_rescue_task/task_card.json"
+        ).resolve()
+    )
+    synapse_dataset_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+            "dataset_cards/interneuron_synapse_ranking_inputs.json"
+        ).resolve()
+    )
+    arbor_dataset_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+            "dataset_cards/interneuron_arbor_ranking_inputs.json"
+        ).resolve()
+    )
+    evaluation_dataset_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+            "dataset_cards/interneuron_followup_labels.json"
+        ).resolve()
+    )
+    freeze_manifest_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+            "freeze_manifests/interneuron_gene_rescue_freeze_2023_12_31.json"
+        ).resolve()
+    )
+    synapse_split_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+            "split_manifests/interneuron_synapse_split_2026_03_31.json"
+        ).resolve()
+    )
+    arbor_split_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+            "split_manifests/interneuron_arbor_split_2026_03_31.json"
+        ).resolve()
+    )
+    lineage_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
+            "lineage/interneuron_gene_raw_to_frozen_lineage_2026_03_31.json"
+        ).resolve()
+    )
+
+    assert task_card_artifact.artifact_name == "rescue_task_card"
+    assert task_card_artifact.payload.task_id == "interneuron_gene_rescue_task"
+    assert synapse_dataset_artifact.artifact_name == "rescue_dataset_card"
+    assert synapse_dataset_artifact.payload.dataset_role == "ranking_input"
+    assert arbor_dataset_artifact.artifact_name == "rescue_dataset_card"
+    assert arbor_dataset_artifact.payload.dataset_role == "ranking_input"
+    assert evaluation_dataset_artifact.artifact_name == "rescue_dataset_card"
+    assert evaluation_dataset_artifact.payload.dataset_role == "evaluation_target"
+    assert freeze_manifest_artifact.artifact_name == "rescue_freeze_manifest"
+    assert freeze_manifest_artifact.payload.freeze_manifest_id == (
+        "interneuron_gene_rescue_freeze_2023_12_31"
+    )
+    assert synapse_split_artifact.artifact_name == "rescue_split_manifest"
+    assert synapse_split_artifact.payload.source_dataset_id == (
+        "interneuron_synapse_ranking_inputs_2023_12_31",
+    )
+    assert arbor_split_artifact.artifact_name == "rescue_split_manifest"
+    assert arbor_split_artifact.payload.source_dataset_id == (
+        "interneuron_arbor_ranking_inputs_2023_12_31",
+    }
+    assert lineage_artifact.artifact_name == "rescue_raw_to_frozen_lineage"
+    assert {
+        dataset.dataset_id for dataset in lineage_artifact.payload.frozen_datasets
+    } == {
+        "interneuron_synapse_ranking_inputs_2023_12_31",
+        "interneuron_arbor_ranking_inputs_2023_12_31",
+        "interneuron_followup_labels_2026_03_31",
     }

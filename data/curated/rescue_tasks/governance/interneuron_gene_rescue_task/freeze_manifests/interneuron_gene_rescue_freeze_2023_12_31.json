@@ -1,0 +1,74 @@
+{
+  "schema_name": "rescue_freeze_manifest",
+  "schema_version": "v1",
+  "freeze_manifest_id": "interneuron_gene_rescue_freeze_2023_12_31",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "interneuron_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json",
+  "governance_status": "active",
+  "freeze_scope": "task_bundle",
+  "cutoff_date": "2023-12-31",
+  "frozen_at": "2026-03-31",
+  "leakage_boundary_policy_id": "strict_rescue_task_boundary_v1",
+  "current_head_policy": "reject_unfrozen_current_head_state",
+  "source_snapshots": [
+    {
+      "source_id": "interneuron_synapse_candidate_snapshot",
+      "source_name": "manual_pubmed_curation",
+      "snapshot_id": "interneuron-synapse-2023-12-31",
+      "captured_at": "2023-12-31",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/interneuron_synapse/interneuron_synapse_candidate_snapshot_2023_12_31.csv",
+      "sha256": "39f3fb8734b09a04c9ad8e04273b7b07747ab3064263f80b3b99a0131bc5e55e",
+      "description": "Historical pre-cutoff literature snapshot for the interneuron synapse rescue axis."
+    },
+    {
+      "source_id": "interneuron_arbor_candidate_snapshot",
+      "source_name": "manual_pubmed_curation",
+      "snapshot_id": "interneuron-arbor-2023-12-31",
+      "captured_at": "2023-12-31",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/interneuron_arbor/interneuron_arbor_candidate_snapshot_2023_12_31.csv",
+      "sha256": "23db73d387c99dcf11ff0275a48fe898e130bf2258313c5a133f1e248e055f0b",
+      "description": "Historical pre-cutoff literature snapshot for the interneuron arbor rescue axis."
+    },
+    {
+      "source_id": "interneuron_followup_adjudications",
+      "source_name": "manual_followup_adjudication",
+      "snapshot_id": "interneuron-followup-2026-03-31",
+      "captured_at": "2026-03-31",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/rescue/interneuron_followup/interneuron_followup_adjudications_2026_03_31.csv",
+      "sha256": "71e273bfdc72588ad2629beaa0e09012568365799c6f55a63d7f46cae95d5a52",
+      "description": "Held-out post-cutoff follow-up adjudications that stay outside ranking construction."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "interneuron_synapse_ranking_inputs_2023_12_31",
+      "artifact_contract_id": "interneuron_synapse_candidates",
+      "dataset_role": "ranking_input",
+      "availability": "pre_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_synapse_ranking_inputs.json",
+      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_synapse_ranking_inputs_2023_12_31.csv"
+    },
+    {
+      "dataset_id": "interneuron_arbor_ranking_inputs_2023_12_31",
+      "artifact_contract_id": "interneuron_arbor_candidates",
+      "dataset_role": "ranking_input",
+      "availability": "pre_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_arbor_ranking_inputs.json",
+      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_arbor_ranking_inputs_2023_12_31.csv"
+    },
+    {
+      "dataset_id": "interneuron_followup_labels_2026_03_31",
+      "artifact_contract_id": "post_cutoff_followup_labels",
+      "dataset_role": "evaluation_target",
+      "availability": "post_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_followup_labels.json",
+      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_followup_labels_2026_03_31.csv"
+    }
+  ],
+  "description": "Active freeze manifest for the governed interneuron rescue family, including two pre-cutoff ranking tables and one held-out post-cutoff evaluation table.",
+  "notes": "The freeze keeps the synapse and arbor axes separate for PR-42 while documenting one shared post-cutoff evaluation set."
+}

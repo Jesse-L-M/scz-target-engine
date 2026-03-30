@@ -138,6 +138,18 @@ Notes:
 The canonical benchmark workflow in this repo is the deterministic fixture under
 `data/benchmark/fixtures/scz_small/`.
 
+Legacy flat commands remain supported. The namespaced benchmark aliases route to the
+same builders and flags:
+
+- `uv run scz-target-engine benchmark snapshot`
+- `uv run scz-target-engine benchmark cohort`
+- `uv run scz-target-engine benchmark run`
+
+Use the flat commands below for compatibility with existing docs and scripts. For new
+automation, the namespaced aliases are equivalent. `config/v0.toml` remains the
+canonical benchmark config path, and `config/engine/v0.toml` is the mirrored engine
+namespace path.
+
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
   --request-file data/benchmark/fixtures/scz_small/snapshot_request.json \

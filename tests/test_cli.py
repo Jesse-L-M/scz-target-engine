@@ -20,6 +20,82 @@ def test_cli_validate_runs() -> None:
 
 
 @pytest.mark.parametrize(
+    ("argv", "expected_command", "expected_command_path"),
+    [
+        (
+            [
+                "engine",
+                "validate",
+                "--config",
+                "config/v0.toml",
+            ],
+            "validate",
+            ("engine", "validate"),
+        ),
+        (
+            [
+                "benchmark",
+                "snapshot",
+                "--request-file",
+                "snapshot_request.json",
+                "--archive-index-file",
+                "source_archives.json",
+                "--output-file",
+                "snapshot_manifest.json",
+                "--materialized-at",
+                "2026-03-28",
+            ],
+            "build-benchmark-snapshot",
+            ("benchmark", "snapshot"),
+        ),
+        (
+            [
+                "sources",
+                "psychencode",
+                "modules",
+                "--input-file",
+                "gene_evidence.csv",
+                "--output-file",
+                "module_evidence.csv",
+            ],
+            "fetch-psychencode-modules",
+            ("sources", "psychencode", "modules"),
+        ),
+        (
+            [
+                "registry",
+                "refresh",
+                "--output-file",
+                "candidate_gene_registry.csv",
+            ],
+            "refresh-candidate-registry",
+            ("registry", "refresh"),
+        ),
+    ],
+)
+def test_cli_namespaced_routes_map_to_legacy_commands(
+    argv: list[str],
+    expected_command: str,
+    expected_command_path: tuple[str, ...],
+) -> None:
+    args = build_parser().parse_args(argv)
+    assert args.command == expected_command
+    assert args.command_path == expected_command_path
+
+
+def test_cli_namespaced_validate_runs_with_mirrored_config() -> None:
+    exit_code = main(
+        [
+            "engine",
+            "validate",
+            "--config",
+            str(Path("config/engine/v0.toml").resolve()),
+        ]
+    )
+    assert exit_code == 0
+
+
+@pytest.mark.parametrize(
     ("namespaced_module_name", "legacy_module_name", "symbol_names"),
     [
         (

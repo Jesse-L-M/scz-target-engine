@@ -1,0 +1,24 @@
+[build]
+gene_input_file = "gene_evidence.csv"
+module_input_file = "module_evidence.csv"
+warning_input_file = "warning_overlays.csv"
+output_dir = "reports/generated"
+top_n = 20
+
+[stability]
+perturbation_fraction = 0.20
+# Deprecated compatibility alias: decision_grade_threshold
+heuristic_stability_threshold = 0.70
+top10_ejection_limit = 0.50
+
+[gene_layers]
+common_variant_support = 0.20
+rare_variant_support = 0.20
+cell_state_support = 0.20
+developmental_regulatory_support = 0.20
+tractability_compoundability = 0.20
+
+[module_layers]
+member_gene_genetic_enrichment = 0.35
+cell_state_specificity = 0.35
+developmental_regulatory_relevance = 0.30

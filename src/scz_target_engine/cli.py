@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import json
 from pathlib import Path
 import sys
+from typing import Callable
 
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
@@ -31,123 +33,313 @@ from scz_target_engine.sources.psychencode import (
 from scz_target_engine.sources.schema import fetch_schema_rare_variant_support
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="scz-target-engine")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+ParserConfigurer = Callable[[argparse.ArgumentParser], None]
 
-    validate_parser = subparsers.add_parser("validate")
-    validate_parser.add_argument("--config", required=True)
-    validate_parser.add_argument("--input-dir")
+REPO_ROOT_MARKERS = (
+    Path("pyproject.toml"),
+    Path("examples") / "v0" / "input",
+)
 
-    build_parser_ = subparsers.add_parser("build")
-    build_parser_.add_argument("--config", required=True)
-    build_parser_.add_argument("--input-dir")
-    build_parser_.add_argument("--output-dir")
 
-    opentargets_parser = subparsers.add_parser("fetch-opentargets")
-    opentargets_parser.add_argument("--output-file", required=True)
-    opentargets_parser.add_argument("--disease-id")
-    opentargets_parser.add_argument("--disease-query")
-    opentargets_parser.add_argument("--page-size", type=int, default=500)
-    opentargets_parser.add_argument("--max-pages", type=int)
+@dataclass(frozen=True)
+class CommandRoute:
+    command: str
+    namespaced_path: tuple[str, ...]
+    configure_parser: ParserConfigurer
 
-    chembl_parser = subparsers.add_parser("fetch-chembl")
-    chembl_parser.add_argument("--input-file", required=True)
-    chembl_parser.add_argument("--output-file", required=True)
-    chembl_parser.add_argument("--limit", type=int)
 
-    pgc_parser = subparsers.add_parser("fetch-pgc-scz2022")
-    pgc_parser.add_argument("--output-file", required=True)
+def _configure_validate_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--input-dir")
 
-    schema_parser = subparsers.add_parser("fetch-schema")
-    schema_parser.add_argument("--input-file", required=True)
-    schema_parser.add_argument("--output-file", required=True)
-    schema_parser.add_argument("--limit", type=int)
-    schema_parser.add_argument("--overrides-file")
 
-    psychencode_parser = subparsers.add_parser("fetch-psychencode")
-    psychencode_parser.add_argument("--input-file", required=True)
-    psychencode_parser.add_argument("--output-file", required=True)
-    psychencode_parser.add_argument("--limit", type=int)
+def _configure_build_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--input-dir")
+    parser.add_argument("--output-dir")
 
-    psychencode_modules_parser = subparsers.add_parser("fetch-psychencode-modules")
-    psychencode_modules_parser.add_argument("--input-file", required=True)
-    psychencode_modules_parser.add_argument("--output-file", required=True)
-    psychencode_modules_parser.add_argument("--limit", type=int)
 
-    registry_parser = subparsers.add_parser("build-candidate-registry")
-    registry_parser.add_argument("--opentargets-file", required=True)
-    registry_parser.add_argument("--output-file", required=True)
-    registry_parser.add_argument("--pgc-file")
+def _configure_fetch_opentargets_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--disease-id")
+    parser.add_argument("--disease-query")
+    parser.add_argument("--page-size", type=int, default=500)
+    parser.add_argument("--max-pages", type=int)
 
-    registry_refresh_parser = subparsers.add_parser("refresh-candidate-registry")
-    registry_refresh_parser.add_argument("--output-file")
-    registry_refresh_parser.add_argument("--work-dir")
-    registry_refresh_parser.add_argument("--disease-id")
-    registry_refresh_parser.add_argument("--disease-query")
-    registry_refresh_parser.add_argument("--skip-pgc", action="store_true")
 
-    prepare_parser = subparsers.add_parser("prepare-gene-table")
-    prepare_parser.add_argument("--seed-file", required=True)
-    prepare_parser.add_argument("--output-file", required=True)
-    prepare_parser.add_argument("--pgc-file")
-    prepare_parser.add_argument("--schema-file")
-    prepare_parser.add_argument("--psychencode-file")
-    prepare_parser.add_argument("--opentargets-file")
-    prepare_parser.add_argument("--chembl-file")
+def _configure_fetch_chembl_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--input-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--limit", type=int)
 
-    refresh_parser = subparsers.add_parser("refresh-example-gene-table")
-    refresh_parser.add_argument("--seed-file")
-    refresh_parser.add_argument("--output-file")
-    refresh_parser.add_argument("--work-dir")
-    refresh_parser.add_argument("--disease-id")
-    refresh_parser.add_argument("--disease-query")
-    refresh_parser.add_argument("--overrides-file")
 
-    refresh_module_parser = subparsers.add_parser("refresh-example-module-table")
-    refresh_module_parser.add_argument("--gene-file")
-    refresh_module_parser.add_argument("--output-file")
-    refresh_module_parser.add_argument("--work-dir")
+def _configure_fetch_pgc_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--output-file", required=True)
 
-    refresh_inputs_parser = subparsers.add_parser("refresh-example-inputs")
-    refresh_inputs_parser.add_argument("--seed-file")
-    refresh_inputs_parser.add_argument("--gene-output-file")
-    refresh_inputs_parser.add_argument("--module-output-file")
-    refresh_inputs_parser.add_argument("--gene-work-dir")
-    refresh_inputs_parser.add_argument("--module-work-dir")
-    refresh_inputs_parser.add_argument("--disease-id")
-    refresh_inputs_parser.add_argument("--disease-query")
-    refresh_inputs_parser.add_argument("--overrides-file")
 
-    benchmark_snapshot_parser = subparsers.add_parser("build-benchmark-snapshot")
-    benchmark_snapshot_parser.add_argument("--request-file", required=True)
-    benchmark_snapshot_parser.add_argument("--archive-index-file", required=True)
-    benchmark_snapshot_parser.add_argument("--output-file", required=True)
-    benchmark_snapshot_parser.add_argument("--materialized-at", required=True)
+def _configure_fetch_schema_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--input-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--limit", type=int)
+    parser.add_argument("--overrides-file")
 
-    benchmark_cohort_parser = subparsers.add_parser("build-benchmark-cohort")
-    benchmark_cohort_parser.add_argument("--manifest-file", required=True)
-    benchmark_cohort_parser.add_argument("--cohort-members-file", required=True)
-    benchmark_cohort_parser.add_argument("--future-outcomes-file", required=True)
-    benchmark_cohort_parser.add_argument("--output-file", required=True)
 
-    benchmark_run_parser = subparsers.add_parser("run-benchmark")
-    benchmark_run_parser.add_argument("--manifest-file", required=True)
-    benchmark_run_parser.add_argument("--cohort-labels-file", required=True)
-    benchmark_run_parser.add_argument("--archive-index-file", required=True)
-    benchmark_run_parser.add_argument("--output-dir", required=True)
-    benchmark_run_parser.add_argument("--config")
-    benchmark_run_parser.add_argument("--bootstrap-iterations", type=int)
-    benchmark_run_parser.add_argument(
+def _configure_fetch_psychencode_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--input-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--limit", type=int)
+
+
+def _configure_fetch_psychencode_modules_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--input-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--limit", type=int)
+
+
+def _configure_build_candidate_registry_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--opentargets-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--pgc-file")
+
+
+def _configure_refresh_candidate_registry_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-file")
+    parser.add_argument("--work-dir")
+    parser.add_argument("--disease-id")
+    parser.add_argument("--disease-query")
+    parser.add_argument("--skip-pgc", action="store_true")
+
+
+def _configure_prepare_gene_table_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--seed-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--pgc-file")
+    parser.add_argument("--schema-file")
+    parser.add_argument("--psychencode-file")
+    parser.add_argument("--opentargets-file")
+    parser.add_argument("--chembl-file")
+
+
+def _configure_refresh_example_gene_table_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--seed-file")
+    parser.add_argument("--output-file")
+    parser.add_argument("--work-dir")
+    parser.add_argument("--disease-id")
+    parser.add_argument("--disease-query")
+    parser.add_argument("--overrides-file")
+
+
+def _configure_refresh_example_module_table_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--gene-file")
+    parser.add_argument("--output-file")
+    parser.add_argument("--work-dir")
+
+
+def _configure_refresh_example_inputs_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--seed-file")
+    parser.add_argument("--gene-output-file")
+    parser.add_argument("--module-output-file")
+    parser.add_argument("--gene-work-dir")
+    parser.add_argument("--module-work-dir")
+    parser.add_argument("--disease-id")
+    parser.add_argument("--disease-query")
+    parser.add_argument("--overrides-file")
+
+
+def _configure_build_benchmark_snapshot_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--request-file", required=True)
+    parser.add_argument("--archive-index-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--materialized-at", required=True)
+
+
+def _configure_build_benchmark_cohort_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--manifest-file", required=True)
+    parser.add_argument("--cohort-members-file", required=True)
+    parser.add_argument("--future-outcomes-file", required=True)
+    parser.add_argument("--output-file", required=True)
+
+
+def _configure_run_benchmark_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--manifest-file", required=True)
+    parser.add_argument("--cohort-labels-file", required=True)
+    parser.add_argument("--archive-index-file", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--config")
+    parser.add_argument("--bootstrap-iterations", type=int)
+    parser.add_argument(
         "--bootstrap-confidence-level",
         type=float,
         default=0.95,
     )
-    benchmark_run_parser.add_argument("--random-seed", type=int, default=17)
-    benchmark_run_parser.add_argument(
+    parser.add_argument("--random-seed", type=int, default=17)
+    parser.add_argument(
         "--deterministic-test-mode",
         action="store_true",
     )
+
+
+COMMAND_ROUTES = (
+    CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
+    CommandRoute("build", ("engine", "build"), _configure_build_parser),
+    CommandRoute(
+        "fetch-opentargets",
+        ("sources", "opentargets"),
+        _configure_fetch_opentargets_parser,
+    ),
+    CommandRoute(
+        "fetch-chembl",
+        ("sources", "chembl"),
+        _configure_fetch_chembl_parser,
+    ),
+    CommandRoute(
+        "fetch-pgc-scz2022",
+        ("sources", "pgc", "scz2022"),
+        _configure_fetch_pgc_parser,
+    ),
+    CommandRoute(
+        "fetch-schema",
+        ("sources", "schema"),
+        _configure_fetch_schema_parser,
+    ),
+    CommandRoute(
+        "fetch-psychencode",
+        ("sources", "psychencode", "support"),
+        _configure_fetch_psychencode_parser,
+    ),
+    CommandRoute(
+        "fetch-psychencode-modules",
+        ("sources", "psychencode", "modules"),
+        _configure_fetch_psychencode_modules_parser,
+    ),
+    CommandRoute(
+        "build-candidate-registry",
+        ("registry", "build"),
+        _configure_build_candidate_registry_parser,
+    ),
+    CommandRoute(
+        "refresh-candidate-registry",
+        ("registry", "refresh"),
+        _configure_refresh_candidate_registry_parser,
+    ),
+    CommandRoute(
+        "prepare-gene-table",
+        ("prepare", "gene-table"),
+        _configure_prepare_gene_table_parser,
+    ),
+    CommandRoute(
+        "refresh-example-gene-table",
+        ("prepare", "example-gene-table"),
+        _configure_refresh_example_gene_table_parser,
+    ),
+    CommandRoute(
+        "refresh-example-module-table",
+        ("prepare", "example-module-table"),
+        _configure_refresh_example_module_table_parser,
+    ),
+    CommandRoute(
+        "refresh-example-inputs",
+        ("prepare", "example-inputs"),
+        _configure_refresh_example_inputs_parser,
+    ),
+    CommandRoute(
+        "build-benchmark-snapshot",
+        ("benchmark", "snapshot"),
+        _configure_build_benchmark_snapshot_parser,
+    ),
+    CommandRoute(
+        "build-benchmark-cohort",
+        ("benchmark", "cohort"),
+        _configure_build_benchmark_cohort_parser,
+    ),
+    CommandRoute(
+        "run-benchmark",
+        ("benchmark", "run"),
+        _configure_run_benchmark_parser,
+    ),
+)
+
+
+def _register_legacy_route(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    route: CommandRoute,
+) -> None:
+    parser = subparsers.add_parser(route.command)
+    route.configure_parser(parser)
+    parser.set_defaults(command=route.command, command_path=(route.command,))
+
+
+def _register_namespaced_route(
+    route: CommandRoute,
+    parser_cache: dict[tuple[str, ...], argparse.ArgumentParser],
+    subparser_cache: dict[
+        tuple[str, ...],
+        argparse._SubParsersAction[argparse.ArgumentParser],
+    ],
+) -> None:
+    parent_path: tuple[str, ...] = ()
+    last_index = len(route.namespaced_path) - 1
+
+    for depth, segment in enumerate(route.namespaced_path):
+        current_path = parent_path + (segment,)
+        parent_subparsers = subparser_cache[parent_path]
+        parser = parser_cache.get(current_path)
+        if parser is None:
+            parser = parent_subparsers.add_parser(segment)
+            parser_cache[current_path] = parser
+
+        if depth < last_index and current_path not in subparser_cache:
+            subparser_cache[current_path] = parser.add_subparsers(
+                dest=f"_segment_{depth + 1}",
+                required=True,
+            )
+
+        if depth == last_index:
+            route.configure_parser(parser)
+            parser.set_defaults(
+                command=route.command,
+                command_path=route.namespaced_path,
+            )
+
+        parent_path = current_path
+
+
+def _resolve_repo_root_from_config_path(config_path: Path) -> Path:
+    resolved_config_path = config_path.resolve()
+    for candidate_root in resolved_config_path.parents:
+        if all((candidate_root / marker).exists() for marker in REPO_ROOT_MARKERS):
+            return candidate_root
+    return Path(__file__).resolve().parents[2]
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="scz-target-engine")
+    subparsers = parser.add_subparsers(dest="_segment_0", required=True)
+    parser_cache: dict[tuple[str, ...], argparse.ArgumentParser] = {}
+    subparser_cache: dict[
+        tuple[str, ...],
+        argparse._SubParsersAction[argparse.ArgumentParser],
+    ] = {(): subparsers}
+
+    for route in COMMAND_ROUTES:
+        _register_legacy_route(subparsers, route)
+        _register_namespaced_route(route, parser_cache, subparser_cache)
 
     return parser
 
@@ -352,11 +544,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     config = load_config(args.config)
-    config_dir = config.config_path.parent
+    repo_root = _resolve_repo_root_from_config_path(config.config_path)
     input_dir = (
         Path(args.input_dir).resolve()
         if args.input_dir
-        else (config_dir.parent / "examples" / "v0" / "input").resolve()
+        else (repo_root / "examples" / "v0" / "input").resolve()
     )
 
     if args.command == "validate":
@@ -367,7 +559,7 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = (
         Path(args.output_dir).resolve()
         if args.output_dir
-        else (config_dir.parent / config.build.output_dir).resolve()
+        else (repo_root / config.build.output_dir).resolve()
     )
     result = build_outputs(config, input_dir, output_dir)
     print(json.dumps(result, indent=2, sort_keys=True))

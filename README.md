@@ -182,6 +182,37 @@ Run tests:
 uv run --group dev pytest
 ```
 
+## CLI Namespaces
+
+Legacy flat commands remain supported. The new namespaced routes are additive aliases
+that call the same handlers with the same flags:
+
+- `engine validate`, `engine build`
+- `sources opentargets`, `sources chembl`, `sources pgc scz2022`
+- `sources schema`, `sources psychencode support`, `sources psychencode modules`
+- `registry build`, `registry refresh`
+- `prepare gene-table`, `prepare example-gene-table`, `prepare example-module-table`, `prepare example-inputs`
+- `benchmark snapshot`, `benchmark cohort`, `benchmark run`
+
+Migration posture:
+
+- Keep existing scripts on the legacy flat commands when stability matters.
+- Prefer the namespaced aliases for new automation and future module expansion.
+- `config/v0.toml` remains the canonical compatibility path.
+- `config/engine/v0.toml` is a mirrored namespaced path for the engine namespace.
+
+Example legacy and namespaced equivalents:
+
+```bash
+uv run scz-target-engine validate \
+  --config config/v0.toml \
+  --input-dir examples/v0/input
+
+uv run scz-target-engine engine validate \
+  --config config/engine/v0.toml \
+  --input-dir examples/v0/input
+```
+
 ## Canonical Benchmark Workflow
 
 The canonical end-to-end benchmark path in this repo is the checked-in deterministic
@@ -249,6 +280,7 @@ See [docs/artifact_schemas.md](docs/artifact_schemas.md) for details and example
 ## Repo Layout
 
 - [config/v0.toml](config/v0.toml): scoring and build config
+- [config/README.md](config/README.md): config tree scaffolding and migration posture
 - [docs/artifact_schemas.md](docs/artifact_schemas.md): registered output schemas plus validation usage
 - [docs/claim.md](docs/claim.md): current capability and claim boundary for `v0`
 - [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary consumed by the additive `v1` head layer

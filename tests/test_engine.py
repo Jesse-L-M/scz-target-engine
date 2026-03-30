@@ -32,6 +32,16 @@ def test_load_config_accepts_deprecated_decision_grade_threshold_alias(
     assert config.stability.decision_grade_threshold == 0.7
 
 
+def test_namespaced_engine_config_matches_legacy_config() -> None:
+    legacy_config = load_config(Path("config/v0.toml"))
+    namespaced_config = load_config(Path("config/engine/v0.toml"))
+
+    assert namespaced_config.build == legacy_config.build
+    assert namespaced_config.stability == legacy_config.stability
+    assert namespaced_config.gene_layers == legacy_config.gene_layers
+    assert namespaced_config.module_layers == legacy_config.module_layers
+
+
 def test_load_config_rejects_conflicting_stability_threshold_keys(
     tmp_path: Path,
 ) -> None:

@@ -48,3 +48,24 @@ def test_release_docs_cover_artifact_schema_registry() -> None:
     ]
     _assert_contains("README.md", schema_snippets)
     _assert_contains("docs/artifact_schemas.md", schema_snippets)
+
+
+def test_release_docs_cover_cli_namespace_aliases() -> None:
+    readme_snippets = [
+        "legacy flat commands remain supported",
+        "engine validate",
+        "engine build",
+        "sources opentargets",
+        "registry build",
+        "prepare gene-table",
+        "benchmark snapshot",
+        "config/engine/v0.toml",
+    ]
+    benchmark_doc_snippets = [
+        "benchmark snapshot",
+        "benchmark cohort",
+        "benchmark run",
+        "legacy flat commands remain supported",
+    ]
+    _assert_contains("README.md", readme_snippets)
+    _assert_contains("docs/benchmarking.md", benchmark_doc_snippets)

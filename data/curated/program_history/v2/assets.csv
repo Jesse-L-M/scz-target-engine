@@ -1,0 +1,7 @@
+asset_id,molecule,target,target_symbols_json,target_class,mechanism,modality
+clozapine,clozapine,DRD2 / HTR2A / multi-receptor,"[""DRD2"", ""HTR2A"", ""MULTI-RECEPTOR""]",multireceptor atypical antipsychotic,multi-receptor antagonist atypical antipsychotic,small_molecule
+xanomeline-trospium,xanomeline + trospium,CHRM1 / CHRM4,"[""CHRM1"", ""CHRM4""]",muscarinic cholinergic modulation,preferential M1 and M4 muscarinic agonism paired with peripheral antimuscarinic blockade to improve tolerability,small_molecule_combination
+emraclidine,emraclidine,CHRM4,"[""CHRM4""]",muscarinic cholinergic modulation,selective M4 muscarinic receptor positive allosteric modulator,small_molecule
+ulotaront,ulotaront,TAAR1 / HTR1A,"[""TAAR1"", ""HTR1A""]",TAAR1-centered modulation,TAAR1 agonist with 5-HT1A agonist activity,small_molecule
+iclepertin,iclepertin,SLC6A9,"[""SLC6A9""]",glycinergic modulation,glycine transporter 1 inhibitor,small_molecule
+pimavanserin,pimavanserin,HTR2A,"[""HTR2A""]",5-HT2A serotonergic modulation,selective 5-HT2A inverse agonist and antagonist,small_molecule

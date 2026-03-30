@@ -58,7 +58,8 @@ benchmark code:
 For current ledger and `v1` artifacts, validation stays additive and non-invasive:
 
 - `gene_target_ledgers` validates the current top-level payload plus derived counts
-  against the existing nested ledger shape
+  against the existing nested ledger shape, even when the underlying checked-in
+  program-memory source of truth is the normalized `program_history/v2` dataset
 - `decision_vectors_v1` validates the emitted decision-head and domain-profile contract
   against the current `v1` definitions
 - `domain_head_rankings_v1` validates the emitted flat ranking columns against the

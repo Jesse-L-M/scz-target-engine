@@ -280,6 +280,7 @@ See [docs/artifact_schemas.md](docs/artifact_schemas.md) for details and example
 ## Repo Layout
 
 - [config/v0.toml](config/v0.toml): scoring and build config
+- [config/README.md](config/README.md): config tree scaffolding and migration posture
 - [docs/artifact_schemas.md](docs/artifact_schemas.md): registered output schemas plus validation usage
 - [docs/claim.md](docs/claim.md): current capability and claim boundary for `v0`
 - [docs/ontology.md](docs/ontology.md): implementation-ready domain/stage vocabulary consumed by the additive `v1` head layer

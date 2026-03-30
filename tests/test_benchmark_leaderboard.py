@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
 from scz_target_engine.benchmark_leaderboard import (
     LEADERBOARD_SCHEMA_NAME,
@@ -10,6 +12,7 @@ from scz_target_engine.benchmark_leaderboard import (
     read_benchmark_leaderboard_payload,
     read_benchmark_report_card_payload,
 )
+from scz_target_engine.benchmark_metrics import RETRIEVAL_METRIC_NAMES
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
 from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
@@ -26,13 +29,12 @@ FIXTURE_DIR = (
 )
 
 
-def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderboards(
+def _materialize_fixture_runner_outputs(
     tmp_path: Path,
-) -> None:
+) -> tuple[Path, Path, Path, dict[str, object]]:
     snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
     cohort_labels_file = tmp_path / "cohort_labels.csv"
     runner_output_dir = tmp_path / "runner_outputs"
-    reporting_output_dir = tmp_path / "public_payloads"
 
     materialize_benchmark_snapshot_manifest(
         request_file=FIXTURE_DIR / "snapshot_request.json",
@@ -56,6 +58,25 @@ def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderbo
         code_version="fixture-sha",
         execution_timestamp="2026-03-28T00:00:00Z",
     )
+    return (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        benchmark_result,
+    )
+
+
+def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderboards(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        benchmark_result,
+    ) = _materialize_fixture_runner_outputs(tmp_path)
 
     reporting_result = materialize_benchmark_reporting(
         manifest_file=snapshot_manifest_file,
@@ -154,10 +175,46 @@ def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderbo
         "v1_current",
         "random_with_coverage",
     }
-    assert leaderboard_payload.entries[0].metric_value >= leaderboard_payload.entries[-1].metric_value
+    assert (
+        leaderboard_payload.entries[0].metric_value
+        >= leaderboard_payload.entries[-1].metric_value
+    )
     assert leaderboard_payload.entries[0].rank == 1
     assert leaderboard_payload.entries[-1].rank == len(leaderboard_payload.entries)
     assert all(
         Path(entry.report_card_path).exists()
         for entry in leaderboard_payload.entries
     )
+
+
+def test_materialize_benchmark_reporting_fails_for_missing_metric_payload(
+    tmp_path: Path,
+) -> None:
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_fixture_runner_outputs(tmp_path)
+    reporting_output_dir = tmp_path / "public_payloads"
+    deleted_metric_path = next(
+        path
+        for path in (runner_output_dir / "metric_payloads").rglob("*.json")
+        if path.name == f"{RETRIEVAL_METRIC_NAMES[0]}.json"
+    )
+    deleted_metric_path.unlink()
+
+    with pytest.raises(
+        ValueError,
+        match="incomplete benchmark runner output for reporting",
+    ) as exc_info:
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-03-28T12:00:00Z",
+        )
+
+    assert RETRIEVAL_METRIC_NAMES[0] in str(exc_info.value)
+    assert not reporting_output_dir.exists()

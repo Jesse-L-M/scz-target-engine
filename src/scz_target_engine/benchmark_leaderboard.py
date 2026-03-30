@@ -13,6 +13,7 @@ from scz_target_engine.benchmark_labels import (
 from scz_target_engine.benchmark_metrics import (
     BenchmarkConfidenceIntervalPayload,
     BenchmarkMetricOutputPayload,
+    RETRIEVAL_METRIC_NAMES,
     build_positive_relevance_index,
     read_benchmark_confidence_interval_payload,
     read_benchmark_metric_output_payload,
@@ -142,6 +143,79 @@ def _discover_runner_artifact_files(
         metric_payload_files,
         confidence_interval_files,
     )
+
+
+def _missing_required_metric_names(
+    present_metric_names: set[str],
+) -> tuple[str, ...]:
+    return tuple(
+        metric_name
+        for metric_name in RETRIEVAL_METRIC_NAMES
+        if metric_name not in present_metric_names
+    )
+
+
+def _validate_reporting_slice_completeness(
+    *,
+    run_manifest_index: dict[str, tuple[Path, BenchmarkModelRunManifest]],
+    baseline_index: dict[str, object],
+    slice_keys: tuple[tuple[str, str], ...],
+    metrics_by_run_slice: dict[
+        tuple[str, str, str],
+        list[tuple[Path, BenchmarkMetricOutputPayload]],
+    ],
+    interval_index: dict[
+        tuple[str, str, str, str],
+        tuple[Path, BenchmarkConfidenceIntervalPayload],
+    ],
+) -> None:
+    incomplete_slices: list[str] = []
+    for run_id, (_, run_manifest) in sorted(
+        run_manifest_index.items(),
+        key=lambda item: (item[1][1].baseline_id, item[0]),
+    ):
+        baseline = baseline_index[run_manifest.baseline_id]
+        expected_slice_keys = tuple(
+            (entity_type, horizon)
+            for entity_type, horizon in slice_keys
+            if entity_type in baseline.entity_types
+        )
+        for entity_type, horizon in expected_slice_keys:
+            metric_items = metrics_by_run_slice.get((run_id, entity_type, horizon), [])
+            missing_metric_names = _missing_required_metric_names(
+                {
+                    metric_payload.metric_name
+                    for _, metric_payload in metric_items
+                }
+            )
+            missing_interval_names = tuple(
+                metric_name
+                for metric_name in RETRIEVAL_METRIC_NAMES
+                if (run_id, entity_type, horizon, metric_name) not in interval_index
+            )
+            if not missing_metric_names and not missing_interval_names:
+                continue
+
+            detail_parts: list[str] = []
+            if missing_metric_names:
+                detail_parts.append(
+                    "missing metric payloads: "
+                    + ", ".join(missing_metric_names)
+                )
+            if missing_interval_names:
+                detail_parts.append(
+                    "missing confidence interval payloads: "
+                    + ", ".join(missing_interval_names)
+                )
+            incomplete_slices.append(
+                f"{run_id}/{entity_type}/{horizon} ({'; '.join(detail_parts)})"
+            )
+
+    if incomplete_slices:
+        raise ValueError(
+            "incomplete benchmark runner output for reporting: "
+            + "; ".join(incomplete_slices)
+        )
 
 
 def _build_report_card_path(
@@ -800,11 +874,13 @@ def materialize_benchmark_reporting(
         interval_index[key] = (path, interval_payload)
 
     label_counts: dict[tuple[str, str], tuple[int, int]] = {}
-    slice_keys = sorted(
-        {
-            (label.entity_type, label.horizon)
-            for label in cohort_labels
-        }
+    slice_keys = tuple(
+        sorted(
+            {
+                (label.entity_type, label.horizon)
+                for label in cohort_labels
+            }
+        )
     )
     for entity_type, horizon in slice_keys:
         admissible_entity_ids = {
@@ -823,6 +899,14 @@ def materialize_benchmark_reporting(
             len(admissible_entity_ids),
             positive_count,
         )
+
+    _validate_reporting_slice_completeness(
+        run_manifest_index=run_manifest_index,
+        baseline_index=baseline_index,
+        slice_keys=slice_keys,
+        metrics_by_run_slice=metrics_by_run_slice,
+        interval_index=interval_index,
+    )
 
     report_card_records: list[tuple[BenchmarkReportCardPayload, Path]] = []
     report_card_files: list[str] = []

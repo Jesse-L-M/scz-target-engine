@@ -25,6 +25,8 @@ That directory is generated, not checked in. Public slice replays write to
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: `benchmark_model_run_manifest`
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_metric_output_payload`
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_confidence_interval_payload`
+- `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
+- `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
 
 ## Canonical Command Sequence
 
@@ -52,6 +54,12 @@ uv run scz-target-engine run-benchmark \
 uv run scz-target-engine backfill-benchmark-public-slices \
   --output-dir data/benchmark/public_slices \
   --benchmark-task-id scz_translational_task
+
+uv run scz-target-engine build-benchmark-reporting \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
+  --runner-output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --output-dir data/benchmark/generated/scz_small/public_payloads
 ```
 
 This fixture flow proves the benchmark path end to end:
@@ -63,6 +71,7 @@ This fixture flow proves the benchmark path end to end:
 - it executes the requested `available_now` baselines only
 - it keeps protocol-only baselines explicit and skipped
 - it emits `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
+- it derives public report cards and leaderboard payloads from those emitted artifacts without rerunning scoring
 
 Public slices keep the same registry-driven task contract while changing only the
 cutoff date and checked-in fixture path. The catalog in

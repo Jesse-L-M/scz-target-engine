@@ -17,6 +17,7 @@ from scz_target_engine.atlas.sources import (
 from scz_target_engine.atlas.taxonomy import materialize_atlas_taxonomy
 from scz_target_engine.atlas.tensor import materialize_atlas_tensor
 from scz_target_engine.benchmark_backfill import materialize_public_benchmark_slices
+from scz_target_engine.benchmark_leaderboard import materialize_benchmark_reporting
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
 from scz_target_engine.benchmark_snapshots import (
@@ -252,6 +253,15 @@ def _configure_backfill_benchmark_public_slices_parser(
     parser.add_argument("--task-registry-path")
 
 
+def _configure_build_benchmark_reporting_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--manifest-file", required=True)
+    parser.add_argument("--cohort-labels-file", required=True)
+    parser.add_argument("--runner-output-dir", required=True)
+    parser.add_argument("--output-dir", required=True)
+
+
 COMMAND_ROUTES = (
     CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
     CommandRoute("build", ("engine", "build"), _configure_build_parser),
@@ -359,6 +369,11 @@ COMMAND_ROUTES = (
         "backfill-benchmark-public-slices",
         ("benchmark", "backfill", "public-slices"),
         _configure_backfill_benchmark_public_slices_parser,
+    ),
+    CommandRoute(
+        "build-benchmark-reporting",
+        ("benchmark", "reporting"),
+        _configure_build_benchmark_reporting_parser,
     ),
 )
 
@@ -569,6 +584,16 @@ def main(argv: list[str] | None = None) -> int:
                 if args.task_registry_path
                 else None
             ),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "build-benchmark-reporting":
+        result = materialize_benchmark_reporting(
+            manifest_file=Path(args.manifest_file).resolve(),
+            cohort_labels_file=Path(args.cohort_labels_file).resolve(),
+            runner_output_dir=Path(args.runner_output_dir).resolve(),
+            output_dir=Path(args.output_dir).resolve(),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

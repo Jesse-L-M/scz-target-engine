@@ -171,6 +171,7 @@ same builders and flags:
 - `uv run scz-target-engine benchmark cohort`
 - `uv run scz-target-engine benchmark run`
 - `uv run scz-target-engine benchmark backfill public-slices`
+- `uv run scz-target-engine benchmark reporting`
 
 Use the flat commands below for compatibility with existing docs and scripts. For new
 automation, the namespaced aliases are equivalent. `config/v0.toml` remains the
@@ -201,7 +202,18 @@ uv run scz-target-engine run-benchmark \
 uv run scz-target-engine backfill-benchmark-public-slices \
   --output-dir data/benchmark/public_slices \
   --benchmark-task-id scz_translational_task
+
+uv run scz-target-engine build-benchmark-reporting \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
+  --runner-output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --output-dir data/benchmark/generated/scz_small/public_payloads
 ```
+
+The reporting stage is intentionally downstream of the runner. It derives public-facing
+report cards and leaderboard payloads from `benchmark_model_run_manifest`,
+`benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload` files,
+plus the supplied snapshot manifest and cohort labels. It does not rerun scoring logic.
 
 Supporting operator inputs:
 
@@ -241,6 +253,8 @@ The runner reads and writes these schema families exactly:
 Those schemas are frozen in code as `BENCHMARK_ARTIFACT_SCHEMAS_V1`.
 The supporting request files `snapshot_request.json` and `source_archives.json` are
 operator inputs, not part of `BENCHMARK_ARTIFACT_SCHEMAS_V1`.
+The public report-card and leaderboard JSON payloads are downstream derived outputs,
+not additional runner-emitted schema families.
 
 The matching registered schema files now live under
 `schemas/artifact_schemas/benchmark_*.json`.
@@ -255,6 +269,11 @@ Canonical generated locations:
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_metric_output_payload`
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_confidence_interval_payload`
 - `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
+- `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
+- `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
+- `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
+- `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
+- `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
 
 What each generated artifact means:
 
@@ -263,6 +282,8 @@ What each generated artifact means:
 - run manifests record executed baseline, suite/task contract provenance, code version, parameterization, and input digests
 - metric payloads record point estimates for one `(run_id, entity_type, horizon, metric_name)` slice
 - confidence interval payloads record percentile-bootstrap intervals, bootstrap count, resample unit, and random seed for the same slice
+- report cards join suite/task/snapshot provenance, source inclusion accounting, run-manifest inputs, and per-slice metric summaries into one public payload per run
+- leaderboard payloads rank the report-card slices by metric while preserving run-level provenance
 
 ## Public Historical Slices
 

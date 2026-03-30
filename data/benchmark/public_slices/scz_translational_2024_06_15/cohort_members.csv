@@ -1,0 +1,4 @@
+entity_type,entity_id,entity_label
+gene,ENSG00000162946,DISC1
+gene,ENSG00000151067,CACNA1C
+module,MOD_DLPFC_GRN,Deep Layer Cortical GRN

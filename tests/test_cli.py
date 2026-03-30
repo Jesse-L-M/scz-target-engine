@@ -35,6 +35,17 @@ def test_cli_validate_runs() -> None:
         (
             [
                 "benchmark",
+                "backfill",
+                "public-slices",
+                "--output-dir",
+                "data/benchmark/public_slices",
+            ],
+            "backfill-benchmark-public-slices",
+            ("benchmark", "backfill", "public-slices"),
+        ),
+        (
+            [
+                "benchmark",
                 "snapshot",
                 "--request-file",
                 "snapshot_request.json",
@@ -113,6 +124,11 @@ def test_cli_namespaced_validate_runs_with_mirrored_config() -> None:
             "scz_target_engine.app.cli",
             "scz_target_engine.cli",
             ("build_parser", "main"),
+        ),
+        (
+            "scz_target_engine.benchmark.backfill",
+            "scz_target_engine.benchmark_backfill",
+            ("materialize_public_benchmark_slices", "plan_public_benchmark_slices"),
         ),
         (
             "scz_target_engine.benchmark.labels",
@@ -653,6 +669,24 @@ def test_cli_run_benchmark_parser_accepts_files() -> None:
     assert args.deterministic_test_mode is True
 
 
+def test_cli_backfill_benchmark_public_slices_parser_accepts_optional_paths() -> None:
+    args = build_parser().parse_args(
+        [
+            "backfill-benchmark-public-slices",
+            "--output-dir",
+            "data/benchmark/public_slices",
+            "--benchmark-task-id",
+            "scz_translational_task",
+            "--task-registry-path",
+            "task_registry.csv",
+        ]
+    )
+    assert args.command == "backfill-benchmark-public-slices"
+    assert args.output_dir == "data/benchmark/public_slices"
+    assert args.benchmark_task_id == "scz_translational_task"
+    assert args.task_registry_path == "task_registry.csv"
+
+
 def test_cli_run_benchmark_runs(monkeypatch, tmp_path: Path) -> None:
     manifest_file = tmp_path / "snapshot_manifest.json"
     cohort_labels_file = tmp_path / "cohort_labels.csv"
@@ -724,3 +758,45 @@ def test_cli_run_benchmark_runs(monkeypatch, tmp_path: Path) -> None:
     assert calls["bootstrap_confidence_level"] == 0.9
     assert calls["random_seed"] == 23
     assert calls["deterministic_test_mode"] is True
+
+
+def test_cli_backfill_benchmark_public_slices_runs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "public_slices"
+    task_registry_path = tmp_path / "task_registry.csv"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_public_benchmark_slices(
+        *,
+        output_dir: Path | None,
+        benchmark_task_id: str | None,
+        task_registry_path: Path | None = None,
+    ) -> dict[str, object]:
+        calls["output_dir"] = output_dir
+        calls["benchmark_task_id"] = benchmark_task_id
+        calls["task_registry_path"] = task_registry_path
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_public_benchmark_slices",
+        fake_materialize_public_benchmark_slices,
+    )
+
+    exit_code = main(
+        [
+            "backfill-benchmark-public-slices",
+            "--output-dir",
+            str(output_dir),
+            "--benchmark-task-id",
+            "scz_translational_task",
+            "--task-registry-path",
+            str(task_registry_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["output_dir"] == output_dir.resolve()
+    assert calls["benchmark_task_id"] == "scz_translational_task"
+    assert calls["task_registry_path"] == task_registry_path.resolve()

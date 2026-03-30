@@ -43,7 +43,7 @@ consortium-dump parsing.
 
 ## Current Limitations
 
-- Historical benchmark archives are fixture-scale. The checked-in archive set under `data/benchmark/fixtures/scz_small/` is a small deterministic test path, not a production backfill catalog.
+- Historical benchmark archives are fixture-scale. The checked-in archive set under `data/benchmark/fixtures/scz_small/` and the derived public slices under `data/benchmark/public_slices/` are small deterministic test paths, not a production backfill catalog.
 - Benchmark breadth is still limited to the frozen schizophrenia question, a small deterministic cohort, and the current `available_now` baseline subset.
 - Benchmark outputs are diagnostic artifacts. They are not proof of calibration, threshold quality, or deployment readiness.
 - Calibration work, decision-threshold setting, and broader operating-point evaluation remain future work.
@@ -273,12 +273,15 @@ uv run scz-target-engine run-benchmark \
 Artifact layout:
 
 - `data/benchmark/fixtures/scz_small/`: checked-in fixture request, archive index, archived source extracts, cohort membership, and future outcomes
+- `data/benchmark/public_slices/catalog.json`: checked-in catalog of honest public cutoffs derived from the registry-backed `scz_small` fixture
+- `data/benchmark/public_slices/scz_translational_2024_06_15/`, `data/benchmark/public_slices/scz_translational_2024_06_18/`, `data/benchmark/public_slices/scz_translational_2024_06_20/`: checked-in public historical slice inputs with explicit cutoff semantics and copied archived source extracts
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract for the current schizophrenia benchmark
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_metric_output_payload` files
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_confidence_interval_payload` files
+- `data/benchmark/generated/public_slices/<slice_id>/`: generated replay outputs for any checked-in public slice; these are local outputs, not checked-in fixtures
 
 Operator notes:
 
@@ -286,7 +289,9 @@ Operator notes:
 - Re-running the snapshot or cohort commands overwrites the manifest and label files at the same paths.
 - Re-running `run-benchmark` writes run-id keyed payload directories. Changing code version or parameters changes the run id. Identical inputs overwrite the same run-id files.
 - The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
-- Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs, not the generated benchmark outputs.
+- Public slice backfill is registry-driven: `uv run scz-target-engine backfill-benchmark-public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` and `uv run scz-target-engine benchmark backfill public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` regenerate the checked-in slice catalog without weakening leakage rules and do not fall back to live source data.
+- One replayable public slice beyond the original fixture path is `data/benchmark/public_slices/scz_translational_2024_06_20/`; write its local outputs under `data/benchmark/generated/public_slices/scz_translational_2024_06_20/`.
+- Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs under `data/benchmark/fixtures/` and `data/benchmark/public_slices/`, not the generated benchmark outputs.
 
 ## Artifact Schemas
 

@@ -208,11 +208,22 @@ def build_benchmark_cohort_labels(
     manifest: BenchmarkSnapshotManifest,
     cohort_members: tuple[CohortMember, ...],
     future_outcomes: tuple[FutureOutcomeRecord, ...],
+    *,
+    task_registry_path: Path | None = None,
 ) -> tuple[BenchmarkCohortLabel, ...]:
     task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=manifest.benchmark_task_id or None,
         benchmark_question_id=manifest.benchmark_question_id,
         benchmark_suite_id=manifest.benchmark_suite_id or None,
+        task_registry_path=(
+            task_registry_path
+            if task_registry_path is not None
+            else (
+                Path(manifest.task_registry_path).resolve()
+                if getattr(manifest, "task_registry_path", "")
+                else None
+            )
+        ),
     )
     question = task_contract.protocol.question
     as_of_date = _parse_iso_date(manifest.as_of_date, "as_of_date")
@@ -359,11 +370,13 @@ def materialize_benchmark_cohort_labels(
     cohort_members_file: Path,
     future_outcomes_file: Path,
     output_file: Path,
+    task_registry_path: Path | None = None,
 ) -> dict[str, object]:
     labels = build_benchmark_cohort_labels(
         manifest,
         load_cohort_members(cohort_members_file),
         load_future_outcomes(future_outcomes_file),
+        task_registry_path=task_registry_path,
     )
     write_benchmark_cohort_labels(output_file, labels)
     observed_label_rows = sum(

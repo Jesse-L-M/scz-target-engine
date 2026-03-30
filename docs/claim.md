@@ -14,6 +14,7 @@
 - `v0` is not a justified `advance / do not advance` authority for programs or assets.
 - `v1` is not a validated clinical advancement authority, even though it now assigns explicit numeric failure, directionality, and subgroup heads from the PR7 target-ledger substrate.
 - `v0` now has a non-seed candidate-registry ingest path, but the checked-in example scoring workflow still relies on curated shortlists and source-specific harmonization.
+- atlas raw-source staging now exists for selected adapter-backed pulls, but it is still not raw consortium-dump ingestion and it does not replace the current scoring inputs
 - the benchmark path is not a production-scale historical replay system
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
 

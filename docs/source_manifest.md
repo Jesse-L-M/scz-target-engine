@@ -1,9 +1,13 @@
 # Source Manifest
 
-`v0` currently has two ingestion layers:
+`v0` scoring currently has two ingestion layers:
 
 - processed source tables and a non-seed candidate registry
 - curated evidence tables that feed the current scoring build
+
+Atlas now adds an additive raw-source staging foundation for selected adapter-backed
+pulls under `data/raw/sources/`, but that foundation does not replace the scoring
+path above.
 Raw consortium dump parsing is still deferred. The scoring engine and its failure conditions still need to stabilize before raw-source parsing grows the scope.
 
 These sources currently feed one shared schizophrenia `v0` scaffold plus an additive `v1` decision-vector layer. `v1` now combines the original human-support, biology-context, and intervention-readiness heads with numeric PR7-backed failure, directionality, and subgroup heads for gene targets, while shared `v0` outputs remain unchanged.
@@ -90,6 +94,24 @@ The upstream ingestion layer should output:
 - processed source tables with normalized scores in `[0, 1]`, explicit provenance, and stable entity IDs
 - an explicit candidate registry artifact before scoring
 - curated evidence tables only after source joins and identity reconciliation are complete
+
+## Atlas Raw-Source Staging Contract
+
+Atlas now exposes additive source adapters for:
+
+- `Open Targets` schizophrenia baseline pulls
+- `PGC scz2022` prioritized-gene pulls
+
+Those atlas adapters preserve the legacy processed CSV outputs and add:
+
+- a provenance-bearing raw stage root under `data/raw/sources/{source}/{dataset}/{materialized_at}/`
+- a `manifest.json` sidecar describing the source contract, requested parameters, staged raw artifacts, and downstream processed artifact paths
+- explicit scope boundaries stating that staged request/download capture is implemented, while full consortium-dump parsing remains future work
+
+The current atlas example ingest path is `atlas ingest candidate-registry`. It stages
+raw `Open Targets` and optional `PGC` artifacts, writes processed source tables under
+its work directory, and rebuilds the same candidate-registry contract via the existing
+registry builder.
 
 Prepared gene tables keep source-owned primitives as first-class columns. They separate:
 

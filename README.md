@@ -23,6 +23,11 @@ fixtures.
 
 Raw consortium-dump ingestion is still not implemented. The current scoring path
 operates from curated tables with normalized layer scores in `[0, 1]`.
+Atlas now also has an additive raw-source staging foundation for adapter-backed
+`Open Targets` and `PGC` pulls. It writes provenance-bearing request/download
+captures under `data/raw/sources/` and can rebuild a candidate registry through
+`atlas ingest candidate-registry`, but that foundation still does not implement
+consortium-dump parsing.
 
 ## Claim Boundary
 
@@ -33,6 +38,7 @@ operates from curated tables with normalized layer scores in `[0, 1]`.
 - Benchmark execution now runs the frozen `available_now` baseline set against archived snapshot/cohort artifacts, while protocol-only baselines remain explicit and skipped.
 - Benchmark metric payloads and percentile-bootstrap confidence interval payloads are emitted without changing current `v0` or `v1` scoring semantics.
 - `v0` now has a non-seed ingest path and a full-universe module-prep path, but gene prep and end-to-end scoring are not yet fully seed-independent.
+- Atlas raw-source staging now captures upstream request/download artifacts for selected adapter-backed pulls, but it does not replace the current processed source outputs used by scoring.
 - Config naming note: `stability.heuristic_stability_threshold` is the preferred key. The legacy `stability.decision_grade_threshold` alias is still accepted temporarily for compatibility.
 
 ## Current Limitations
@@ -49,7 +55,9 @@ and [docs/program_history.md](docs/program_history.md) for the curated program-h
 substrate. See [docs/ledger_contract.md](docs/ledger_contract.md) for the target-ledger
 output contract, [docs/benchmarking.md](docs/benchmarking.md) for the canonical
 benchmark workflow, and [docs/artifact_schemas.md](docs/artifact_schemas.md) for the
-registered artifact families and runtime validation surface.
+registered artifact families and runtime validation surface. See
+[docs/atlas_source_ingest.md](docs/atlas_source_ingest.md) for the staged raw-source
+contract and atlas ingest boundary.
 
 ## Quickstart
 
@@ -191,6 +199,7 @@ that call the same handlers with the same flags:
 - `sources opentargets`, `sources chembl`, `sources pgc scz2022`
 - `sources schema`, `sources psychencode support`, `sources psychencode modules`
 - `registry build`, `registry refresh`
+- `atlas sources opentargets`, `atlas sources pgc scz2022`, `atlas ingest candidate-registry`
 - `prepare gene-table`, `prepare example-gene-table`, `prepare example-module-table`, `prepare example-inputs`
 - `benchmark snapshot`, `benchmark cohort`, `benchmark run`
 
@@ -212,6 +221,20 @@ uv run scz-target-engine engine validate \
   --config config/engine/v0.toml \
   --input-dir examples/v0/input
 ```
+
+Atlas raw-source staging example:
+
+```bash
+uv run scz-target-engine atlas ingest candidate-registry \
+  --output-file .context/atlas/candidate_gene_registry.csv \
+  --work-dir .context/atlas/work \
+  --raw-dir .context/atlas/raw \
+  --materialized-at 2026-03-30
+```
+
+That atlas path stages raw adapter captures under `.context/atlas/raw/`, rebuilds the
+same candidate-registry contract from processed source outputs, and keeps the existing
+`registry refresh` workflow unchanged.
 
 ## Canonical Benchmark Workflow
 

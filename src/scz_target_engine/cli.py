@@ -7,6 +7,11 @@ from pathlib import Path
 import sys
 from typing import Callable
 
+from scz_target_engine.atlas.ingest import refresh_atlas_candidate_registry
+from scz_target_engine.atlas.sources import (
+    fetch_atlas_opentargets_baseline,
+    fetch_atlas_pgc_scz2022_prioritized_genes,
+)
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
 from scz_target_engine.benchmark_snapshots import (
@@ -111,6 +116,34 @@ def _configure_refresh_candidate_registry_parser(
 ) -> None:
     parser.add_argument("--output-file")
     parser.add_argument("--work-dir")
+    parser.add_argument("--disease-id")
+    parser.add_argument("--disease-query")
+    parser.add_argument("--skip-pgc", action="store_true")
+
+
+def _configure_atlas_fetch_opentargets_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--disease-id")
+    parser.add_argument("--disease-query")
+    parser.add_argument("--page-size", type=int, default=500)
+    parser.add_argument("--max-pages", type=int)
+    parser.add_argument("--raw-dir")
+    parser.add_argument("--materialized-at")
+
+
+def _configure_atlas_fetch_pgc_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--raw-dir")
+    parser.add_argument("--materialized-at")
+
+
+def _configure_atlas_refresh_candidate_registry_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-file")
+    parser.add_argument("--work-dir")
+    parser.add_argument("--raw-dir")
+    parser.add_argument("--materialized-at")
     parser.add_argument("--disease-id")
     parser.add_argument("--disease-query")
     parser.add_argument("--skip-pgc", action="store_true")
@@ -237,6 +270,21 @@ COMMAND_ROUTES = (
         "refresh-candidate-registry",
         ("registry", "refresh"),
         _configure_refresh_candidate_registry_parser,
+    ),
+    CommandRoute(
+        "atlas-fetch-opentargets",
+        ("atlas", "sources", "opentargets"),
+        _configure_atlas_fetch_opentargets_parser,
+    ),
+    CommandRoute(
+        "atlas-fetch-pgc-scz2022",
+        ("atlas", "sources", "pgc", "scz2022"),
+        _configure_atlas_fetch_pgc_parser,
+    ),
+    CommandRoute(
+        "atlas-refresh-candidate-registry",
+        ("atlas", "ingest", "candidate-registry"),
+        _configure_atlas_refresh_candidate_registry_parser,
     ),
     CommandRoute(
         "prepare-gene-table",
@@ -454,6 +502,41 @@ def main(argv: list[str] | None = None) -> int:
         result = refresh_candidate_registry(
             output_file=Path(args.output_file).resolve() if args.output_file else None,
             work_dir=Path(args.work_dir).resolve() if args.work_dir else None,
+            disease_id=args.disease_id,
+            disease_query=args.disease_query,
+            include_pgc=not args.skip_pgc,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "atlas-fetch-opentargets":
+        result = fetch_atlas_opentargets_baseline(
+            output_file=Path(args.output_file).resolve(),
+            disease_id=args.disease_id,
+            disease_query=args.disease_query,
+            page_size=args.page_size,
+            max_pages=args.max_pages,
+            raw_dir=Path(args.raw_dir).resolve() if args.raw_dir else None,
+            materialized_at=args.materialized_at,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "atlas-fetch-pgc-scz2022":
+        result = fetch_atlas_pgc_scz2022_prioritized_genes(
+            output_file=Path(args.output_file).resolve(),
+            raw_dir=Path(args.raw_dir).resolve() if args.raw_dir else None,
+            materialized_at=args.materialized_at,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "atlas-refresh-candidate-registry":
+        result = refresh_atlas_candidate_registry(
+            output_file=Path(args.output_file).resolve() if args.output_file else None,
+            work_dir=Path(args.work_dir).resolve() if args.work_dir else None,
+            raw_dir=Path(args.raw_dir).resolve() if args.raw_dir else None,
+            materialized_at=args.materialized_at,
             disease_id=args.disease_id,
             disease_query=args.disease_query,
             include_pgc=not args.skip_pgc,

@@ -1,5 +1,7 @@
+import json
 from pathlib import Path
 
+from scz_target_engine.atlas.sources import fetch_atlas_opentargets_baseline
 from scz_target_engine.sources.opentargets import (
     fetch_opentargets_baseline,
     flatten_association_rows,
@@ -134,3 +136,42 @@ def test_fetch_opentargets_baseline_writes_csv_and_metadata(tmp_path: Path) -> N
     assert metadata["row_count"] == 3
     assert output_file.exists()
     assert output_file.with_suffix(".metadata.json").exists()
+
+
+def test_fetch_atlas_opentargets_baseline_preserves_processed_output_and_stages_raw_artifacts(
+    tmp_path: Path,
+) -> None:
+    legacy_output_file = tmp_path / "legacy.csv"
+    atlas_output_file = tmp_path / "atlas.csv"
+
+    legacy_metadata = fetch_opentargets_baseline(
+        output_file=legacy_output_file,
+        disease_query="schizophrenia",
+        page_size=2,
+        transport=fake_transport,
+    )
+    atlas_metadata = fetch_atlas_opentargets_baseline(
+        output_file=atlas_output_file,
+        disease_query="schizophrenia",
+        page_size=2,
+        raw_dir=tmp_path / "raw",
+        materialized_at="2026-03-30",
+        transport=fake_transport,
+    )
+
+    assert atlas_output_file.read_text(encoding="utf-8") == legacy_output_file.read_text(
+        encoding="utf-8"
+    )
+    assert atlas_metadata["legacy_adapter_output"]["row_count"] == legacy_metadata["row_count"]
+
+    manifest = json.loads(
+        Path(atlas_metadata["raw_manifest_file"]).read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "completed"
+    assert manifest["source_contract"]["source_name"] == "opentargets"
+    assert manifest["raw_artifact_count"] == 4
+    artifact_names = [artifact["artifact_name"] for artifact in manifest["artifacts"]]
+    assert artifact_names[0] == "001_meta.json"
+    assert artifact_names[1] == "002_searchdisease.json"
+    assert artifact_names[2] == "003_diseaseassociations_page_0000.json"
+    assert artifact_names[3] == "004_diseaseassociations_page_0001.json"

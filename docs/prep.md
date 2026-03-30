@@ -185,6 +185,13 @@ The sidecar metadata JSON preserves:
 - writes them under `data/processed/full_universe_ingest/`
 - publishes `candidate_gene_registry.csv`
 
+`atlas ingest candidate-registry` is the additive staging-native ingest wrapper. It:
+
+- stages raw adapter artifacts under `data/raw/sources/`
+- writes processed source tables under its atlas work directory
+- rebuilds the same `candidate_gene_registry.csv` contract with the current registry builder
+- keeps the existing `refresh-candidate-registry` workflow unchanged for the current engine path
+
 `refresh-example-gene-table` is the repo-native example fixture wrapper. It:
 
 - reads `examples/v0/input/gene_seed.csv`
@@ -261,6 +268,20 @@ uv run scz-target-engine build-candidate-registry \
   --pgc-file data/processed/full_universe_ingest/pgc/scz2022_prioritized_genes.csv \
   --output-file data/processed/full_universe_ingest/registry/candidate_gene_registry.csv
 ```
+
+Run the additive atlas staging path:
+
+```bash
+uv run scz-target-engine atlas ingest candidate-registry \
+  --output-file data/processed/atlas/full_universe_ingest/registry/candidate_gene_registry.csv \
+  --work-dir data/processed/atlas/full_universe_ingest \
+  --raw-dir data/raw/sources \
+  --materialized-at 2026-03-30
+```
+
+That atlas path still relies on the current `Open Targets` and `PGC` processed adapters.
+It stages raw request/download artifacts and a manifest, but it does not claim that raw
+consortium-dump ingestion is implemented.
 
 Refresh the checked-in example gene and module fixtures:
 

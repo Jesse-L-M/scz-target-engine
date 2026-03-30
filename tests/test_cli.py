@@ -71,6 +71,17 @@ def test_cli_validate_runs() -> None:
             "refresh-candidate-registry",
             ("registry", "refresh"),
         ),
+        (
+            [
+                "atlas",
+                "ingest",
+                "candidate-registry",
+                "--output-file",
+                "candidate_gene_registry.csv",
+            ],
+            "atlas-refresh-candidate-registry",
+            ("atlas", "ingest", "candidate-registry"),
+        ),
     ],
 )
 def test_cli_namespaced_routes_map_to_legacy_commands(
@@ -412,6 +423,92 @@ def test_cli_refresh_candidate_registry_runs_without_pgc(
     assert calls["disease_id"] is None
     assert calls["disease_query"] == "schizophrenia"
     assert calls["include_pgc"] is False
+
+
+def test_cli_atlas_refresh_candidate_registry_parser_accepts_optional_paths() -> None:
+    args = build_parser().parse_args(
+        [
+            "atlas",
+            "ingest",
+            "candidate-registry",
+            "--output-file",
+            "candidate_gene_registry.csv",
+            "--work-dir",
+            "data/processed/atlas/full_universe_ingest",
+            "--raw-dir",
+            "data/raw/sources",
+            "--materialized-at",
+            "2026-03-30",
+            "--disease-id",
+            "MONDO_0005090",
+            "--skip-pgc",
+        ]
+    )
+    assert args.command == "atlas-refresh-candidate-registry"
+    assert args.output_file == "candidate_gene_registry.csv"
+    assert args.work_dir == "data/processed/atlas/full_universe_ingest"
+    assert args.raw_dir == "data/raw/sources"
+    assert args.materialized_at == "2026-03-30"
+    assert args.disease_id == "MONDO_0005090"
+    assert args.skip_pgc is True
+
+
+def test_cli_atlas_refresh_candidate_registry_runs(monkeypatch, tmp_path: Path) -> None:
+    output_file = tmp_path / "candidate_gene_registry.csv"
+    work_dir = tmp_path / "work"
+    raw_dir = tmp_path / "raw"
+    calls: dict[str, object] = {}
+
+    def fake_refresh_atlas_candidate_registry(
+        *,
+        output_file: Path | None,
+        work_dir: Path | None,
+        raw_dir: Path | None,
+        materialized_at: str | None,
+        disease_id: str | None,
+        disease_query: str | None,
+        include_pgc: bool,
+    ) -> dict[str, object]:
+        calls["output_file"] = output_file
+        calls["work_dir"] = work_dir
+        calls["raw_dir"] = raw_dir
+        calls["materialized_at"] = materialized_at
+        calls["disease_id"] = disease_id
+        calls["disease_query"] = disease_query
+        calls["include_pgc"] = include_pgc
+        return {"published_output_file": str(output_file)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.refresh_atlas_candidate_registry",
+        fake_refresh_atlas_candidate_registry,
+    )
+
+    exit_code = main(
+        [
+            "atlas",
+            "ingest",
+            "candidate-registry",
+            "--output-file",
+            str(output_file),
+            "--work-dir",
+            str(work_dir),
+            "--raw-dir",
+            str(raw_dir),
+            "--materialized-at",
+            "2026-03-30",
+            "--disease-query",
+            "schizophrenia",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["output_file"] == output_file.resolve()
+    assert calls["work_dir"] == work_dir.resolve()
+    assert calls["raw_dir"] == raw_dir.resolve()
+    assert calls["materialized_at"] == "2026-03-30"
+    assert calls["disease_id"] is None
+    assert calls["disease_query"] == "schizophrenia"
+    assert calls["include_pgc"] is True
 
 
 def test_cli_refresh_example_gene_table_parser_accepts_optional_paths() -> None:

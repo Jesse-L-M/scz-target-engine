@@ -1,8 +1,10 @@
 import csv
 import io
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
+from scz_target_engine.atlas.sources import fetch_atlas_pgc_scz2022_prioritized_genes
 from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
 
 
@@ -135,25 +137,27 @@ def build_test_workbook_bytes() -> bytes:
     return workbook_bytes.getvalue()
 
 
+def fake_json_transport(url: str) -> object:
+    assert url.endswith("/articles/19426775")
+    return {
+        "files": [
+            {
+                "name": "scz2022-Extended-Data-Table1.xlsx",
+                "download_url": "https://example.test/scz2022.xlsx",
+            }
+        ]
+    }
+
+
+def fake_bytes_transport(url: str) -> bytes:
+    assert url == "https://example.test/scz2022.xlsx"
+    return build_test_workbook_bytes()
+
+
 def test_fetch_pgc_scz2022_prioritized_genes_writes_curated_gene_rows(
     tmp_path: Path,
 ) -> None:
     output_file = tmp_path / "pgc.csv"
-
-    def fake_json_transport(url: str) -> object:
-        assert url.endswith("/articles/19426775")
-        return {
-            "files": [
-                {
-                    "name": "scz2022-Extended-Data-Table1.xlsx",
-                    "download_url": "https://example.test/scz2022.xlsx",
-                }
-            ]
-        }
-
-    def fake_bytes_transport(url: str) -> bytes:
-        assert url == "https://example.test/scz2022.xlsx"
-        return build_test_workbook_bytes()
 
     metadata = fetch_pgc_scz2022_prioritized_genes(
         output_file=output_file,
@@ -180,3 +184,38 @@ def test_fetch_pgc_scz2022_prioritized_genes_writes_curated_gene_rows(
     assert rows[1]["common_variant_support"] == "0.125"
     assert rows[1]["pgc_scz2022_SMR.priority.gene"] == "1"
     assert rows[1]["pgc_scz2022_FINEMAPk3.5"] == "1"
+
+
+def test_fetch_atlas_pgc_scz2022_preserves_processed_output_and_stages_raw_release_artifacts(
+    tmp_path: Path,
+) -> None:
+    legacy_output_file = tmp_path / "legacy.csv"
+    atlas_output_file = tmp_path / "atlas.csv"
+
+    legacy_metadata = fetch_pgc_scz2022_prioritized_genes(
+        output_file=legacy_output_file,
+        json_transport=fake_json_transport,
+        bytes_transport=fake_bytes_transport,
+    )
+    atlas_metadata = fetch_atlas_pgc_scz2022_prioritized_genes(
+        output_file=atlas_output_file,
+        raw_dir=tmp_path / "raw",
+        materialized_at="2026-03-30",
+        json_transport=fake_json_transport,
+        bytes_transport=fake_bytes_transport,
+    )
+
+    assert atlas_output_file.read_text(encoding="utf-8") == legacy_output_file.read_text(
+        encoding="utf-8"
+    )
+    assert atlas_metadata["legacy_adapter_output"]["row_count"] == legacy_metadata["row_count"]
+
+    manifest = json.loads(
+        Path(atlas_metadata["raw_manifest_file"]).read_text(encoding="utf-8")
+    )
+    assert manifest["status"] == "completed"
+    assert manifest["source_contract"]["source_name"] == "pgc"
+    assert manifest["raw_artifact_count"] == 2
+    artifact_names = [artifact["artifact_name"] for artifact in manifest["artifacts"]]
+    assert artifact_names[0] == "001_figshare_article_19426775.json"
+    assert artifact_names[1] == "002_scz2022-extended-data-table1.xlsx"

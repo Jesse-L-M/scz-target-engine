@@ -36,6 +36,7 @@ from scz_target_engine.decision_vector import (
 )
 from scz_target_engine.io import read_json
 from scz_target_engine.ledger import TargetLedger
+from scz_target_engine.policy.config import REQUIRED_POLICY_ADJUSTMENT_FIELDS
 from scz_target_engine.rescue.contracts import (
     RescueTaskContract,
     read_rescue_task_contract,
@@ -877,6 +878,556 @@ def _validate_decision_vectors(
     return payload
 
 
+def _validate_policy_definition_payloads(
+    payloads: list[object],
+) -> tuple[list[str], set[str]]:
+    valid_domain_slugs = {definition.slug for definition in DOMAIN_HEAD_DEFINITIONS}
+    observed_policy_ids: list[str] = []
+    for index, item in enumerate(payloads):
+        payload = _require_mapping(item, f"policy_definitions[{index}]")
+        policy_id = _require_text(
+            payload.get("policy_id", ""),
+            f"policy_definitions[{index}].policy_id",
+        )
+        observed_policy_ids.append(policy_id)
+        _require_text(
+            payload.get("label", ""),
+            f"policy_definitions[{index}].label",
+        )
+        _require_text(
+            payload.get("description", ""),
+            f"policy_definitions[{index}].description",
+        )
+        primary_domain_slug = _require_text(
+            payload.get("primary_domain_slug", ""),
+            f"policy_definitions[{index}].primary_domain_slug",
+        )
+        if primary_domain_slug not in valid_domain_slugs:
+            raise ValueError(
+                f"policy_definitions[{index}].primary_domain_slug must match the current v1 domains"
+            )
+        _require_text(
+            payload.get("source_file", ""),
+            f"policy_definitions[{index}].source_file",
+        )
+        domain_weights = _require_list(
+            payload.get("domain_weights"),
+            f"policy_definitions[{index}].domain_weights",
+        )
+        if not domain_weights:
+            raise ValueError(f"policy_definitions[{index}].domain_weights must not be empty")
+        weight_total = 0.0
+        for weight_index, domain_weight in enumerate(domain_weights):
+            weight_payload = _require_mapping(
+                domain_weight,
+                f"policy_definitions[{index}].domain_weights[{weight_index}]",
+            )
+            domain_slug = _require_text(
+                weight_payload.get("domain_slug", ""),
+                f"policy_definitions[{index}].domain_weights[{weight_index}].domain_slug",
+            )
+            if domain_slug not in valid_domain_slugs:
+                raise ValueError(
+                    "policy_definitions"
+                    f"[{index}].domain_weights[{weight_index}].domain_slug must match the current v1 domains"
+                )
+            weight_total += _require_optional_number(
+                weight_payload.get("weight"),
+                f"policy_definitions[{index}].domain_weights[{weight_index}].weight",
+            ) or 0.0
+            if weight_payload.get("weight") is None:
+                raise ValueError(
+                    f"policy_definitions[{index}].domain_weights[{weight_index}].weight is required"
+                )
+            if float(weight_payload["weight"]) <= 0:
+                raise ValueError(
+                    f"policy_definitions[{index}].domain_weights[{weight_index}].weight must be positive"
+                )
+        if abs(weight_total - 1.0) > 1e-6:
+            raise ValueError(f"policy_definitions[{index}].domain_weights must sum to 1.0")
+        adjustment_weights = _require_mapping(
+            payload.get("adjustment_weights"),
+            f"policy_definitions[{index}].adjustment_weights",
+        )
+        for adjustment_name in REQUIRED_POLICY_ADJUSTMENT_FIELDS:
+            if adjustment_name not in adjustment_weights:
+                raise ValueError(
+                    f"policy_definitions[{index}].adjustment_weights.{adjustment_name} is required"
+                )
+            _require_optional_number(
+                adjustment_weights.get(adjustment_name),
+                f"policy_definitions[{index}].adjustment_weights.{adjustment_name}",
+            )
+    if len(set(observed_policy_ids)) != len(observed_policy_ids):
+        raise ValueError("policy_definitions must not repeat policy_id")
+    return observed_policy_ids, valid_domain_slugs
+
+
+def _validate_policy_score_payload(
+    payload: Mapping[str, object],
+    *,
+    field_name: str,
+    valid_policy_ids: list[str],
+    valid_domain_slugs: set[str],
+) -> None:
+    policy_id = _require_text(payload.get("policy_id", ""), f"{field_name}.policy_id")
+    if policy_id not in valid_policy_ids:
+        raise ValueError(f"{field_name}.policy_id must match policy_definitions")
+    _require_text(payload.get("label", ""), f"{field_name}.label")
+    _require_text(payload.get("description", ""), f"{field_name}.description")
+    primary_domain_slug = _require_text(
+        payload.get("primary_domain_slug", ""),
+        f"{field_name}.primary_domain_slug",
+    )
+    if primary_domain_slug not in valid_domain_slugs:
+        raise ValueError(f"{field_name}.primary_domain_slug must match current v1 domains")
+    _require_optional_number(payload.get("score"), f"{field_name}.score")
+    _require_optional_number(payload.get("base_score"), f"{field_name}.base_score")
+    _require_optional_number(
+        payload.get("score_before_clamp"),
+        f"{field_name}.score_before_clamp",
+    )
+    _require_text(payload.get("status", ""), f"{field_name}.status")
+    _require_optional_number(
+        payload.get("coverage_weight_fraction"),
+        f"{field_name}.coverage_weight_fraction",
+    )
+    _require_optional_number(
+        payload.get("uncertainty_adjustment_total"),
+        f"{field_name}.uncertainty_adjustment_total",
+    )
+    domain_contributions = _require_list(
+        payload.get("domain_contributions"),
+        f"{field_name}.domain_contributions",
+    )
+    for index, item in enumerate(domain_contributions):
+        contribution = _require_mapping(
+            item,
+            f"{field_name}.domain_contributions[{index}]",
+        )
+        domain_slug = _require_text(
+            contribution.get("domain_slug", ""),
+            f"{field_name}.domain_contributions[{index}].domain_slug",
+        )
+        if domain_slug not in valid_domain_slugs:
+            raise ValueError(
+                f"{field_name}.domain_contributions[{index}].domain_slug must match current v1 domains"
+            )
+        _require_text(
+            contribution.get("label", ""),
+            f"{field_name}.domain_contributions[{index}].label",
+        )
+        _require_text(
+            contribution.get("status", ""),
+            f"{field_name}.domain_contributions[{index}].status",
+        )
+        _require_optional_number(
+            contribution.get("weight"),
+            f"{field_name}.domain_contributions[{index}].weight",
+        )
+        _require_optional_number(
+            contribution.get("score"),
+            f"{field_name}.domain_contributions[{index}].score",
+        )
+        _require_optional_number(
+            contribution.get("domain_coverage_weight_fraction"),
+            f"{field_name}.domain_contributions[{index}].domain_coverage_weight_fraction",
+        )
+        _require_optional_number(
+            contribution.get("contribution"),
+            f"{field_name}.domain_contributions[{index}].contribution",
+        )
+    adjustments = _require_list(payload.get("adjustments"), f"{field_name}.adjustments")
+    for index, item in enumerate(adjustments):
+        adjustment = _require_mapping(item, f"{field_name}.adjustments[{index}]")
+        _require_text(
+            adjustment.get("adjustment_id", ""),
+            f"{field_name}.adjustments[{index}].adjustment_id",
+        )
+        _require_text(
+            adjustment.get("label", ""),
+            f"{field_name}.adjustments[{index}].label",
+        )
+        _require_optional_number(
+            adjustment.get("delta"),
+            f"{field_name}.adjustments[{index}].delta",
+        )
+        _require_mapping(
+            adjustment.get("evidence"),
+            f"{field_name}.adjustments[{index}].evidence",
+        )
+    uncertainty_context = _require_mapping(
+        payload.get("uncertainty_context"),
+        f"{field_name}.uncertainty_context",
+    )
+    _require_int(
+        uncertainty_context.get("warning_count"),
+        f"{field_name}.uncertainty_context.warning_count",
+    )
+    _require_text(
+        uncertainty_context.get("warning_severity", ""),
+        f"{field_name}.uncertainty_context.warning_severity",
+    )
+    for count_field in (
+        "missing_head_count",
+        "partial_head_count",
+        "not_applicable_head_count",
+        "directionality_open_risk_count",
+        "directionality_contradiction_count",
+        "directionality_falsification_count",
+    ):
+        value = _require_int(
+            uncertainty_context.get(count_field),
+            f"{field_name}.uncertainty_context.{count_field}",
+        )
+        if value < 0:
+            raise ValueError(f"{field_name}.uncertainty_context.{count_field} must be non-negative")
+    replay_risk = _require_mapping(
+        uncertainty_context.get("replay_risk"),
+        f"{field_name}.uncertainty_context.replay_risk",
+    )
+    _require_text(
+        replay_risk.get("status", ""),
+        f"{field_name}.uncertainty_context.replay_risk.status",
+    )
+    _require_text(
+        replay_risk.get("summary", ""),
+        f"{field_name}.uncertainty_context.replay_risk.summary",
+    )
+    proposal = _require_mapping(
+        replay_risk.get("proposal"),
+        f"{field_name}.uncertainty_context.replay_risk.proposal",
+    )
+    for proposal_field in (
+        "entity_id",
+        "target_symbol",
+        "domain",
+        "population",
+        "mono_or_adjunct",
+    ):
+        _require_string(
+            proposal.get(proposal_field),
+            f"{field_name}.uncertainty_context.replay_risk.proposal.{proposal_field}",
+        )
+    for count_field in (
+        "supporting_reason_count",
+        "offsetting_reason_count",
+        "uncertainty_reason_count",
+        "uncertainty_flag_count",
+    ):
+        value = _require_int(
+            replay_risk.get(count_field),
+            f"{field_name}.uncertainty_context.replay_risk.{count_field}",
+        )
+        if value < 0:
+            raise ValueError(
+                f"{field_name}.uncertainty_context.replay_risk.{count_field} must be non-negative"
+            )
+    for list_field in (
+        "supporting_reasons",
+        "offsetting_reasons",
+        "uncertainty_reasons",
+    ):
+        reasons = _require_list(
+            replay_risk.get(list_field),
+            f"{field_name}.uncertainty_context.replay_risk.{list_field}",
+        )
+        for index, item in enumerate(reasons):
+            reason = _require_mapping(
+                item,
+                f"{field_name}.uncertainty_context.replay_risk.{list_field}[{index}]",
+            )
+            for required_field in (
+                "relation",
+                "event_id",
+                "failure_scope",
+                "explanation",
+            ):
+                _require_text(
+                    reason.get(required_field, ""),
+                    (
+                        f"{field_name}.uncertainty_context.replay_risk."
+                        f"{list_field}[{index}].{required_field}"
+                    ),
+                )
+    uncertainty_flags = _require_list(
+        replay_risk.get("uncertainty_flags"),
+        f"{field_name}.uncertainty_context.replay_risk.uncertainty_flags",
+    )
+    for index, item in enumerate(uncertainty_flags):
+        flag = _require_mapping(
+            item,
+            f"{field_name}.uncertainty_context.replay_risk.uncertainty_flags[{index}]",
+        )
+        _require_text(
+            flag.get("code", ""),
+            f"{field_name}.uncertainty_context.replay_risk.uncertainty_flags[{index}].code",
+        )
+        _require_text(
+            flag.get("explanation", ""),
+            (
+                f"{field_name}.uncertainty_context.replay_risk."
+                f"uncertainty_flags[{index}].explanation"
+            ),
+        )
+    _require_string_list(
+        replay_risk.get("falsification_conditions"),
+        f"{field_name}.uncertainty_context.replay_risk.falsification_conditions",
+    )
+
+
+def _validate_policy_decision_vector_entity(
+    payload: Mapping[str, object],
+    *,
+    field_name: str,
+    expected_entity_type: str,
+    valid_policy_ids: list[str],
+    valid_domain_slugs: set[str],
+) -> None:
+    _require_text(payload.get("entity_type", ""), f"{field_name}.entity_type")
+    if payload["entity_type"] != expected_entity_type:
+        raise ValueError(f"{field_name}.entity_type must be {expected_entity_type}")
+    _require_text(payload.get("entity_id", ""), f"{field_name}.entity_id")
+    _require_text(payload.get("entity_label", ""), f"{field_name}.entity_label")
+    _require_bool(payload.get("eligible_v0"), f"{field_name}.eligible_v0")
+    _require_optional_number(payload.get("heuristic_score_v0"), f"{field_name}.heuristic_score_v0")
+    if payload.get("heuristic_rank_v0") is not None:
+        _require_int(payload["heuristic_rank_v0"], f"{field_name}.heuristic_rank_v0")
+    _require_bool(payload.get("heuristic_stable_v0"), f"{field_name}.heuristic_stable_v0")
+    warning_count = _require_int(payload.get("warning_count"), f"{field_name}.warning_count")
+    if warning_count < 0:
+        raise ValueError(f"{field_name}.warning_count must be non-negative")
+    _require_text(payload.get("warning_severity", ""), f"{field_name}.warning_severity")
+
+    policy_vector = _require_mapping(payload.get("policy_vector"), f"{field_name}.policy_vector")
+    if list(policy_vector) != valid_policy_ids:
+        raise ValueError(f"{field_name}.policy_vector keys must preserve policy_definitions order")
+    for policy_id in valid_policy_ids:
+        _validate_policy_score_payload(
+            _require_mapping(
+                policy_vector.get(policy_id),
+                f"{field_name}.policy_vector.{policy_id}",
+            ),
+            field_name=f"{field_name}.policy_vector.{policy_id}",
+            valid_policy_ids=valid_policy_ids,
+            valid_domain_slugs=valid_domain_slugs,
+        )
+
+    policy_scores = _require_list(payload.get("policy_scores"), f"{field_name}.policy_scores")
+    observed_policy_ids: list[str] = []
+    for index, item in enumerate(policy_scores):
+        score_payload = _require_mapping(item, f"{field_name}.policy_scores[{index}]")
+        observed_policy_ids.append(
+            _require_text(
+                score_payload.get("policy_id", ""),
+                f"{field_name}.policy_scores[{index}].policy_id",
+            )
+        )
+        _validate_policy_score_payload(
+            score_payload,
+            field_name=f"{field_name}.policy_scores[{index}]",
+            valid_policy_ids=valid_policy_ids,
+            valid_domain_slugs=valid_domain_slugs,
+        )
+    if observed_policy_ids != valid_policy_ids:
+        raise ValueError(f"{field_name}.policy_scores must preserve policy_definitions order")
+
+
+def _validate_policy_decision_vectors(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    if payload.get("schema_version") != schema.schema_version:
+        raise ValueError(
+            f"{schema.artifact_name} schema_version must be {schema.schema_version}"
+        )
+    _require_string_list(
+        payload.get("policy_config_sources"),
+        "policy_decision_vectors_v2.policy_config_sources",
+    )
+    policy_definitions = _require_list(
+        payload.get("policy_definitions"),
+        "policy_decision_vectors_v2.policy_definitions",
+    )
+    valid_policy_ids, valid_domain_slugs = _validate_policy_definition_payloads(
+        policy_definitions
+    )
+    entities = _require_mapping(
+        payload.get("entities"),
+        "policy_decision_vectors_v2.entities",
+    )
+    for entity_type in ("gene", "module"):
+        entity_payloads = _require_list(
+            entities.get(entity_type),
+            f"policy_decision_vectors_v2.entities.{entity_type}",
+        )
+        for index, item in enumerate(entity_payloads):
+            _validate_policy_decision_vector_entity(
+                _require_mapping(
+                    item,
+                    f"policy_decision_vectors_v2.entities.{entity_type}[{index}]",
+                ),
+                field_name=f"policy_decision_vectors_v2.entities.{entity_type}[{index}]",
+                expected_entity_type=entity_type,
+                valid_policy_ids=valid_policy_ids,
+                valid_domain_slugs=valid_domain_slugs,
+            )
+    return payload
+
+
+def _validate_policy_pareto_fronts(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    if payload.get("schema_version") != schema.schema_version:
+        raise ValueError(
+            f"{schema.artifact_name} schema_version must be {schema.schema_version}"
+        )
+    policy_ids = _require_string_list(
+        payload.get("policy_ids"),
+        "policy_pareto_fronts_v1.policy_ids",
+    )
+    if len(set(policy_ids)) != len(policy_ids):
+        raise ValueError("policy_pareto_fronts_v1.policy_ids must not repeat values")
+    entity_types = _require_mapping(
+        payload.get("entity_types"),
+        "policy_pareto_fronts_v1.entity_types",
+    )
+    for entity_type in ("gene", "module"):
+        rows = _require_list(
+            entity_types.get(entity_type),
+            f"policy_pareto_fronts_v1.entity_types.{entity_type}",
+        )
+        for index, item in enumerate(rows):
+            row = _require_mapping(
+                item,
+                f"policy_pareto_fronts_v1.entity_types.{entity_type}[{index}]",
+            )
+            observed_entity_type = _require_text(
+                row.get("entity_type", ""),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].entity_type"
+                ),
+            )
+            if observed_entity_type != entity_type:
+                raise ValueError(
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].entity_type must be {entity_type}"
+                )
+            _require_text(
+                row.get("entity_id", ""),
+                f"policy_pareto_fronts_v1.entity_types.{entity_type}[{index}].entity_id",
+            )
+            _require_text(
+                row.get("entity_label", ""),
+                f"policy_pareto_fronts_v1.entity_types.{entity_type}[{index}].entity_label",
+            )
+            pareto_front = _require_int(
+                row.get("pareto_front"),
+                f"policy_pareto_fronts_v1.entity_types.{entity_type}[{index}].pareto_front",
+            )
+            if pareto_front <= 0:
+                raise ValueError(
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].pareto_front must be positive"
+                )
+            for count_field in ("dominated_by_count", "dominates_count", "warning_count"):
+                value = _require_int(
+                    row.get(count_field),
+                    (
+                        "policy_pareto_fronts_v1.entity_types."
+                        f"{entity_type}[{index}].{count_field}"
+                    ),
+                )
+                if value < 0:
+                    raise ValueError(
+                        "policy_pareto_fronts_v1.entity_types."
+                        f"{entity_type}[{index}].{count_field} must be non-negative"
+                    )
+            _require_bool(
+                row.get("complete_policy_vector"),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].complete_policy_vector"
+                ),
+            )
+            missing_policy_score_count = _require_int(
+                row.get("missing_policy_score_count"),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].missing_policy_score_count"
+                ),
+            )
+            if missing_policy_score_count < 0:
+                raise ValueError(
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].missing_policy_score_count must be non-negative"
+                )
+            _require_optional_number(
+                row.get("heuristic_score_v0"),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].heuristic_score_v0"
+                ),
+            )
+            if row.get("heuristic_rank_v0") is not None:
+                _require_int(
+                    row.get("heuristic_rank_v0"),
+                    (
+                        "policy_pareto_fronts_v1.entity_types."
+                        f"{entity_type}[{index}].heuristic_rank_v0"
+                    ),
+                )
+            _require_bool(
+                row.get("heuristic_stable_v0"),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].heuristic_stable_v0"
+                ),
+            )
+            _require_text(
+                row.get("warning_severity", ""),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].warning_severity"
+                ),
+            )
+            policy_scores = _require_mapping(
+                row.get("policy_scores"),
+                (
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].policy_scores"
+                ),
+            )
+            if sorted(policy_scores) != sorted(policy_ids):
+                raise ValueError(
+                    "policy_pareto_fronts_v1.entity_types."
+                    f"{entity_type}[{index}].policy_scores keys must match policy_ids"
+                )
+            for policy_id in policy_ids:
+                _require_optional_number(
+                    policy_scores.get(policy_id),
+                    (
+                        "policy_pareto_fronts_v1.entity_types."
+                        f"{entity_type}[{index}].policy_scores.{policy_id}"
+                    ),
+                )
+    return payload
+
+
 def _validate_domain_head_rankings(
     path: Path,
     schema: ArtifactSchemaDefinition,
@@ -951,11 +1502,20 @@ def infer_artifact_name(
             return "gene_target_ledgers"
         if {
             "schema_version",
+            "policy_config_sources",
+            "policy_definitions",
+            "entities",
+        }.issubset(payload):
+            return "policy_decision_vectors_v2"
+        if {
+            "schema_version",
             "decision_head_definitions",
             "domain_head_definitions",
             "entities",
         }.issubset(payload):
             return "decision_vectors_v1"
+        if {"schema_version", "policy_ids", "entity_types"}.issubset(payload):
+            return "policy_pareto_fronts_v1"
 
     if suffix == ".csv":
         fieldnames, _ = _read_csv_artifact(path)
@@ -977,7 +1537,9 @@ _ARTIFACT_VALIDATORS = {
     "rescue_task_contract": _validate_rescue_task_contract,
     "gene_target_ledgers": _validate_gene_target_ledgers,
     "decision_vectors_v1": _validate_decision_vectors,
+    "policy_decision_vectors_v2": _validate_policy_decision_vectors,
     "domain_head_rankings_v1": _validate_domain_head_rankings,
+    "policy_pareto_fronts_v1": _validate_policy_pareto_fronts,
 }
 
 

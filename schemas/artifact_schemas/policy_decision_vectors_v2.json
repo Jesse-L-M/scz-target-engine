@@ -1,0 +1,36 @@
+{
+  "artifact_name": "policy_decision_vectors_v2",
+  "schema_version": "v2",
+  "file_format": "json",
+  "description": "Policy-aware additive decision-vector payload with explicit uncertainty and replay-risk treatment.",
+  "key_fields": [
+    "schema_version"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Policy decision-vector payload schema version."
+    },
+    {
+      "name": "policy_config_sources",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Checked-in policy config files used to build this payload."
+    },
+    {
+      "name": "policy_definitions",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Resolved policy definitions and adjustment assumptions."
+    },
+    {
+      "name": "entities",
+      "field_type": "object",
+      "required": true,
+      "description": "Per-entity policy vectors for genes and modules."
+    }
+  ],
+  "optional_fields": []
+}

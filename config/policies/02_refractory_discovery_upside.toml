@@ -1,0 +1,27 @@
+policy_id = "refractory_discovery_upside_v1"
+label = "Refractory discovery upside"
+description = "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties."
+
+[domain_weights]
+treatment_resistant_schizophrenia = 0.25
+clozapine_resistant_schizophrenia = 0.20
+negative_symptoms = 0.20
+cognition = 0.20
+functioning_durable_recovery_relevance = 0.10
+chr_transition_prevention = 0.05
+
+[adjustments]
+low_coverage_penalty = 0.06
+missing_head_penalty = 0.015
+partial_head_penalty = 0.005
+warning_penalty_per_warning = 0.01
+directionality_open_risk_penalty = 0.005
+directionality_contradiction_penalty = 0.01
+directionality_falsification_penalty = 0.005
+replay_supported_penalty = 0.08
+replay_inconclusive_penalty = 0.03
+replay_not_supported_bonus = 0.02
+replay_supporting_reason_penalty = 0.01
+replay_offsetting_reason_bonus = 0.01
+replay_uncertainty_reason_penalty = 0.005
+replay_uncertainty_flag_penalty = 0.005

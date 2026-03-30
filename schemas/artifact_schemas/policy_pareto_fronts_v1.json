@@ -1,0 +1,30 @@
+{
+  "artifact_name": "policy_pareto_fronts_v1",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Pareto-front tiers over the additive policy decision-vector scores.",
+  "key_fields": [
+    "schema_version"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Policy Pareto-front payload schema version."
+    },
+    {
+      "name": "policy_ids",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Ordered policy dimensions used to build the fronts."
+    },
+    {
+      "name": "entity_types",
+      "field_type": "object",
+      "required": true,
+      "description": "Pareto rows grouped by entity type."
+    }
+  ],
+  "optional_fields": []
+}

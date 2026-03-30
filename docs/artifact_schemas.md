@@ -13,7 +13,9 @@ that future task work can consume without changing current build semantics.
 - `rescue_task_contract`
 - `gene_target_ledgers`
 - `decision_vectors_v1`
+- `policy_decision_vectors_v2`
 - `domain_head_rankings_v1`
+- `policy_pareto_fronts_v1`
 
 The schema files live under `schemas/artifact_schemas/`.
 
@@ -73,8 +75,13 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
   program-memory source of truth is the normalized `program_history/v2` dataset
 - `decision_vectors_v1` validates the emitted decision-head and domain-profile contract
   against the current `v1` definitions
+- `policy_decision_vectors_v2` validates the checked-in policy definitions used for
+  the build, the per-entity keyed and ordered policy views, and the explicit replay
+  or uncertainty payload carried by each policy score
 - `domain_head_rankings_v1` validates the emitted flat ranking columns against the
   current `v1` head set
+- `policy_pareto_fronts_v1` validates the ordered policy dimensions and the grouped
+  Pareto-front rows emitted for genes and modules
 - `rescue_task_contract` validates registry-backed rescue task identity, artifact
   interface declarations, and the strict no-leakage rescue boundary that precedes
   `PR-40A`

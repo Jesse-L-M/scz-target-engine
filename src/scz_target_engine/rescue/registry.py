@@ -12,6 +12,10 @@ from scz_target_engine.rescue.contracts import (
     RescueTaskContract,
     VALID_CONTRACT_SCOPES,
 )
+from scz_target_engine.rescue.governance import (
+    RESCUE_TASK_CARD_ARTIFACT_NAME,
+    RescueTaskCard,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -45,6 +49,7 @@ class RescueTaskRegistration:
     entity_type: str
     contract_scope: str
     contract_file: Path
+    task_card_file: Path
     registry_status: str
     notes: str = ""
 
@@ -61,6 +66,8 @@ class RescueTaskRegistration:
             raise ValueError("contract_scope must be a supported rescue contract scope")
         if not self.contract_file.exists():
             raise ValueError(f"contract_file does not exist: {self.contract_file}")
+        if not self.task_card_file.exists():
+            raise ValueError(f"task_card_file does not exist: {self.task_card_file}")
         if self.registry_status not in VALID_REGISTRY_STATUSES:
             raise ValueError("registry_status must be a supported rescue registry status")
 
@@ -97,6 +104,7 @@ def _build_registration(row: dict[str, str]) -> RescueTaskRegistration:
         entity_type=_require_text(row["entity_type"], "entity_type"),
         contract_scope=_require_text(row["contract_scope"], "contract_scope"),
         contract_file=_resolve_repo_relative_path(row["contract_file"]),
+        task_card_file=_resolve_repo_relative_path(row["task_card_file"]),
         registry_status=_require_text(row["registry_status"], "registry_status"),
         notes=str(row.get("notes", "")).strip(),
     )
@@ -122,6 +130,23 @@ def _validate_registration_match(
     if mismatches:
         raise ValueError(
             "rescue registry row did not match contract file fields: "
+            + ", ".join(mismatches)
+        )
+
+
+def _validate_task_card_match(
+    registration: RescueTaskRegistration,
+    task_card: RescueTaskCard,
+) -> None:
+    mismatches: list[str] = []
+    for field_name in ("suite_id", "task_id"):
+        if getattr(registration, field_name) != getattr(task_card, field_name):
+            mismatches.append(field_name)
+    if _resolve_repo_relative_path(task_card.contract_path) != registration.contract_file:
+        mismatches.append("contract_path")
+    if mismatches:
+        raise ValueError(
+            "rescue registry row did not match task card fields: "
             + ", ".join(mismatches)
         )
 
@@ -158,6 +183,16 @@ def _load_task_contracts(task_registry_path: Path) -> tuple[RescueTaskContract, 
                 "rescue task contract artifact did not return RescueTaskContract payload"
             )
         _validate_registration_match(registration, contract)
+        task_card_artifact = load_artifact(
+            registration.task_card_file,
+            artifact_name=RESCUE_TASK_CARD_ARTIFACT_NAME,
+        )
+        task_card = task_card_artifact.payload
+        if not isinstance(task_card, RescueTaskCard):
+            raise TypeError(
+                "rescue task card artifact did not return RescueTaskCard payload"
+            )
+        _validate_task_card_match(registration, task_card)
         contracts.append(contract)
     return tuple(contracts)
 

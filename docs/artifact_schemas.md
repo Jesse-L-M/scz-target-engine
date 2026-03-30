@@ -102,6 +102,9 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
   declared rescue contract and strict leakage policy, and `load_artifact(...,
   artifact_name=\"rescue_task_card\")` now runs the full cross-file bundle validation
   instead of only checking the task-card file in isolation
+- the rescue registry path now requires the registered `task_card_file` to pass that
+  same normal `load_artifact(..., artifact_name=\"rescue_task_card\")` validation
+  before it will return a registered rescue task contract
 - `rescue_freeze_manifest` validates the cutoff, current-head policy, upstream raw
   snapshots, and governed frozen outputs
 - `rescue_split_manifest` validates deterministic split declarations against a frozen

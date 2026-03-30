@@ -28,11 +28,14 @@ Each row in `rescue_task_registry.csv` carries:
 - `entity_type`
 - `contract_scope`
 - `contract_file`
+- `task_card_file`
 - `registry_status`
 - `notes`
 
 The registry row is only the index. The contract file is the source of truth for the
-task identity and future artifact expectations.
+task identity and future artifact expectations, and the task card file is the
+governance entry point that must validate before the normal rescue registry path will
+return that task contract.
 
 ## Rescue Contract Shape
 

@@ -147,13 +147,14 @@ def test_rescue_registry_rejects_registry_contract_identity_mismatch(
             [
                 (
                     "suite_id,suite_label,task_id,task_label,task_type,disease,"
-                    "entity_type,contract_scope,contract_file,registry_status,notes"
+                    "entity_type,contract_scope,contract_file,task_card_file,"
+                    "registry_status,notes"
                 ),
                 (
                     "scz_rescue_contract_suite,Schizophrenia Rescue Task Suite,"
                     "example_scz_gene_rescue_task,Example schizophrenia gene rescue task,"
                     "gene_rescue_ranking,schizophrenia,gene,rescue_only,"
-                    f"{contract_path},example,Intentional mismatch"
+                    f"{contract_path},{EXAMPLE_TASK_CARD_PATH},example,Intentional mismatch"
                 ),
             ]
         )
@@ -165,6 +166,71 @@ def test_rescue_registry_rejects_registry_contract_identity_mismatch(
         ValueError,
         match="rescue registry row did not match contract file fields",
     ):
+        load_rescue_task_contracts(task_registry_path=registry_path)
+
+
+def test_rescue_registry_rejects_missing_task_card_file_on_normal_path(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "rescue_task_registry.csv"
+    missing_task_card = tmp_path / "missing_task_card.json"
+    registry_path.write_text(
+        "\n".join(
+            [
+                (
+                    "suite_id,suite_label,task_id,task_label,task_type,disease,"
+                    "entity_type,contract_scope,contract_file,task_card_file,"
+                    "registry_status,notes"
+                ),
+                (
+                    "scz_rescue_contract_suite,Schizophrenia Rescue Task Suite,"
+                    "example_scz_gene_rescue_task,Example schizophrenia gene rescue task,"
+                    "gene_rescue_ranking,schizophrenia,gene,rescue_only,"
+                    f"{EXAMPLE_CONTRACT_PATH},{missing_task_card},example,Missing governance bundle"
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="task_card_file does not exist"):
+        load_rescue_task_contracts(task_registry_path=registry_path)
+
+
+def test_rescue_registry_rejects_broken_task_card_bundle_on_normal_path(
+    tmp_path: Path,
+) -> None:
+    task_card_payload = json.loads(EXAMPLE_TASK_CARD_PATH.read_text(encoding="utf-8"))
+    task_card_payload["dataset_card_paths"][0] = str(tmp_path / "missing_dataset_card.json")
+    task_card_path = tmp_path / "broken_task_card.json"
+    task_card_path.write_text(
+        json.dumps(task_card_payload, indent=2),
+        encoding="utf-8",
+    )
+
+    registry_path = tmp_path / "rescue_task_registry.csv"
+    registry_path.write_text(
+        "\n".join(
+            [
+                (
+                    "suite_id,suite_label,task_id,task_label,task_type,disease,"
+                    "entity_type,contract_scope,contract_file,task_card_file,"
+                    "registry_status,notes"
+                ),
+                (
+                    "scz_rescue_contract_suite,Schizophrenia Rescue Task Suite,"
+                    "example_scz_gene_rescue_task,Example schizophrenia gene rescue task,"
+                    "gene_rescue_ranking,schizophrenia,gene,rescue_only,"
+                    f"{EXAMPLE_CONTRACT_PATH},{task_card_path},example,Broken governance bundle"
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FileNotFoundError):
         load_rescue_task_contracts(task_registry_path=registry_path)
 
 

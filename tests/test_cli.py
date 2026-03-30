@@ -82,6 +82,28 @@ def test_cli_validate_runs() -> None:
             "atlas-refresh-candidate-registry",
             ("atlas", "ingest", "candidate-registry"),
         ),
+        (
+            [
+                "atlas",
+                "build",
+                "taxonomy",
+                "--ingest-manifest-file",
+                "atlas_manifest.json",
+            ],
+            "atlas-build-taxonomy",
+            ("atlas", "build", "taxonomy"),
+        ),
+        (
+            [
+                "atlas",
+                "build",
+                "tensor",
+                "--ingest-manifest-file",
+                "atlas_manifest.json",
+            ],
+            "atlas-build-tensor",
+            ("atlas", "build", "tensor"),
+        ),
     ],
 )
 def test_cli_namespaced_routes_map_to_legacy_commands(
@@ -514,6 +536,121 @@ def test_cli_atlas_refresh_candidate_registry_runs(monkeypatch, tmp_path: Path) 
     assert calls["disease_id"] is None
     assert calls["disease_query"] == "schizophrenia"
     assert calls["include_pgc"] is True
+
+
+def test_cli_atlas_build_taxonomy_parser_accepts_optional_output_dir() -> None:
+    args = build_parser().parse_args(
+        [
+            "atlas",
+            "build",
+            "taxonomy",
+            "--ingest-manifest-file",
+            "data/curated/atlas/example_ingest_manifest.json",
+            "--output-dir",
+            "data/curated/atlas/taxonomy",
+        ]
+    )
+    assert args.command == "atlas-build-taxonomy"
+    assert args.ingest_manifest_file == "data/curated/atlas/example_ingest_manifest.json"
+    assert args.output_dir == "data/curated/atlas/taxonomy"
+
+
+def test_cli_atlas_build_tensor_parser_accepts_optional_taxonomy_dir() -> None:
+    args = build_parser().parse_args(
+        [
+            "atlas",
+            "build",
+            "tensor",
+            "--ingest-manifest-file",
+            "data/curated/atlas/example_ingest_manifest.json",
+            "--output-dir",
+            "data/curated/atlas/tensor",
+            "--taxonomy-dir",
+            "data/curated/atlas/tensor/taxonomy",
+        ]
+    )
+    assert args.command == "atlas-build-tensor"
+    assert args.ingest_manifest_file == "data/curated/atlas/example_ingest_manifest.json"
+    assert args.output_dir == "data/curated/atlas/tensor"
+    assert args.taxonomy_dir == "data/curated/atlas/tensor/taxonomy"
+
+
+def test_cli_atlas_build_taxonomy_runs(monkeypatch, tmp_path: Path) -> None:
+    ingest_manifest_file = tmp_path / "atlas_manifest.json"
+    output_dir = tmp_path / "taxonomy"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_atlas_taxonomy(
+        *,
+        ingest_manifest_file: Path,
+        output_dir: Path | None,
+    ) -> dict[str, object]:
+        calls["ingest_manifest_file"] = ingest_manifest_file
+        calls["output_dir"] = output_dir
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_atlas_taxonomy",
+        fake_materialize_atlas_taxonomy,
+    )
+
+    exit_code = main(
+        [
+            "atlas",
+            "build",
+            "taxonomy",
+            "--ingest-manifest-file",
+            str(ingest_manifest_file),
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["ingest_manifest_file"] == ingest_manifest_file.resolve()
+    assert calls["output_dir"] == output_dir.resolve()
+
+
+def test_cli_atlas_build_tensor_runs(monkeypatch, tmp_path: Path) -> None:
+    ingest_manifest_file = tmp_path / "atlas_manifest.json"
+    output_dir = tmp_path / "tensor"
+    taxonomy_dir = tmp_path / "taxonomy"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_atlas_tensor(
+        *,
+        ingest_manifest_file: Path,
+        output_dir: Path | None,
+        taxonomy_dir: Path | None,
+    ) -> dict[str, object]:
+        calls["ingest_manifest_file"] = ingest_manifest_file
+        calls["output_dir"] = output_dir
+        calls["taxonomy_dir"] = taxonomy_dir
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_atlas_tensor",
+        fake_materialize_atlas_tensor,
+    )
+
+    exit_code = main(
+        [
+            "atlas",
+            "build",
+            "tensor",
+            "--ingest-manifest-file",
+            str(ingest_manifest_file),
+            "--output-dir",
+            str(output_dir),
+            "--taxonomy-dir",
+            str(taxonomy_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["ingest_manifest_file"] == ingest_manifest_file.resolve()
+    assert calls["output_dir"] == output_dir.resolve()
+    assert calls["taxonomy_dir"] == taxonomy_dir.resolve()
 
 
 def test_cli_refresh_example_gene_table_parser_accepts_optional_paths() -> None:

@@ -1,0 +1,4 @@
+entity_id,entity_label,gene_biotype,common_variant_support,pgc_scz2022_prioritised,pgc_scz2022_priority_index_snp_count,pgc_scz2022_priority_index_snps_json,pgc_scz2022_FINEMAP.priority.gene,pgc_scz2022_SMR.priority.gene,pgc_scz2022_SMRpsych,pgc_scz2022_sig.adultFUSION
+ENSG00000149295,DRD2,protein_coding,0.1875,1,1,"[""rs1""]",1,0,1,1
+ENSG00000151067,CACNA1C,protein_coding,0.125,1,1,"[""rs2""]",0,1,0,0
+ENSG00000136492,ZNF804A,protein_coding,0.0625,0,0,[],0,0,1,0

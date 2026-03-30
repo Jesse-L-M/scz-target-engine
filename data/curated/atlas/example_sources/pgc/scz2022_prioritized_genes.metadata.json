@@ -1,0 +1,8 @@
+{
+  "article_id": 19426775,
+  "download_url": "https://example.test/scz2022.xlsx",
+  "output_file": "data/curated/atlas/example_sources/pgc/scz2022_prioritized_genes.csv",
+  "row_count": 3,
+  "source": "PGC scz2022 public release",
+  "workbook_name": "scz2022-Extended-Data-Table1.xlsx"
+}

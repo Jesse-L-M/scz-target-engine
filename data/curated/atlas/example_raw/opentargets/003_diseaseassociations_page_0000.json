@@ -1,0 +1,9 @@
+{
+  "disease": {
+    "associatedTargets": {
+      "count": 3
+    },
+    "id": "MONDO_0005090",
+    "name": "schizophrenia"
+  }
+}

@@ -26,8 +26,10 @@ operates from curated tables with normalized layer scores in `[0, 1]`.
 Atlas now also has an additive raw-source staging foundation for adapter-backed
 `Open Targets` and `PGC` pulls. It writes provenance-bearing request/download
 captures under `data/raw/sources/` and can rebuild a candidate registry through
-`atlas ingest candidate-registry`, but that foundation still does not implement
-consortium-dump parsing.
+`atlas ingest candidate-registry`. Atlas also now has additive taxonomy/tensor
+builders that materialize provenance-bearing evidence slices, missingness,
+conflict, and structural uncertainty from an ingest manifest, but that
+foundation still does not implement consortium-dump parsing.
 
 ## Claim Boundary
 
@@ -57,7 +59,8 @@ output contract, [docs/benchmarking.md](docs/benchmarking.md) for the canonical
 benchmark workflow, and [docs/artifact_schemas.md](docs/artifact_schemas.md) for the
 registered artifact families and runtime validation surface. See
 [docs/atlas_source_ingest.md](docs/atlas_source_ingest.md) for the staged raw-source
-contract and atlas ingest boundary.
+contract and atlas ingest boundary, and [docs/atlas_tensor.md](docs/atlas_tensor.md)
+for the taxonomy/tensor contract layered on top of that ingest foundation.
 
 ## Quickstart
 
@@ -200,6 +203,7 @@ that call the same handlers with the same flags:
 - `sources schema`, `sources psychencode support`, `sources psychencode modules`
 - `registry build`, `registry refresh`
 - `atlas sources opentargets`, `atlas sources pgc scz2022`, `atlas ingest candidate-registry`
+- `atlas build taxonomy`, `atlas build tensor`
 - `prepare gene-table`, `prepare example-gene-table`, `prepare example-module-table`, `prepare example-inputs`
 - `benchmark snapshot`, `benchmark cohort`, `benchmark run`
 
@@ -235,6 +239,18 @@ uv run scz-target-engine atlas ingest candidate-registry \
 That atlas path stages raw adapter captures under `.context/atlas/raw/`, rebuilds the
 same candidate-registry contract from processed source outputs, and keeps the existing
 `registry refresh` workflow unchanged.
+
+Deterministic atlas tensor example:
+
+```bash
+uv run scz-target-engine atlas build tensor \
+  --ingest-manifest-file data/curated/atlas/example_ingest_manifest.json \
+  --output-dir .context/atlas/example_tensor
+```
+
+That tensor path consumes the checked-in fixture manifest under `data/curated/atlas/`
+and emits taxonomy, provenance, alignment, and evidence-tensor artifacts without
+calling live APIs.
 
 ## Canonical Benchmark Workflow
 

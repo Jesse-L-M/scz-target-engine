@@ -7,7 +7,9 @@ from pathlib import Path
 import sys
 from typing import Callable
 
+from scz_target_engine.atlas.convergence import materialize_convergence_hubs
 from scz_target_engine.atlas.ingest import refresh_atlas_candidate_registry
+from scz_target_engine.atlas.mechanistic_axes import materialize_mechanistic_axes
 from scz_target_engine.atlas.sources import (
     fetch_atlas_opentargets_baseline,
     fetch_atlas_pgc_scz2022_prioritized_genes,
@@ -210,6 +212,20 @@ def _configure_atlas_build_tensor_parser(parser: argparse.ArgumentParser) -> Non
     parser.add_argument("--taxonomy-dir")
 
 
+def _configure_atlas_build_mechanistic_axes_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--tensor-manifest-file", required=True)
+    parser.add_argument("--output-dir")
+
+
+def _configure_atlas_build_convergence_hubs_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--tensor-manifest-file", required=True)
+    parser.add_argument("--output-dir")
+
+
 def _configure_prepare_gene_table_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--seed-file", required=True)
     parser.add_argument("--output-file", required=True)
@@ -388,6 +404,16 @@ COMMAND_ROUTES = (
         "atlas-build-tensor",
         ("atlas", "build", "tensor"),
         _configure_atlas_build_tensor_parser,
+    ),
+    CommandRoute(
+        "atlas-build-mechanistic-axes",
+        ("atlas", "build", "mechanistic-axes"),
+        _configure_atlas_build_mechanistic_axes_parser,
+    ),
+    CommandRoute(
+        "atlas-build-convergence-hubs",
+        ("atlas", "build", "convergence-hubs"),
+        _configure_atlas_build_convergence_hubs_parser,
     ),
     CommandRoute(
         "prepare-gene-table",
@@ -841,6 +867,22 @@ def main(argv: list[str] | None = None) -> int:
             ingest_manifest_file=Path(args.ingest_manifest_file).resolve(),
             output_dir=Path(args.output_dir).resolve() if args.output_dir else None,
             taxonomy_dir=Path(args.taxonomy_dir).resolve() if args.taxonomy_dir else None,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "atlas-build-mechanistic-axes":
+        result = materialize_mechanistic_axes(
+            tensor_manifest_file=Path(args.tensor_manifest_file).resolve(),
+            output_dir=Path(args.output_dir).resolve() if args.output_dir else None,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "atlas-build-convergence-hubs":
+        result = materialize_convergence_hubs(
+            tensor_manifest_file=Path(args.tensor_manifest_file).resolve(),
+            output_dir=Path(args.output_dir).resolve() if args.output_dir else None,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

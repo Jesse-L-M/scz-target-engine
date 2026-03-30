@@ -29,10 +29,12 @@ from scz_target_engine.io import read_json, write_csv
 from scz_target_engine.program_memory import (
     apply_program_memory_adjudication,
     build_program_memory_adjudication_record,
+    build_program_memory_coverage_audit,
     build_program_memory_harvest_batch,
     build_program_memory_harvest_review_rows,
     load_program_memory_harvest_batch,
     write_program_memory_adjudication_outputs,
+    write_program_memory_coverage_outputs,
     write_program_memory_harvest_batch,
 )
 from scz_target_engine.prepare import (
@@ -99,6 +101,17 @@ def _configure_program_memory_adjudicate_parser(
     parser.add_argument("--reviewer", required=True)
     parser.add_argument("--reviewed-at")
     parser.add_argument("--notes")
+
+
+def _configure_program_memory_coverage_audit_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--dataset-dir", default="data/curated/program_history/v2")
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--focus-target")
+    parser.add_argument("--focus-target-class")
+    parser.add_argument("--focus-domain")
+    parser.add_argument("--focus-failure-scope")
 
 
 def _configure_fetch_opentargets_parser(parser: argparse.ArgumentParser) -> None:
@@ -305,6 +318,11 @@ COMMAND_ROUTES = (
         "program-memory-adjudicate",
         ("program-memory", "adjudicate"),
         _configure_program_memory_adjudicate_parser,
+    ),
+    CommandRoute(
+        "program-memory-coverage-audit",
+        ("program-memory", "coverage-audit"),
+        _configure_program_memory_coverage_audit_parser,
     ),
     CommandRoute(
         "fetch-opentargets",
@@ -594,6 +612,43 @@ def main(argv: list[str] | None = None) -> int:
                     "rejected_suggestion_ids": list(outcome.rejected_suggestion_ids),
                     "pending_suggestion_ids": list(outcome.pending_suggestion_ids),
                     "output_dir": str(output_dir),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if args.command == "program-memory-coverage-audit":
+        dataset_dir = Path(args.dataset_dir).resolve()
+        output_dir = Path(args.output_dir).resolve()
+        audit = build_program_memory_coverage_audit(dataset_dir)
+        focus_report = write_program_memory_coverage_outputs(
+            output_dir,
+            audit,
+            target=args.focus_target or "",
+            target_class=args.focus_target_class or "",
+            domain=args.focus_domain or "",
+            failure_scope=args.focus_failure_scope or "",
+        )
+        print(
+            json.dumps(
+                {
+                    "dataset_dir": audit.dataset_dir,
+                    "summary_count": len(audit.summaries),
+                    "gap_count": len(audit.gaps),
+                    "evidence_row_count": len(audit.evidence_rows),
+                    "focus_request": dict(focus_report.request),
+                    "output_dir": str(output_dir),
+                    "coverage_audit_file": str(output_dir / "coverage_audit.json"),
+                    "coverage_summary_file": str(output_dir / "coverage_summary.csv"),
+                    "coverage_gaps_file": str(output_dir / "coverage_gaps.csv"),
+                    "coverage_evidence_file": str(output_dir / "coverage_evidence.csv"),
+                    "coverage_focus_file": (
+                        str(output_dir / "coverage_focus.json")
+                        if focus_report.request
+                        else None
+                    ),
                 },
                 indent=2,
                 sort_keys=True,

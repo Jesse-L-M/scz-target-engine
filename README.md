@@ -207,7 +207,7 @@ Legacy flat commands remain supported. The new namespaced routes are additive al
 that call the same handlers with the same flags:
 
 - `engine validate`, `engine build`
-- `program-memory harvest`, `program-memory adjudicate`
+- `program-memory harvest`, `program-memory adjudicate`, `program-memory coverage-audit`
 - `sources opentargets`, `sources chembl`, `sources pgc scz2022`
 - `sources schema`, `sources psychencode support`, `sources psychencode modules`
 - `registry build`, `registry refresh`

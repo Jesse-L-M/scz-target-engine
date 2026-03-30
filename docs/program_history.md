@@ -257,6 +257,44 @@ Current checked-in interpretation:
 - the resulting counterfactual remains falsifiable because future aligned selective
   CHRM4 failures could still move the interpretation toward replay
 
+## Coverage Audit And Gap Reports
+
+`src/scz_target_engine/program_memory/coverage.py` materializes an explicit coverage
+audit over the checked-in v2 substrate.
+
+It writes three machine-readable artifact surfaces:
+
+- `coverage_audit.json`: grouped summaries plus explicit gap and evidence payloads
+- `coverage_summary.csv`: one summary row per target, target class, domain, and
+  failure-reason scope
+- `coverage_gaps.csv` and `coverage_evidence.csv`: first-class gaps plus raw
+  provenance-grounded evidence rows
+
+Gap rows distinguish why coverage is missing or thin:
+
+- `history_sparse`: the repository lacks enough checked-in clinical history for the
+  requested scope
+- `curation_incomplete`: relevant history exists, but the current checked-in curation
+  still leaves a directionality or failure-scope judgment unresolved
+
+Example focused audit path for the current `CHRM4` slice:
+
+```bash
+uv run scz-target-engine program-memory coverage-audit \
+  --dataset-dir data/curated/program_history/v2 \
+  --output-dir .context/program_memory/coverage \
+  --focus-target CHRM4
+```
+
+That focused output should currently show:
+
+- `CHRM4` target coverage as `partial`, not `strong`
+- a provenance-backed nonfailure anchor through
+  `cobenfy-xanomeline-trospium-approval-us-2024`
+- an explicit `unresolved_failure_scope` gap from
+  `emraclidine-empower-acute-scz-topline-2024`
+- no silent promotion of the selective CHRM4 miss into a stronger failure claim
+
 ## PR7 Structural Consumption
 
 The target-ledger output still consumes the legacy-compatible `programs.csv` view to

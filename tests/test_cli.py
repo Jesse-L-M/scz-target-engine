@@ -68,6 +68,16 @@ def test_cli_validate_runs() -> None:
         ),
         (
             [
+                "program-memory",
+                "coverage-audit",
+                "--output-dir",
+                "coverage",
+            ],
+            "program-memory-coverage-audit",
+            ("program-memory", "coverage-audit"),
+        ),
+        (
+            [
                 "benchmark",
                 "backfill",
                 "public-slices",

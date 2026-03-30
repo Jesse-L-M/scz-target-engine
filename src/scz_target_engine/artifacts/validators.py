@@ -41,6 +41,18 @@ from scz_target_engine.rescue.contracts import (
     RescueTaskContract,
     read_rescue_task_contract,
 )
+from scz_target_engine.rescue.governance import (
+    RescueDatasetCard,
+    RescueFreezeManifest,
+    RescueRawToFrozenLineage,
+    RescueSplitManifest,
+    RescueTaskCard,
+    read_rescue_dataset_card,
+    read_rescue_freeze_manifest,
+    read_rescue_raw_to_frozen_lineage,
+    read_rescue_split_manifest,
+    read_rescue_task_card,
+)
 
 
 def _load_json_mapping(path: Path) -> dict[str, object]:
@@ -226,6 +238,71 @@ def _validate_rescue_task_contract(
         context=f"{schema.artifact_name} artifact {path}",
     )
     return read_rescue_task_contract(path)
+
+
+def _validate_rescue_dataset_card(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> RescueDatasetCard:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return read_rescue_dataset_card(path)
+
+
+def _validate_rescue_task_card(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> RescueTaskCard:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return read_rescue_task_card(path)
+
+
+def _validate_rescue_freeze_manifest(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> RescueFreezeManifest:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return read_rescue_freeze_manifest(path)
+
+
+def _validate_rescue_split_manifest(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> RescueSplitManifest:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return read_rescue_split_manifest(path)
+
+
+def _validate_rescue_raw_to_frozen_lineage(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> RescueRawToFrozenLineage:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return read_rescue_raw_to_frozen_lineage(path)
 
 
 def _validate_structural_failure_history(
@@ -1534,7 +1611,12 @@ _ARTIFACT_VALIDATORS = {
     "benchmark_model_run_manifest": _validate_benchmark_model_run_manifest,
     "benchmark_metric_output_payload": _validate_benchmark_metric_output_payload,
     "benchmark_confidence_interval_payload": _validate_benchmark_confidence_interval_payload,
+    "rescue_dataset_card": _validate_rescue_dataset_card,
+    "rescue_freeze_manifest": _validate_rescue_freeze_manifest,
+    "rescue_raw_to_frozen_lineage": _validate_rescue_raw_to_frozen_lineage,
+    "rescue_split_manifest": _validate_rescue_split_manifest,
     "rescue_task_contract": _validate_rescue_task_contract,
+    "rescue_task_card": _validate_rescue_task_card,
     "gene_target_ledgers": _validate_gene_target_ledgers,
     "decision_vectors_v1": _validate_decision_vectors,
     "policy_decision_vectors_v2": _validate_policy_decision_vectors,

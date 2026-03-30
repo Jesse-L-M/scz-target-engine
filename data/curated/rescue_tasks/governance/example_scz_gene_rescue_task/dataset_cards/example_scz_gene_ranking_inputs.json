@@ -1,0 +1,31 @@
+{
+  "schema_name": "rescue_dataset_card",
+  "schema_version": "v1",
+  "dataset_id": "example_scz_gene_ranking_inputs_2025_01_15",
+  "dataset_label": "Example schizophrenia gene rescue ranking inputs",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "example_scz_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/example_scz_gene_rescue_task.json",
+  "artifact_contract_id": "candidate_universe",
+  "dataset_role": "ranking_input",
+  "availability": "pre_cutoff",
+  "governance_status": "example",
+  "source_stage": "frozen",
+  "entity_type": "gene",
+  "record_grain": "gene",
+  "primary_key_fields": [
+    "gene_id"
+  ],
+  "contains_post_cutoff_labels": false,
+  "allowed_uses": [
+    "candidate_selection",
+    "feature_construction",
+    "split_assignment"
+  ],
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/freeze_manifests/example_scz_gene_rescue_freeze_2025_01_15.json",
+  "lineage_path": "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/lineage/example_scz_gene_raw_to_frozen_lineage_2025_01_16.json",
+  "expected_output_path": "data/processed/rescue/example_scz_gene_rescue_task/frozen/example_scz_gene_ranking_inputs_2025_01_15.csv",
+  "file_format": "csv",
+  "description": "Example frozen ranking-input dataset card for the rescue lane. The card documents the governed pre-cutoff candidate universe without checking in task-specific frozen data yet.",
+  "notes": "Later rescue-data PRs should keep the artifact_contract_id stable while replacing the example output path with the materialized freeze location."
+}

@@ -1,0 +1,103 @@
+{
+  "artifact_name": "rescue_split_manifest",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Schema-validated split manifest for a governed rescue ranking dataset.",
+  "key_fields": [
+    "split_manifest_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue split manifest schema version."
+    },
+    {
+      "name": "split_manifest_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable rescue split manifest identifier."
+    },
+    {
+      "name": "suite_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue suite identifier."
+    },
+    {
+      "name": "task_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue task identifier."
+    },
+    {
+      "name": "contract_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Repo-relative path to the rescue task contract artifact."
+    },
+    {
+      "name": "governance_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Whether the split manifest is an example, planned, or active artifact."
+    },
+    {
+      "name": "freeze_manifest_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Repo-relative path to the governing rescue freeze manifest."
+    },
+    {
+      "name": "source_dataset_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Frozen ranking dataset that the split plan applies to."
+    },
+    {
+      "name": "split_strategy_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable split strategy identifier."
+    },
+    {
+      "name": "split_seed",
+      "field_type": "integer",
+      "required": true,
+      "description": "Random seed for deterministic split assignment."
+    },
+    {
+      "name": "assignment_unit",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity unit assigned into train, validation, and test partitions."
+    },
+    {
+      "name": "partitions",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Declared split partitions and their leakage constraints."
+    },
+    {
+      "name": "description",
+      "field_type": "string",
+      "required": true,
+      "description": "Short governance summary for the split manifest."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional rescue split manifest notes."
+    }
+  ]
+}

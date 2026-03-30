@@ -1,0 +1,103 @@
+{
+  "artifact_name": "rescue_task_card",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Schema-validated governance card that binds a rescue task contract to its checked-in governance artifacts.",
+  "key_fields": [
+    "task_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue task card schema version."
+    },
+    {
+      "name": "task_card_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable rescue task card identifier."
+    },
+    {
+      "name": "suite_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue suite identifier."
+    },
+    {
+      "name": "task_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Rescue task identifier."
+    },
+    {
+      "name": "contract_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Repo-relative path to the rescue task contract artifact."
+    },
+    {
+      "name": "governance_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Whether the task card is an example, planned, or active artifact."
+    },
+    {
+      "name": "owner",
+      "field_type": "string",
+      "required": true,
+      "description": "Responsible owner for the rescue task data lane."
+    },
+    {
+      "name": "summary",
+      "field_type": "string",
+      "required": true,
+      "description": "Short governance summary for the rescue task."
+    },
+    {
+      "name": "leakage_boundary_policy_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Leakage policy enforced by the rescue task contract."
+    },
+    {
+      "name": "dataset_card_paths",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Repo-relative paths to the checked-in rescue dataset cards."
+    },
+    {
+      "name": "freeze_manifest_paths",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Repo-relative paths to the checked-in rescue freeze manifests."
+    },
+    {
+      "name": "split_manifest_paths",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Repo-relative paths to the checked-in rescue split manifests."
+    },
+    {
+      "name": "lineage_paths",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Repo-relative paths to the checked-in raw-to-frozen lineage artifacts."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional rescue task card notes."
+    }
+  ]
+}

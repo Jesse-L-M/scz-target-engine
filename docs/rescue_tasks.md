@@ -1,7 +1,9 @@
-# Rescue Task Contracts
+# Rescue Task Contracts And Governance
 
 `PR-40` adds a dedicated rescue-task registry and a validated contract surface without
-changing the shipped benchmark registry path.
+changing the shipped benchmark registry path. `PR-40A` turns that registry-backed
+contract into a governed data lane with schema-validated task cards, dataset cards,
+freeze manifests, split manifests, and raw-to-frozen lineage.
 
 ## Registry Split
 
@@ -42,7 +44,8 @@ Each `rescue_task_contract` JSON artifact carries:
 - `contract_scope`, which defaults to `rescue_only`
 - `artifact_contracts`, an explicit list of future task inputs and outputs
 - `leakage_boundary`, a strict policy block that already forbids post-cutoff ranking
-  inputs and evaluation-label reuse
+  inputs and evaluation-label reuse while requiring governance artifacts before
+  rescue data work can land
 
 Current artifact channels are:
 
@@ -52,18 +55,64 @@ Current artifact channels are:
 - `task_metadata`: optional supporting metadata that must not depend on post-cutoff
   adjudications
 
-## Leakage Boundary Before PR-40A
+## Governed Data Lane
 
-The rescue leakage policy is explicit now even though freeze manifests and governance
-records are not shipped yet:
+The checked-in example family lives under:
+
+- `data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/task_card.json`
+- `data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/dataset_cards/`
+- `data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/freeze_manifests/`
+- `data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/split_manifests/`
+- `data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/lineage/`
+
+The task card is the top-level governance entry point. It binds one rescue task
+contract to the checked-in dataset cards, freeze manifest, split manifest, and
+raw-to-frozen lineage artifacts that later rescue-data PRs must materialize.
+
+## Leakage Boundary After PR-40A
+
+The rescue leakage policy is explicit and now requires schema-validated governance
+artifacts:
 
 - explicit cutoff is required
 - explicit artifact contracts are required
 - post-cutoff artifacts are forbidden in ranking inputs
 - evaluation labels are forbidden in ranking inputs
-- `freeze_manifest_required` is pinned to `false`
-- `freeze_manifest_policy` is pinned to `deferred_until_pr40a`
+- `freeze_manifest_required` is pinned to `true`
+- `freeze_manifest_policy` is pinned to `schema_validated_rescue_governance_v1`
+- dataset cards are required
+- a task card is required
+- split manifests are required
+- raw-to-frozen lineage is required
 - unfrozen current-head state is forbidden
 
-`PR-40A` can extend this contract with governance, cards, split manifests, and freeze
-manifests without having to redefine task identity.
+## What Later Rescue-Data PRs Must Emit
+
+`PR-40B`, `PR-40C`, and `PR-40D` should treat the example family as the contract to
+copy, not as loose documentation:
+
+- update the existing task card from `example` to `active` or add a new task-family task card
+- emit at least one `rescue_dataset_card` for each governed ranking input and
+  evaluation target dataset
+- emit a `rescue_freeze_manifest` that documents the cutoff, upstream raw snapshots,
+  and frozen dataset outputs
+- emit a `rescue_split_manifest` before any downstream training or evaluation code
+  consumes the governed ranking inputs
+- emit a `rescue_raw_to_frozen_lineage` artifact that traces raw snapshots through
+  named transformation steps into every frozen dataset listed in the freeze manifest
+
+The intended validation path is:
+
+```python
+from pathlib import Path
+
+from scz_target_engine.rescue import validate_rescue_governance_bundle
+
+bundle = validate_rescue_governance_bundle(
+    Path(
+        "data/curated/rescue_tasks/governance/"
+        "example_scz_gene_rescue_task/task_card.json"
+    )
+)
+assert bundle.task_card.task_id == "example_scz_gene_rescue_task"
+```

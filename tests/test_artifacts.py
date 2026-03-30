@@ -36,7 +36,12 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
         "benchmark_model_run_manifest",
         "benchmark_metric_output_payload",
         "benchmark_confidence_interval_payload",
+        "rescue_dataset_card",
+        "rescue_freeze_manifest",
+        "rescue_raw_to_frozen_lineage",
+        "rescue_split_manifest",
         "rescue_task_contract",
+        "rescue_task_card",
         "gene_target_ledgers",
         "decision_vectors_v1",
         "policy_decision_vectors_v2",
@@ -204,3 +209,65 @@ def test_example_rescue_task_contract_validates_against_registered_schema() -> N
     assert rescue_contract_artifact.payload.leakage_boundary.policy_id == (
         "strict_rescue_task_boundary_v1"
     )
+    assert rescue_contract_artifact.payload.leakage_boundary.freeze_manifest_required
+
+
+def test_example_rescue_governance_artifacts_validate_against_registered_schemas() -> None:
+    task_card_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "example_scz_gene_rescue_task/task_card.json"
+        ).resolve()
+    )
+    ranking_dataset_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+            "dataset_cards/example_scz_gene_ranking_inputs.json"
+        ).resolve()
+    )
+    evaluation_dataset_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+            "dataset_cards/example_scz_gene_evaluation_labels.json"
+        ).resolve()
+    )
+    freeze_manifest_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+            "freeze_manifests/example_scz_gene_rescue_freeze_2025_01_15.json"
+        ).resolve()
+    )
+    split_manifest_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+            "split_manifests/example_scz_gene_rescue_split_2025_01_16.json"
+        ).resolve()
+    )
+    lineage_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
+            "lineage/example_scz_gene_raw_to_frozen_lineage_2025_01_16.json"
+        ).resolve()
+    )
+
+    assert task_card_artifact.artifact_name == "rescue_task_card"
+    assert task_card_artifact.payload.task_id == "example_scz_gene_rescue_task"
+    assert ranking_dataset_artifact.artifact_name == "rescue_dataset_card"
+    assert ranking_dataset_artifact.payload.dataset_role == "ranking_input"
+    assert evaluation_dataset_artifact.artifact_name == "rescue_dataset_card"
+    assert evaluation_dataset_artifact.payload.dataset_role == "evaluation_target"
+    assert freeze_manifest_artifact.artifact_name == "rescue_freeze_manifest"
+    assert freeze_manifest_artifact.payload.freeze_manifest_id == (
+        "example_scz_gene_rescue_freeze_2025_01_15"
+    )
+    assert split_manifest_artifact.artifact_name == "rescue_split_manifest"
+    assert split_manifest_artifact.payload.source_dataset_id == (
+        "example_scz_gene_ranking_inputs_2025_01_15"
+    )
+    assert lineage_artifact.artifact_name == "rescue_raw_to_frozen_lineage"
+    assert {
+        dataset.dataset_id for dataset in lineage_artifact.payload.frozen_datasets
+    } == {
+        "example_scz_gene_ranking_inputs_2025_01_15",
+        "example_scz_gene_evaluation_labels_2025_06_30",
+    }

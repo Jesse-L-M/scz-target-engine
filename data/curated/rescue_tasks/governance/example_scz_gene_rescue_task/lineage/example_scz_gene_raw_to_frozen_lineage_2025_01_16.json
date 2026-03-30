@@ -1,0 +1,97 @@
+{
+  "schema_name": "rescue_raw_to_frozen_lineage",
+  "schema_version": "v1",
+  "lineage_id": "example_scz_gene_raw_to_frozen_lineage_2025_01_16",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "example_scz_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/example_scz_gene_rescue_task.json",
+  "governance_status": "example",
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/freeze_manifests/example_scz_gene_rescue_freeze_2025_01_15.json",
+  "raw_sources": [
+    {
+      "source_id": "opentargets_24_12_gene_associations",
+      "source_name": "opentargets",
+      "snapshot_id": "ot-2024-12-scz",
+      "captured_at": "2025-01-12",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/sources/opentargets/scz_ot_2024_12.json",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "description": "Pre-cutoff Open Targets schizophrenia association snapshot used in the governed rescue ranking inputs."
+    },
+    {
+      "source_id": "pgc_scz_2024_gene_scores",
+      "source_name": "pgc",
+      "snapshot_id": "pgc-scz-2024",
+      "captured_at": "2025-01-10",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/sources/pgc/scz_2024_gene_scores.csv",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "description": "Pre-cutoff PGC schizophrenia gene ranking snapshot used in the governed rescue candidate universe."
+    },
+    {
+      "source_id": "clinical_outcomes_q2_2025",
+      "source_name": "internal_outcomes",
+      "snapshot_id": "outcomes-2025q2",
+      "captured_at": "2025-06-30",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/sources/internal/example_scz_gene_rescue_outcomes_2025q2.csv",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "description": "Post-cutoff outcome adjudications reserved for evaluation only."
+    }
+  ],
+  "transformation_steps": [
+    {
+      "step_id": "normalize_pre_cutoff_sources",
+      "step_label": "Normalize pre-cutoff gene evidence",
+      "step_kind": "normalize",
+      "input_ids": [
+        "opentargets_24_12_gene_associations",
+        "pgc_scz_2024_gene_scores"
+      ],
+      "output_ids": [
+        "normalized_pre_cutoff_gene_rows"
+      ],
+      "description": "Normalize the pre-cutoff Open Targets and PGC evidence into a single governed rescue feature table keyed by gene."
+    },
+    {
+      "step_id": "freeze_candidate_universe",
+      "step_label": "Freeze ranking input universe",
+      "step_kind": "freeze",
+      "input_ids": [
+        "normalized_pre_cutoff_gene_rows"
+      ],
+      "output_ids": [
+        "ranking_input_freeze_rows"
+      ],
+      "description": "Freeze the normalized pre-cutoff evidence into the governed ranking-input dataset declared by the dataset card."
+    },
+    {
+      "step_id": "hold_out_post_cutoff_labels",
+      "step_label": "Hold out post-cutoff labels",
+      "step_kind": "label_holdout",
+      "input_ids": [
+        "clinical_outcomes_q2_2025"
+      ],
+      "output_ids": [
+        "held_out_outcome_rows"
+      ],
+      "description": "Convert post-cutoff adjudications into an evaluation-only label table that stays outside ranking feature construction."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "example_scz_gene_ranking_inputs_2025_01_15",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/dataset_cards/example_scz_gene_ranking_inputs.json",
+      "availability": "pre_cutoff",
+      "produced_by_step_id": "freeze_candidate_universe"
+    },
+    {
+      "dataset_id": "example_scz_gene_evaluation_labels_2025_06_30",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/dataset_cards/example_scz_gene_evaluation_labels.json",
+      "availability": "post_cutoff",
+      "produced_by_step_id": "hold_out_post_cutoff_labels"
+    }
+  ],
+  "description": "Example raw-to-frozen lineage artifact that traces pre-cutoff evidence and post-cutoff labels into the governed rescue freeze outputs.",
+  "notes": "The lineage is deliberately minimal but complete enough that downstream rescue-data PRs can copy the structure instead of inventing ad hoc ingestion paths."
+}

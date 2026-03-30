@@ -25,7 +25,7 @@ def _load_artifact_schemas_from_dir(
     if not schema_dir.exists():
         raise FileNotFoundError(f"artifact schema directory does not exist: {schema_dir}")
 
-    schema_files = sorted(schema_dir.glob("*.json"))
+    schema_files = sorted(schema_dir.rglob("*.json"))
     if not schema_files:
         raise ValueError(f"no artifact schema files found in {schema_dir}")
 

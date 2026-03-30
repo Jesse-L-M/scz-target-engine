@@ -5,6 +5,7 @@ import pytest
 
 from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
+from scz_target_engine.rescue import validate_rescue_governance_bundle
 from scz_target_engine.rescue.registry import (
     DEFAULT_RESCUE_TASK_REGISTRY_PATH,
     load_rescue_suite_contracts,
@@ -15,6 +16,9 @@ from scz_target_engine.rescue.registry import (
 
 EXAMPLE_CONTRACT_PATH = Path(
     "data/curated/rescue_tasks/contracts/example_scz_gene_rescue_task.json"
+)
+EXAMPLE_TASK_CARD_PATH = Path(
+    "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/task_card.json"
 )
 
 
@@ -32,11 +36,15 @@ def test_rescue_registry_resolves_example_contract() -> None:
         "task_output",
         "task_metadata",
     }
-    assert task_contract.leakage_boundary.freeze_manifest_required is False
+    assert task_contract.leakage_boundary.freeze_manifest_required is True
     assert (
         task_contract.leakage_boundary.freeze_manifest_policy
-        == "deferred_until_pr40a"
+        == "schema_validated_rescue_governance_v1"
     )
+    assert task_contract.leakage_boundary.dataset_cards_required is True
+    assert task_contract.leakage_boundary.task_card_required is True
+    assert task_contract.leakage_boundary.split_manifest_required is True
+    assert task_contract.leakage_boundary.raw_to_frozen_lineage_required is True
 
 
 def test_rescue_registry_groups_example_task_under_single_suite() -> None:
@@ -93,6 +101,26 @@ def test_rescue_registry_stays_separate_from_benchmark_registry() -> None:
     assert benchmark_contract.task_id != rescue_contract.task_id
 
 
+def test_example_rescue_governance_bundle_validates_from_task_card() -> None:
+    bundle = validate_rescue_governance_bundle(EXAMPLE_TASK_CARD_PATH.resolve())
+
+    assert bundle.task_card.task_id == "example_scz_gene_rescue_task"
+    assert bundle.contract.task_id == "example_scz_gene_rescue_task"
+    assert {dataset.dataset_id for dataset in bundle.dataset_cards} == {
+        "example_scz_gene_ranking_inputs_2025_01_15",
+        "example_scz_gene_evaluation_labels_2025_06_30",
+    }
+    assert bundle.freeze_manifests[0].freeze_manifest_id == (
+        "example_scz_gene_rescue_freeze_2025_01_15"
+    )
+    assert bundle.split_manifests[0].source_dataset_id == (
+        "example_scz_gene_ranking_inputs_2025_01_15"
+    )
+    assert bundle.lineages[0].lineage_id == (
+        "example_scz_gene_raw_to_frozen_lineage_2025_01_16"
+    )
+
+
 def test_rescue_registry_rejects_registry_contract_identity_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -126,3 +154,21 @@ def test_rescue_registry_rejects_registry_contract_identity_mismatch(
         match="rescue registry row did not match contract file fields",
     ):
         load_rescue_task_contracts(task_registry_path=registry_path)
+
+
+def test_rescue_task_card_validation_rejects_missing_required_field(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(EXAMPLE_TASK_CARD_PATH.read_text(encoding="utf-8"))
+    payload.pop("dataset_card_paths")
+    task_card_path = tmp_path / "bad_task_card.json"
+    task_card_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="missing required fields: dataset_card_paths",
+    ):
+        load_artifact(
+            task_card_path,
+            artifact_name="rescue_task_card",
+        )

@@ -1,0 +1,113 @@
+{
+  "artifact_name": "benchmark_confidence_interval_payload",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Runner-emitted benchmark confidence interval payload.",
+  "key_fields": [
+    "run_id",
+    "baseline_id",
+    "entity_type",
+    "metric_name",
+    "horizon"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Interval payload schema version."
+    },
+    {
+      "name": "run_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Run identifier."
+    },
+    {
+      "name": "snapshot_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Snapshot identifier."
+    },
+    {
+      "name": "baseline_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Frozen baseline identifier."
+    },
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type for the interval slice."
+    },
+    {
+      "name": "horizon",
+      "field_type": "string",
+      "required": true,
+      "description": "Evaluation horizon."
+    },
+    {
+      "name": "metric_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Metric identifier."
+    },
+    {
+      "name": "point_estimate",
+      "field_type": "number",
+      "required": true,
+      "description": "Point estimate."
+    },
+    {
+      "name": "interval_low",
+      "field_type": "number",
+      "required": true,
+      "description": "Lower interval bound."
+    },
+    {
+      "name": "interval_high",
+      "field_type": "number",
+      "required": true,
+      "description": "Upper interval bound."
+    },
+    {
+      "name": "confidence_level",
+      "field_type": "number",
+      "required": true,
+      "description": "Confidence level."
+    },
+    {
+      "name": "bootstrap_iterations",
+      "field_type": "integer",
+      "required": true,
+      "description": "Bootstrap resample count."
+    },
+    {
+      "name": "resample_unit",
+      "field_type": "string",
+      "required": true,
+      "description": "Bootstrap resample unit."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "random_seed",
+      "field_type": "integer",
+      "required": false,
+      "description": "Optional bootstrap random seed."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional interval notes."
+    }
+  ]
+}

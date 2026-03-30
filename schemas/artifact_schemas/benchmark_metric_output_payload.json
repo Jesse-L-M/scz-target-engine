@@ -1,0 +1,89 @@
+{
+  "artifact_name": "benchmark_metric_output_payload",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Runner-emitted benchmark metric payload.",
+  "key_fields": [
+    "run_id",
+    "baseline_id",
+    "entity_type",
+    "metric_name",
+    "horizon"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Metric payload schema version."
+    },
+    {
+      "name": "run_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Run identifier."
+    },
+    {
+      "name": "snapshot_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Snapshot identifier."
+    },
+    {
+      "name": "baseline_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Frozen baseline identifier."
+    },
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type for the metric slice."
+    },
+    {
+      "name": "horizon",
+      "field_type": "string",
+      "required": true,
+      "description": "Evaluation horizon."
+    },
+    {
+      "name": "metric_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Metric identifier."
+    },
+    {
+      "name": "metric_value",
+      "field_type": "number",
+      "required": true,
+      "description": "Observed metric value."
+    },
+    {
+      "name": "cohort_size",
+      "field_type": "integer",
+      "required": true,
+      "description": "Evaluated cohort size."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "metric_unit",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional metric unit label."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional metric notes."
+    }
+  ]
+}

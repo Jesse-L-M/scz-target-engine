@@ -1,0 +1,200 @@
+{
+  "artifact_name": "domain_head_rankings_v1",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Flat per-domain v1 ranking rows.",
+  "key_fields": [
+    "entity_type",
+    "entity_id",
+    "domain_slug"
+  ],
+  "required_fields": [
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type."
+    },
+    {
+      "name": "entity_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable entity identifier."
+    },
+    {
+      "name": "entity_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity label."
+    },
+    {
+      "name": "domain_slug",
+      "field_type": "string",
+      "required": true,
+      "description": "Domain profile slug."
+    },
+    {
+      "name": "domain_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Domain profile label."
+    },
+    {
+      "name": "domain_axis",
+      "field_type": "string",
+      "required": true,
+      "description": "Domain profile axis."
+    },
+    {
+      "name": "domain_head_score_v1",
+      "field_type": "number",
+      "required": true,
+      "description": "Projected domain score."
+    },
+    {
+      "name": "domain_rank_v1",
+      "field_type": "integer",
+      "required": true,
+      "description": "Projected domain rank."
+    },
+    {
+      "name": "domain_score_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Domain score status."
+    },
+    {
+      "name": "domain_coverage_weight_fraction",
+      "field_type": "number",
+      "required": true,
+      "description": "Domain coverage fraction."
+    },
+    {
+      "name": "domain_available_head_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Available head count."
+    },
+    {
+      "name": "domain_total_head_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Total head count."
+    },
+    {
+      "name": "domain_pending_heads",
+      "field_type": "string",
+      "required": true,
+      "description": "Pending head names."
+    },
+    {
+      "name": "domain_missing_heads",
+      "field_type": "string",
+      "required": true,
+      "description": "Missing head names."
+    },
+    {
+      "name": "heuristic_score_v0",
+      "field_type": "number",
+      "required": true,
+      "description": "Underlying v0 score."
+    },
+    {
+      "name": "heuristic_rank_v0",
+      "field_type": "integer",
+      "required": true,
+      "description": "Underlying v0 rank."
+    },
+    {
+      "name": "heuristic_stable_v0",
+      "field_type": "boolean",
+      "required": true,
+      "description": "Underlying v0 stability flag."
+    },
+    {
+      "name": "warning_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Warning count."
+    },
+    {
+      "name": "warning_severity",
+      "field_type": "string",
+      "required": true,
+      "description": "Warning severity."
+    },
+    {
+      "name": "human_support_score",
+      "field_type": "number",
+      "required": true,
+      "description": "Human support head score."
+    },
+    {
+      "name": "human_support_score_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Human support head status."
+    },
+    {
+      "name": "biology_context_score",
+      "field_type": "number",
+      "required": true,
+      "description": "Biology context head score."
+    },
+    {
+      "name": "biology_context_score_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Biology context head status."
+    },
+    {
+      "name": "intervention_readiness_score",
+      "field_type": "number",
+      "required": true,
+      "description": "Intervention readiness head score."
+    },
+    {
+      "name": "intervention_readiness_score_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Intervention readiness head status."
+    },
+    {
+      "name": "failure_burden_score",
+      "field_type": "number",
+      "required": true,
+      "description": "Failure burden head score."
+    },
+    {
+      "name": "failure_burden_score_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Failure burden head status."
+    },
+    {
+      "name": "directionality_confidence",
+      "field_type": "number",
+      "required": true,
+      "description": "Directionality confidence head score."
+    },
+    {
+      "name": "directionality_confidence_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Directionality confidence head status."
+    },
+    {
+      "name": "subgroup_resolution_score",
+      "field_type": "number",
+      "required": true,
+      "description": "Subgroup resolution head score."
+    },
+    {
+      "name": "subgroup_resolution_score_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Subgroup resolution head status."
+    }
+  ],
+  "optional_fields": []
+}

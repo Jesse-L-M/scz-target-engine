@@ -1,0 +1,54 @@
+{
+  "artifact_name": "gene_target_ledgers",
+  "schema_version": "pr7-target-ledger-v1",
+  "file_format": "json",
+  "description": "Scoring-neutral gene target ledger payload.",
+  "key_fields": [
+    "target_count"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Ledger payload schema version."
+    },
+    {
+      "name": "scoring_neutral",
+      "field_type": "boolean",
+      "required": true,
+      "description": "Whether the ledger is scoring-neutral."
+    },
+    {
+      "name": "data_sources",
+      "field_type": "object",
+      "required": true,
+      "description": "Curated substrate source paths."
+    },
+    {
+      "name": "target_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Number of target ledger entries."
+    },
+    {
+      "name": "targets_with_program_history",
+      "field_type": "integer",
+      "required": true,
+      "description": "Targets with matched program history."
+    },
+    {
+      "name": "targets_with_curated_directionality",
+      "field_type": "integer",
+      "required": true,
+      "description": "Targets with curated directionality hypotheses."
+    },
+    {
+      "name": "targets",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Per-target ledger objects."
+    }
+  ],
+  "optional_fields": []
+}

@@ -35,3 +35,16 @@ def test_release_docs_call_out_current_benchmark_limitations() -> None:
     _assert_contains("README.md", limitation_snippets)
     _assert_contains("docs/claim.md", limitation_snippets)
     _assert_contains("docs/benchmarking.md", limitation_snippets)
+
+
+def test_release_docs_cover_artifact_schema_registry() -> None:
+    schema_snippets = [
+        "schemas/artifact_schemas",
+        "scz_target_engine.artifacts",
+        "gene_target_ledgers",
+        "decision_vectors_v1",
+        "domain_head_rankings_v1",
+        "benchmark_snapshot_manifest",
+    ]
+    _assert_contains("README.md", schema_snippets)
+    _assert_contains("docs/artifact_schemas.md", schema_snippets)

@@ -155,6 +155,17 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
     tmp_path: Path,
 ) -> None:
     output_dir = tmp_path / "public_slices"
+    stale_slice_dir = output_dir / "scz_translational_2024_06_15"
+    stale_opentargets_file = (
+        stale_slice_dir / "archives" / "opentargets" / "24_03_fixture.csv"
+    )
+    stale_chembl_file = (
+        stale_slice_dir / "archives" / "chembl" / "chembl35_fixture.json"
+    )
+    stale_opentargets_file.parent.mkdir(parents=True, exist_ok=True)
+    stale_chembl_file.parent.mkdir(parents=True, exist_ok=True)
+    stale_opentargets_file.write_text("stale fixture\n", encoding="utf-8")
+    stale_chembl_file.write_text('{"stale": true}\n', encoding="utf-8")
     result = materialize_public_benchmark_slices(
         output_dir=output_dir,
         benchmark_task_id="scz_translational_task",
@@ -176,6 +187,8 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
         "PGC"
     ]
     assert (early_slice_dir / "archives" / "pgc" / "scz2022_fixture.csv").exists()
+    assert not stale_opentargets_file.exists()
+    assert not stale_chembl_file.exists()
     assert not (early_slice_dir / "archives" / "opentargets").exists()
     assert not (early_slice_dir / "archives" / "psychencode").exists()
     assert not (early_slice_dir / "archives" / "chembl").exists()

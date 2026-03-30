@@ -451,6 +451,8 @@ def materialize_public_benchmark_slices(
 
     for slice_spec in plan.slices:
         slice_dir = resolved_output_dir / slice_spec.slice_id
+        if slice_dir.exists():
+            shutil.rmtree(slice_dir)
         write_json(
             slice_dir / "snapshot_request.json",
             slice_spec.snapshot_request.to_dict(),

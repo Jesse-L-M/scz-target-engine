@@ -165,6 +165,28 @@ def test_cli_validate_runs() -> None:
             "atlas-build-tensor",
             ("atlas", "build", "tensor"),
         ),
+        (
+            [
+                "atlas",
+                "build",
+                "mechanistic-axes",
+                "--tensor-manifest-file",
+                "tensor_manifest.json",
+            ],
+            "atlas-build-mechanistic-axes",
+            ("atlas", "build", "mechanistic-axes"),
+        ),
+        (
+            [
+                "atlas",
+                "build",
+                "convergence-hubs",
+                "--tensor-manifest-file",
+                "tensor_manifest.json",
+            ],
+            "atlas-build-convergence-hubs",
+            ("atlas", "build", "convergence-hubs"),
+        ),
     ],
 )
 def test_cli_namespaced_routes_map_to_legacy_commands(

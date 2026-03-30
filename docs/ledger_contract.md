@@ -108,3 +108,18 @@ Fields:
 - `directionality_confidence`
 
 These are summary fields only. Full nested details remain in `gene_target_ledgers.json`.
+
+## Replay Reasoning Boundary
+
+`PR12` adds provenance-grounded analog retrieval and counterfactual replay reasoning as
+an API over the same checked-in program-memory substrate.
+
+That work does not change:
+
+- `gene_target_ledgers.json`
+- `gene_rankings.csv`
+- shared `v0` scores, ranks, or eligibility
+- current `v1` decision-vector semantics
+
+Any later policy logic that wants replay explanations must consume that API explicitly.
+There is no hidden override path in the current ledger artifact.

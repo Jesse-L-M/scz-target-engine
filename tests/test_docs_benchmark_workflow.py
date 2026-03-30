@@ -12,10 +12,13 @@ def test_release_docs_cover_canonical_benchmark_workflow() -> None:
         "uv run scz-target-engine build-benchmark-snapshot \\",
         "uv run scz-target-engine build-benchmark-cohort \\",
         "uv run scz-target-engine run-benchmark \\",
+        "uv run scz-target-engine build-benchmark-reporting \\",
         "data/curated/rescue_tasks/task_registry.csv",
         "data/benchmark/generated/scz_small/snapshot_manifest.json",
         "data/benchmark/generated/scz_small/cohort_labels.csv",
         "data/benchmark/generated/scz_small/runner_outputs/run_manifests/",
+        "data/benchmark/generated/scz_small/public_payloads/report_cards/",
+        "data/benchmark/generated/scz_small/public_payloads/leaderboards/",
         "benchmark_snapshot_manifest",
         "benchmark_cohort_labels",
         "benchmark_model_run_manifest",
@@ -67,6 +70,7 @@ def test_release_docs_cover_cli_namespace_aliases() -> None:
         "benchmark snapshot",
         "benchmark cohort",
         "benchmark run",
+        "benchmark reporting",
         "legacy flat commands remain supported",
     ]
     _assert_contains("README.md", readme_snippets)

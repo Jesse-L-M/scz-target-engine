@@ -50,6 +50,22 @@ def test_cli_validate_runs() -> None:
         ),
         (
             [
+                "benchmark",
+                "reporting",
+                "--manifest-file",
+                "snapshot_manifest.json",
+                "--cohort-labels-file",
+                "cohort_labels.csv",
+                "--runner-output-dir",
+                "runner_outputs",
+                "--output-dir",
+                "public_payloads",
+            ],
+            "build-benchmark-reporting",
+            ("benchmark", "reporting"),
+        ),
+        (
+            [
                 "sources",
                 "psychencode",
                 "modules",
@@ -135,6 +151,14 @@ def test_cli_namespaced_validate_runs_with_mirrored_config() -> None:
             "scz_target_engine.app.cli",
             "scz_target_engine.cli",
             ("build_parser", "main"),
+        ),
+        (
+            "scz_target_engine.benchmark.leaderboard",
+            "scz_target_engine.benchmark_leaderboard",
+            (
+                "materialize_benchmark_reporting",
+                "read_benchmark_leaderboard_payload",
+            ),
         ),
         (
             "scz_target_engine.benchmark.labels",
@@ -861,3 +885,73 @@ def test_cli_run_benchmark_runs(monkeypatch, tmp_path: Path) -> None:
     assert calls["bootstrap_confidence_level"] == 0.9
     assert calls["random_seed"] == 23
     assert calls["deterministic_test_mode"] is True
+
+
+def test_cli_build_benchmark_reporting_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "build-benchmark-reporting",
+            "--manifest-file",
+            "snapshot_manifest.json",
+            "--cohort-labels-file",
+            "cohort_labels.csv",
+            "--runner-output-dir",
+            "runner_outputs",
+            "--output-dir",
+            "public_payloads",
+        ]
+    )
+    assert args.command == "build-benchmark-reporting"
+    assert args.manifest_file == "snapshot_manifest.json"
+    assert args.cohort_labels_file == "cohort_labels.csv"
+    assert args.runner_output_dir == "runner_outputs"
+    assert args.output_dir == "public_payloads"
+
+
+def test_cli_build_benchmark_reporting_runs(monkeypatch, tmp_path: Path) -> None:
+    manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+    output_dir = tmp_path / "public_payloads"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_benchmark_reporting(
+        *,
+        manifest_file: Path,
+        cohort_labels_file: Path,
+        runner_output_dir: Path,
+        output_dir: Path,
+        generated_at: str | None = None,
+    ) -> dict[str, object]:
+        calls["manifest_file"] = manifest_file
+        calls["cohort_labels_file"] = cohort_labels_file
+        calls["runner_output_dir"] = runner_output_dir
+        calls["output_dir"] = output_dir
+        calls["generated_at"] = generated_at
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_benchmark_reporting",
+        fake_materialize_benchmark_reporting,
+    )
+
+    exit_code = main(
+        [
+            "build-benchmark-reporting",
+            "--manifest-file",
+            str(manifest_file),
+            "--cohort-labels-file",
+            str(cohort_labels_file),
+            "--runner-output-dir",
+            str(runner_output_dir),
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["manifest_file"] == manifest_file.resolve()
+    assert calls["cohort_labels_file"] == cohort_labels_file.resolve()
+    assert calls["runner_output_dir"] == runner_output_dir.resolve()
+    assert calls["output_dir"] == output_dir.resolve()
+    assert calls["generated_at"] is None

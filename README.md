@@ -207,7 +207,7 @@ that call the same handlers with the same flags:
 - `atlas sources opentargets`, `atlas sources pgc scz2022`, `atlas ingest candidate-registry`
 - `atlas build taxonomy`, `atlas build tensor`
 - `prepare gene-table`, `prepare example-gene-table`, `prepare example-module-table`, `prepare example-inputs`
-- `benchmark snapshot`, `benchmark cohort`, `benchmark run`
+- `benchmark snapshot`, `benchmark cohort`, `benchmark run`, `benchmark reporting`
 
 Migration posture:
 
@@ -290,7 +290,17 @@ uv run scz-target-engine run-benchmark \
   --output-dir data/benchmark/generated/scz_small/runner_outputs \
   --config config/v0.toml \
   --deterministic-test-mode
+
+uv run scz-target-engine build-benchmark-reporting \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
+  --runner-output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --output-dir data/benchmark/generated/scz_small/public_payloads
 ```
+
+`build-benchmark-reporting` is a derived public-output stage. It reads the emitted
+benchmark artifacts and writes public-facing report cards plus leaderboard payloads
+without rerunning scoring logic.
 
 Artifact layout:
 
@@ -303,12 +313,15 @@ Artifact layout:
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_metric_output_payload` files
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_confidence_interval_payload` files
+- `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: derived public report card payload, one per executed run
+- `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: derived public leaderboard payload for one metric slice
 
 Operator notes:
 
-- Re-run the three commands in order whenever the snapshot request, archive descriptors, future-outcome labels, code version, or benchmark parameters change.
+- Re-run the four commands in order whenever the snapshot request, archive descriptors, future-outcome labels, code version, or benchmark parameters change.
 - Re-running the snapshot or cohort commands overwrites the manifest and label files at the same paths.
 - Re-running `run-benchmark` writes run-id keyed payload directories. Changing code version or parameters changes the run id. Identical inputs overwrite the same run-id files.
+- Re-running `build-benchmark-reporting` rewrites the derived public payloads from the current runner outputs. It never reruns scoring.
 - The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
 - Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs, not the generated benchmark outputs.
 

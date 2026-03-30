@@ -1,4 +1,7 @@
+import importlib
 from pathlib import Path
+
+import pytest
 
 from scz_target_engine.cli import build_parser, main
 
@@ -14,6 +17,111 @@ def test_cli_validate_runs() -> None:
         ]
     )
     assert exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("namespaced_module_name", "legacy_module_name", "symbol_names"),
+    [
+        (
+            "scz_target_engine.app.cli",
+            "scz_target_engine.cli",
+            ("build_parser", "main"),
+        ),
+        (
+            "scz_target_engine.benchmark.labels",
+            "scz_target_engine.benchmark_labels",
+            ("materialize_benchmark_cohort_labels", "read_benchmark_cohort_labels"),
+        ),
+        (
+            "scz_target_engine.benchmark.metrics",
+            "scz_target_engine.benchmark_metrics",
+            ("calculate_metric_values", "read_benchmark_metric_output_payload"),
+        ),
+        (
+            "scz_target_engine.benchmark.protocol",
+            "scz_target_engine.benchmark_protocol",
+            ("BenchmarkSnapshotManifest", "FROZEN_BENCHMARK_PROTOCOL"),
+        ),
+        (
+            "scz_target_engine.benchmark.runner",
+            "scz_target_engine.benchmark_runner",
+            ("materialize_benchmark_run", "_deterministic_random_score"),
+        ),
+        (
+            "scz_target_engine.benchmark.snapshots",
+            "scz_target_engine.benchmark_snapshots",
+            ("materialize_benchmark_snapshot_manifest", "read_benchmark_snapshot_manifest"),
+        ),
+        (
+            "scz_target_engine.core.config",
+            "scz_target_engine.config",
+            ("EngineConfig", "load_config"),
+        ),
+        (
+            "scz_target_engine.core.identity",
+            "scz_target_engine.identity",
+            ("SourceIdentityMatch", "build_gene_identity_fields"),
+        ),
+        (
+            "scz_target_engine.core.io",
+            "scz_target_engine.io",
+            ("read_csv_rows", "write_json"),
+        ),
+        (
+            "scz_target_engine.domain.decision_vector",
+            "scz_target_engine.decision_vector",
+            ("build_decision_vector", "serialize_decision_vector"),
+        ),
+        (
+            "scz_target_engine.domain.ledger",
+            "scz_target_engine.ledger",
+            ("TargetLedger", "build_target_ledgers"),
+        ),
+        (
+            "scz_target_engine.domain.reporting",
+            "scz_target_engine.reporting",
+            ("build_cards_markdown", "ranked_entities_to_rows"),
+        ),
+        (
+            "scz_target_engine.domain.scoring",
+            "scz_target_engine.scoring",
+            ("RankedEntity", "rank_records"),
+        ),
+        (
+            "scz_target_engine.workflows.engine",
+            "scz_target_engine.engine",
+            ("build_outputs", "validate_inputs"),
+        ),
+        (
+            "scz_target_engine.workflows.ingest",
+            "scz_target_engine.ingest",
+            ("refresh_candidate_gene_registry", "refresh_candidate_registry"),
+        ),
+        (
+            "scz_target_engine.workflows.prepare",
+            "scz_target_engine.prepare",
+            ("prepare_gene_table", "refresh_example_input_tables"),
+        ),
+        (
+            "scz_target_engine.workflows.registry",
+            "scz_target_engine.registry",
+            ("build_candidate_gene_registry", "build_candidate_registry"),
+        ),
+    ],
+)
+def test_namespaced_modules_reexport_legacy_symbols(
+    namespaced_module_name: str,
+    legacy_module_name: str,
+    symbol_names: tuple[str, ...],
+) -> None:
+    namespaced_module = importlib.import_module(namespaced_module_name)
+    legacy_module = importlib.import_module(legacy_module_name)
+
+    for symbol_name in symbol_names:
+        assert getattr(namespaced_module, symbol_name) is getattr(
+            legacy_module,
+            symbol_name,
+        )
 
 
 def test_cli_prepare_parser_accepts_pgc_file() -> None:

@@ -1,3 +1,18 @@
+from scz_target_engine.program_memory.analogs import (
+    AnalogReason,
+    AnalogSearchResult,
+    AnalogSearchSummary,
+    CheckedInRecordRef,
+    InterventionProposal,
+    ProgramMemoryAnalog,
+    UncertaintyFlag,
+    retrieve_program_memory_analogs,
+)
+from scz_target_engine.program_memory.counterfactuals import (
+    CounterfactualReason,
+    ReplayRiskAssessment,
+    assess_counterfactual_replay_risk,
+)
 from scz_target_engine.program_memory.loaders import (
     PROGRAM_MEMORY_V2_FILENAMES,
     index_directionality_hypotheses,
@@ -32,14 +47,24 @@ from scz_target_engine.program_memory.views import (
 )
 
 __all__ = [
+    "AnalogReason",
+    "AnalogSearchResult",
+    "AnalogSearchSummary",
+    "CheckedInRecordRef",
+    "CounterfactualReason",
     "PROGRAM_MEMORY_V2_FILENAMES",
     "DirectionalityHypothesis",
+    "InterventionProposal",
     "ProgramHistoryEvent",
+    "ProgramMemoryAnalog",
     "ProgramMemoryAsset",
     "ProgramMemoryDataset",
     "ProgramMemoryDirectionalityHypothesis",
     "ProgramMemoryEvent",
     "ProgramMemoryProvenance",
+    "ReplayRiskAssessment",
+    "UncertaintyFlag",
+    "assess_counterfactual_replay_risk",
     "index_directionality_hypotheses",
     "load_directionality_hypotheses_compatibility_index",
     "load_directionality_hypotheses_compatibility_view",
@@ -55,5 +80,6 @@ __all__ = [
     "migrate_legacy_program_memory_files",
     "parse_legacy_directionality_hypothesis_rows",
     "parse_legacy_program_history_rows",
+    "retrieve_program_memory_analogs",
     "resolve_program_memory_v2_dir",
 ]

@@ -132,6 +132,60 @@ That workflow keeps the checked-in data stable enough for later code without pre
 - The checked-in substrate remains curation-scale rather than a claim of exhaustive
   historical adjudication.
 
+## Analogs And Replay Logic
+
+`PR12` adds an API-only replay-explanation layer on top of the normalized v2
+program-memory tables.
+
+That layer:
+
+- retrieves analogs from checked-in `assets.csv`, `events.csv`, and
+  `event_provenance.csv` rather than reparsing ad hoc CSV rows
+- returns explicit match reasons such as exact target, shared target class, shared
+  domain, and contextual gaps rather than only an aggregate similarity score
+- carries checked-in record references via `asset_id`, `event_id`, and direct source
+  provenance so every explanation stays traceable to the repository substrate
+- keeps uncertainty explicit through flags such as `unresolved_failure_scope`,
+  `composite_mechanism_analog`, `mixed_history`, and `sparse_history`
+- emits replay judgments as inspectable statuses such as `replay_supported`,
+  `replay_not_supported`, `replay_inconclusive`, or `insufficient_history`
+
+The replay API is intentionally structural and explainable. It does not change shared
+`v0` ranking, current `v1` semantics, or the emitted ledger artifact contract.
+
+## Example Explanation Path
+
+Concrete checked-in example: a `CHRM4` acute-schizophrenia monotherapy proposal.
+
+```python
+from pathlib import Path
+
+from scz_target_engine.program_memory import (
+    InterventionProposal,
+    assess_counterfactual_replay_risk,
+)
+
+assessment = assess_counterfactual_replay_risk(
+    Path("data/curated/program_history/v2"),
+    InterventionProposal(
+        target_symbol="CHRM4",
+        domain="acute_positive_symptoms",
+        mono_or_adjunct="monotherapy",
+    ),
+)
+```
+
+Current checked-in interpretation:
+
+- `emraclidine-empower-acute-scz-topline-2024` is a direct analog and an important
+  caution signal, but it stays `unresolved` rather than being silently promoted into a
+  defended class-failure claim
+- `cobenfy-xanomeline-trospium-approval-us-2024` is a checked-in nonfailure anchor in
+  the same muscarinic neighborhood, which is why the repository currently explains this
+  as `replay_not_supported` rather than as a settled replay of prior failure
+- the resulting counterfactual remains falsifiable because future aligned selective
+  CHRM4 failures could still move the interpretation toward replay
+
 ## PR7 Structural Consumption
 
 The target-ledger output still consumes the legacy-compatible `programs.csv` view to

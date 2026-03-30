@@ -122,6 +122,77 @@ Confidence applies to the full curated row, not just to whether the event happen
 
 That workflow keeps the checked-in data stable enough for later code without pretending the repo already has a complete historical adjudication layer.
 
+## Assisted Harvesting And Adjudication
+
+The repository now supports an additive assisted-curation workflow on top of the v2
+schema:
+
+- `src/scz_target_engine/program_memory/extract.py` normalizes machine-generated
+  candidate events or directionality hypotheses into structured suggestions that reuse
+  the v2 entity shapes.
+- `src/scz_target_engine/program_memory/harvest.py` stores those suggestions inside a
+  durable harvest bundle with explicit source documents and a review queue.
+- `src/scz_target_engine/program_memory/adjudication.py` records explicit human
+  `accept`, `edit`, or `reject` decisions and materializes only the adjudicated rows
+  into a separate `proposed_v2/` directory.
+
+This workflow is intentionally non-authoritative:
+
+- machine suggestions are not loaded by ledger or build paths
+- missing adjudication decisions leave suggestions pending
+- adjudication outputs write proposal tables outside the checked-in source-of-truth
+- a curator still has to review and manually land any accepted or edited rows
+
+### Provenance Model
+
+- Every suggestion points to a harvested `source_document_id`.
+- Event suggestions carry proposed `asset`, `event`, and `provenance` rows.
+- Directionality suggestions carry a proposed `directionality_hypothesis` row.
+- Adjudication records preserve who reviewed the suggestion, when they reviewed it,
+  and whether they accepted, rejected, or edited the machine proposal.
+
+### Example Curation Path
+
+One focused smoke path uses an `emraclidine-event-suggestion` harvested from an
+AbbVie press release.
+
+1. Create a harvest bundle from raw source and suggestion JSON:
+
+```bash
+uv run scz-target-engine program-memory harvest \
+  --input-file .context/program_memory/raw_harvest.json \
+  --output-file .context/program_memory/harvest.json \
+  --harvest-id example-curation \
+  --harvester llm-assist \
+  --created-at 2026-03-30 \
+  --review-file .context/program_memory/review_queue.csv
+```
+
+2. Record an explicit curator edit decision:
+
+```bash
+uv run scz-target-engine program-memory adjudicate \
+  --harvest-file .context/program_memory/harvest.json \
+  --decisions-file .context/program_memory/decisions.json \
+  --output-dir .context/program_memory/adjudicated \
+  --adjudication-id example-curation-review \
+  --reviewer curator@example.com \
+  --reviewed-at 2026-03-30
+```
+
+In the tested example, the curator keeps the event but edits the proposed row from
+machine `confidence=medium` to curator `confidence=low`. The resulting
+`.context/program_memory/adjudicated/proposed_v2/events.csv` contains the edited row,
+while the checked-in `data/curated/program_history/v2/` tables remain unchanged.
+
+### What Remains Manual
+
+- recovering better direct sources when a suggestion comes from a weak source tier
+- deciding whether a machine-proposed taxonomy or confidence call is defensible
+- merging adjudicated proposal rows into the checked-in v2 tables
+- updating compatibility views or docs when a landed row changes the checked-in
+  curation surface
+
 ## Migration Posture
 
 - v2 normalization is additive and compatibility-first.

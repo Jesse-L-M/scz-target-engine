@@ -51,7 +51,7 @@ from scz_target_engine.rescue.governance import (
     read_rescue_freeze_manifest,
     read_rescue_raw_to_frozen_lineage,
     read_rescue_split_manifest,
-    read_rescue_task_card,
+    validate_rescue_governance_bundle,
 )
 
 
@@ -263,7 +263,7 @@ def _validate_rescue_task_card(
         set(payload),
         context=f"{schema.artifact_name} artifact {path}",
     )
-    return read_rescue_task_card(path)
+    return validate_rescue_governance_bundle(path).task_card
 
 
 def _validate_rescue_freeze_manifest(

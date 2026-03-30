@@ -186,6 +186,21 @@ def test_rescue_task_card_validation_rejects_missing_required_field(
         )
 
 
+def test_rescue_task_card_load_rejects_missing_referenced_dataset_card(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(EXAMPLE_TASK_CARD_PATH.read_text(encoding="utf-8"))
+    payload["dataset_card_paths"][0] = str(tmp_path / "missing_dataset_card.json")
+    task_card_path = tmp_path / "task_card_with_missing_reference.json"
+    task_card_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    with pytest.raises(FileNotFoundError):
+        load_artifact(
+            task_card_path,
+            artifact_name="rescue_task_card",
+        )
+
+
 def test_ranking_only_freeze_manifest_rejects_post_cutoff_source_snapshot(
     tmp_path: Path,
 ) -> None:

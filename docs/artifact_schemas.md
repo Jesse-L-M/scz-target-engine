@@ -99,7 +99,9 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
 - `rescue_dataset_card` validates that a governed rescue dataset card resolves back
   to a declared rescue task artifact contract
 - `rescue_task_card` validates that the checked-in governance bundle points at the
-  declared rescue contract and strict leakage policy
+  declared rescue contract and strict leakage policy, and `load_artifact(...,
+  artifact_name=\"rescue_task_card\")` now runs the full cross-file bundle validation
+  instead of only checking the task-card file in isolation
 - `rescue_freeze_manifest` validates the cutoff, current-head policy, upstream raw
   snapshots, and governed frozen outputs
 - `rescue_split_manifest` validates deterministic split declarations against a frozen

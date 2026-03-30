@@ -116,3 +116,8 @@ bundle = validate_rescue_governance_bundle(
 )
 assert bundle.task_card.task_id == "example_scz_gene_rescue_task"
 ```
+
+The normal artifact path now enforces the same bundle checks. A
+`load_artifact(..., artifact_name="rescue_task_card")` call fails if the referenced
+dataset cards, freeze manifests, split manifests, or lineage artifacts are missing or
+broken.

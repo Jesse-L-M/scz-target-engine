@@ -219,6 +219,12 @@ The canonical end-to-end benchmark path in this repo is the checked-in determini
 fixture under `data/benchmark/fixtures/scz_small/` plus generated outputs under
 `data/benchmark/generated/scz_small/`.
 
+The suite/task contract source of truth lives in
+`data/curated/rescue_tasks/task_registry.csv`. The current registry-backed task is
+`scz_translational_task` in suite `scz_translational_suite`, and it maps directly to
+the checked-in `scz_small` fixture inputs. The emitted snapshot and run manifests
+carry `benchmark_suite_id` and `benchmark_task_id` as optional provenance fields.
+
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
   --request-file data/benchmark/fixtures/scz_small/snapshot_request.json \
@@ -244,6 +250,7 @@ uv run scz-target-engine run-benchmark \
 Artifact layout:
 
 - `data/benchmark/fixtures/scz_small/`: checked-in fixture request, archive index, archived source extracts, cohort membership, and future outcomes
+- `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract for the current schizophrenia benchmark
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline

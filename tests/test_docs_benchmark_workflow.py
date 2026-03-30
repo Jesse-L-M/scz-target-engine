@@ -12,6 +12,7 @@ def test_release_docs_cover_canonical_benchmark_workflow() -> None:
         "uv run scz-target-engine build-benchmark-snapshot \\",
         "uv run scz-target-engine build-benchmark-cohort \\",
         "uv run scz-target-engine run-benchmark \\",
+        "data/curated/rescue_tasks/task_registry.csv",
         "data/benchmark/generated/scz_small/snapshot_manifest.json",
         "data/benchmark/generated/scz_small/cohort_labels.csv",
         "data/benchmark/generated/scz_small/runner_outputs/run_manifests/",
@@ -45,6 +46,7 @@ def test_release_docs_cover_artifact_schema_registry() -> None:
         "decision_vectors_v1",
         "domain_head_rankings_v1",
         "benchmark_snapshot_manifest",
+        "benchmark_task_id",
     ]
     _assert_contains("README.md", schema_snippets)
     _assert_contains("docs/artifact_schemas.md", schema_snippets)

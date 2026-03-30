@@ -119,6 +119,11 @@ def test_cli_namespaced_validate_runs_with_mirrored_config() -> None:
             ("BenchmarkSnapshotManifest", "FROZEN_BENCHMARK_PROTOCOL"),
         ),
         (
+            "scz_target_engine.benchmark.registry",
+            "scz_target_engine.benchmark_registry",
+            ("load_benchmark_task_contracts", "resolve_benchmark_task_contract"),
+        ),
+        (
             "scz_target_engine.benchmark.runner",
             "scz_target_engine.benchmark_runner",
             ("materialize_benchmark_run", "_deterministic_random_score"),

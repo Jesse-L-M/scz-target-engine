@@ -63,6 +63,8 @@ later evidence as if it were ground truth.
 
 Every benchmark snapshot is described by a `benchmark_snapshot_manifest` with:
 
+- `benchmark_suite_id`: optional suite contract id for the registry-backed benchmark path
+- `benchmark_task_id`: optional task contract id for the registry-backed benchmark path
 - `as_of_date`: the last date allowed for ranking evidence
 - `outcome_observation_closed_at`: the last date used to adjudicate future labels
 - `benchmark_question_id`: the frozen benchmark question id
@@ -133,6 +135,24 @@ Notes:
 - `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest
 
+## Registry-Driven Task Contract
+
+The benchmark suite is now driven by the checked-in task registry at
+`data/curated/rescue_tasks/task_registry.csv`.
+
+The current explicit task row is:
+
+- suite: `scz_translational_suite`
+- task: `scz_translational_task`
+- question: `scz_translational_ranking_v1`
+- fixture path: `data/benchmark/fixtures/scz_small/`
+- emitted artifact families: `benchmark_snapshot_manifest`, `benchmark_cohort_labels`, `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
+
+`snapshot_request.json` remains an operator input, but the fixture request now carries
+the explicit suite/task ids from that registry row. The snapshot builder resolves the
+task contract from the registry, then the cohort builder and runner continue from the
+emitted snapshot manifest rather than a parallel benchmark configuration path.
+
 ## Canonical End-To-End Workflow
 
 The canonical benchmark workflow in this repo is the deterministic fixture under
@@ -174,10 +194,11 @@ uv run scz-target-engine run-benchmark \
 
 Supporting operator inputs:
 
-- `snapshot_request.json`: snapshot identity, dates, entity types, and requested baseline ids
+- `snapshot_request.json`: suite/task ids, snapshot identity, dates, entity types, and requested baseline ids
 - `source_archives.json`: archived source descriptors with archive paths and SHA256 digests
 - `cohort_members.csv`: admissible ranking cohort membership
 - `future_outcomes.csv`: post-cutoff label adjudication input
+- `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract source of truth
 
 Snapshot materialization behavior:
 
@@ -223,9 +244,9 @@ Canonical generated locations:
 
 What each generated artifact means:
 
-- snapshot manifests freeze the evidence boundary, leakage controls, requested baselines, and per-source inclusion or exclusion accounting
+- snapshot manifests freeze the suite/task contract identity, evidence boundary, leakage controls, requested baselines, and per-source inclusion or exclusion accounting
 - cohort label artifacts freeze admissible benchmark membership and future translational outcome labels
-- run manifests record executed baseline, code version, parameterization, and input digests
+- run manifests record executed baseline, suite/task contract provenance, code version, parameterization, and input digests
 - metric payloads record point estimates for one `(run_id, entity_type, horizon, metric_name)` slice
 - confidence interval payloads record percentile-bootstrap intervals, bootstrap count, resample unit, and random seed for the same slice
 

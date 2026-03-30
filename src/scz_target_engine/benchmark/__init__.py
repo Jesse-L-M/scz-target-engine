@@ -1,3 +1,3 @@
-"""Benchmark protocol, builders, and runner interfaces."""
+"""Benchmark protocol, builders, runner interfaces, and registry contracts."""
 
-__all__ = ["labels", "metrics", "protocol", "runner", "snapshots"]
+__all__ = ["labels", "metrics", "protocol", "registry", "runner", "snapshots"]

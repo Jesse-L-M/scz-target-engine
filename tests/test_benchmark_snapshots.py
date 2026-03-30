@@ -41,6 +41,8 @@ def test_build_benchmark_snapshot_manifest_materializes_fixture_sources(
     restored = read_benchmark_snapshot_manifest(output_file)
 
     assert restored == manifest
+    assert manifest.benchmark_suite_id == "scz_translational_suite"
+    assert manifest.benchmark_task_id == "scz_translational_task"
     included_sources = {
         source_snapshot.source_name
         for source_snapshot in manifest.source_snapshots
@@ -55,6 +57,14 @@ def test_build_benchmark_snapshot_manifest_materializes_fixture_sources(
     }
     assert "no archived release descriptor available" in exclusions["SCHEMA"]
     assert "latest archived release 2024-07-15 is after requested cutoff 2024-06-30" in exclusions["ChEMBL"]
+    result = materialize_benchmark_snapshot_manifest(
+        request_file=FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=FIXTURE_DIR / "source_archives.json",
+        output_file=tmp_path / "snapshot_manifest_2.json",
+        materialized_at="2026-03-28",
+    )
+    assert result["benchmark_suite_id"] == "scz_translational_suite"
+    assert result["benchmark_task_id"] == "scz_translational_task"
 
 
 def test_snapshot_builder_excludes_missing_archive_file_explicitly(tmp_path: Path) -> None:

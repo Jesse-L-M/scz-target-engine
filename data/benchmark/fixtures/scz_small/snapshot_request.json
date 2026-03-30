@@ -7,6 +7,8 @@
     "v1_current",
     "random_with_coverage"
   ],
+  "benchmark_suite_id": "scz_translational_suite",
+  "benchmark_task_id": "scz_translational_task",
   "benchmark_question_id": "scz_translational_ranking_v1",
   "cohort_id": "scz_fixture_small",
   "entity_types": [

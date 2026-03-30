@@ -106,6 +106,8 @@ def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifact
         execution_timestamp="2026-03-28T00:00:00Z",
     )
 
+    assert result["benchmark_suite_id"] == "scz_translational_suite"
+    assert result["benchmark_task_id"] == "scz_translational_task"
     assert result["executed_baselines"] == [
         "pgc_only",
         "opentargets_only",
@@ -128,6 +130,8 @@ def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifact
     )
     v1_manifest = read_benchmark_model_run_manifest(v1_manifest_path)
     assert v1_manifest.schema_name == "benchmark_model_run_manifest"
+    assert v1_manifest.benchmark_suite_id == "scz_translational_suite"
+    assert v1_manifest.benchmark_task_id == "scz_translational_task"
     assert "mean_available_domain_head_score" in v1_manifest.notes
     assert {
         artifact.artifact_name for artifact in v1_manifest.input_artifacts
@@ -330,6 +334,7 @@ def test_materialize_benchmark_run_supports_all_available_now_gene_baselines(
         execution_timestamp="2026-03-28T00:00:00Z",
     )
 
+    assert result["benchmark_task_id"] == "scz_translational_task"
     assert result["executed_baselines"] == AVAILABLE_NOW_GENE_BASELINES
 
     schema_manifest = read_benchmark_model_run_manifest(

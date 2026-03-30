@@ -99,6 +99,7 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
     snapshot_artifact = load_artifact(snapshot_path)
     assert snapshot_artifact.artifact_name == "benchmark_snapshot_manifest"
     assert snapshot_artifact.payload.snapshot_id == snapshot_result["snapshot_id"]
+    assert snapshot_artifact.payload.benchmark_task_id == snapshot_result["benchmark_task_id"]
 
     materialize_benchmark_cohort_labels(
         manifest=snapshot_artifact.payload,
@@ -127,11 +128,11 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
     )
 
     assert benchmark_result["executed_baselines"]
+    assert benchmark_result["benchmark_task_id"] == "scz_translational_task"
     for manifest_file in benchmark_result["run_manifest_files"]:
-        assert (
-            load_artifact(Path(manifest_file)).artifact_name
-            == "benchmark_model_run_manifest"
-        )
+        artifact = load_artifact(Path(manifest_file))
+        assert artifact.artifact_name == "benchmark_model_run_manifest"
+        assert artifact.payload.benchmark_task_id == "scz_translational_task"
     for metric_file in benchmark_result["metric_payload_files"]:
         assert (
             load_artifact(Path(metric_file)).artifact_name

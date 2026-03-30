@@ -9,11 +9,11 @@ from typing import Any
 from scz_target_engine.benchmark_protocol import (
     BENCHMARK_QUESTION_V1,
     BenchmarkSnapshotManifest,
-    LeakageControls,
-    SOURCE_CUTOFF_RULES_V1,
+    SourceCutoffRule,
     SourceSnapshot,
     VALID_ENTITY_TYPES,
 )
+from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 from scz_target_engine.io import read_json, write_json
 
 
@@ -52,14 +52,26 @@ class SnapshotBuildRequest:
     baseline_ids: tuple[str, ...]
     notes: str = ""
     benchmark_question_id: str = BENCHMARK_QUESTION_V1.question_id
+    benchmark_suite_id: str = ""
+    benchmark_task_id: str = ""
 
     def __post_init__(self) -> None:
         _require_text(self.snapshot_id, "snapshot_id")
         _require_text(self.cohort_id, "cohort_id")
-        if self.benchmark_question_id != BENCHMARK_QUESTION_V1.question_id:
+        try:
+            task_contract = resolve_benchmark_task_contract(
+                benchmark_task_id=self.benchmark_task_id or None,
+                benchmark_question_id=self.benchmark_question_id,
+                benchmark_suite_id=self.benchmark_suite_id or None,
+            )
+        except ValueError as exc:
             raise ValueError(
                 "benchmark_question_id must match the frozen benchmark question id "
                 f"{BENCHMARK_QUESTION_V1.question_id}"
+            ) from exc
+        if self.benchmark_question_id != task_contract.benchmark_question_id:
+            raise ValueError(
+                "benchmark_question_id must match the resolved benchmark task contract"
             )
         as_of_date = _parse_iso_date(self.as_of_date, "as_of_date")
         outcome_closed_at = _parse_iso_date(
@@ -74,13 +86,29 @@ class SnapshotBuildRequest:
             raise ValueError("entity_types must contain at least one value")
         if any(entity_type not in VALID_ENTITY_TYPES for entity_type in self.entity_types):
             raise ValueError("entity_types must only contain supported benchmark entity types")
+        unsupported_entity_types = sorted(
+            set(self.entity_types).difference(task_contract.entity_types)
+        )
+        if unsupported_entity_types:
+            raise ValueError(
+                "entity_types must be supported by the benchmark task contract: "
+                + ", ".join(unsupported_entity_types)
+            )
         if not self.baseline_ids:
             raise ValueError("baseline_ids must contain at least one benchmark baseline")
         if len(self.baseline_ids) != len(set(self.baseline_ids)):
             raise ValueError("baseline_ids must not repeat baseline_id")
+        unsupported_baselines = sorted(
+            set(self.baseline_ids).difference(task_contract.supported_baseline_ids)
+        )
+        if unsupported_baselines:
+            raise ValueError(
+                "baseline_ids must be supported by the benchmark task contract: "
+                + ", ".join(unsupported_baselines)
+            )
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "snapshot_id": self.snapshot_id,
             "cohort_id": self.cohort_id,
             "benchmark_question_id": self.benchmark_question_id,
@@ -90,6 +118,11 @@ class SnapshotBuildRequest:
             "baseline_ids": list(self.baseline_ids),
             "notes": self.notes,
         }
+        if self.benchmark_suite_id:
+            payload["benchmark_suite_id"] = self.benchmark_suite_id
+        if self.benchmark_task_id:
+            payload["benchmark_task_id"] = self.benchmark_task_id
+        return payload
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> SnapshotBuildRequest:
@@ -102,6 +135,8 @@ class SnapshotBuildRequest:
             entity_types=tuple(str(item) for item in payload["entity_types"]),
             baseline_ids=tuple(str(item) for item in payload["baseline_ids"]),
             notes=str(payload.get("notes", "")),
+            benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
+            benchmark_task_id=str(payload.get("benchmark_task_id", "")),
         )
 
 
@@ -205,34 +240,22 @@ def read_benchmark_snapshot_manifest(path: Path) -> BenchmarkSnapshotManifest:
 
 def _build_excluded_source_snapshot(
     *,
-    source_name: str,
+    source_rule: SourceCutoffRule,
     source_version: str,
     allowed_data_through: str,
     materialized_at: str,
     exclusion_reason: str,
 ) -> SourceSnapshot:
     return SourceSnapshot(
-        source_name=source_name,
+        source_name=source_rule.source_name,
         source_version=source_version,
-        cutoff_mode=next(
-            rule.cutoff_mode
-            for rule in SOURCE_CUTOFF_RULES_V1
-            if rule.source_name == source_name
-        ),
+        cutoff_mode=source_rule.cutoff_mode,
         allowed_data_through=allowed_data_through,
         evidence_frozen_at=None,
         materialized_at=materialized_at,
-        evidence_timestamp_field=None,
-        missing_date_policy=next(
-            rule.missing_date_policy
-            for rule in SOURCE_CUTOFF_RULES_V1
-            if rule.source_name == source_name
-        ),
-        future_record_policy=next(
-            rule.future_record_policy
-            for rule in SOURCE_CUTOFF_RULES_V1
-            if rule.source_name == source_name
-        ),
+        evidence_timestamp_field=source_rule.evidence_timestamp_field,
+        missing_date_policy=source_rule.missing_date_policy,
+        future_record_policy=source_rule.future_record_policy,
         included=False,
         exclusion_reason=exclusion_reason,
     )
@@ -240,7 +263,7 @@ def _build_excluded_source_snapshot(
 
 def _resolve_source_snapshot(
     *,
-    source_name: str,
+    source_rule: SourceCutoffRule,
     as_of_date: str,
     materialized_at: str,
     descriptors: tuple[SourceArchiveDescriptor, ...],
@@ -277,7 +300,7 @@ def _resolve_source_snapshot(
                 descriptor.source_version for descriptor in ambiguous_descriptors
             )
             raise ValueError(
-                f"{source_name} has multiple eligible archive descriptors for "
+                f"{source_rule.source_name} has multiple eligible archive descriptors for "
                 f"{newest_allowed_data_through}/{newest_evidence_frozen_at}: {versions}"
             )
 
@@ -294,33 +317,21 @@ def _resolve_source_snapshot(
             )
             continue
         return SourceSnapshot(
-            source_name=source_name,
+            source_name=source_rule.source_name,
             source_version=descriptor.source_version,
-            cutoff_mode=next(
-                rule.cutoff_mode
-                for rule in SOURCE_CUTOFF_RULES_V1
-                if rule.source_name == source_name
-            ),
+            cutoff_mode=source_rule.cutoff_mode,
             allowed_data_through=descriptor.allowed_data_through,
             evidence_frozen_at=descriptor.evidence_frozen_at,
             materialized_at=materialized_at,
-            evidence_timestamp_field=None,
-            missing_date_policy=next(
-                rule.missing_date_policy
-                for rule in SOURCE_CUTOFF_RULES_V1
-                if rule.source_name == source_name
-            ),
-            future_record_policy=next(
-                rule.future_record_policy
-                for rule in SOURCE_CUTOFF_RULES_V1
-                if rule.source_name == source_name
-            ),
+            evidence_timestamp_field=source_rule.evidence_timestamp_field,
+            missing_date_policy=source_rule.missing_date_policy,
+            future_record_policy=source_rule.future_record_policy,
             included=True,
         )
 
     if not sorted_descriptors:
         return _build_excluded_source_snapshot(
-            source_name=source_name,
+            source_rule=source_rule,
             source_version="unavailable",
             allowed_data_through=as_of_date,
             materialized_at=materialized_at,
@@ -342,7 +353,7 @@ def _resolve_source_snapshot(
         )
 
     return _build_excluded_source_snapshot(
-        source_name=source_name,
+        source_rule=source_rule,
         source_version=candidate.source_version,
         allowed_data_through=(
             candidate.allowed_data_through if eligible else as_of_date
@@ -359,13 +370,19 @@ def build_benchmark_snapshot_manifest(
     materialized_at: str,
 ) -> BenchmarkSnapshotManifest:
     _parse_iso_date(materialized_at, "materialized_at")
+    task_contract = resolve_benchmark_task_contract(
+        benchmark_task_id=request.benchmark_task_id or None,
+        benchmark_question_id=request.benchmark_question_id,
+        benchmark_suite_id=request.benchmark_suite_id or None,
+    )
+    protocol = task_contract.protocol
     descriptors_by_source: dict[str, tuple[SourceArchiveDescriptor, ...]] = {
-        rule.source_name: tuple(
+        source_rule.source_name: tuple(
             descriptor
             for descriptor in archive_descriptors
-            if descriptor.source_name == rule.source_name
+            if descriptor.source_name == source_rule.source_name
         )
-        for rule in SOURCE_CUTOFF_RULES_V1
+        for source_rule in protocol.source_cutoff_rules
     }
     unknown_descriptor_sources = sorted(
         {
@@ -382,24 +399,26 @@ def build_benchmark_snapshot_manifest(
 
     source_snapshots = tuple(
         _resolve_source_snapshot(
-            source_name=rule.source_name,
+            source_rule=source_rule,
             as_of_date=request.as_of_date,
             materialized_at=materialized_at,
-            descriptors=descriptors_by_source[rule.source_name],
+            descriptors=descriptors_by_source[source_rule.source_name],
         )
-        for rule in SOURCE_CUTOFF_RULES_V1
+        for source_rule in protocol.source_cutoff_rules
     )
     return BenchmarkSnapshotManifest(
         schema_name=SNAPSHOT_MANIFEST_SCHEMA_NAME,
         schema_version=SNAPSHOT_MANIFEST_SCHEMA_VERSION,
         snapshot_id=request.snapshot_id,
         cohort_id=request.cohort_id,
+        benchmark_suite_id=task_contract.suite_id,
+        benchmark_task_id=task_contract.task_id,
         benchmark_question_id=request.benchmark_question_id,
         as_of_date=request.as_of_date,
         outcome_observation_closed_at=request.outcome_observation_closed_at,
         entity_types=request.entity_types,
         source_snapshots=source_snapshots,
-        leakage_controls=LeakageControls(),
+        leakage_controls=protocol.leakage_controls,
         baseline_ids=request.baseline_ids,
         notes=request.notes,
     )
@@ -433,6 +452,8 @@ def materialize_benchmark_snapshot_manifest(
         if not source_snapshot.included
     ]
     return {
+        "benchmark_suite_id": manifest.benchmark_suite_id,
+        "benchmark_task_id": manifest.benchmark_task_id,
         "snapshot_id": manifest.snapshot_id,
         "cohort_id": manifest.cohort_id,
         "output_file": str(output_file),

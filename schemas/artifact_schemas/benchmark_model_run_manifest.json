@@ -64,6 +64,18 @@
   ],
   "optional_fields": [
     {
+      "name": "benchmark_suite_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional benchmark suite contract identifier."
+    },
+    {
+      "name": "benchmark_task_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional benchmark task contract identifier."
+    },
+    {
       "name": "completed_at",
       "field_type": "datetime",
       "required": false,

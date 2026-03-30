@@ -10,6 +10,7 @@ from scz_target_engine.benchmark_protocol import (
     BenchmarkSnapshotManifest,
     VALID_ENTITY_TYPES,
 )
+from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 from scz_target_engine.io import read_csv_rows, write_csv
 
 
@@ -208,6 +209,12 @@ def build_benchmark_cohort_labels(
     cohort_members: tuple[CohortMember, ...],
     future_outcomes: tuple[FutureOutcomeRecord, ...],
 ) -> tuple[BenchmarkCohortLabel, ...]:
+    task_contract = resolve_benchmark_task_contract(
+        benchmark_task_id=manifest.benchmark_task_id or None,
+        benchmark_question_id=manifest.benchmark_question_id,
+        benchmark_suite_id=manifest.benchmark_suite_id or None,
+    )
+    question = task_contract.protocol.question
     as_of_date = _parse_iso_date(manifest.as_of_date, "as_of_date")
     outcome_closed_at = _parse_iso_date(
         manifest.outcome_observation_closed_at,
@@ -223,7 +230,7 @@ def build_benchmark_cohort_labels(
             _add_years(as_of_date, _parse_horizon_years(horizon)),
             outcome_closed_at,
         )
-        for horizon in BENCHMARK_QUESTION_V1.evaluation_horizons
+        for horizon in question.evaluation_horizons
     }
     grouped_outcomes: dict[tuple[str, str], list[FutureOutcomeRecord]] = {}
     for outcome in future_outcomes:
@@ -260,7 +267,7 @@ def build_benchmark_cohort_labels(
             grouped_outcomes.get((member.entity_type, member.entity_id), []),
             key=lambda item: (item.outcome_date, item.outcome_label, item.label_source),
         )
-        for horizon in BENCHMARK_QUESTION_V1.evaluation_horizons:
+        for horizon in question.evaluation_horizons:
             horizon_cutoff = horizon_cutoffs[horizon]
             qualifying_outcomes = [
                 outcome
@@ -273,7 +280,7 @@ def build_benchmark_cohort_labels(
             for outcome in qualifying_outcomes:
                 outcomes_by_label.setdefault(outcome.outcome_label, []).append(outcome)
 
-            for label_name in BENCHMARK_QUESTION_V1.translational_outcome_labels:
+            for label_name in question.translational_outcome_labels:
                 if label_name == NO_OUTCOME_LABEL:
                     label_is_observed = not qualifying_outcomes
                     outcome_date = ""
@@ -363,6 +370,8 @@ def materialize_benchmark_cohort_labels(
         label.label_value == OBSERVED_LABEL_VALUE for label in labels
     )
     return {
+        "benchmark_suite_id": manifest.benchmark_suite_id,
+        "benchmark_task_id": manifest.benchmark_task_id,
         "snapshot_id": manifest.snapshot_id,
         "cohort_id": manifest.cohort_id,
         "output_file": str(output_file),

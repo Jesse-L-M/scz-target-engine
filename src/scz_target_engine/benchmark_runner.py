@@ -30,14 +30,13 @@ from scz_target_engine.benchmark_metrics import (
 )
 from scz_target_engine.benchmark_protocol import (
     AVAILABLE_NOW_STATUS,
-    BENCHMARK_QUESTION_V1,
-    FROZEN_BASELINE_MATRIX,
     GENE_ENTITY_TYPE,
     MODULE_ENTITY_TYPE,
     PROTOCOL_ONLY_STATUS,
     BaselineDefinition,
     BenchmarkSnapshotManifest,
 )
+from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 from scz_target_engine.benchmark_snapshots import (
     SourceArchiveDescriptor,
     load_source_archive_descriptors,
@@ -170,6 +169,8 @@ class BenchmarkModelRunManifest:
     input_artifacts: tuple[InputArtifactReference, ...]
     started_at: str
     completed_at: str
+    benchmark_suite_id: str = ""
+    benchmark_task_id: str = ""
     parameterization: dict[str, object] | None = None
     notes: str = ""
     schema_name: str = RUN_MANIFEST_SCHEMA_NAME
@@ -183,11 +184,15 @@ class BenchmarkModelRunManifest:
         _require_text(self.code_version, "code_version")
         _require_text(self.started_at, "started_at")
         _require_text(self.completed_at, "completed_at")
+        if self.benchmark_suite_id:
+            _require_text(self.benchmark_suite_id, "benchmark_suite_id")
+        if self.benchmark_task_id:
+            _require_text(self.benchmark_task_id, "benchmark_task_id")
         _require_text(self.schema_name, "schema_name")
         _require_text(self.schema_version, "schema_version")
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schema_name": self.schema_name,
             "schema_version": self.schema_version,
             "run_id": self.run_id,
@@ -203,6 +208,11 @@ class BenchmarkModelRunManifest:
             "completed_at": self.completed_at,
             "notes": self.notes,
         }
+        if self.benchmark_suite_id:
+            payload["benchmark_suite_id"] = self.benchmark_suite_id
+        if self.benchmark_task_id:
+            payload["benchmark_task_id"] = self.benchmark_task_id
+        return payload
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkModelRunManifest:
@@ -214,6 +224,8 @@ class BenchmarkModelRunManifest:
             baseline_id=str(payload["baseline_id"]),
             model_family=str(payload["model_family"]),
             code_version=str(payload["code_version"]),
+            benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
+            benchmark_task_id=str(payload.get("benchmark_task_id", "")),
             parameterization=payload.get("parameterization"),
             input_artifacts=tuple(
                 InputArtifactReference.from_dict(item)
@@ -944,6 +956,13 @@ def run_benchmark(
     execution_timestamp: str | None = None,
 ) -> dict[str, object]:
     manifest = read_benchmark_snapshot_manifest(manifest_file)
+    task_contract = resolve_benchmark_task_contract(
+        benchmark_task_id=manifest.benchmark_task_id or None,
+        benchmark_question_id=manifest.benchmark_question_id,
+        benchmark_suite_id=manifest.benchmark_suite_id or None,
+    )
+    protocol = task_contract.protocol
+    question = protocol.question
     cohort_labels = read_benchmark_cohort_labels(cohort_labels_file)
     _validate_cohort_labels(manifest, cohort_labels)
     config = load_config(config_file)
@@ -984,16 +1003,19 @@ def run_benchmark(
 
     baseline_index = {
         baseline_definition.baseline_id: baseline_definition
-        for baseline_definition in FROZEN_BASELINE_MATRIX
+        for baseline_definition in protocol.baselines
+        if baseline_definition.baseline_id in task_contract.supported_baseline_ids
     }
     available_now_baselines = [
         baseline_definition.baseline_id
-        for baseline_definition in FROZEN_BASELINE_MATRIX
+        for baseline_definition in protocol.baselines
+        if baseline_definition.baseline_id in task_contract.supported_baseline_ids
         if baseline_definition.status == AVAILABLE_NOW_STATUS
     ]
     protocol_only_baselines = [
         baseline_definition.baseline_id
-        for baseline_definition in FROZEN_BASELINE_MATRIX
+        for baseline_definition in protocol.baselines
+        if baseline_definition.baseline_id in task_contract.supported_baseline_ids
         if baseline_definition.status == PROTOCOL_ONLY_STATUS
     ]
     requested_available_now_baselines = [
@@ -1057,7 +1079,7 @@ def run_benchmark(
                     if entity_id in admissible_entity_id_set
                 }
             )
-            for horizon in BENCHMARK_QUESTION_V1.evaluation_horizons:
+            for horizon in question.evaluation_horizons:
                 relevance_index = build_positive_relevance_index(
                     context.cohort_labels,
                     entity_type=entity_type,
@@ -1155,6 +1177,8 @@ def run_benchmark(
             baseline_id=baseline_id,
             model_family=baseline.family,
             code_version=code_version,
+            benchmark_suite_id=task_contract.suite_id,
+            benchmark_task_id=task_contract.task_id,
             parameterization=parameterization,
             input_artifacts=_baseline_input_artifacts(
                 baseline_id=baseline_id,
@@ -1174,6 +1198,8 @@ def run_benchmark(
         executed_baselines.append(baseline_id)
 
     return {
+        "benchmark_suite_id": task_contract.suite_id,
+        "benchmark_task_id": task_contract.task_id,
         "snapshot_id": manifest.snapshot_id,
         "cohort_id": manifest.cohort_id,
         "output_dir": str(output_dir),

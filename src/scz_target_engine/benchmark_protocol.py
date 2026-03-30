@@ -341,6 +341,8 @@ class BenchmarkSnapshotManifest:
     source_snapshots: tuple[SourceSnapshot, ...]
     leakage_controls: LeakageControls
     baseline_ids: tuple[str, ...]
+    benchmark_suite_id: str = ""
+    benchmark_task_id: str = ""
     notes: str = ""
 
     def __post_init__(self) -> None:
@@ -348,11 +350,28 @@ class BenchmarkSnapshotManifest:
         _require_text(self.schema_version, "schema_version")
         _require_text(self.snapshot_id, "snapshot_id")
         _require_text(self.cohort_id, "cohort_id")
+        if self.benchmark_suite_id:
+            _require_text(self.benchmark_suite_id, "benchmark_suite_id")
+        if self.benchmark_task_id:
+            _require_text(self.benchmark_task_id, "benchmark_task_id")
         _require_text(self.benchmark_question_id, "benchmark_question_id")
-        if self.benchmark_question_id != BENCHMARK_QUESTION_V1.question_id:
+        from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
+
+        try:
+            task_contract = resolve_benchmark_task_contract(
+                benchmark_task_id=self.benchmark_task_id or None,
+                benchmark_question_id=self.benchmark_question_id,
+                benchmark_suite_id=self.benchmark_suite_id or None,
+            )
+        except ValueError as exc:
             raise ValueError(
                 "benchmark_question_id must match the frozen benchmark question id "
                 f"{BENCHMARK_QUESTION_V1.question_id}"
+            ) from exc
+        protocol = task_contract.protocol
+        if self.benchmark_question_id != protocol.question.question_id:
+            raise ValueError(
+                "benchmark_question_id must match the resolved benchmark task contract"
             )
         as_of_date = _parse_iso_date(self.as_of_date, "as_of_date")
         outcome_closed_at = _parse_iso_date(
@@ -377,7 +396,7 @@ class BenchmarkSnapshotManifest:
 
         seen_sources: set[str] = set()
         known_baselines = {
-            baseline.baseline_id: baseline for baseline in FROZEN_BASELINE_MATRIX
+            baseline.baseline_id: baseline for baseline in protocol.baselines
         }
         snapshot_entity_types = set(self.entity_types)
         for baseline_id in self.baseline_ids:
@@ -393,7 +412,7 @@ class BenchmarkSnapshotManifest:
 
         known_source_rules = {
             source_rule.source_name: source_rule
-            for source_rule in SOURCE_CUTOFF_RULES_V1
+            for source_rule in protocol.source_cutoff_rules
         }
         for source_snapshot in self.source_snapshots:
             if source_snapshot.source_name in seen_sources:
@@ -469,7 +488,7 @@ class BenchmarkSnapshotManifest:
             )
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schema_name": self.schema_name,
             "schema_version": self.schema_version,
             "snapshot_id": self.snapshot_id,
@@ -485,6 +504,11 @@ class BenchmarkSnapshotManifest:
             "baseline_ids": list(self.baseline_ids),
             "notes": self.notes,
         }
+        if self.benchmark_suite_id:
+            payload["benchmark_suite_id"] = self.benchmark_suite_id
+        if self.benchmark_task_id:
+            payload["benchmark_task_id"] = self.benchmark_task_id
+        return payload
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkSnapshotManifest:
@@ -503,6 +527,8 @@ class BenchmarkSnapshotManifest:
             ),
             leakage_controls=LeakageControls.from_dict(payload["leakage_controls"]),
             baseline_ids=tuple(str(item) for item in payload["baseline_ids"]),
+            benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
+            benchmark_task_id=str(payload.get("benchmark_task_id", "")),
             notes=str(payload.get("notes", "")),
         )
 
@@ -980,6 +1006,18 @@ BENCHMARK_ARTIFACT_SCHEMAS_V1 = (
                 description="Identifier for the benchmark cohort evaluated under the snapshot.",
             ),
             ArtifactField(
+                name="benchmark_suite_id",
+                field_type="string",
+                required=False,
+                description="Optional benchmark suite contract identifier.",
+            ),
+            ArtifactField(
+                name="benchmark_task_id",
+                field_type="string",
+                required=False,
+                description="Optional benchmark task contract identifier.",
+            ),
+            ArtifactField(
                 name="benchmark_question_id",
                 field_type="string",
                 required=True,
@@ -1141,6 +1179,18 @@ BENCHMARK_ARTIFACT_SCHEMAS_V1 = (
                 field_type="string",
                 required=True,
                 description="Snapshot manifest consumed by the run.",
+            ),
+            ArtifactField(
+                name="benchmark_suite_id",
+                field_type="string",
+                required=False,
+                description="Optional benchmark suite contract identifier.",
+            ),
+            ArtifactField(
+                name="benchmark_task_id",
+                field_type="string",
+                required=False,
+                description="Optional benchmark task contract identifier.",
             ),
             ArtifactField(
                 name="baseline_id",

@@ -55,6 +55,12 @@ benchmark code:
 - `BenchmarkMetricOutputPayload`
 - `BenchmarkConfidenceIntervalPayload`
 
+The registry-driven benchmark path keeps those same emitted families. The additive
+contract provenance fields live on the manifest artifacts:
+
+- `BenchmarkSnapshotManifest` may include optional `benchmark_suite_id` and `benchmark_task_id`
+- `BenchmarkModelRunManifest` may include optional `benchmark_suite_id` and `benchmark_task_id`
+
 For current ledger and `v1` artifacts, validation stays additive and non-invasive:
 
 - `gene_target_ledgers` validates the current top-level payload plus derived counts

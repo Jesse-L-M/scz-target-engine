@@ -5,6 +5,7 @@ workflow shipped on `main`.
 
 ## Checked In
 
+- `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract source of truth
 - `fixtures/scz_small/snapshot_request.json`: frozen snapshot request
 - `fixtures/scz_small/source_archives.json`: archived source descriptor index with digests
 - `fixtures/scz_small/archives/`: small fixture-scale archived source extracts
@@ -48,6 +49,7 @@ uv run scz-target-engine run-benchmark \
 
 This fixture flow proves the benchmark path end to end:
 
+- it resolves the explicit `scz_translational_suite` / `scz_translational_task` contract from `data/curated/rescue_tasks/task_registry.csv`
 - it writes a real `benchmark_snapshot_manifest`
 - it emits explicit per-source inclusion or exclusion entries
 - it materializes `benchmark_cohort_labels`

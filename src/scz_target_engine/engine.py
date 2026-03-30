@@ -15,6 +15,7 @@ from scz_target_engine.ledger import (
     ledger_summary_fields,
     target_ledgers_to_payload,
 )
+from scz_target_engine.hypothesis_lab import materialize_hypothesis_packets
 from scz_target_engine.policy import build_policy_artifacts
 from scz_target_engine.reporting import (
     build_cards_markdown,
@@ -206,14 +207,15 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
             "baseline_overlap": baseline_overlap,
         },
     )
+    ledger_payload = target_ledgers_to_payload(
+        target_ledgers,
+        program_history_path=program_history_path,
+        directionality_hypotheses_path=directionality_hypotheses_path,
+        repo_root=repo_root,
+    )
     write_json(
         output_dir / "gene_target_ledgers.json",
-        target_ledgers_to_payload(
-            target_ledgers,
-            program_history_path=program_history_path,
-            directionality_hypotheses_path=directionality_hypotheses_path,
-            repo_root=repo_root,
-        ),
+        ledger_payload,
     )
     write_json(
         output_dir / "decision_vectors_v1.json",
@@ -231,6 +233,11 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
     write_json(
         output_dir / "policy_pareto_fronts_v1.json",
         policy_pareto_payload,
+    )
+    materialize_hypothesis_packets(
+        output_dir / "policy_decision_vectors_v2.json",
+        output_dir / "gene_target_ledgers.json",
+        output_file=output_dir / "hypothesis_packets_v1.json",
     )
     write_text(
         output_dir / "target_cards.md",
@@ -278,4 +285,5 @@ def build_outputs(config: EngineConfig, input_dir: Path, output_dir: Path) -> di
         "policy_decision_vector_artifact": str(output_dir / "policy_decision_vectors_v2.json"),
         "domain_head_ranking_artifact": str(output_dir / "domain_head_rankings_v1.csv"),
         "policy_pareto_front_artifact": str(output_dir / "policy_pareto_fronts_v1.json"),
+        "hypothesis_packet_artifact": str(output_dir / "hypothesis_packets_v1.json"),
     }

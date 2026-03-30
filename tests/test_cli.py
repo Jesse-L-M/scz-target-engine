@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from scz_target_engine.cli import build_parser, main
+from scz_target_engine.config import load_config
+from scz_target_engine.engine import build_outputs
 
 
 def test_cli_validate_runs() -> None:
@@ -31,6 +33,20 @@ def test_cli_validate_runs() -> None:
             ],
             "validate",
             ("engine", "validate"),
+        ),
+        (
+            [
+                "hypothesis-lab",
+                "build-packets",
+                "--policy-artifact",
+                "policy_decision_vectors_v2.json",
+                "--ledger-artifact",
+                "gene_target_ledgers.json",
+                "--output-file",
+                "hypothesis_packets_v1.json",
+            ],
+            "build-hypothesis-packets",
+            ("hypothesis-lab", "build-packets"),
         ),
         (
             [
@@ -219,6 +235,31 @@ def test_cli_namespaced_validate_runs_with_mirrored_config() -> None:
         ]
     )
     assert exit_code == 0
+
+
+def test_cli_build_hypothesis_packets_runs(tmp_path: Path) -> None:
+    config = load_config(Path("config/v0.toml"))
+    build_dir = tmp_path / "build"
+    build_outputs(
+        config,
+        Path("examples/v0/input").resolve(),
+        build_dir,
+    )
+
+    exit_code = main(
+        [
+            "build-hypothesis-packets",
+            "--policy-artifact",
+            str((build_dir / "policy_decision_vectors_v2.json").resolve()),
+            "--ledger-artifact",
+            str((build_dir / "gene_target_ledgers.json").resolve()),
+            "--output-file",
+            str((tmp_path / "cli_hypothesis_packets_v1.json").resolve()),
+        ]
+    )
+
+    assert exit_code == 0
+    assert (tmp_path / "cli_hypothesis_packets_v1.json").exists()
 
 
 @pytest.mark.parametrize(

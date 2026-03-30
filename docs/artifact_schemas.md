@@ -21,6 +21,7 @@ that future task work can consume without changing current build semantics.
 - `policy_decision_vectors_v2`
 - `domain_head_rankings_v1`
 - `policy_pareto_fronts_v1`
+- `hypothesis_packets_v1`
 
 The schema files live under `schemas/artifact_schemas/`. Rescue governance schemas
 now live under `schemas/artifact_schemas/rescue/`.
@@ -94,6 +95,10 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
   current `v1` head set
 - `policy_pareto_fronts_v1` validates the ordered policy dimensions and the grouped
   Pareto-front rows emitted for genes and modules
+- `hypothesis_packets_v1` validates policy-scoped gene hypothesis packets built from
+  shipped `policy_decision_vectors_v2` and `gene_target_ledgers` artifacts, including
+  explicit contradiction handling, explicit failure-escape logic, and per-packet
+  traceability pointers back to the source artifacts
 - `rescue_task_contract` validates registry-backed rescue task identity, artifact
   interface declarations, and the strict no-leakage rescue boundary
 - `rescue_dataset_card` validates that a governed rescue dataset card resolves back

@@ -113,6 +113,7 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     assert (tmp_path / "policy_decision_vectors_v2.json").exists()
     assert (tmp_path / "domain_head_rankings_v1.csv").exists()
     assert (tmp_path / "policy_pareto_fronts_v1.json").exists()
+    assert (tmp_path / "hypothesis_packets_v1.json").exists()
 
     target_cards = (tmp_path / "target_cards.md").read_text(encoding="utf-8")
     assert "# Public-Evidence Promising Cards" in target_cards
@@ -326,6 +327,7 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     assert result["policy_pareto_front_artifact"].endswith(
         "policy_pareto_fronts_v1.json"
     )
+    assert result["hypothesis_packet_artifact"].endswith("hypothesis_packets_v1.json")
 
     with Path("examples/v0/output/gene_rankings.csv").open(
         newline="", encoding="utf-8"
@@ -433,4 +435,8 @@ def test_build_outputs_emits_policy_vectors_and_pareto_fronts(tmp_path: Path) ->
     assert (
         load_artifact(tmp_path / "policy_pareto_fronts_v1.json").artifact_name
         == "policy_pareto_fronts_v1"
+    )
+    assert (
+        load_artifact(tmp_path / "hypothesis_packets_v1.json").artifact_name
+        == "hypothesis_packets_v1"
     )

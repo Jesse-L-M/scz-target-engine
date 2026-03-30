@@ -26,6 +26,7 @@ from scz_target_engine.benchmark_snapshots import (
 )
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
+from scz_target_engine.hypothesis_lab import materialize_hypothesis_packets
 from scz_target_engine.ingest import refresh_candidate_registry
 from scz_target_engine.io import read_json, write_csv
 from scz_target_engine.program_memory import (
@@ -80,6 +81,14 @@ def _configure_build_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--config", required=True)
     parser.add_argument("--input-dir")
     parser.add_argument("--output-dir")
+
+
+def _configure_build_hypothesis_packets_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--policy-artifact", required=True)
+    parser.add_argument("--ledger-artifact", required=True)
+    parser.add_argument("--output-file", required=True)
 
 
 def _configure_program_memory_harvest_parser(
@@ -325,6 +334,11 @@ def _configure_build_benchmark_reporting_parser(
 COMMAND_ROUTES = (
     CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
     CommandRoute("build", ("engine", "build"), _configure_build_parser),
+    CommandRoute(
+        "build-hypothesis-packets",
+        ("hypothesis-lab", "build-packets"),
+        _configure_build_hypothesis_packets_parser,
+    ),
     CommandRoute(
         "program-memory-harvest",
         ("program-memory", "harvest"),
@@ -738,6 +752,27 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=Path(args.output_dir).resolve(),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "build-hypothesis-packets":
+        output_file = Path(args.output_file).resolve()
+        payload = materialize_hypothesis_packets(
+            Path(args.policy_artifact).resolve(),
+            Path(args.ledger_artifact).resolve(),
+            output_file=output_file,
+        )
+        print(
+            json.dumps(
+                {
+                    "packet_count": payload["packet_count"],
+                    "output_file": str(output_file),
+                    "policy_artifact": str(Path(args.policy_artifact).resolve()),
+                    "ledger_artifact": str(Path(args.ledger_artifact).resolve()),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
 
     if args.command == "fetch-opentargets":

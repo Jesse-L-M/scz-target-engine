@@ -1,9 +1,17 @@
 import csv
 from pathlib import Path
 
+from scz_target_engine.io import read_csv_rows
 from scz_target_engine.ledger import (
     build_target_ledgers,
     target_ledgers_to_payload,
+)
+from scz_target_engine.program_memory import (
+    load_program_history_compatibility_view,
+    load_program_memory_dataset,
+    materialize_legacy_directionality_hypothesis_rows,
+    materialize_legacy_program_history_rows,
+    migrate_legacy_program_memory,
 )
 from scz_target_engine.scoring import RankedEntity, WarningRecord
 
@@ -403,3 +411,92 @@ def test_target_ledgers_payload_reports_schema_and_counts(tmp_path: Path) -> Non
     assert payload["targets_with_program_history"] == 0
     assert payload["targets_with_curated_directionality"] == 1
     assert payload["targets"][0]["entity_id"] == "ENSGTEST1"
+
+
+def test_checked_in_v2_program_memory_projects_current_compatibility_rows() -> None:
+    dataset = load_program_memory_dataset(Path("data/curated/program_history/v2"))
+
+    assert materialize_legacy_program_history_rows(dataset) == read_csv_rows(
+        Path("data/curated/program_history/programs.csv")
+    )
+    assert materialize_legacy_directionality_hypothesis_rows(dataset) == read_csv_rows(
+        Path("data/curated/program_history/directionality_hypotheses.csv")
+    )
+
+
+def test_migrate_legacy_program_memory_round_trips_compatibility_rows() -> None:
+    program_rows = [
+        {
+            "program_id": "legacy-positive",
+            "sponsor": "Sponsor A",
+            "molecule": "asset-a",
+            "target": "TEST1 / TEST2",
+            "target_class": "test class",
+            "mechanism": "mechanism a",
+            "modality": "small_molecule",
+            "population": "adults with schizophrenia",
+            "domain": "acute_positive_symptoms",
+            "mono_or_adjunct": "monotherapy",
+            "phase": "phase_2",
+            "event_type": "topline_readout",
+            "date": "2024-01-01",
+            "primary_outcome_result": "met_primary_endpoint",
+            "failure_reason_taxonomy": "not_applicable_nonfailure",
+            "source_tier": "company_press_release",
+            "source_url": "https://example.com/positive",
+            "confidence": "high",
+            "notes": "positive anchor",
+        },
+        {
+            "program_id": "legacy-negative",
+            "sponsor": "Sponsor B",
+            "molecule": "asset-a",
+            "target": "TEST1 / TEST2",
+            "target_class": "test class",
+            "mechanism": "mechanism a",
+            "modality": "small_molecule",
+            "population": "treatment-resistant adults",
+            "domain": "treatment_resistant_schizophrenia",
+            "mono_or_adjunct": "adjunct",
+            "phase": "phase_3",
+            "event_type": "topline_readout",
+            "date": "2024-02-01",
+            "primary_outcome_result": "did_not_meet_primary_endpoint",
+            "failure_reason_taxonomy": "population_mismatch",
+            "source_tier": "peer_reviewed_primary_results",
+            "source_url": "https://example.com/negative",
+            "confidence": "medium",
+            "notes": "subgroup miss",
+        },
+    ]
+    directionality_rows = [
+        {
+            "entity_id": "ENSGTEST1",
+            "entity_label": "TEST1",
+            "desired_perturbation_direction": "increase_activity",
+            "modality_hypothesis": "agonism",
+            "preferred_modalities_json": '["small_molecule"]',
+            "confidence": "medium",
+            "ambiguity": "Execution still uncertain.",
+            "evidence_basis": "Legacy row basis.",
+            "supporting_program_ids_json": '["legacy-positive", "legacy-negative"]',
+            "contradiction_conditions_json": '["Repeated aligned failures."]',
+            "falsification_conditions_json": '["Programs keep failing."]',
+            "open_risks_json": '["Signal may be subgroup-limited."]',
+        }
+    ]
+
+    dataset = migrate_legacy_program_memory(program_rows, directionality_rows)
+
+    assert materialize_legacy_program_history_rows(dataset) == program_rows
+    assert materialize_legacy_directionality_hypothesis_rows(dataset) == directionality_rows
+
+
+def test_checked_in_ledger_loader_resolves_v2_compatibility_view() -> None:
+    program_history = load_program_history_compatibility_view(
+        Path("data/curated/program_history/programs.csv")
+    )
+
+    assert len(program_history) == 7
+    assert program_history[0].program_id == "clozapine-clozaril-trs-approval-us-1989"
+    assert program_history[1].molecule == "xanomeline + trospium"

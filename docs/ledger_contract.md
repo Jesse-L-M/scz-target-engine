@@ -23,11 +23,16 @@ Top-level payload fields:
 
 - `schema_version`: currently `pr7-target-ledger-v1`
 - `scoring_neutral`: always `true` in `v0`
-- `data_sources`: checked-in curated substrate inputs used to build the ledgers
+- `data_sources`: checked-in compatibility-view inputs used to build the ledgers
 - `target_count`
 - `targets_with_program_history`
 - `targets_with_curated_directionality`
 - `targets`: one ledger object per gene target
+
+The underlying checked-in source of truth can now be the normalized
+`data/curated/program_history/v2/` tables, but the emitted payload keeps the legacy
+`programs.csv` and `directionality_hypotheses.csv` references so the artifact contract
+does not drift.
 
 Per-target ledger fields:
 

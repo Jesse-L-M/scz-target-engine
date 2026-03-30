@@ -14,6 +14,27 @@ outputs unchanged.
 - It does not yet adjudicate a full historical ledger for every target class.
 - Its checked-in historical coverage is still curation-scale rather than exhaustive.
 
+## v2 Source Of Truth
+
+`data/curated/program_history/v2/` is now the normalized source of truth for
+checked-in program memory.
+
+The normalized tables are:
+
+- `assets.csv`: stable asset-level identity via `asset_id`, `molecule`, `target`,
+  `target_symbols_json`, `target_class`, `mechanism`, and `modality`
+- `events.csv`: dated program events via `event_id`, `asset_id`, sponsor and clinical
+  context fields, normalized outcome fields, curator confidence, and `sort_order`
+- `event_provenance.csv`: event-level provenance keyed by `event_id`
+- `directionality_hypotheses.csv`: target-level directionality records keyed by
+  `hypothesis_id`, with `supporting_event_ids_json` instead of legacy
+  `supporting_program_ids_json`
+
+The legacy `programs.csv` and `directionality_hypotheses.csv` files remain checked in
+as compatibility views for current ledger consumers. `event_id` in v2 maps directly to
+the legacy `program_id`, so existing rows remain traceable back to the checked-in
+curation and its provenance.
+
 ## Row Granularity
 
 One row equals one dated, externally backed program event.
@@ -27,9 +48,16 @@ Examples:
 
 If a single asset has both a positive phase 2 signal and a later phase 3 miss, record separate rows rather than collapsing them.
 
-## Schema
+In v2, one legacy compatibility row corresponds to:
 
-`data/curated/program_history/programs.csv` currently uses the following columns:
+- one `assets.csv` row
+- one `events.csv` row
+- one `event_provenance.csv` row
+
+## Legacy Compatibility View
+
+`data/curated/program_history/programs.csv` remains the current consumer-facing view and
+still uses the following columns:
 
 | Column | Meaning |
 | --- | --- |
@@ -88,13 +116,26 @@ Confidence applies to the full curated row, not just to whether the event happen
 2. Choose the primary ontology bucket from [ontology.md](ontology.md).
 3. Choose one best-fit failure-taxonomy label from [failure_taxonomy.md](../data/curated/program_history/failure_taxonomy.md).
 4. Set `confidence` based on the whole row, not just the source.
-5. Add a concise `notes` entry whenever the taxonomy assignment is interpretive.
+5. Add or update the normalized v2 rows under `data/curated/program_history/v2/`.
+6. Keep the legacy compatibility views materializable without semantic drift.
+7. Add a concise `notes` entry whenever the taxonomy assignment is interpretive.
 
 That workflow keeps the checked-in data stable enough for later code without pretending the repo already has a complete historical adjudication layer.
 
+## Migration Posture
+
+- v2 normalization is additive and compatibility-first.
+- Current ledger consumers still read the legacy row shape through a thin compatibility
+  projection.
+- No shared `v0` scoring semantics, `v1` decision-vector semantics, benchmark semantics,
+  or ledger artifact semantics change as part of this normalization.
+- The checked-in substrate remains curation-scale rather than a claim of exhaustive
+  historical adjudication.
+
 ## PR7 Structural Consumption
 
-The target-ledger output uses `programs.csv` to populate:
+The target-ledger output still consumes the legacy-compatible `programs.csv` view to
+populate:
 
 - `failure_scope`: normalized structural scope such as `target_class`, `molecule`, `endpoint`, `population`, `target`, `unresolved`, or `nonfailure`
 - `what_failed`: the object currently judged to have failed at that scope

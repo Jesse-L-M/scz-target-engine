@@ -7,7 +7,12 @@ from pathlib import Path
 import re
 from typing import Any
 
-from scz_target_engine.io import read_csv_rows
+from scz_target_engine.program_memory import (
+    DirectionalityHypothesis,
+    ProgramHistoryEvent,
+    load_directionality_hypotheses_compatibility_index,
+    load_program_history_compatibility_view,
+)
 from scz_target_engine.scoring import RankedEntity, WarningRecord
 
 
@@ -54,46 +59,6 @@ FLOAT_PATTERN = re.compile(r"^-?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[eE][+-]?\d+)?$")
 
 
 @dataclass(frozen=True)
-class ProgramHistoryEvent:
-    program_id: str
-    sponsor: str
-    molecule: str
-    target: str
-    target_symbols: tuple[str, ...]
-    target_class: str
-    mechanism: str
-    modality: str
-    population: str
-    domain: str
-    mono_or_adjunct: str
-    phase: str
-    event_type: str
-    date: str
-    primary_outcome_result: str
-    failure_reason_taxonomy: str
-    source_tier: str
-    source_url: str
-    confidence: str
-    notes: str
-
-
-@dataclass(frozen=True)
-class DirectionalityHypothesis:
-    entity_id: str
-    entity_label: str
-    desired_perturbation_direction: str
-    modality_hypothesis: str
-    preferred_modalities: tuple[str, ...]
-    confidence: str
-    ambiguity: str
-    evidence_basis: str
-    supporting_program_ids: tuple[str, ...]
-    contradiction_conditions: tuple[str, ...]
-    falsification_conditions: tuple[str, ...]
-    open_risks: tuple[str, ...]
-
-
-@dataclass(frozen=True)
 class StructuralFailureEvent:
     program_id: str
     event_date: str
@@ -131,84 +96,11 @@ class TargetLedger:
 
 
 def load_program_history(path: Path) -> list[ProgramHistoryEvent]:
-    events: list[ProgramHistoryEvent] = []
-    for row in read_csv_rows(path):
-        target = (row.get("target") or "").strip()
-        target_symbols = tuple(
-            token.strip().upper()
-            for token in target.split("/")
-            if token.strip()
-        )
-        events.append(
-            ProgramHistoryEvent(
-                program_id=(row.get("program_id") or "").strip(),
-                sponsor=(row.get("sponsor") or "").strip(),
-                molecule=(row.get("molecule") or "").strip(),
-                target=target,
-                target_symbols=target_symbols,
-                target_class=(row.get("target_class") or "").strip(),
-                mechanism=(row.get("mechanism") or "").strip(),
-                modality=(row.get("modality") or "").strip(),
-                population=(row.get("population") or "").strip(),
-                domain=(row.get("domain") or "").strip(),
-                mono_or_adjunct=(row.get("mono_or_adjunct") or "").strip(),
-                phase=(row.get("phase") or "").strip(),
-                event_type=(row.get("event_type") or "").strip(),
-                date=(row.get("date") or "").strip(),
-                primary_outcome_result=(row.get("primary_outcome_result") or "").strip(),
-                failure_reason_taxonomy=(row.get("failure_reason_taxonomy") or "").strip(),
-                source_tier=(row.get("source_tier") or "").strip(),
-                source_url=(row.get("source_url") or "").strip(),
-                confidence=(row.get("confidence") or "").strip().lower(),
-                notes=(row.get("notes") or "").strip(),
-            )
-        )
-    return events
+    return load_program_history_compatibility_view(path)
 
 
 def load_directionality_hypotheses(path: Path) -> dict[tuple[str, str], DirectionalityHypothesis]:
-    hypotheses: dict[tuple[str, str], DirectionalityHypothesis] = {}
-    for row in read_csv_rows(path):
-        entity_id = (row.get("entity_id") or "").strip()
-        entity_label = (row.get("entity_label") or "").strip()
-        if not entity_label:
-            raise ValueError("directionality hypotheses require entity_label")
-        hypothesis = DirectionalityHypothesis(
-            entity_id=entity_id,
-            entity_label=entity_label,
-            desired_perturbation_direction=(
-                row.get("desired_perturbation_direction") or "undetermined"
-            ).strip(),
-            modality_hypothesis=(row.get("modality_hypothesis") or "undetermined").strip(),
-            preferred_modalities=tuple(
-                parse_string_list(row.get("preferred_modalities_json"))
-            ),
-            confidence=(row.get("confidence") or "low").strip().lower(),
-            ambiguity=(row.get("ambiguity") or "").strip(),
-            evidence_basis=(row.get("evidence_basis") or "").strip(),
-            supporting_program_ids=tuple(
-                parse_string_list(row.get("supporting_program_ids_json"))
-            ),
-            contradiction_conditions=tuple(
-                parse_string_list(row.get("contradiction_conditions_json"))
-            ),
-            falsification_conditions=tuple(
-                parse_string_list(row.get("falsification_conditions_json"))
-            ),
-            open_risks=tuple(parse_string_list(row.get("open_risks_json"))),
-        )
-        hypotheses[(entity_id, entity_label.upper())] = hypothesis
-        hypotheses.setdefault(("", entity_label.upper()), hypothesis)
-    return hypotheses
-
-
-def parse_string_list(value: str | None) -> list[str]:
-    parsed = parse_metadata_value("list_json", value)
-    if isinstance(parsed, list):
-        return [str(item) for item in parsed]
-    if parsed is None:
-        return []
-    return [str(parsed)]
+    return load_directionality_hypotheses_compatibility_index(path)
 
 
 def parse_metadata_value(key: str, value: str | None) -> Any:

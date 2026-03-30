@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from scz_target_engine.cli import main
@@ -121,4 +122,55 @@ def test_program_memory_cli_coverage_audit_path(tmp_path) -> None:
         and row["scope_value"] == "CHRM4"
         and row["record_kind"] == "directionality_hypothesis"
         for row in evidence_rows
+    )
+
+
+def test_program_memory_cli_coverage_audit_removes_stale_focus_artifact(
+    tmp_path,
+    capsys,
+) -> None:
+    output_dir = tmp_path / "coverage"
+
+    assert (
+        main(
+            [
+                "program-memory",
+                "coverage-audit",
+                "--dataset-dir",
+                str(Path("data/curated/program_history/v2").resolve()),
+                "--output-dir",
+                str(output_dir),
+                "--focus-target",
+                "CHRM4",
+            ]
+        )
+        == 0
+    )
+    first_stdout = json.loads(capsys.readouterr().out)
+    assert first_stdout["focus_request"] == {"target": "CHRM4"}
+    assert first_stdout["coverage_focus_file"] == str(output_dir / "coverage_focus.json")
+    assert (output_dir / "coverage_focus.json").exists()
+
+    assert (
+        main(
+            [
+                "program-memory",
+                "coverage-audit",
+                "--dataset-dir",
+                str(Path("data/curated/program_history/v2").resolve()),
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 0
+    )
+    second_stdout = json.loads(capsys.readouterr().out)
+    assert second_stdout["focus_request"] == {}
+    assert second_stdout["coverage_focus_file"] is None
+    assert not (output_dir / "coverage_focus.json").exists()
+
+    summary_rows = read_csv_rows(output_dir / "coverage_summary.csv")
+    assert any(
+        row["dimension"] == "target" and row["scope_value"] == "CHRM4"
+        for row in summary_rows
     )

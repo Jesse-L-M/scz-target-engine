@@ -606,6 +606,7 @@ def write_program_memory_coverage_outputs(
     failure_scope: str = "",
 ) -> ProgramMemoryCoverageFocusReport:
     output_dir.mkdir(parents=True, exist_ok=True)
+    focus_path = output_dir / "coverage_focus.json"
     write_json(output_dir / "coverage_audit.json", audit.to_dict())
     write_csv(
         output_dir / "coverage_summary.csv",
@@ -630,7 +631,9 @@ def write_program_memory_coverage_outputs(
         failure_scope=failure_scope,
     )
     if focus_report.request:
-        write_json(output_dir / "coverage_focus.json", focus_report.to_dict())
+        write_json(focus_path, focus_report.to_dict())
+    elif focus_path.exists():
+        focus_path.unlink()
     return focus_report
 
 

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from scz_target_engine.cli import main
 from scz_target_engine.io import read_csv_rows, read_json
 from scz_target_engine.program_memory import (
@@ -9,6 +11,7 @@ from scz_target_engine.program_memory import (
     apply_program_memory_adjudication,
     build_program_memory_adjudication_record,
     build_program_memory_harvest_batch,
+    load_program_memory_dataset,
     materialize_adjudicated_program_memory_dataset,
     write_program_memory_adjudication_outputs,
 )
@@ -196,6 +199,56 @@ def test_program_memory_adjudication_requires_explicit_accept_edit_or_reject(
         tmp_path / "adjudicated" / "proposed_v2" / "directionality_hypotheses.csv"
     )
     assert hypothesis_rows == []
+    assert load_program_memory_dataset(
+        tmp_path / "adjudicated" / "proposed_v2"
+    ) == dataset
+
+
+def test_program_memory_adjudication_rejects_hypotheses_with_missing_supporting_events(
+    tmp_path,
+) -> None:
+    harvest = build_program_memory_harvest_batch(
+        harvest_id="harvest-missing-support",
+        harvester="llm-assist",
+        created_at="2026-03-30",
+        source_document_payloads=[make_source_document()],
+        suggestion_payloads=[
+            make_event_suggestion(),
+            make_directionality_suggestion(),
+        ],
+    )
+    adjudication = build_program_memory_adjudication_record(
+        adjudication_id="review-missing-support",
+        harvest_id=harvest.harvest_id,
+        reviewer="curator@example.com",
+        reviewed_at="2026-03-30",
+        decision_payloads=[
+            {
+                "suggestion_id": "emraclidine-event-suggestion",
+                "decision": PROGRAM_MEMORY_REJECT_DECISION,
+                "rationale": "Event was not accepted into the adjudicated dataset.",
+            },
+            {
+                "suggestion_id": "chrm4-directionality-suggestion",
+                "decision": PROGRAM_MEMORY_ACCEPT_DECISION,
+                "rationale": "Accepted by mistake, should fail before writeout.",
+            },
+        ],
+    )
+
+    outcome = apply_program_memory_adjudication(harvest, adjudication)
+
+    with pytest.raises(
+        ValueError,
+        match="supporting_event_ids that were not accepted or edited",
+    ):
+        write_program_memory_adjudication_outputs(
+            tmp_path / "invalid_adjudication",
+            adjudication,
+            outcome,
+        )
+
+    assert not (tmp_path / "invalid_adjudication").exists()
 
 
 def test_program_memory_cli_example_curation_path(tmp_path) -> None:

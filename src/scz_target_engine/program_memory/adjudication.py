@@ -557,6 +557,11 @@ def materialize_adjudicated_program_memory_dataset(
             label="hypothesis_id",
         )
 
+    _validate_directionality_support(
+        hypotheses=tuple(hypotheses_by_id.values()),
+        accepted_event_ids=set(events_by_id),
+    )
+
     ordered_assets = tuple(assets_by_id[key] for key in sorted(assets_by_id))
     ordered_events = tuple(
         event
@@ -596,6 +601,30 @@ def _store_unique(
         return
     if prior_value != value:
         raise ValueError(f"conflicting adjudicated rows for {label} {key!r}")
+
+
+def _validate_directionality_support(
+    *,
+    hypotheses: tuple[ProgramMemoryDirectionalityHypothesis, ...],
+    accepted_event_ids: set[str],
+) -> None:
+    invalid_support: list[str] = []
+    for hypothesis in hypotheses:
+        missing_event_ids = [
+            event_id
+            for event_id in hypothesis.supporting_event_ids
+            if event_id not in accepted_event_ids
+        ]
+        if not missing_event_ids:
+            continue
+        invalid_support.append(
+            f"{hypothesis.hypothesis_id!r} -> {missing_event_ids!r}"
+        )
+    if invalid_support:
+        raise ValueError(
+            "adjudicated directionality hypotheses reference supporting_event_ids "
+            f"that were not accepted or edited: {', '.join(invalid_support)}"
+        )
 
 
 def write_adjudicated_program_memory_dataset(
@@ -697,12 +726,12 @@ def write_program_memory_adjudication_outputs(
     adjudication: ProgramMemoryAdjudicationRecord,
     outcome: ProgramMemoryAdjudicationOutcome,
 ) -> ProgramMemoryDataset:
+    dataset = materialize_adjudicated_program_memory_dataset(outcome)
     output_dir.mkdir(parents=True, exist_ok=True)
     write_program_memory_adjudication_record(
         output_dir / "adjudication_record.json",
         adjudication,
     )
     write_json(output_dir / "adjudication_summary.json", outcome.to_dict())
-    dataset = materialize_adjudicated_program_memory_dataset(outcome)
     write_adjudicated_program_memory_dataset(output_dir / "proposed_v2", dataset)
     return dataset

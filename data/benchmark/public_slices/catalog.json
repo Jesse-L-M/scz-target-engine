@@ -1,0 +1,140 @@
+{
+  "benchmark_suite_id": "scz_translational_suite",
+  "benchmark_task_id": "scz_translational_task",
+  "catalog_file": "data/benchmark/public_slices/catalog.json",
+  "output_dir": "data/benchmark/public_slices",
+  "public_slice_ids": [
+    "scz_translational_2024_06_15",
+    "scz_translational_2024_06_18",
+    "scz_translational_2024_06_20"
+  ],
+  "slices": [
+    {
+      "archive_index_file": "data/benchmark/public_slices/scz_translational_2024_06_15/source_archives.json",
+      "as_of_date": "2024-06-15",
+      "benchmark_suite_id": "scz_translational_suite",
+      "benchmark_task_id": "scz_translational_task",
+      "cohort_id": "scz_translational_2024_06_15_cohort",
+      "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_06_15/cohort_members.csv",
+      "excluded_sources": [
+        {
+          "allowed_data_through": "2024-06-15",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-15",
+          "included": false,
+          "source_name": "SCHEMA",
+          "source_version": "unavailable"
+        },
+        {
+          "allowed_data_through": "2024-06-15",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-15",
+          "included": false,
+          "source_name": "PsychENCODE",
+          "source_version": "unavailable"
+        },
+        {
+          "allowed_data_through": "2024-06-15",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-15",
+          "included": false,
+          "source_name": "Open Targets",
+          "source_version": "unavailable"
+        },
+        {
+          "allowed_data_through": "2024-06-15",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-15",
+          "included": false,
+          "source_name": "ChEMBL",
+          "source_version": "unavailable"
+        }
+      ],
+      "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_06_15/future_outcomes.csv",
+      "included_sources": [
+        "PGC"
+      ],
+      "notes": "Public historical benchmark slice derived from scz_translational_task with cutoff 2024-06-15. Frozen benchmark question, leakage rules, and baseline ids remain unchanged.",
+      "slice_dir": "data/benchmark/public_slices/scz_translational_2024_06_15",
+      "slice_id": "scz_translational_2024_06_15",
+      "snapshot_id": "scz_translational_2024_06_15",
+      "snapshot_request_file": "data/benchmark/public_slices/scz_translational_2024_06_15/snapshot_request.json",
+      "source_fixture_dir": "data/benchmark/fixtures/scz_small"
+    },
+    {
+      "archive_index_file": "data/benchmark/public_slices/scz_translational_2024_06_18/source_archives.json",
+      "as_of_date": "2024-06-18",
+      "benchmark_suite_id": "scz_translational_suite",
+      "benchmark_task_id": "scz_translational_task",
+      "cohort_id": "scz_translational_2024_06_18_cohort",
+      "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_06_18/cohort_members.csv",
+      "excluded_sources": [
+        {
+          "allowed_data_through": "2024-06-18",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-18",
+          "included": false,
+          "source_name": "SCHEMA",
+          "source_version": "unavailable"
+        },
+        {
+          "allowed_data_through": "2024-06-18",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-18",
+          "included": false,
+          "source_name": "Open Targets",
+          "source_version": "unavailable"
+        },
+        {
+          "allowed_data_through": "2024-06-18",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-18",
+          "included": false,
+          "source_name": "ChEMBL",
+          "source_version": "unavailable"
+        }
+      ],
+      "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_06_18/future_outcomes.csv",
+      "included_sources": [
+        "PGC",
+        "PsychENCODE"
+      ],
+      "notes": "Public historical benchmark slice derived from scz_translational_task with cutoff 2024-06-18. Frozen benchmark question, leakage rules, and baseline ids remain unchanged.",
+      "slice_dir": "data/benchmark/public_slices/scz_translational_2024_06_18",
+      "slice_id": "scz_translational_2024_06_18",
+      "snapshot_id": "scz_translational_2024_06_18",
+      "snapshot_request_file": "data/benchmark/public_slices/scz_translational_2024_06_18/snapshot_request.json",
+      "source_fixture_dir": "data/benchmark/fixtures/scz_small"
+    },
+    {
+      "archive_index_file": "data/benchmark/public_slices/scz_translational_2024_06_20/source_archives.json",
+      "as_of_date": "2024-06-20",
+      "benchmark_suite_id": "scz_translational_suite",
+      "benchmark_task_id": "scz_translational_task",
+      "cohort_id": "scz_translational_2024_06_20_cohort",
+      "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_06_20/cohort_members.csv",
+      "excluded_sources": [
+        {
+          "allowed_data_through": "2024-06-20",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-20",
+          "included": false,
+          "source_name": "SCHEMA",
+          "source_version": "unavailable"
+        },
+        {
+          "allowed_data_through": "2024-06-20",
+          "exclusion_reason": "no archived release descriptor available on or before 2024-06-20",
+          "included": false,
+          "source_name": "ChEMBL",
+          "source_version": "unavailable"
+        }
+      ],
+      "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_06_20/future_outcomes.csv",
+      "included_sources": [
+        "PGC",
+        "PsychENCODE",
+        "Open Targets"
+      ],
+      "notes": "Public historical benchmark slice derived from scz_translational_task with cutoff 2024-06-20. Frozen benchmark question, leakage rules, and baseline ids remain unchanged.",
+      "slice_dir": "data/benchmark/public_slices/scz_translational_2024_06_20",
+      "slice_id": "scz_translational_2024_06_20",
+      "snapshot_id": "scz_translational_2024_06_20",
+      "snapshot_request_file": "data/benchmark/public_slices/scz_translational_2024_06_20/snapshot_request.json",
+      "source_fixture_dir": "data/benchmark/fixtures/scz_small"
+    }
+  ],
+  "source_fixture_dir": "data/benchmark/fixtures/scz_small"
+}

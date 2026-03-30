@@ -114,6 +114,14 @@ def _parameter_digest(payload: dict[str, object]) -> str:
     return sha256(encoded).hexdigest()[:8]
 
 
+def _task_registry_path_from_manifest(
+    manifest: BenchmarkSnapshotManifest,
+) -> Path | None:
+    if not manifest.task_registry_path:
+        return None
+    return Path(manifest.task_registry_path).resolve()
+
+
 def _score_to_string(value: float | str) -> str:
     if isinstance(value, float):
         return f"{value:.12g}"
@@ -956,10 +964,12 @@ def run_benchmark(
     execution_timestamp: str | None = None,
 ) -> dict[str, object]:
     manifest = read_benchmark_snapshot_manifest(manifest_file)
+    task_registry_path = _task_registry_path_from_manifest(manifest)
     task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=manifest.benchmark_task_id or None,
         benchmark_question_id=manifest.benchmark_question_id,
         benchmark_suite_id=manifest.benchmark_suite_id or None,
+        task_registry_path=task_registry_path,
     )
     protocol = task_contract.protocol
     question = protocol.question

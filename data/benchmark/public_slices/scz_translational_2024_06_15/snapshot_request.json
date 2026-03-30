@@ -1,0 +1,21 @@
+{
+  "as_of_date": "2024-06-15",
+  "baseline_ids": [
+    "pgc_only",
+    "opentargets_only",
+    "v0_current",
+    "v1_current",
+    "random_with_coverage"
+  ],
+  "benchmark_question_id": "scz_translational_ranking_v1",
+  "benchmark_suite_id": "scz_translational_suite",
+  "benchmark_task_id": "scz_translational_task",
+  "cohort_id": "scz_translational_2024_06_15_cohort",
+  "entity_types": [
+    "gene",
+    "module"
+  ],
+  "notes": "Public historical benchmark slice derived from scz_translational_task with cutoff 2024-06-15. Frozen benchmark question, leakage rules, and baseline ids remain unchanged.",
+  "outcome_observation_closed_at": "2029-06-30",
+  "snapshot_id": "scz_translational_2024_06_15"
+}

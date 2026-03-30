@@ -75,3 +75,17 @@ def test_release_docs_cover_cli_namespace_aliases() -> None:
     ]
     _assert_contains("README.md", readme_snippets)
     _assert_contains("docs/benchmarking.md", benchmark_doc_snippets)
+
+
+def test_release_docs_cover_public_slice_backfill_and_replay() -> None:
+    snippets = [
+        "backfill-benchmark-public-slices",
+        "benchmark backfill public-slices",
+        "data/benchmark/public_slices/catalog.json",
+        "scz_translational_2024_06_20",
+        "data/benchmark/generated/public_slices/scz_translational_2024_06_20/",
+        "fall back to live source data",
+    ]
+    _assert_contains("README.md", snippets)
+    _assert_contains("docs/benchmarking.md", snippets)
+    _assert_contains("data/benchmark/README.md", snippets)

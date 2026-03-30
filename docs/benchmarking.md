@@ -5,12 +5,13 @@ benchmark question and artifact contracts. `PR9B` added snapshot and cohort buil
 `PR9C` added the runner plus emitted run manifests, metric payloads, and percentile-bootstrap
 confidence interval payloads.
 
-This is a fixture-scale release path. It is useful for reproducible end-to-end evaluation
-and artifact validation. It is not yet a production-scale historical replay system.
+This is a fixture-scale release path. It is useful for reproducible end-to-end evaluation,
+artifact validation, and honest public slice backfill from the checked-in archive catalog.
+It is not yet a production-scale historical replay system.
 
 ## Current Release Boundary
 
-- historical benchmark archives are fixture-scale and currently checked in only for `data/benchmark/fixtures/scz_small/`
+- historical benchmark archives are fixture-scale and currently checked in for the canonical fixture under `data/benchmark/fixtures/scz_small/` plus derived public slices under `data/benchmark/public_slices/`
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - protocol-only baselines remain declared for comparability but are not executed unless later archived artifacts make them runnable
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
@@ -169,6 +170,7 @@ same builders and flags:
 - `uv run scz-target-engine benchmark snapshot`
 - `uv run scz-target-engine benchmark cohort`
 - `uv run scz-target-engine benchmark run`
+- `uv run scz-target-engine benchmark backfill public-slices`
 - `uv run scz-target-engine benchmark reporting`
 
 Use the flat commands below for compatibility with existing docs and scripts. For new
@@ -197,6 +199,10 @@ uv run scz-target-engine run-benchmark \
   --config config/v0.toml \
   --deterministic-test-mode
 
+uv run scz-target-engine backfill-benchmark-public-slices \
+  --output-dir data/benchmark/public_slices \
+  --benchmark-task-id scz_translational_task
+
 uv run scz-target-engine build-benchmark-reporting \
   --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
   --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
@@ -216,6 +222,7 @@ Supporting operator inputs:
 - `cohort_members.csv`: admissible ranking cohort membership
 - `future_outcomes.csv`: post-cutoff label adjudication input
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract source of truth
+- `data/benchmark/public_slices/catalog.json`: checked-in catalog of derived public historical slice fixtures
 - `data/curated/rescue_tasks/rescue_task_registry.csv`: rescue-task identity and contract index kept separate from the shipped benchmark registry
 
 Snapshot materialization behavior:
@@ -261,6 +268,10 @@ Canonical generated locations:
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: `benchmark_model_run_manifest`
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_metric_output_payload`
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_confidence_interval_payload`
+- `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
+- `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
+- `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
+- `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
 - `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
 - `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
 
@@ -273,6 +284,53 @@ What each generated artifact means:
 - confidence interval payloads record percentile-bootstrap intervals, bootstrap count, resample unit, and random seed for the same slice
 - report cards join suite/task/snapshot provenance, source inclusion accounting, run-manifest inputs, and per-slice metric summaries into one public payload per run
 - leaderboard payloads rank the report-card slices by metric while preserving run-level provenance
+
+## Public Historical Slices
+
+Public slices are checked-in fixture bundles under `data/benchmark/public_slices/`.
+They are derived from the registry-backed `scz_translational_task` and keep the frozen
+benchmark question, leakage controls, and baseline ids unchanged.
+
+Current honest public slices from the checked-in archive catalog:
+
+- `scz_translational_2024_06_15`: includes `PGC`; excludes `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL`
+- `scz_translational_2024_06_18`: includes `PGC` and `PsychENCODE`; excludes `SCHEMA`, `Open Targets`, and `ChEMBL`
+- `scz_translational_2024_06_20`: includes `PGC`, `PsychENCODE`, and `Open Targets`; excludes `SCHEMA` and `ChEMBL`
+
+Each slice directory contains:
+
+- `snapshot_request.json`: slice-specific cutoff, snapshot id, and suite/task provenance
+- `source_archives.json`: copied archived source descriptor index with SHA256 digests
+- `archives/`: copied archived source extracts referenced by the slice index
+- `cohort_members.csv` and `future_outcomes.csv`: checked-in cohort and label inputs shared with the canonical fixture
+
+The slice catalog at `data/benchmark/public_slices/catalog.json` records the exact
+included and excluded sources for each cutoff. Missing historical archives stay explicit
+exclusions; the backfill path does not fall back to live source data.
+
+Replay example on a non-`scz_small` public slice:
+
+```bash
+uv run scz-target-engine build-benchmark-snapshot \
+  --request-file data/benchmark/public_slices/scz_translational_2024_06_20/snapshot_request.json \
+  --archive-index-file data/benchmark/public_slices/scz_translational_2024_06_20/source_archives.json \
+  --output-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json \
+  --materialized-at 2026-03-30
+
+uv run scz-target-engine build-benchmark-cohort \
+  --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json \
+  --cohort-members-file data/benchmark/public_slices/scz_translational_2024_06_20/cohort_members.csv \
+  --future-outcomes-file data/benchmark/public_slices/scz_translational_2024_06_20/future_outcomes.csv \
+  --output-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv
+
+uv run scz-target-engine run-benchmark \
+  --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv \
+  --archive-index-file data/benchmark/public_slices/scz_translational_2024_06_20/source_archives.json \
+  --output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/runner_outputs \
+  --config config/v0.toml \
+  --deterministic-test-mode
+```
 
 ## Current Runner Coverage
 

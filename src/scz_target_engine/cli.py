@@ -14,6 +14,7 @@ from scz_target_engine.atlas.sources import (
 )
 from scz_target_engine.atlas.taxonomy import materialize_atlas_taxonomy
 from scz_target_engine.atlas.tensor import materialize_atlas_tensor
+from scz_target_engine.benchmark_backfill import materialize_public_benchmark_slices
 from scz_target_engine.benchmark_leaderboard import materialize_benchmark_reporting
 from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
@@ -275,6 +276,14 @@ def _configure_run_benchmark_parser(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _configure_backfill_benchmark_public_slices_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-dir")
+    parser.add_argument("--benchmark-task-id")
+    parser.add_argument("--task-registry-path")
+
+
 def _configure_build_benchmark_reporting_parser(
     parser: argparse.ArgumentParser,
 ) -> None:
@@ -396,6 +405,11 @@ COMMAND_ROUTES = (
         "run-benchmark",
         ("benchmark", "run"),
         _configure_run_benchmark_parser,
+    ),
+    CommandRoute(
+        "backfill-benchmark-public-slices",
+        ("benchmark", "backfill", "public-slices"),
+        _configure_backfill_benchmark_public_slices_parser,
     ),
     CommandRoute(
         "build-benchmark-reporting",
@@ -618,6 +632,19 @@ def main(argv: list[str] | None = None) -> int:
             bootstrap_confidence_level=args.bootstrap_confidence_level,
             random_seed=args.random_seed,
             deterministic_test_mode=args.deterministic_test_mode,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "backfill-benchmark-public-slices":
+        result = materialize_public_benchmark_slices(
+            output_dir=Path(args.output_dir).resolve() if args.output_dir else None,
+            benchmark_task_id=args.benchmark_task_id,
+            task_registry_path=(
+                Path(args.task_registry_path).resolve()
+                if args.task_registry_path
+                else None
+            ),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

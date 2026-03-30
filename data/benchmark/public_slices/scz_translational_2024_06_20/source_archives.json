@@ -1,0 +1,34 @@
+{
+  "archives": [
+    {
+      "allowed_data_through": "2024-06-15",
+      "archive_file": "archives/pgc/scz2022_fixture.csv",
+      "archive_format": "csv",
+      "evidence_frozen_at": "2024-06-15",
+      "notes": "Fixture PGC archived release used for deterministic snapshot tests.",
+      "sha256": "6f471ddec2b00b0ce76c3a5b547c022f4c5ae39b77be6ff437d5b2b1c26d9403",
+      "source_name": "PGC",
+      "source_version": "scz2022_fixture"
+    },
+    {
+      "allowed_data_through": "2024-06-20",
+      "archive_file": "archives/opentargets/24_03_fixture.csv",
+      "archive_format": "csv",
+      "evidence_frozen_at": "2024-06-20",
+      "notes": "Fixture Open Targets archived pull used for deterministic snapshot tests.",
+      "sha256": "08bd5918a2a573f86d6d7cc8cf804d97ab1e47f1153f8027f5cd0fc66436e815",
+      "source_name": "Open Targets",
+      "source_version": "24.03_fixture"
+    },
+    {
+      "allowed_data_through": "2024-06-18",
+      "archive_file": "archives/psychencode/brainscope_fixture.json",
+      "archive_format": "json",
+      "evidence_frozen_at": "2024-06-18",
+      "notes": "Fixture PsychENCODE archived support extract used for deterministic snapshot tests.",
+      "sha256": "f030adfdb6aa996d9aa7de873528ab052cd512c696e622fd878a18d62f7ebe2d",
+      "source_name": "PsychENCODE",
+      "source_version": "brainscope_fixture"
+    }
+  ]
+}

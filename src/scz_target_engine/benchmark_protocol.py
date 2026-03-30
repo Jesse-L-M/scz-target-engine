@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 
@@ -344,6 +345,7 @@ class BenchmarkSnapshotManifest:
     benchmark_suite_id: str = ""
     benchmark_task_id: str = ""
     notes: str = ""
+    task_registry_path: str = ""
 
     def __post_init__(self) -> None:
         _require_text(self.schema_name, "schema_name")
@@ -362,6 +364,11 @@ class BenchmarkSnapshotManifest:
                 benchmark_task_id=self.benchmark_task_id or None,
                 benchmark_question_id=self.benchmark_question_id,
                 benchmark_suite_id=self.benchmark_suite_id or None,
+                task_registry_path=(
+                    Path(self.task_registry_path).resolve()
+                    if self.task_registry_path
+                    else None
+                ),
             )
         except ValueError as exc:
             raise ValueError(
@@ -508,10 +515,17 @@ class BenchmarkSnapshotManifest:
             payload["benchmark_suite_id"] = self.benchmark_suite_id
         if self.benchmark_task_id:
             payload["benchmark_task_id"] = self.benchmark_task_id
+        if self.task_registry_path:
+            payload["task_registry_path"] = self.task_registry_path
         return payload
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> BenchmarkSnapshotManifest:
+    def from_dict(
+        cls,
+        payload: dict[str, Any],
+        *,
+        task_registry_path: Path | None = None,
+    ) -> BenchmarkSnapshotManifest:
         return cls(
             schema_name=str(payload["schema_name"]),
             schema_version=str(payload["schema_version"]),
@@ -530,6 +544,11 @@ class BenchmarkSnapshotManifest:
             benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
             benchmark_task_id=str(payload.get("benchmark_task_id", "")),
             notes=str(payload.get("notes", "")),
+            task_registry_path=(
+                str(task_registry_path.resolve())
+                if task_registry_path is not None
+                else str(payload.get("task_registry_path", ""))
+            ),
         )
 
 

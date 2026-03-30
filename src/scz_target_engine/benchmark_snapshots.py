@@ -54,6 +54,7 @@ class SnapshotBuildRequest:
     benchmark_question_id: str = BENCHMARK_QUESTION_V1.question_id
     benchmark_suite_id: str = ""
     benchmark_task_id: str = ""
+    task_registry_path: str = ""
 
     def __post_init__(self) -> None:
         _require_text(self.snapshot_id, "snapshot_id")
@@ -63,6 +64,11 @@ class SnapshotBuildRequest:
                 benchmark_task_id=self.benchmark_task_id or None,
                 benchmark_question_id=self.benchmark_question_id,
                 benchmark_suite_id=self.benchmark_suite_id or None,
+                task_registry_path=(
+                    Path(self.task_registry_path).resolve()
+                    if self.task_registry_path
+                    else None
+                ),
             )
         except ValueError as exc:
             raise ValueError(
@@ -122,10 +128,17 @@ class SnapshotBuildRequest:
             payload["benchmark_suite_id"] = self.benchmark_suite_id
         if self.benchmark_task_id:
             payload["benchmark_task_id"] = self.benchmark_task_id
+        if self.task_registry_path:
+            payload["task_registry_path"] = self.task_registry_path
         return payload
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> SnapshotBuildRequest:
+    def from_dict(
+        cls,
+        payload: dict[str, Any],
+        *,
+        task_registry_path: Path | None = None,
+    ) -> SnapshotBuildRequest:
         return cls(
             snapshot_id=str(payload["snapshot_id"]),
             cohort_id=str(payload["cohort_id"]),
@@ -137,6 +150,11 @@ class SnapshotBuildRequest:
             notes=str(payload.get("notes", "")),
             benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
             benchmark_task_id=str(payload.get("benchmark_task_id", "")),
+            task_registry_path=(
+                str(task_registry_path.resolve())
+                if task_registry_path is not None
+                else str(payload.get("task_registry_path", ""))
+            ),
         )
 
 
@@ -197,11 +215,18 @@ class SourceArchiveDescriptor:
         )
 
 
-def load_snapshot_build_request(path: Path) -> SnapshotBuildRequest:
+def load_snapshot_build_request(
+    path: Path,
+    *,
+    task_registry_path: Path | None = None,
+) -> SnapshotBuildRequest:
     payload = read_json(path)
     if not isinstance(payload, dict):
         raise ValueError("snapshot build request must be a JSON object")
-    return SnapshotBuildRequest.from_dict(payload)
+    return SnapshotBuildRequest.from_dict(
+        payload,
+        task_registry_path=task_registry_path,
+    )
 
 
 def load_source_archive_descriptors(path: Path) -> tuple[SourceArchiveDescriptor, ...]:
@@ -231,11 +256,18 @@ def write_benchmark_snapshot_manifest(
     write_json(path, manifest.to_dict())
 
 
-def read_benchmark_snapshot_manifest(path: Path) -> BenchmarkSnapshotManifest:
+def read_benchmark_snapshot_manifest(
+    path: Path,
+    *,
+    task_registry_path: Path | None = None,
+) -> BenchmarkSnapshotManifest:
     payload = read_json(path)
     if not isinstance(payload, dict):
         raise ValueError("benchmark snapshot manifest must be a JSON object")
-    return BenchmarkSnapshotManifest.from_dict(payload)
+    return BenchmarkSnapshotManifest.from_dict(
+        payload,
+        task_registry_path=task_registry_path,
+    )
 
 
 def _build_excluded_source_snapshot(
@@ -368,12 +400,17 @@ def build_benchmark_snapshot_manifest(
     archive_descriptors: tuple[SourceArchiveDescriptor, ...],
     *,
     materialized_at: str,
+    task_registry_path: Path | None = None,
 ) -> BenchmarkSnapshotManifest:
     _parse_iso_date(materialized_at, "materialized_at")
+    effective_task_registry_path = task_registry_path
+    if effective_task_registry_path is None and request.task_registry_path:
+        effective_task_registry_path = Path(request.task_registry_path).resolve()
     task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=request.benchmark_task_id or None,
         benchmark_question_id=request.benchmark_question_id,
         benchmark_suite_id=request.benchmark_suite_id or None,
+        task_registry_path=effective_task_registry_path,
     )
     protocol = task_contract.protocol
     descriptors_by_source: dict[str, tuple[SourceArchiveDescriptor, ...]] = {
@@ -421,6 +458,11 @@ def build_benchmark_snapshot_manifest(
         leakage_controls=protocol.leakage_controls,
         baseline_ids=request.baseline_ids,
         notes=request.notes,
+        task_registry_path=(
+            str(effective_task_registry_path.resolve())
+            if effective_task_registry_path is not None
+            else request.task_registry_path
+        ),
     )
 
 
@@ -430,11 +472,16 @@ def materialize_benchmark_snapshot_manifest(
     archive_index_file: Path,
     output_file: Path,
     materialized_at: str,
+    task_registry_path: Path | None = None,
 ) -> dict[str, object]:
     manifest = build_benchmark_snapshot_manifest(
-        load_snapshot_build_request(request_file),
+        load_snapshot_build_request(
+            request_file,
+            task_registry_path=task_registry_path,
+        ),
         load_source_archive_descriptors(archive_index_file),
         materialized_at=materialized_at,
+        task_registry_path=task_registry_path,
     )
     write_benchmark_snapshot_manifest(output_file, manifest)
     included_sources = [

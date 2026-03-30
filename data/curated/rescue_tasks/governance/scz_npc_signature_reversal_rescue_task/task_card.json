@@ -1,0 +1,26 @@
+{
+  "schema_name": "rescue_task_card",
+  "schema_version": "v1",
+  "task_card_id": "scz_npc_signature_reversal_rescue_task_governance_v1",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "scz_npc_signature_reversal_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json",
+  "governance_status": "active",
+  "owner": "rescue-data-governance",
+  "summary": "Active governance bundle for the schizophrenia NPC signature-reversal rescue task with checked-in frozen ranking inputs, held-out evaluation labels, split policy, and raw-to-frozen lineage.",
+  "leakage_boundary_policy_id": "strict_rescue_task_boundary_v1",
+  "dataset_card_paths": [
+    "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_ranking_inputs.json",
+    "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_evaluation_labels.json"
+  ],
+  "freeze_manifest_paths": [
+    "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/freeze_manifests/scz_npc_signature_reversal_freeze_2026_03_31.json"
+  ],
+  "split_manifest_paths": [
+    "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/split_manifests/scz_npc_signature_reversal_split_2026_03_31.json"
+  ],
+  "lineage_paths": [
+    "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/lineage/scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31.json"
+  ],
+  "notes": "The ranking artifact already carries deterministic split assignments so downstream task code can validate and load frozen NPC artifacts without re-materializing raw source logic."
+}

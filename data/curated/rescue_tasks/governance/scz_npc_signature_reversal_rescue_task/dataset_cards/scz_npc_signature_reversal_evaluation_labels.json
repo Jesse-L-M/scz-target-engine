@@ -1,0 +1,29 @@
+{
+  "schema_name": "rescue_dataset_card",
+  "schema_version": "v1",
+  "dataset_id": "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
+  "dataset_label": "Schizophrenia NPC signature-reversal evaluation labels",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "scz_npc_signature_reversal_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json",
+  "artifact_contract_id": "evaluation_labels",
+  "dataset_role": "evaluation_target",
+  "availability": "post_cutoff",
+  "governance_status": "active",
+  "source_stage": "frozen",
+  "entity_type": "gene",
+  "record_grain": "gene",
+  "primary_key_fields": [
+    "gene_id"
+  ],
+  "contains_post_cutoff_labels": true,
+  "allowed_uses": [
+    "offline_evaluation"
+  ],
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/freeze_manifests/scz_npc_signature_reversal_freeze_2026_03_31.json",
+  "lineage_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/lineage/scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31.json",
+  "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv",
+  "file_format": "csv",
+  "description": "Frozen post-cutoff evaluation labels aligned to the ranking universe and carrying explicit literature positives only for offline scoring.",
+  "notes": "Rows with `rescue_positive_label = 0` are unlabeled background rows, not curated biological negatives, and must remain outside training-time feature construction."
+}

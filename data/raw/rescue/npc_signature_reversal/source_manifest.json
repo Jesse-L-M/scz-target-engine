@@ -1,0 +1,69 @@
+{
+  "manifest_version": "v1",
+  "task_id": "scz_npc_signature_reversal_rescue_task",
+  "task_label": "Schizophrenia NPC signature-reversal rescue task",
+  "cutoff_date": "2020-12-31",
+  "sources": [
+    {
+      "source_id": "hoffman_2017_hispc_npc_diffexpr",
+      "source_name": "Transcriptional signatures of schizophrenia in hiPSC-derived NPCs and neurons are concordant with post-mortem adult brains",
+      "availability": "pre_cutoff",
+      "captured_at": "2017-12-20",
+      "license": "CC BY 4.0",
+      "citation_doi": "10.1038/s41467-017-02330-5",
+      "upstream_url": "https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-017-02330-5/MediaObjects/41467_2017_2330_MOESM11_ESM.xlsx",
+      "upstream_artifact": "Supplementary Data 8 (NPC sheet)",
+      "upstream_sha256": "849d21efaea706f0e3bae5745478e674799e2bbddb1a5c4f340d8f0a0a1e8f39",
+      "materialized_path": "data/raw/rescue/npc_signature_reversal/cos_hispc_npc_differential_expression_2017.csv",
+      "materialized_sha256": "8df158bb2921eb9713ed9b83d3019cff4abb676f21559e64195791095675f8ac",
+      "row_count": 15614,
+      "description": "Rows extracted from the NPC sheet after retaining genes with a usable symbol for the frozen rescue candidate universe."
+    },
+    {
+      "source_id": "readhead_2018_sz_ipsc_npc_drug_perturbations",
+      "source_name": "Expression-based drug screening of neural progenitor cells from individuals with schizophrenia",
+      "availability": "pre_cutoff",
+      "captured_at": "2018-10-24",
+      "license": "CC BY 4.0",
+      "citation_doi": "10.1038/s41467-018-06515-4",
+      "upstream_url": "https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-018-06515-4/MediaObjects/41467_2018_6515_MOESM4_ESM.xlsx",
+      "upstream_artifact": "Supplementary Data 2 (DE_within_cell_types_abs_RZS_2 sheet, filtered to SZ_iPSC_NPC)",
+      "upstream_sha256": "f3cfe96127543824f4043558e79b034a0e73fadb15e4e1b8a406bda7dbc530d0",
+      "materialized_path": "data/raw/rescue/npc_signature_reversal/sz_npc_drug_gene_perturbations_2018.csv",
+      "materialized_sha256": "50452917f758553c03168965ff15d9abeaaaeb11c163a6005e9f6772d5eef43e",
+      "row_count": 36865,
+      "description": "Filtered SZ_iPSC_NPC perturbation rows frozen at probe level before aggregation into gene-level reversal features."
+    },
+    {
+      "source_id": "hribkova_2022_clozapine_rescue",
+      "source_name": "Clozapine Reverses Dysfunction of Glutamatergic Neurons Derived From Clozapine-Responsive Schizophrenia Patients",
+      "availability": "post_cutoff",
+      "captured_at": "2022-02-23",
+      "license": "CC BY",
+      "citation_doi": "10.3389/fncel.2022.830757",
+      "upstream_url": "https://public-pages-files-2025.frontiersin.org/journals/cellular-neuroscience/articles/10.3389/fncel.2022.830757/xml",
+      "upstream_artifact": "Article XML with positive genes curated from the main text discussion/results",
+      "upstream_sha256": "d02df4b2b3cb7e1933f68ea6f96b40ecc4f89cf678f09f2ea81f08f7247b9f54",
+      "materialized_path": "data/raw/rescue/npc_signature_reversal/clozapine_rescue_gene_labels_2022.csv",
+      "materialized_sha256": "feced8bea407a743a3b61eb6ed2dc8d684c07a743e3f5f8ccd3258f18eee66a9",
+      "row_count": 14,
+      "description": "Hand-curated positive rescue genes explicitly named in the post-cutoff article text; background genes remain unlabeled."
+    }
+  ],
+  "frozen_outputs": [
+    {
+      "dataset_id": "scz_npc_signature_reversal_ranking_inputs_2020_12_31",
+      "path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv",
+      "sha256": "36adc25f180e04ac62cdcc4fadd65f7d6a25949878307e49513279be36868b3e",
+      "row_count": 15614
+    },
+    {
+      "dataset_id": "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
+      "path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv",
+      "sha256": "1c46e863abcb72e37aad198bc877354a942bfe9b65939ec73605d73269909ec2",
+      "row_count": 15614,
+      "positive_label_count": 14
+    }
+  ],
+  "notes": "The ranking dataset is entirely pre-cutoff. The evaluation dataset carries sparse post-cutoff positives and unlabeled background rows only."
+}

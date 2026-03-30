@@ -7,6 +7,11 @@ from scz_target_engine.rescue.contracts import (
     RescueTaskContract,
     read_rescue_task_contract,
 )
+from scz_target_engine.rescue.frozen import (
+    FrozenRescueDataset,
+    FrozenRescueTaskBundle,
+    load_frozen_rescue_task_bundle,
+)
 from scz_target_engine.rescue.governance import (
     RESCUE_DATASET_CARD_ARTIFACT_NAME,
     RESCUE_FREEZE_MANIFEST_ARTIFACT_NAME,
@@ -29,6 +34,8 @@ from scz_target_engine.rescue.governance import (
 
 __all__ = [
     "DEFAULT_RESCUE_TASK_REGISTRY_PATH",
+    "FrozenRescueDataset",
+    "FrozenRescueTaskBundle",
     "RESCUE_DATASET_CARD_ARTIFACT_NAME",
     "RESCUE_FREEZE_MANIFEST_ARTIFACT_NAME",
     "RESCUE_RAW_TO_FROZEN_LINEAGE_ARTIFACT_NAME",
@@ -53,6 +60,7 @@ __all__ = [
     "load_rescue_suite_contracts",
     "load_rescue_task_contracts",
     "load_rescue_task_registrations",
+    "load_frozen_rescue_task_bundle",
     "read_rescue_task_contract",
     "read_rescue_task_card",
     "resolve_rescue_suite_contract",

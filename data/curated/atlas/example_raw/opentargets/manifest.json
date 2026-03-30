@@ -1,0 +1,67 @@
+{
+  "artifacts": [
+    {
+      "artifact_name": "001_meta.json",
+      "extra_metadata": {},
+      "media_type": "application/json",
+      "path": "data/curated/atlas/example_raw/opentargets/001_meta.json",
+      "relative_path": "example_raw/opentargets/001_meta.json",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "size_bytes": 145
+    },
+    {
+      "artifact_name": "002_searchdisease.json",
+      "extra_metadata": {},
+      "media_type": "application/json",
+      "path": "data/curated/atlas/example_raw/opentargets/002_searchdisease.json",
+      "relative_path": "example_raw/opentargets/002_searchdisease.json",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "size_bytes": 136
+    },
+    {
+      "artifact_name": "003_diseaseassociations_page_0000.json",
+      "extra_metadata": {},
+      "media_type": "application/json",
+      "path": "data/curated/atlas/example_raw/opentargets/003_diseaseassociations_page_0000.json",
+      "relative_path": "example_raw/opentargets/003_diseaseassociations_page_0000.json",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "size_bytes": 182
+    }
+  ],
+  "contract_version": "atlas-source-contract/v1",
+  "dataset_slug": "schizophrenia-baseline",
+  "error": null,
+  "materialized_at": "2026-03-30",
+  "processed_artifacts": [
+    {
+      "exists": true,
+      "path": "data/curated/atlas/example_sources/opentargets/schizophrenia_baseline.csv"
+    }
+  ],
+  "raw_artifact_count": 3,
+  "raw_stage_dir": "data/curated/atlas/example_raw/opentargets",
+  "request_metadata": {
+    "disease_id": "MONDO_0005090",
+    "disease_query": "schizophrenia",
+    "max_pages": 1,
+    "output_file": "data/curated/atlas/example_sources/opentargets/schizophrenia_baseline.csv",
+    "page_size": 500
+  },
+  "source_contract": {
+    "adapter_name": "atlas.sources.opentargets",
+    "dataset_name": "schizophrenia_baseline",
+    "preserved_output_contract": "scz_target_engine.sources.opentargets.fetch_opentargets_baseline",
+    "processed_artifact_name": "schizophrenia_baseline.csv",
+    "scope_boundary": "Fixture-scale processed Open Targets baseline rows plus staged request/response artifact identity.",
+    "source_name": "opentargets",
+    "upstream_artifact_kind": "graphql_request_response_pages"
+  },
+  "status": "completed",
+  "upstream_metadata": {
+    "disease": {
+      "id": "MONDO_0005090",
+      "name": "schizophrenia"
+    },
+    "row_count": 3
+  }
+}

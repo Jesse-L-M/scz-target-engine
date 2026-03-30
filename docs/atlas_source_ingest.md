@@ -62,6 +62,28 @@ It:
 This keeps the candidate-registry contract aligned with the current engine path while
 giving later atlas work a raw-source provenance layer to build on.
 
+## Tensor Layer
+
+Atlas now also exposes additive builders on top of the ingest manifest:
+
+- `atlas build taxonomy`
+- `atlas build tensor`
+
+Those builders consume the staged-source manifest plus processed source tables and
+materialize:
+
+- context taxonomies for atlas-relevant dimensions
+- provenance bundles that point back to processed files and staged raw artifact identity
+- conservative cross-source alignments
+- explicit `observed`, `missingness`, `conflict`, and `uncertainty` tensor rows
+
+They still do not:
+
+- rewrite scoring
+- replace the current source adapter outputs used by scoring
+- choose a winner when cross-source IDs conflict
+- perform mechanistic-axis or convergence-hub work
+
 ## Boundary
 
 This foundation is deliberately narrow.

@@ -60,7 +60,9 @@
       "dataset_role": "ranking_input",
       "availability": "pre_cutoff",
       "dataset_card_path": "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_ranking_inputs.json",
-      "expected_output_path": "data/curated/rescue_tasks/glutamatergic_convergence/frozen/glutamatergic_convergence_ranking_inputs_2025_01_15.csv"
+      "expected_output_path": "data/curated/rescue_tasks/glutamatergic_convergence/frozen/glutamatergic_convergence_ranking_inputs_2025_01_15.csv",
+      "expected_sha256": "c539d2bde583c0a981ffff6790da90dfbfebbb4f7eccdabc8ec3390734120d13",
+      "expected_row_count": 4
     },
     {
       "dataset_id": "glutamatergic_convergence_evaluation_labels_2025_06_30",
@@ -68,7 +70,9 @@
       "dataset_role": "evaluation_target",
       "availability": "post_cutoff",
       "dataset_card_path": "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_evaluation_labels.json",
-      "expected_output_path": "data/curated/rescue_tasks/glutamatergic_convergence/frozen/glutamatergic_convergence_evaluation_labels_2025_06_30.csv"
+      "expected_output_path": "data/curated/rescue_tasks/glutamatergic_convergence/frozen/glutamatergic_convergence_evaluation_labels_2025_06_30.csv",
+      "expected_sha256": "e9f80898758f37a75751f4271b0bca6cfb6001a2726e1656c7cdb30e3b81c09f",
+      "expected_row_count": 4
     }
   ],
   "description": "Active freeze manifest for the glutamatergic convergence rescue lane. The pre-cutoff snapshots preserve the shipped convergence-hub framing, and the post-cutoff manual outcomes stay isolated in the evaluation-only channel.",

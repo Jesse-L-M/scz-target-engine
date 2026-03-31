@@ -191,6 +191,34 @@ assert bundle.evaluation_target.path.name == (
 )
 ```
 
+`PR-41` adds the first runnable downstream task path on top of that frozen bundle. The
+task runner:
+
+- loads the governed frozen ranking/evaluation CSVs through
+  `load_frozen_rescue_task_bundle(...)`
+- ranks genes with an explicit frozen-input scorer
+  (`npc_signature_reversal_priority_v1`)
+- evaluates that ranking offline against the held-out label CSV without joining labels
+  back into the emitted predictions file
+- emits explicit single-input baselines for `signature_weight`, absolute
+  `npc_log_fc`, `reversal_fraction`, `max_abs_reversal_rzs`, and
+  `reversal_drug_count`
+
+The end-to-end CLI path is:
+
+```bash
+uv run scz-target-engine rescue npc-signature-reversal \
+  --output-dir .context/npc_signature_reversal_run
+```
+
+This writes:
+
+- `ranked_predictions.csv`, derived only from pre-cutoff frozen ranking inputs
+- `run_summary.json`, an aggregate-only evaluation report with split-aware metrics and
+  explicit scorer/baseline declarations
+
+The runner does not reopen `data/raw/rescue/npc_signature_reversal/` at runtime.
+
 ## Active Glutamatergic Convergence Lane
 
 `PR-40D` adds a convergence-hub-grounded rescue family under:

@@ -27,3 +27,17 @@ assert bundle.evaluation_target.card.dataset_id == (
 
 The ranking dataset is entirely pre-cutoff. The evaluation dataset carries sparse
 post-cutoff positives plus unlabeled background rows only.
+
+Runnable task path:
+
+```bash
+uv run scz-target-engine rescue npc-signature-reversal \
+  --output-dir .context/npc_signature_reversal_run
+```
+
+Outputs:
+
+- `ranked_predictions.csv`: ranked gene predictions with frozen-input score columns
+  only; no evaluation labels are emitted here
+- `run_summary.json`: aggregate offline evaluation metrics plus explicit scorer and
+  baseline declarations

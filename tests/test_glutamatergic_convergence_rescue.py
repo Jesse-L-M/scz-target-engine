@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.atlas.convergence import materialize_convergence_hubs
 from scz_target_engine.atlas.mechanistic_axes import load_atlas_tensor_bundle
@@ -332,6 +334,46 @@ def test_glutamatergic_convergence_task_evaluation_uses_held_out_labels_only() -
         "GRIA1": "0",
         "GRM5": "0",
     }
+    assert evaluation["summary"]["split_counts"] == {
+        "train": 2,
+        "validation": 1,
+        "test": 1,
+    }
+    assert {
+        split_name: split_summary["candidate_count"]
+        for split_name, split_summary in evaluation["summary"]["split_summaries"].items()
+    } == {
+        "all": 4,
+        "train": 2,
+        "validation": 1,
+        "test": 1,
+    }
+
+
+def test_glutamatergic_convergence_evaluation_rejects_prediction_split_conflicts() -> None:
+    bundle = load_glutamatergic_convergence_rescue_task_bundle()
+    predictions = build_glutamatergic_convergence_ranked_predictions(bundle)
+    conflicted_predictions = [dict(row) for row in predictions]
+    conflicted_predictions[0]["split_name"] = "validation"
+
+    with pytest.raises(ValueError, match="prediction split_name conflicts"):
+        evaluate_glutamatergic_convergence_ranked_predictions(
+            predictions=conflicted_predictions,
+            bundle=bundle,
+        )
+
+
+def test_glutamatergic_convergence_evaluation_rejects_unknown_prediction_ids() -> None:
+    bundle = load_glutamatergic_convergence_rescue_task_bundle()
+    predictions = build_glutamatergic_convergence_ranked_predictions(bundle)
+    invalid_predictions = [dict(row) for row in predictions]
+    invalid_predictions[0]["gene_id"] = "ENSG99999999999"
+
+    with pytest.raises(ValueError, match="unknown gene_id"):
+        evaluate_glutamatergic_convergence_ranked_predictions(
+            predictions=invalid_predictions,
+            bundle=bundle,
+        )
 
 
 def test_glutamatergic_convergence_materializer_writes_end_to_end_outputs(

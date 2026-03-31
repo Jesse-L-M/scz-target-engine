@@ -392,19 +392,57 @@ def build_glutamatergic_convergence_ranked_predictions(
     return ranked_predictions
 
 
+def _normalize_predictions_for_evaluation(
+    *,
+    predictions: list[dict[str, object]],
+    bundle: FrozenRescueTaskBundle,
+) -> tuple[list[dict[str, object]], dict[str, dict[str, str]]]:
+    label_rows_by_gene_id = {
+        row["gene_id"]: row for row in bundle.evaluation_target.rows
+    }
+    normalized_predictions: list[dict[str, object]] = []
+    for prediction in predictions:
+        gene_id = str(prediction.get("gene_id", "")).strip()
+        if not gene_id:
+            raise ValueError("prediction rows must include a non-empty gene_id")
+        label_row = label_rows_by_gene_id.get(gene_id)
+        if label_row is None:
+            raise ValueError(
+                "predictions contain an unknown gene_id not present in the governed "
+                f"{bundle.evaluation_target.card.dataset_id}: {gene_id}"
+            )
+        governed_split = label_row["split_name"]
+        if "split_name" in prediction:
+            prediction_split = str(prediction["split_name"]).strip()
+            if prediction_split != governed_split:
+                raise ValueError(
+                    "prediction split_name conflicts with the governed split for "
+                    f"{gene_id}: expected {governed_split}, found {prediction_split or '<blank>'}"
+                )
+        normalized_predictions.append(
+            {
+                **prediction,
+                "gene_id": gene_id,
+                "split_name": governed_split,
+            }
+        )
+    return normalized_predictions, label_rows_by_gene_id
+
+
 def evaluate_glutamatergic_convergence_ranked_predictions(
     *,
     predictions: list[dict[str, object]],
     bundle: FrozenRescueTaskBundle,
 ) -> dict[str, object]:
-    label_rows_by_gene_id = {
-        row["gene_id"]: row for row in bundle.evaluation_target.rows
-    }
+    normalized_predictions, label_rows_by_gene_id = _normalize_predictions_for_evaluation(
+        predictions=predictions,
+        bundle=bundle,
+    )
     admissible_entity_ids = tuple(
         row["gene_id"] for row in bundle.evaluation_target.rows
     )
     ranked_entity_ids = tuple(
-        str(row["gene_id"]) for row in predictions
+        row["gene_id"] for row in normalized_predictions
     )
     relevance_index = {
         row["gene_id"]: row["evaluation_label"] == "1"
@@ -417,8 +455,8 @@ def evaluate_glutamatergic_convergence_ranked_predictions(
     )
 
     evaluation_rows: list[dict[str, object]] = []
-    for prediction in predictions:
-        label_row = label_rows_by_gene_id[str(prediction["gene_id"])]
+    for prediction in normalized_predictions:
+        label_row = label_rows_by_gene_id[prediction["gene_id"]]
         evaluation_rows.append(
             {
                 **prediction,
@@ -437,10 +475,12 @@ def evaluate_glutamatergic_convergence_ranked_predictions(
     split_summaries: dict[str, dict[str, object]] = {}
     for split_name in ("all",) + _SPLIT_ORDER:
         split_predictions = (
-            predictions
+            normalized_predictions
             if split_name == "all"
             else [
-                row for row in predictions if row["split_name"] == split_name
+                row
+                for row in normalized_predictions
+                if row["split_name"] == split_name
             ]
         )
         split_admissible_ids = (
@@ -454,7 +494,7 @@ def evaluate_glutamatergic_convergence_ranked_predictions(
         )
         split_ranked_rows = build_ranked_evaluation_rows(
             split_admissible_ids,
-            tuple(str(row["gene_id"]) for row in split_predictions),
+            tuple(row["gene_id"] for row in split_predictions),
             {gene_id: relevance_index[gene_id] for gene_id in split_admissible_ids},
         )
         split_summaries[split_name] = {
@@ -467,17 +507,21 @@ def evaluate_glutamatergic_convergence_ranked_predictions(
         "evaluation_rows": evaluation_rows,
         "summary": {
             "task_id": bundle.governance.task_card.task_id,
-            "baseline_id": predictions[0]["baseline_id"] if predictions else "",
+            "baseline_id": (
+                normalized_predictions[0]["baseline_id"]
+                if normalized_predictions
+                else ""
+            ),
             "ranking_dataset_id": bundle.ranking_input.card.dataset_id,
             "evaluation_dataset_id": bundle.evaluation_target.card.dataset_id,
             "candidate_count": len(ranked_rows),
             "positive_label_count": count_relevant(ranked_rows),
             "convergence_contract_version": ATLAS_CONVERGENCE_CONTRACT_VERSION,
             "top_ranked_gene_symbols": [
-                str(row["gene_symbol"]) for row in predictions[:3]
+                str(row["gene_symbol"]) for row in normalized_predictions[:3]
             ],
             "split_counts": dict(
-                Counter(str(row["split_name"]) for row in predictions)
+                Counter(str(row["split_name"]) for row in normalized_predictions)
             ),
             "metric_values": calculate_metric_values(ranked_rows),
             "split_summaries": split_summaries,

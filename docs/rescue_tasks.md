@@ -123,7 +123,15 @@ python3 scripts/rescue/run_interneuron_rescue_lane.py \
 
 That command writes one `predictions.csv` and one `summary.json` per
 axis/baseline pair beneath the output directory, plus a top-level
-`lane_summary.json`. The shipped baselines are intentionally simple and explicit:
+`lane_summary.json`.
+
+The emitted summaries stay leakage-safe. They record that offline evaluation ran,
+but they do not emit label-derived metrics, per-gene held-out positives, or any
+other payload that would let a caller reconstruct post-cutoff labels from the
+public output files. If you need detailed offline evaluation for development, call
+the in-memory helper directly instead of relying on emitted JSON.
+
+The shipped baselines are intentionally simple and explicit:
 
 - `frozen_priority_rank`
 - `recent_publication_first`

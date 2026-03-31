@@ -9,6 +9,7 @@ from scz_target_engine.rescue import (
     DEFAULT_INTERNEURON_BASELINE_IDS,
     VALID_INTERNEURON_AXIS_IDS,
     build_interneuron_axis_predictions,
+    evaluate_interneuron_axis_predictions,
     load_frozen_rescue_governance_bundle,
     load_interneuron_axis_task_data,
     materialize_interneuron_rescue_lane,
@@ -96,6 +97,23 @@ def test_load_interneuron_axis_task_data_materializes_manifest_splits() -> None:
     assert "followup_support_label" not in synapse_task.ranking_input.columns
 
 
+def test_offline_evaluation_remains_available_in_memory_only() -> None:
+    task_data = load_interneuron_axis_task_data("interneuron_synapse")
+    prediction_rows = build_interneuron_axis_predictions(
+        task_data,
+        baseline_id="frozen_priority_rank",
+    )
+
+    evaluation_summaries = evaluate_interneuron_axis_predictions(
+        task_data,
+        prediction_rows=prediction_rows,
+    )
+
+    assert set(evaluation_summaries) == {"validation", "test", "heldout"}
+    assert evaluation_summaries["heldout"]["positive_count"] == 1
+    assert "metric_values" in evaluation_summaries["heldout"]
+
+
 def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
     tmp_path: Path,
 ) -> None:
@@ -114,19 +132,26 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
             assert prediction_file.exists()
             assert summary_file.exists()
 
+            summary_text = summary_file.read_text(encoding="utf-8")
             written_summary = json.loads(summary_file.read_text(encoding="utf-8"))
             assert written_summary["leakage_boundary_policy_id"] == (
                 "strict_rescue_task_boundary_v1"
             )
             assert written_summary["split_counts"]["test"] == 1
-            assert {
-                summary_name
-                for summary_name in written_summary["evaluation_summaries"]
-            } == {"validation", "test", "heldout"}
+            assert written_summary["offline_evaluation"]["executed"] is True
+            assert "evaluation_summaries" not in written_summary
             assert all(
                 artifact["governed_sha256"]
                 for artifact in written_summary["input_artifacts"]
             )
+            assert "positive_gene_ids" not in summary_text
+            assert "ranked_gene_ids" not in summary_text
+            assert "metric_values" not in summary_text
+
+    lane_summary_text = (tmp_path / "lane_summary.json").read_text(encoding="utf-8")
+    assert "evaluation_summaries" not in lane_summary_text
+    assert "positive_gene_ids" not in lane_summary_text
+    assert "metric_values" not in lane_summary_text
 
 
 def test_interneuron_run_script_executes_synapse_axis(tmp_path: Path) -> None:
@@ -150,3 +175,4 @@ def test_interneuron_run_script_executes_synapse_axis(tmp_path: Path) -> None:
     assert payload["axis_ids"] == ["interneuron_synapse"]
     assert set(payload["baseline_ids"]) == set(DEFAULT_INTERNEURON_BASELINE_IDS)
     assert (output_dir / "lane_summary.json").exists()
+    assert "evaluation_summaries" not in result.stdout

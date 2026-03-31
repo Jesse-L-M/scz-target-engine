@@ -487,6 +487,16 @@ def evaluate_interneuron_axis_predictions(
     return evaluation_summaries
 
 
+def _build_emitted_offline_evaluation_metadata() -> dict[str, object]:
+    return {
+        "executed": True,
+        "output_policy": (
+            "Label-derived evaluation summaries are withheld from emitted outputs. "
+            "Use the in-memory evaluation helpers for offline analysis."
+        ),
+    }
+
+
 def _build_input_artifact_summary(
     task_data: InterneuronAxisTaskData,
     dataset: FrozenRescueDataset,
@@ -526,7 +536,7 @@ def materialize_interneuron_axis_rescue_runs(
             task_data,
             baseline_id=baseline_id,
         )
-        evaluation_summaries = evaluate_interneuron_axis_predictions(
+        evaluate_interneuron_axis_predictions(
             task_data,
             prediction_rows=prediction_rows,
         )
@@ -566,7 +576,7 @@ def materialize_interneuron_axis_rescue_runs(
                 _build_input_artifact_summary(task_data, task_data.ranking_input),
                 _build_input_artifact_summary(task_data, task_data.evaluation_target),
             ],
-            "evaluation_summaries": evaluation_summaries,
+            "offline_evaluation": _build_emitted_offline_evaluation_metadata(),
             "notes": (
                 "Predictions were built from the governed pre-cutoff ranking artifact "
                 "only. Held-out post-cutoff follow-up labels were consumed only during "

@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scz_target_engine.io import write_csv, write_json
+from scz_target_engine.rescue.baselines.reporting import (
+    RescueComparisonRow,
+    materialize_rescue_comparison_report,
+)
 from scz_target_engine.rescue.frozen import (
     FrozenRescueTaskBundle,
     load_frozen_rescue_task_bundle,
@@ -219,16 +223,23 @@ def _rank_primary_predictions(
     )
 
 
-def _rank_baseline_predictions(
+def _rank_predictions_for_scorer(
     ranking_rows: tuple[dict[str, str], ...],
     *,
-    field_name: str,
+    scorer: NpcSignatureReversalScorerDefinition,
 ) -> tuple[str, ...]:
     return tuple(
         row["gene_id"]
         for row in sorted(
             ranking_rows,
-            key=lambda row: (-_field_value(row, field_name), row["gene_id"]),
+            key=lambda row: tuple(
+                [-_field_value(row, field_name) for field_name in scorer.input_fields]
+                + [
+                    -_field_value(row, field_name)
+                    for field_name in scorer.tie_break_input_fields
+                ]
+                + [row["gene_id"]]
+            ),
         )
     )
 
@@ -408,9 +419,9 @@ def _build_ranked_gene_ids_by_scorer(
     for scorer in scorers:
         if scorer.scorer_id == NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID:
             continue
-        ranked_gene_ids_by_scorer[scorer.scorer_id] = _rank_baseline_predictions(
+        ranked_gene_ids_by_scorer[scorer.scorer_id] = _rank_predictions_for_scorer(
             ranking_rows,
-            field_name=scorer.input_fields[0],
+            scorer=scorer,
         )
     return ranked_gene_ids_by_scorer
 
@@ -526,11 +537,43 @@ def _task_summary_payload(
     }
 
 
-def materialize_npc_signature_reversal_run(
+def _build_npc_comparison_rows(
+    *,
+    task_id: str,
+    task_label: str,
+    evaluation_payload: dict[str, object],
+    scorers: tuple[NpcSignatureReversalScorerDefinition, ...],
+) -> tuple[RescueComparisonRow, ...]:
+    slices = evaluation_payload["slices"]
+    if not isinstance(slices, dict):
+        raise ValueError("evaluation payload must expose slice metrics")
+    comparison_rows: list[RescueComparisonRow] = []
+    for split_name in EVALUATION_SPLITS:
+        split_payload = slices[split_name]
+        scorers_payload = split_payload["scorers"]
+        for scorer in scorers:
+            scorer_payload = scorers_payload[scorer.scorer_id]
+            comparison_rows.append(
+                RescueComparisonRow(
+                    task_id=task_id,
+                    task_label=task_label,
+                    evaluation_split=split_name,
+                    scorer_id=scorer.scorer_id,
+                    scorer_label=scorer.scorer_label,
+                    scorer_role=scorer.scorer_role,
+                    candidate_count=int(split_payload["entity_count"]),
+                    positive_count=int(split_payload["positive_count"]),
+                    metrics=scorer_payload["metrics"],
+                )
+            )
+    return tuple(comparison_rows)
+
+
+def _materialize_npc_signature_reversal_result(
     *,
     output_dir: Path,
     task_card_path: Path | None = None,
-) -> dict[str, object]:
+) -> tuple[dict[str, object], tuple[RescueComparisonRow, ...]]:
     scorers = DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS
     resolved_output_dir = output_dir.resolve()
     resolved_task_card_path = (
@@ -577,7 +620,68 @@ def materialize_npc_signature_reversal_run(
     )
     summary_file = resolved_output_dir / SUMMARY_FILE_NAME
     write_json(summary_file, summary_payload)
-    return summary_payload
+    comparison_rows = _build_npc_comparison_rows(
+        task_id=bundle.governance.task_card.task_id,
+        task_label=bundle.governance.contract.task_label,
+        evaluation_payload=evaluation_payload,
+        scorers=scorers,
+    )
+    comparison_outputs = materialize_rescue_comparison_report(
+        resolved_output_dir,
+        task_id=bundle.governance.task_card.task_id,
+        task_label=bundle.governance.contract.task_label,
+        principal_split="test",
+        comparison_rows=comparison_rows,
+        scorer_definitions=tuple(
+            {
+                **scorer.to_dict(),
+                "comparison_id": scorer.scorer_id,
+            }
+            for scorer in scorers
+        ),
+        notes=(
+            "The NPC baseline report compares the fixed shipped scorer set on the "
+            "frozen rescue bundle. Predictions remain label-free and evaluation stays "
+            "aggregate-only in the comparison outputs."
+        ),
+    )
+    return (
+        {
+            **summary_payload,
+            "comparison_outputs": comparison_outputs,
+        },
+        comparison_rows,
+    )
+
+
+def materialize_npc_signature_reversal_run(
+    *,
+    output_dir: Path,
+    task_card_path: Path | None = None,
+) -> dict[str, object]:
+    result, comparison_rows = _materialize_npc_signature_reversal_result(
+        output_dir=output_dir,
+        task_card_path=task_card_path,
+    )
+    return {
+        **result,
+        "comparison_rows": [row.to_dict() for row in comparison_rows],
+    }
+
+
+def materialize_npc_signature_reversal_baseline_pack(
+    *,
+    output_dir: Path,
+    task_card_path: Path | None = None,
+) -> dict[str, object]:
+    result, comparison_rows = _materialize_npc_signature_reversal_result(
+        output_dir=output_dir,
+        task_card_path=task_card_path,
+    )
+    return {
+        **result,
+        "comparison_rows": comparison_rows,
+    }
 
 
 __all__ = [
@@ -586,5 +690,6 @@ __all__ = [
     "NPC_SIGNATURE_REVERSAL_TASK_ID",
     "NPC_SIGNATURE_REVERSAL_TASK_LABEL",
     "NpcSignatureReversalScorerDefinition",
+    "materialize_npc_signature_reversal_baseline_pack",
     "materialize_npc_signature_reversal_run",
 ]

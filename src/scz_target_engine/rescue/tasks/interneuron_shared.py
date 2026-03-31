@@ -11,6 +11,12 @@ from scz_target_engine.benchmark_metrics import (
     calculate_metric_values,
 )
 from scz_target_engine.io import write_csv, write_json
+from scz_target_engine.rescue.baselines.reporting import (
+    RescueBaselineDefinition,
+    RescueComparisonRow,
+    materialize_rescue_comparison_report,
+    write_rescue_comparison_rows,
+)
 from scz_target_engine.rescue.frozen import (
     FrozenRescueDataset,
     FrozenRescueGovernedTaskBundle,
@@ -66,12 +72,7 @@ FORBIDDEN_RANKING_COLUMNS = {
 }
 
 
-@dataclass(frozen=True)
-class InterneuronBaselineDefinition:
-    baseline_id: str
-    label: str
-    description: str
-    leakage_rule: str
+InterneuronBaselineDefinition = RescueBaselineDefinition
 
 
 @dataclass(frozen=True)
@@ -457,6 +458,32 @@ def evaluate_interneuron_axis_predictions(
     return evaluation_summaries
 
 
+def _build_interneuron_comparison_rows(
+    task_data: InterneuronAxisTaskData,
+    *,
+    baseline: InterneuronBaselineDefinition,
+    evaluation_summaries: dict[str, object],
+) -> tuple[RescueComparisonRow, ...]:
+    comparison_rows: list[RescueComparisonRow] = []
+    for evaluation_split in ("validation", "test", "heldout"):
+        split_summary = evaluation_summaries[evaluation_split]
+        comparison_rows.append(
+            RescueComparisonRow(
+                task_id=task_data.task_id,
+                task_label=task_data.frozen_bundle.governance.contract.task_label,
+                axis_id=task_data.axis_id,
+                evaluation_split=evaluation_split,
+                scorer_id=baseline.baseline_id,
+                scorer_label=baseline.label,
+                scorer_role=baseline.scorer_role,
+                candidate_count=int(split_summary["cohort_size"]),
+                positive_count=int(split_summary["positive_count"]),
+                metrics=split_summary["metric_values"],
+            )
+        )
+    return tuple(comparison_rows)
+
+
 def _build_emitted_offline_evaluation_metadata() -> dict[str, object]:
     return {"executed": True}
 
@@ -491,7 +518,7 @@ def _build_public_run_summary(
     }
 
 
-def materialize_interneuron_axis_rescue_runs(
+def _materialize_interneuron_axis_runs(
     axis_id: str,
     *,
     output_dir: Path,
@@ -506,15 +533,21 @@ def materialize_interneuron_axis_rescue_runs(
 
     axis_output_dir = output_dir.resolve() / axis_id
     run_summaries: list[dict[str, object]] = []
+    comparison_rows: tuple[RescueComparisonRow, ...] = ()
     for baseline_id in resolved_baseline_ids:
         baseline = resolve_interneuron_baseline(baseline_id)
         prediction_rows = build_interneuron_axis_predictions(
             task_data,
             baseline_id=baseline_id,
         )
-        evaluate_interneuron_axis_predictions(
+        evaluation_summaries = evaluate_interneuron_axis_predictions(
             task_data,
             prediction_rows=prediction_rows,
+        )
+        comparison_rows += _build_interneuron_comparison_rows(
+            task_data,
+            baseline=baseline,
+            evaluation_summaries=evaluation_summaries,
         )
 
         baseline_output_dir = axis_output_dir / baseline_id
@@ -541,7 +574,41 @@ def materialize_interneuron_axis_rescue_runs(
         "runs": run_summaries,
     }
     write_json(axis_output_dir / "axis_summary.json", axis_summary)
-    return axis_summary
+    comparison_outputs = materialize_rescue_comparison_report(
+        axis_output_dir,
+        task_id=task_data.task_id,
+        task_label=task_data.frozen_bundle.governance.contract.task_label,
+        axis_id=task_data.axis_id,
+        principal_split="heldout",
+        comparison_rows=comparison_rows,
+        scorer_definitions=tuple(
+            resolve_interneuron_baseline(baseline_id).to_dict()
+            for baseline_id in resolved_baseline_ids
+        ),
+        notes=(
+            "Aggregate offline metrics are emitted separately from the redacted "
+            "public run summaries. Ranking inputs remain frozen-only and the "
+            "comparison report omits per-gene held-out labels."
+        ),
+    )
+    return {
+        "axis_summary": axis_summary,
+        "comparison_rows": comparison_rows,
+        "comparison_outputs": comparison_outputs,
+    }
+
+
+def materialize_interneuron_axis_rescue_runs(
+    axis_id: str,
+    *,
+    output_dir: Path,
+    baseline_ids: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    return _materialize_interneuron_axis_runs(
+        axis_id,
+        output_dir=output_dir,
+        baseline_ids=baseline_ids,
+    )["axis_summary"]
 
 
 def materialize_interneuron_rescue_lane(
@@ -574,6 +641,76 @@ def materialize_interneuron_rescue_lane(
     return lane_summary
 
 
+def materialize_interneuron_rescue_baseline_pack(
+    *,
+    output_dir: Path,
+    axis_ids: tuple[str, ...] = VALID_INTERNEURON_AXIS_IDS,
+    baseline_ids: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    resolved_axis_ids = tuple(_require_axis_id(axis_id) for axis_id in axis_ids)
+    resolved_baseline_ids = (
+        DEFAULT_INTERNEURON_BASELINE_IDS
+        if baseline_ids is None
+        else tuple(baseline_ids)
+    )
+    lane_output_dir = output_dir.resolve()
+    axis_results = [
+        _materialize_interneuron_axis_runs(
+            axis_id,
+            output_dir=lane_output_dir,
+            baseline_ids=baseline_ids,
+        )
+        for axis_id in resolved_axis_ids
+    ]
+    lane_summary = {
+        "task_id": INTERNEURON_TASK_ID,
+        "axis_ids": list(resolved_axis_ids),
+        "baseline_ids": list(resolved_baseline_ids),
+        "axis_runs": [axis_result["axis_summary"] for axis_result in axis_results],
+    }
+    write_json(lane_output_dir / "lane_summary.json", lane_summary)
+
+    comparison_rows = tuple(
+        row
+        for axis_result in axis_results
+        for row in axis_result["comparison_rows"]
+    )
+    task_label = load_interneuron_axis_task_data(
+        resolved_axis_ids[0]
+    ).frozen_bundle.governance.contract.task_label
+    lane_comparison_rows_file = lane_output_dir / "lane_comparison_rows.csv"
+    write_rescue_comparison_rows(
+        lane_comparison_rows_file,
+        comparison_rows,
+    )
+    lane_comparison_summary_file = lane_output_dir / "lane_comparison_summary.json"
+    write_json(
+        lane_comparison_summary_file,
+        {
+            "task_id": INTERNEURON_TASK_ID,
+            "axis_ids": list(resolved_axis_ids),
+            "baseline_ids": list(resolved_baseline_ids),
+            "comparison_row_count": len(comparison_rows),
+            "axis_comparison_outputs": [
+                axis_result["comparison_outputs"] for axis_result in axis_results
+            ],
+            "comparison_rows_file": str(lane_comparison_rows_file),
+        },
+    )
+    return {
+        "task_id": INTERNEURON_TASK_ID,
+        "task_label": task_label,
+        "axis_ids": list(resolved_axis_ids),
+        "baseline_ids": list(resolved_baseline_ids),
+        "axis_runs": [axis_result["axis_summary"] for axis_result in axis_results],
+        "comparison_outputs": {
+            "comparison_rows_file": str(lane_comparison_rows_file),
+            "comparison_summary_file": str(lane_comparison_summary_file),
+        },
+        "comparison_rows": comparison_rows,
+    }
+
+
 __all__ = [
     "DEFAULT_INTERNEURON_BASELINE_IDS",
     "INTERNEURON_TASK_CARD_PATH",
@@ -586,6 +723,7 @@ __all__ = [
     "evaluate_interneuron_axis_predictions",
     "list_interneuron_baselines",
     "load_interneuron_axis_task_data",
+    "materialize_interneuron_rescue_baseline_pack",
     "materialize_interneuron_axis_rescue_runs",
     "materialize_interneuron_rescue_lane",
     "resolve_interneuron_baseline",

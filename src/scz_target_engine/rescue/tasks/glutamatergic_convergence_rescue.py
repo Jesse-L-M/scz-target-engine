@@ -11,6 +11,11 @@ from scz_target_engine.benchmark_metrics import (
     count_relevant,
 )
 from scz_target_engine.io import write_csv, write_json
+from scz_target_engine.rescue.baselines.reporting import (
+    RescueBaselineDefinition,
+    RescueComparisonRow,
+    materialize_rescue_comparison_report,
+)
 from scz_target_engine.rescue.frozen import (
     FrozenRescueTaskBundle,
     load_frozen_rescue_task_bundle,
@@ -22,6 +27,12 @@ DEFAULT_GLUTAMATERGIC_CONVERGENCE_TASK_ID = (
 )
 DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID = (
     "convergence_state_baseline_v1"
+)
+DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS = (
+    DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+    "axis_support_baseline_v1",
+    "source_coverage_baseline_v1",
+    "translational_support_baseline_v1",
 )
 DEFAULT_GLUTAMATERGIC_EVALUATION_LABEL_NAME = "follow_up_priority"
 
@@ -123,6 +134,58 @@ _EVALUATION_ROW_FIELDNAMES = _PREDICTION_FIELDNAMES + [
     "evaluation_relevant",
 ]
 
+GLUTAMATERGIC_CONVERGENCE_BASELINE_DEFINITIONS = (
+    RescueBaselineDefinition(
+        baseline_id=DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+        label="Convergence state baseline v1",
+        description=(
+            "Combine frozen convergence breadth, source coverage, missingness, "
+            "uncertainty, and translational support states into a deterministic "
+            "rule-based ranking."
+        ),
+        leakage_rule=(
+            "Consumes only the pre-cutoff frozen convergence ranking CSV and keeps "
+            "held-out follow-up labels out of the ranking path."
+        ),
+    ),
+    RescueBaselineDefinition(
+        baseline_id="axis_support_baseline_v1",
+        label="Axis support baseline v1",
+        description=(
+            "Prefer genes with broader frozen observed-axis support, then break ties "
+            "with partial-axis and source-count evidence."
+        ),
+        leakage_rule=(
+            "Uses only frozen observed-axis and source-count fields already present "
+            "in the governed ranking artifact."
+        ),
+    ),
+    RescueBaselineDefinition(
+        baseline_id="source_coverage_baseline_v1",
+        label="Source coverage baseline v1",
+        description=(
+            "Prefer cross-source frozen support with better missingness and lower "
+            "uncertainty before considering weaker single-source candidates."
+        ),
+        leakage_rule=(
+            "Uses only frozen source-coverage, missingness, and uncertainty fields "
+            "from the pre-cutoff governed ranking artifact."
+        ),
+    ),
+    RescueBaselineDefinition(
+        baseline_id="translational_support_baseline_v1",
+        label="Translational support baseline v1",
+        description=(
+            "Prefer stronger frozen variant-to-gene and disease-association support, "
+            "with clinical translation state as the last support tie-breaker."
+        ),
+        leakage_rule=(
+            "Uses only pre-cutoff frozen translational support states and never "
+            "touches post-cutoff follow-up adjudications during ranking."
+        ),
+    ),
+)
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -175,6 +238,23 @@ def _require_weight(
     if value not in weights:
         raise ValueError(f"unsupported {field_name}: {value}")
     return weights[value]
+
+
+def list_glutamatergic_convergence_baselines(
+) -> tuple[RescueBaselineDefinition, ...]:
+    return GLUTAMATERGIC_CONVERGENCE_BASELINE_DEFINITIONS
+
+
+def resolve_glutamatergic_convergence_baseline(
+    baseline_id: str,
+) -> RescueBaselineDefinition:
+    for baseline in GLUTAMATERGIC_CONVERGENCE_BASELINE_DEFINITIONS:
+        if baseline.baseline_id == baseline_id:
+            return baseline
+    valid_baselines = ", ".join(DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS)
+    raise ValueError(
+        f"unknown baseline_id: {baseline_id}; expected one of {valid_baselines}"
+    )
 
 
 def load_glutamatergic_convergence_rescue_task_bundle(
@@ -332,11 +412,204 @@ def _convergence_score(row: dict[str, str]) -> float:
     )
 
 
+def _axis_support_score(row: dict[str, str]) -> float:
+    return round(
+        (
+            (_require_int(row, "observed_axis_count") * 3.0)
+            + (_require_int(row, "partial_axis_count") * 1.0)
+            - (_require_int(row, "unobserved_axis_count") * 0.25)
+            + (_require_int(row, "observed_source_count") * 1.5)
+            + (
+                _require_weight(
+                    row["source_coverage_state"],
+                    field_name="source_coverage_state",
+                    weights=_SOURCE_COVERAGE_WEIGHTS,
+                )
+                * 1.5
+            )
+            + (
+                _require_weight(
+                    row["uncertainty_max_level"],
+                    field_name="uncertainty_max_level",
+                    weights=_UNCERTAINTY_WEIGHTS,
+                )
+                * 0.5
+            )
+        ),
+        6,
+    )
+
+
+def _source_coverage_score(row: dict[str, str]) -> float:
+    return round(
+        (
+            (
+                _require_weight(
+                    row["source_coverage_state"],
+                    field_name="source_coverage_state",
+                    weights=_SOURCE_COVERAGE_WEIGHTS,
+                )
+                * 3.0
+            )
+            + (_require_int(row, "observed_source_count") * 2.0)
+            - (_require_int(row, "missing_source_count") * 0.5)
+            + (
+                _require_weight(
+                    row["missingness_state"],
+                    field_name="missingness_state",
+                    weights=_MISSINGNESS_WEIGHTS,
+                )
+                * 1.0
+            )
+            + (
+                _require_weight(
+                    row["uncertainty_max_level"],
+                    field_name="uncertainty_max_level",
+                    weights=_UNCERTAINTY_WEIGHTS,
+                )
+                * 0.5
+            )
+            + (_require_int(row, "observed_axis_count") * 0.5)
+        ),
+        6,
+    )
+
+
+def _translational_support_score(row: dict[str, str]) -> float:
+    return round(
+        (
+            (
+                _require_weight(
+                    row["variant_to_gene_state"],
+                    field_name="variant_to_gene_state",
+                    weights=_SUPPORT_STATE_WEIGHTS,
+                )
+                * 3.0
+            )
+            + (
+                _require_weight(
+                    row["disease_association_state"],
+                    field_name="disease_association_state",
+                    weights=_SUPPORT_STATE_WEIGHTS,
+                )
+                * 2.0
+            )
+            + _require_weight(
+                row["clinical_translation_state"],
+                field_name="clinical_translation_state",
+                weights=_SUPPORT_STATE_WEIGHTS,
+            )
+            + (
+                _require_weight(
+                    row["clinical_translation_uncertainty_max_level"],
+                    field_name="clinical_translation_uncertainty_max_level",
+                    weights=_UNCERTAINTY_WEIGHTS,
+                )
+                * 0.5
+            )
+            + (
+                _require_weight(
+                    row["disease_association_missingness_state"],
+                    field_name="disease_association_missingness_state",
+                    weights=_MISSINGNESS_WEIGHTS,
+                )
+                * 0.75
+            )
+            + (
+                _require_weight(
+                    row["disease_association_uncertainty_max_level"],
+                    field_name="disease_association_uncertainty_max_level",
+                    weights=_UNCERTAINTY_WEIGHTS,
+                )
+                * 0.75
+            )
+            + (
+                _require_weight(
+                    row["variant_to_gene_missingness_state"],
+                    field_name="variant_to_gene_missingness_state",
+                    weights=_MISSINGNESS_WEIGHTS,
+                )
+                * 1.0
+            )
+            + (
+                _require_weight(
+                    row["variant_to_gene_uncertainty_max_level"],
+                    field_name="variant_to_gene_uncertainty_max_level",
+                    weights=_UNCERTAINTY_WEIGHTS,
+                )
+                * 1.0
+            )
+            + (_require_int(row, "observed_axis_count") * 0.5)
+        ),
+        6,
+    )
+
+
+def _glutamatergic_baseline_score(
+    row: dict[str, str],
+    *,
+    baseline_id: str,
+) -> float:
+    resolve_glutamatergic_convergence_baseline(baseline_id)
+    if baseline_id == DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID:
+        return _convergence_score(row)
+    if baseline_id == "axis_support_baseline_v1":
+        return _axis_support_score(row)
+    if baseline_id == "source_coverage_baseline_v1":
+        return _source_coverage_score(row)
+    if baseline_id == "translational_support_baseline_v1":
+        return _translational_support_score(row)
+    raise ValueError(f"unsupported baseline_id: {baseline_id}")
+
+
+def _glutamatergic_baseline_sort_key(
+    row: dict[str, object],
+    *,
+    baseline_id: str,
+) -> tuple[object, ...]:
+    if baseline_id == DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID:
+        return (
+            -float(row["rescue_score"]),
+            -int(str(row["observed_axis_count"])),
+            -int(str(row["observed_source_count"])),
+            str(row["gene_symbol"]),
+            str(row["gene_id"]),
+        )
+    if baseline_id == "axis_support_baseline_v1":
+        return (
+            -float(row["rescue_score"]),
+            -int(str(row["observed_axis_count"])),
+            -int(str(row["partial_axis_count"])),
+            -int(str(row["observed_source_count"])),
+            str(row["gene_symbol"]),
+            str(row["gene_id"]),
+        )
+    if baseline_id == "source_coverage_baseline_v1":
+        return (
+            -float(row["rescue_score"]),
+            -int(str(row["observed_source_count"])),
+            int(str(row["missing_source_count"])),
+            -int(str(row["observed_axis_count"])),
+            str(row["gene_symbol"]),
+            str(row["gene_id"]),
+        )
+    if baseline_id == "translational_support_baseline_v1":
+        return (
+            -float(row["rescue_score"]),
+            -int(str(row["observed_axis_count"])),
+            -int(str(row["observed_source_count"])),
+            str(row["gene_symbol"]),
+            str(row["gene_id"]),
+        )
+    raise ValueError(f"unsupported baseline_id: {baseline_id}")
+
+
 def build_glutamatergic_convergence_ranked_predictions(
     bundle: FrozenRescueTaskBundle,
     *,
     baseline_id: str = DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
 ) -> list[dict[str, object]]:
+    resolve_glutamatergic_convergence_baseline(baseline_id)
     scored_rows: list[dict[str, object]] = []
     for row in bundle.ranking_input.rows:
         scored_rows.append(
@@ -344,17 +617,17 @@ def build_glutamatergic_convergence_ranked_predictions(
                 **row,
                 "task_id": bundle.governance.task_card.task_id,
                 "baseline_id": baseline_id,
-                "rescue_score": _convergence_score(row),
+                "rescue_score": _glutamatergic_baseline_score(
+                    row,
+                    baseline_id=baseline_id,
+                ),
                 "priority_tier": _priority_tier(row),
             }
         )
     scored_rows.sort(
-        key=lambda row: (
-            -float(row["rescue_score"]),
-            -int(str(row["observed_axis_count"])),
-            -int(str(row["observed_source_count"])),
-            str(row["gene_symbol"]),
-            str(row["gene_id"]),
+        key=lambda row: _glutamatergic_baseline_sort_key(
+            row,
+            baseline_id=baseline_id,
         )
     )
 
@@ -529,16 +802,43 @@ def evaluate_glutamatergic_convergence_ranked_predictions(
     }
 
 
-def materialize_glutamatergic_convergence_rescue_evaluation(
+def _build_glutamatergic_comparison_rows(
+    bundle: FrozenRescueTaskBundle,
     *,
+    baseline: RescueBaselineDefinition,
+    evaluation_summary: dict[str, object],
+) -> tuple[RescueComparisonRow, ...]:
+    split_summaries = evaluation_summary["split_summaries"]
+    if not isinstance(split_summaries, dict):
+        raise ValueError("evaluation_summary must expose split_summaries")
+    comparison_rows: list[RescueComparisonRow] = []
+    for split_name in ("all", "train", "validation", "test"):
+        split_summary = split_summaries[split_name]
+        comparison_rows.append(
+            RescueComparisonRow(
+                task_id=bundle.governance.task_card.task_id,
+                task_label=bundle.governance.contract.task_label,
+                evaluation_split=split_name,
+                scorer_id=baseline.baseline_id,
+                scorer_label=baseline.label,
+                scorer_role=baseline.scorer_role,
+                candidate_count=int(split_summary["candidate_count"]),
+                positive_count=int(split_summary["positive_label_count"]),
+                metrics=split_summary["metric_values"],
+            )
+        )
+    return tuple(comparison_rows)
+
+
+def _materialize_glutamatergic_convergence_run(
+    *,
+    bundle: FrozenRescueTaskBundle,
+    resolved_task_card_path: Path,
     output_dir: Path,
-    task_card_path: Path | None = None,
-    baseline_id: str = DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+    baseline_id: str,
 ) -> dict[str, object]:
     started_at = _utc_now()
-    bundle = load_glutamatergic_convergence_rescue_task_bundle(
-        task_card_path=task_card_path,
-    )
+    baseline = resolve_glutamatergic_convergence_baseline(baseline_id)
     predictions = build_glutamatergic_convergence_ranked_predictions(
         bundle,
         baseline_id=baseline_id,
@@ -568,13 +868,7 @@ def materialize_glutamatergic_convergence_rescue_evaluation(
         "baseline_id": baseline_id,
         "started_at": started_at,
         "completed_at": completed_at,
-        "task_card_file": str(
-            (
-                task_card_path.resolve()
-                if task_card_path is not None
-                else _resolve_default_task_card_path()
-            )
-        ),
+        "task_card_file": str(resolved_task_card_path),
         "ranking_input_file": str(bundle.ranking_input.path),
         "evaluation_target_file": str(bundle.evaluation_target.path),
         "freeze_manifest_ids": [
@@ -592,6 +886,11 @@ def materialize_glutamatergic_convergence_rescue_evaluation(
     }
     write_json(run_manifest_file, run_manifest)
 
+    comparison_rows = _build_glutamatergic_comparison_rows(
+        bundle,
+        baseline=baseline,
+        evaluation_summary=evaluation["summary"],
+    )
     return {
         "task_id": bundle.governance.task_card.task_id,
         "baseline_id": baseline_id,
@@ -606,14 +905,113 @@ def materialize_glutamatergic_convergence_rescue_evaluation(
         "positive_label_count": evaluation["summary"]["positive_label_count"],
         "metric_values": evaluation["summary"]["metric_values"],
         "top_ranked_gene_symbols": evaluation["summary"]["top_ranked_gene_symbols"],
+        "comparison_rows": comparison_rows,
+    }
+
+
+def materialize_glutamatergic_convergence_rescue_evaluation(
+    *,
+    output_dir: Path,
+    task_card_path: Path | None = None,
+    baseline_id: str = DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+) -> dict[str, object]:
+    resolved_task_card_path = (
+        task_card_path.resolve()
+        if task_card_path is not None
+        else _resolve_default_task_card_path()
+    )
+    bundle = load_glutamatergic_convergence_rescue_task_bundle(
+        task_card_path=task_card_path,
+    )
+    result = _materialize_glutamatergic_convergence_run(
+        bundle=bundle,
+        resolved_task_card_path=resolved_task_card_path,
+        output_dir=output_dir,
+        baseline_id=baseline_id,
+    )
+    return {
+        key: value
+        for key, value in result.items()
+        if key != "comparison_rows"
+    }
+
+
+def materialize_glutamatergic_convergence_baseline_pack(
+    *,
+    output_dir: Path,
+    task_card_path: Path | None = None,
+    baseline_ids: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    resolved_output_dir = output_dir.resolve()
+    resolved_task_card_path = (
+        task_card_path.resolve()
+        if task_card_path is not None
+        else _resolve_default_task_card_path()
+    )
+    bundle = load_glutamatergic_convergence_rescue_task_bundle(
+        task_card_path=task_card_path,
+    )
+    resolved_baseline_ids = (
+        DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS
+        if baseline_ids is None
+        else tuple(baseline_ids)
+    )
+
+    baseline_runs: list[dict[str, object]] = []
+    comparison_rows: tuple[RescueComparisonRow, ...] = ()
+    for baseline_id in resolved_baseline_ids:
+        run_result = _materialize_glutamatergic_convergence_run(
+            bundle=bundle,
+            resolved_task_card_path=resolved_task_card_path,
+            output_dir=resolved_output_dir / baseline_id,
+            baseline_id=baseline_id,
+        )
+        comparison_rows += run_result["comparison_rows"]
+        baseline_runs.append(
+            {
+                key: value
+                for key, value in run_result.items()
+                if key != "comparison_rows"
+            }
+        )
+
+    comparison_outputs = materialize_rescue_comparison_report(
+        resolved_output_dir,
+        task_id=bundle.governance.task_card.task_id,
+        task_label=bundle.governance.contract.task_label,
+        principal_split="test",
+        comparison_rows=comparison_rows,
+        scorer_definitions=tuple(
+            resolve_glutamatergic_convergence_baseline(
+                baseline_id
+            ).to_dict()
+            for baseline_id in resolved_baseline_ids
+        ),
+        notes=(
+            "All baseline pack runs consume only the frozen convergence ranking "
+            "artifact. Held-out follow-up labels are used only for offline "
+            "evaluation and are summarized at aggregate split level."
+        ),
+    )
+    return {
+        "task_id": bundle.governance.task_card.task_id,
+        "task_label": bundle.governance.contract.task_label,
+        "baseline_ids": list(resolved_baseline_ids),
+        "baseline_runs": baseline_runs,
+        "comparison_outputs": comparison_outputs,
+        "comparison_rows": comparison_rows,
     }
 
 
 __all__ = [
     "DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID",
+    "DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS",
     "DEFAULT_GLUTAMATERGIC_CONVERGENCE_TASK_ID",
     "build_glutamatergic_convergence_ranked_predictions",
     "evaluate_glutamatergic_convergence_ranked_predictions",
+    "list_glutamatergic_convergence_baselines",
     "load_glutamatergic_convergence_rescue_task_bundle",
+    "materialize_glutamatergic_convergence_baseline_pack",
     "materialize_glutamatergic_convergence_rescue_evaluation",
+    "resolve_glutamatergic_convergence_baseline",
 ]

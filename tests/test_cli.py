@@ -236,6 +236,17 @@ def test_cli_validate_runs() -> None:
             "rescue-run-glutamatergic-convergence",
             ("rescue", "run", "glutamatergic-convergence"),
         ),
+        (
+            [
+                "rescue",
+                "compare",
+                "baselines",
+                "--output-dir",
+                "rescue_baselines",
+            ],
+            "rescue-compare-baselines",
+            ("rescue", "compare", "baselines"),
+        ),
     ],
 )
 def test_cli_namespaced_routes_map_to_legacy_commands(
@@ -999,6 +1010,19 @@ def test_cli_rescue_run_glutamatergic_convergence_parser_accepts_files() -> None
     assert args.baseline_id == "example_baseline"
 
 
+def test_cli_rescue_compare_baselines_parser_accepts_output_dir() -> None:
+    args = build_parser().parse_args(
+        [
+            "rescue-compare-baselines",
+            "--output-dir",
+            "rescue_baselines",
+        ]
+    )
+
+    assert args.command == "rescue-compare-baselines"
+    assert args.output_dir == "rescue_baselines"
+
+
 def test_cli_backfill_benchmark_public_slices_parser_accepts_optional_paths() -> None:
     args = build_parser().parse_args(
         [
@@ -1130,6 +1154,37 @@ def test_cli_rescue_run_glutamatergic_convergence_runs(
     assert calls["output_dir"] == output_dir.resolve()
     assert calls["task_card_path"] == task_card_path.resolve()
     assert calls["baseline_id"] == "custom_baseline"
+
+
+def test_cli_rescue_compare_baselines_runs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "rescue_baselines"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_rescue_baseline_suite(
+        *,
+        output_dir: Path,
+    ) -> dict[str, object]:
+        calls["output_dir"] = output_dir
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_rescue_baseline_suite",
+        fake_materialize_rescue_baseline_suite,
+    )
+
+    exit_code = main(
+        [
+            "rescue-compare-baselines",
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["output_dir"] == output_dir.resolve()
 
 
 def test_cli_backfill_benchmark_public_slices_runs(

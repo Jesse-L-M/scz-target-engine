@@ -20,10 +20,14 @@ from scz_target_engine.rescue.registry import (
     resolve_rescue_task_contract,
 )
 from scz_target_engine.rescue.tasks import (
+    DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS,
     build_glutamatergic_convergence_ranked_predictions,
     evaluate_glutamatergic_convergence_ranked_predictions,
+    list_glutamatergic_convergence_baselines,
     load_glutamatergic_convergence_rescue_task_bundle,
+    materialize_glutamatergic_convergence_baseline_pack,
     materialize_glutamatergic_convergence_rescue_evaluation,
+    resolve_glutamatergic_convergence_baseline,
 )
 
 
@@ -305,6 +309,17 @@ def test_glutamatergic_convergence_task_ranks_full_convergence_genes_first() -> 
     assert predictions[0]["rescue_score"] >= predictions[-1]["rescue_score"]
 
 
+def test_glutamatergic_baseline_catalog_is_resolvable() -> None:
+    baselines = list_glutamatergic_convergence_baselines()
+
+    assert tuple(
+        baseline.baseline_id for baseline in baselines
+    ) == DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS
+    assert resolve_glutamatergic_convergence_baseline(
+        "source_coverage_baseline_v1"
+    ).label == "Source coverage baseline v1"
+
+
 def test_glutamatergic_convergence_task_evaluation_uses_held_out_labels_only() -> None:
     bundle = load_glutamatergic_convergence_rescue_task_bundle()
     predictions = build_glutamatergic_convergence_ranked_predictions(bundle)
@@ -397,3 +412,38 @@ def test_glutamatergic_convergence_materializer_writes_end_to_end_outputs(
     }
     assert evaluation_summary["metric_values"]["average_precision_any_positive_outcome"] == 1.0
     assert run_manifest["task_id"] == "glutamatergic_convergence_rescue_task"
+
+
+def test_glutamatergic_baseline_pack_materializes_comparison_outputs(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "glutamatergic-pack"
+    result = materialize_glutamatergic_convergence_baseline_pack(
+        output_dir=output_dir
+    )
+
+    assert result["baseline_ids"] == list(
+        DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS
+    )
+    assert len(result["comparison_rows"]) == (
+        len(DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS) * 4
+    )
+
+    comparison_rows_file = Path(result["comparison_outputs"]["comparison_rows_file"])
+    comparison_summary_file = Path(
+        result["comparison_outputs"]["comparison_summary_file"]
+    )
+    assert comparison_rows_file.exists()
+    assert comparison_summary_file.exists()
+
+    comparison_summary = read_json(comparison_summary_file)
+    assert comparison_summary["principal_split"] == "test"
+    assert comparison_summary["comparison_row_count"] == (
+        len(DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS) * 4
+    )
+    assert comparison_summary["best_by_split"]["test"][
+        "average_precision_any_positive_outcome"
+    ]["scorer_id"] in set(DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS)
+    for baseline_id in DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS:
+        assert (output_dir / baseline_id / "ranked_predictions.csv").exists()
+        assert (output_dir / baseline_id / "evaluation_summary.json").exists()

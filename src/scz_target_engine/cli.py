@@ -49,6 +49,7 @@ from scz_target_engine.prepare import (
     refresh_example_input_tables,
     refresh_example_module_table,
 )
+from scz_target_engine.rescue.baselines import materialize_rescue_baseline_suite
 from scz_target_engine.rescue.tasks import materialize_npc_signature_reversal_run
 from scz_target_engine.registry import build_candidate_registry
 from scz_target_engine.rescue.tasks import (
@@ -365,6 +366,12 @@ def _configure_run_npc_signature_reversal_rescue_parser(
     parser.add_argument("--task-card-path")
 
 
+def _configure_rescue_compare_baselines_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-dir", required=True)
+
+
 COMMAND_ROUTES = (
     CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
     CommandRoute("build", ("engine", "build"), _configure_build_parser),
@@ -472,6 +479,11 @@ COMMAND_ROUTES = (
         "rescue-run-glutamatergic-convergence",
         ("rescue", "run", "glutamatergic-convergence"),
         _configure_run_glutamatergic_convergence_rescue_parser,
+    ),
+    CommandRoute(
+        "rescue-compare-baselines",
+        ("rescue", "compare", "baselines"),
+        _configure_rescue_compare_baselines_parser,
     ),
     CommandRoute(
         "prepare-gene-table",
@@ -754,6 +766,13 @@ def main(argv: list[str] | None = None) -> int:
                 else Path(args.task_card_path).resolve()
             ),
             baseline_id=args.baseline_id,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "rescue-compare-baselines":
+        result = materialize_rescue_baseline_suite(
+            output_dir=Path(args.output_dir).resolve(),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

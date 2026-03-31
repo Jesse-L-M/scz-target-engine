@@ -1,10 +1,14 @@
 from scz_target_engine.rescue.tasks.glutamatergic_convergence_rescue import (
     DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+    DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS,
     DEFAULT_GLUTAMATERGIC_CONVERGENCE_TASK_ID,
     build_glutamatergic_convergence_ranked_predictions,
     evaluate_glutamatergic_convergence_ranked_predictions,
+    list_glutamatergic_convergence_baselines,
     load_glutamatergic_convergence_rescue_task_bundle,
+    materialize_glutamatergic_convergence_baseline_pack,
     materialize_glutamatergic_convergence_rescue_evaluation,
+    resolve_glutamatergic_convergence_baseline,
 )
 from scz_target_engine.rescue.tasks.interneuron_arbor import (
     INTERNEURON_ARBOR_AXIS_ID,
@@ -23,6 +27,7 @@ from scz_target_engine.rescue.tasks.interneuron_shared import (
     evaluate_interneuron_axis_predictions,
     list_interneuron_baselines,
     load_interneuron_axis_task_data,
+    materialize_interneuron_rescue_baseline_pack,
     materialize_interneuron_axis_rescue_runs,
     materialize_interneuron_rescue_lane,
     resolve_interneuron_baseline,
@@ -38,11 +43,13 @@ from scz_target_engine.rescue.tasks.npc_signature_reversal import (
     NPC_SIGNATURE_REVERSAL_TASK_ID,
     NPC_SIGNATURE_REVERSAL_TASK_LABEL,
     NpcSignatureReversalScorerDefinition,
+    materialize_npc_signature_reversal_baseline_pack,
     materialize_npc_signature_reversal_run,
 )
 
 __all__ = [
     "DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID",
+    "DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_IDS",
     "DEFAULT_GLUTAMATERGIC_CONVERGENCE_TASK_ID",
     "DEFAULT_INTERNEURON_BASELINE_IDS",
     "DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS",
@@ -62,16 +69,21 @@ __all__ = [
     "build_interneuron_axis_predictions",
     "evaluate_glutamatergic_convergence_ranked_predictions",
     "evaluate_interneuron_axis_predictions",
+    "list_glutamatergic_convergence_baselines",
     "list_interneuron_baselines",
     "load_glutamatergic_convergence_rescue_task_bundle",
     "load_interneuron_arbor_task_data",
     "load_interneuron_axis_task_data",
     "load_interneuron_synapse_task_data",
+    "materialize_glutamatergic_convergence_baseline_pack",
     "materialize_glutamatergic_convergence_rescue_evaluation",
     "materialize_interneuron_arbor_rescue_runs",
+    "materialize_interneuron_rescue_baseline_pack",
     "materialize_interneuron_axis_rescue_runs",
     "materialize_interneuron_rescue_lane",
     "materialize_interneuron_synapse_rescue_runs",
+    "materialize_npc_signature_reversal_baseline_pack",
     "materialize_npc_signature_reversal_run",
+    "resolve_glutamatergic_convergence_baseline",
     "resolve_interneuron_baseline",
 ]

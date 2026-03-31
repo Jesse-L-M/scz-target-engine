@@ -1,0 +1,39 @@
+{
+  "schema_name": "rescue_split_manifest",
+  "schema_version": "v1",
+  "split_manifest_id": "interneuron_arbor_split_2026_03_31",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "interneuron_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json",
+  "governance_status": "active",
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/freeze_manifests/interneuron_gene_rescue_freeze_2023_12_31.json",
+  "source_dataset_id": "interneuron_arbor_ranking_inputs_2023_12_31",
+  "split_strategy_id": "gene_level_fixed_seed_v1",
+  "split_seed": 41,
+  "assignment_unit": "gene",
+  "partitions": [
+    {
+      "split_name": "train",
+      "purpose": "train",
+      "expected_fraction": 0.6,
+      "selection_rule": "Assign the majority of frozen arbor-axis candidates to train with a fixed seed after cutoff filtering.",
+      "leakage_rule": "Training rows must use only the pre-cutoff arbor dataset and must not expose held-out follow-up labels."
+    },
+    {
+      "split_name": "validation",
+      "purpose": "validation",
+      "expected_fraction": 0.2,
+      "selection_rule": "Assign a deterministic validation slice after the train split is fixed.",
+      "leakage_rule": "Validation rows may support model tuning but must remain isolated from post-cutoff labels outside the validation slice."
+    },
+    {
+      "split_name": "test",
+      "purpose": "test",
+      "expected_fraction": 0.2,
+      "selection_rule": "Assign the remaining arbor-axis genes to a held-out test partition.",
+      "leakage_rule": "Test rows remain sealed until scoring time and must not influence ranking construction or thresholding."
+    }
+  ],
+  "description": "Deterministic gene-level split manifest for the frozen interneuron arbor ranking dataset.",
+  "notes": "The arbor axis is split independently so downstream rescue work can consume the axis-specific frozen artifact only."
+}

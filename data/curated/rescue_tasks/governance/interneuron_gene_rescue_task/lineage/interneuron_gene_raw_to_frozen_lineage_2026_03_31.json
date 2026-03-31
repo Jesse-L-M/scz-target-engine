@@ -1,0 +1,138 @@
+{
+  "schema_name": "rescue_raw_to_frozen_lineage",
+  "schema_version": "v1",
+  "lineage_id": "interneuron_gene_raw_to_frozen_lineage_2026_03_31",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "interneuron_gene_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json",
+  "governance_status": "active",
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/freeze_manifests/interneuron_gene_rescue_freeze_2023_12_31.json",
+  "raw_sources": [
+    {
+      "source_id": "interneuron_synapse_candidate_snapshot",
+      "source_name": "manual_pubmed_curation",
+      "snapshot_id": "interneuron-synapse-2023-12-31",
+      "captured_at": "2023-12-31",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/interneuron_synapse/interneuron_synapse_candidate_snapshot_2023_12_31.csv",
+      "sha256": "39f3fb8734b09a04c9ad8e04273b7b07747ab3064263f80b3b99a0131bc5e55e",
+      "description": "Historical pre-cutoff literature snapshot for the interneuron synapse rescue axis."
+    },
+    {
+      "source_id": "interneuron_arbor_candidate_snapshot",
+      "source_name": "manual_pubmed_curation",
+      "snapshot_id": "interneuron-arbor-2023-12-31",
+      "captured_at": "2023-12-31",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/interneuron_arbor/interneuron_arbor_candidate_snapshot_2023_12_31.csv",
+      "sha256": "23db73d387c99dcf11ff0275a48fe898e130bf2258313c5a133f1e248e055f0b",
+      "description": "Historical pre-cutoff literature snapshot for the interneuron arbor rescue axis."
+    },
+    {
+      "source_id": "interneuron_followup_adjudications",
+      "source_name": "manual_followup_adjudication",
+      "snapshot_id": "interneuron-followup-2026-03-31",
+      "captured_at": "2026-03-31",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/rescue/interneuron_followup/interneuron_followup_adjudications_2026_03_31.csv",
+      "sha256": "71e273bfdc72588ad2629beaa0e09012568365799c6f55a63d7f46cae95d5a52",
+      "description": "Held-out post-cutoff follow-up adjudications that stay outside ranking construction."
+    }
+  ],
+  "transformation_steps": [
+    {
+      "step_id": "normalize_synapse_candidate_snapshot",
+      "step_label": "Normalize synapse candidate snapshot",
+      "step_kind": "normalize",
+      "input_ids": [
+        "interneuron_synapse_candidate_snapshot"
+      ],
+      "output_ids": [
+        "normalized_interneuron_synapse_candidates"
+      ],
+      "description": "Normalize the historical synapse literature snapshot into one deterministic gene-level candidate table."
+    },
+    {
+      "step_id": "freeze_synapse_ranking_inputs",
+      "step_label": "Freeze synapse ranking inputs",
+      "step_kind": "freeze",
+      "input_ids": [
+        "normalized_interneuron_synapse_candidates"
+      ],
+      "output_ids": [
+        "interneuron_synapse_ranking_inputs_2023_12_31"
+      ],
+      "description": "Freeze the normalized synapse candidates into the governed ranking-input dataset used by downstream rescue consumers."
+    },
+    {
+      "step_id": "normalize_arbor_candidate_snapshot",
+      "step_label": "Normalize arbor candidate snapshot",
+      "step_kind": "normalize",
+      "input_ids": [
+        "interneuron_arbor_candidate_snapshot"
+      ],
+      "output_ids": [
+        "normalized_interneuron_arbor_candidates"
+      ],
+      "description": "Normalize the historical arbor literature snapshot into one deterministic gene-level candidate table."
+    },
+    {
+      "step_id": "freeze_arbor_ranking_inputs",
+      "step_label": "Freeze arbor ranking inputs",
+      "step_kind": "freeze",
+      "input_ids": [
+        "normalized_interneuron_arbor_candidates"
+      ],
+      "output_ids": [
+        "interneuron_arbor_ranking_inputs_2023_12_31"
+      ],
+      "description": "Freeze the normalized arbor candidates into the governed ranking-input dataset used by downstream rescue consumers."
+    },
+    {
+      "step_id": "normalize_post_cutoff_followup_labels",
+      "step_label": "Normalize post-cutoff follow-up labels",
+      "step_kind": "label_holdout",
+      "input_ids": [
+        "interneuron_followup_adjudications"
+      ],
+      "output_ids": [
+        "normalized_interneuron_followup_labels"
+      ],
+      "description": "Normalize the post-cutoff adjudication snapshot without allowing it into ranking construction."
+    },
+    {
+      "step_id": "freeze_post_cutoff_followup_labels",
+      "step_label": "Freeze post-cutoff follow-up labels",
+      "step_kind": "freeze",
+      "input_ids": [
+        "normalized_interneuron_followup_labels"
+      ],
+      "output_ids": [
+        "interneuron_followup_labels_2026_03_31"
+      ],
+      "description": "Freeze the normalized follow-up adjudications into the evaluation-only label dataset."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "interneuron_synapse_ranking_inputs_2023_12_31",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_synapse_ranking_inputs.json",
+      "availability": "pre_cutoff",
+      "produced_by_step_id": "freeze_synapse_ranking_inputs"
+    },
+    {
+      "dataset_id": "interneuron_arbor_ranking_inputs_2023_12_31",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_arbor_ranking_inputs.json",
+      "availability": "pre_cutoff",
+      "produced_by_step_id": "freeze_arbor_ranking_inputs"
+    },
+    {
+      "dataset_id": "interneuron_followup_labels_2026_03_31",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_followup_labels.json",
+      "availability": "post_cutoff",
+      "produced_by_step_id": "freeze_post_cutoff_followup_labels"
+    }
+  ],
+  "description": "Raw-to-frozen lineage for the active interneuron rescue family, covering synapse and arbor ranking inputs plus held-out follow-up labels.",
+  "notes": "The lineage explicitly separates pre-cutoff ranking construction from post-cutoff label adjudication."
+}

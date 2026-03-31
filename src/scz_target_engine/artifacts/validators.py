@@ -31,8 +31,10 @@ from scz_target_engine.benchmark_runner import (
 )
 from scz_target_engine.benchmark_snapshots import read_benchmark_snapshot_manifest
 from scz_target_engine.decision_vector import (
+    AVAILABLE_STATUS,
     DECISION_HEAD_DEFINITIONS,
     DOMAIN_HEAD_DEFINITIONS,
+    PARTIAL_STATUS,
 )
 from scz_target_engine.io import read_json
 from scz_target_engine.ledger import TargetLedger
@@ -1149,17 +1151,28 @@ def _decode_json_pointer_token(token: str) -> str:
     return token.replace("~1", "/").replace("~0", "~")
 
 
+def _split_json_pointer(
+    pointer: str,
+    *,
+    field_name: str,
+) -> list[str]:
+    if not pointer.startswith("/"):
+        raise ValueError(f"{field_name} must be an absolute JSON pointer")
+    return [_decode_json_pointer_token(token) for token in pointer.split("/")[1:]]
+
+
 def _resolve_json_pointer(
     payload: object,
     pointer: str,
     *,
     field_name: str,
 ) -> object:
-    if not pointer.startswith("/"):
-        raise ValueError(f"{field_name} must be an absolute JSON pointer")
     current = payload
-    for raw_token in pointer.split("/")[1:]:
-        token = _decode_json_pointer_token(raw_token)
+    for raw_token, token in zip(
+        pointer.split("/")[1:],
+        _split_json_pointer(pointer, field_name=field_name),
+        strict=True,
+    ):
         if isinstance(current, Mapping):
             if token not in current:
                 raise ValueError(f"{field_name} does not resolve within the source artifact")
@@ -1304,6 +1317,28 @@ def _validate_policy_score_payload(
         replay_risk,
         field_name=f"{field_name}.uncertainty_context.replay_risk",
     )
+
+
+def _validate_required_scored_policy_signal(
+    payload: Mapping[str, object],
+    *,
+    field_name: str,
+) -> None:
+    score = _require_optional_number(payload.get("score"), f"{field_name}.score")
+    base_score = _require_optional_number(payload.get("base_score"), f"{field_name}.base_score")
+    score_before_clamp = _require_optional_number(
+        payload.get("score_before_clamp"),
+        f"{field_name}.score_before_clamp",
+    )
+    if score is None or base_score is None or score_before_clamp is None:
+        raise ValueError(
+            f"{field_name} must include non-null score, base_score, and score_before_clamp when require_scored_policy_signal is true"
+        )
+    status = _require_text(payload.get("status", ""), f"{field_name}.status")
+    if status not in {AVAILABLE_STATUS, PARTIAL_STATUS}:
+        raise ValueError(
+            f"{field_name}.status must be available or partial when require_scored_policy_signal is true"
+        )
 
 
 def _validate_policy_decision_vector_entity(
@@ -1618,6 +1653,7 @@ def _validate_hypothesis_packets(
         raise ValueError(
             "hypothesis_packets_v1.packet_generation_criteria.require_scored_policy_signal must be true"
         )
+    require_scored_policy_signal = True
 
     policy_source_path = _resolve_artifact_reference(
         path,
@@ -1757,6 +1793,11 @@ def _validate_hypothesis_packets(
             valid_policy_ids=[policy_id],
             valid_domain_slugs=valid_domain_slugs,
         )
+        if require_scored_policy_signal:
+            _validate_required_scored_policy_signal(
+                policy_signal,
+                field_name=f"hypothesis_packets_v1.packets[{index}].policy_signal",
+            )
         if policy_signal["label"] != packet["policy_label"]:
             raise ValueError(
                 f"hypothesis_packets_v1.packets[{index}].policy_label must match policy_signal.label"
@@ -1957,11 +1998,43 @@ def _validate_hypothesis_packets(
             raise ValueError(
                 f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer must resolve to the packet entity_type"
             )
+        policy_entity_pointer_tokens = _split_json_pointer(
+            policy_entity_pointer,
+            field_name=(
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_entity_pointer"
+            ),
+        )
 
         policy_score_pointer = _require_text(
             traceability.get("policy_score_pointer", ""),
             f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer",
         )
+        policy_score_pointer_tokens = _split_json_pointer(
+            policy_score_pointer,
+            field_name=(
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_score_pointer"
+            ),
+        )
+        expected_score_pointer_prefix = [
+            *policy_entity_pointer_tokens,
+            "policy_scores",
+        ]
+        if (
+            len(policy_score_pointer_tokens) != len(expected_score_pointer_prefix) + 1
+            or policy_score_pointer_tokens[: len(expected_score_pointer_prefix)]
+            != expected_score_pointer_prefix
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must belong to the packet policy_entity_pointer policy_scores list"
+            )
+        score_index_token = policy_score_pointer_tokens[-1]
+        if not score_index_token.isdigit():
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must end in a numeric policy_scores index"
+            )
+        score_index = int(score_index_token)
         policy_score_payload = _require_mapping(
             _resolve_json_pointer(
                 policy_source_payload,
@@ -1973,6 +2046,53 @@ def _validate_hypothesis_packets(
             ),
             f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer",
         )
+        policy_entity_scores = _require_list(
+            policy_entity_payload.get("policy_scores"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.policy_scores",
+        )
+        if score_index >= len(policy_entity_scores):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer does not resolve within the packet policy_entity_pointer policy_scores list"
+            )
+        policy_entity_score_payload = _require_mapping(
+            policy_entity_scores[score_index],
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_entity.policy_scores[{score_index}]"
+            ),
+        )
+        if dict(policy_entity_score_payload) != dict(policy_score_payload):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the same entity-scoped policy_scores row as policy_entity_pointer"
+            )
+        if (
+            _require_text(
+                policy_entity_score_payload.get("policy_id", ""),
+                (
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.policy_entity.policy_scores[{score_index}].policy_id"
+                ),
+            )
+            != policy_id
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the packet policy_id within the packet policy_entity_pointer context"
+            )
+        policy_entity_policy_vector = _require_mapping(
+            policy_entity_payload.get("policy_vector"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.policy_vector",
+        )
+        policy_vector_score_payload = _require_mapping(
+            policy_entity_policy_vector.get(policy_id),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_entity.policy_vector.{policy_id}"
+            ),
+        )
+        if dict(policy_vector_score_payload) != dict(policy_score_payload):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the packet policy_id entry in the packet policy_entity_pointer policy_vector"
+            )
         if dict(policy_score_payload) != dict(policy_signal):
             raise ValueError(
                 f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the packet policy_signal payload"

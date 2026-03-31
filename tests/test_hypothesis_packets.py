@@ -35,6 +35,18 @@ def _find_packet(
     )
 
 
+def _mutate_pointed_policy_score(
+    policy_payload: dict[str, object],
+    packet: dict[str, object],
+) -> tuple[dict[str, object], int, int]:
+    entity_index = int(packet["traceability"]["policy_entity_pointer"].rsplit("/", 1)[-1])
+    score_index = int(packet["traceability"]["policy_score_pointer"].rsplit("/", 1)[-1])
+    entity = policy_payload["entities"]["gene"][entity_index]
+    score = entity["policy_scores"][score_index]
+    entity["policy_vector"][packet["policy_id"]] = score
+    return score, entity_index, score_index
+
+
 def test_hypothesis_packets_materialize_from_shipped_artifacts(tmp_path: Path) -> None:
     generated_payload = _build_hypothesis_packets(tmp_path)
     manual_output_path = tmp_path / "manual_hypothesis_packets_v1.json"
@@ -247,6 +259,68 @@ def test_hypothesis_packets_reject_stale_traceability_pointers(tmp_path: Path) -
     invalid_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="policy_score_pointer"):
+        load_artifact(
+            invalid_path,
+            artifact_name="hypothesis_packets_v1",
+        )
+
+
+def test_hypothesis_packets_reject_scoreless_policy_signal_when_required(
+    tmp_path: Path,
+) -> None:
+    payload = _build_hypothesis_packets(tmp_path)
+    packet = payload["packets"][0]
+    policy_path = tmp_path / "policy_decision_vectors_v2.json"
+    policy_payload = json.loads(policy_path.read_text(encoding="utf-8"))
+    score, _, _ = _mutate_pointed_policy_score(policy_payload, packet)
+
+    score["score"] = None
+    score["base_score"] = None
+    score["score_before_clamp"] = None
+    score["status"] = "missing_inputs"
+    packet["policy_signal"] = deepcopy(score)
+
+    policy_path.write_text(json.dumps(policy_payload), encoding="utf-8")
+    invalid_path = tmp_path / "scoreless_hypothesis_packets_v1.json"
+    invalid_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="require_scored_policy_signal"):
+        load_artifact(
+            invalid_path,
+            artifact_name="hypothesis_packets_v1",
+        )
+
+
+def test_hypothesis_packets_reject_cross_entity_policy_score_pointers(
+    tmp_path: Path,
+) -> None:
+    payload = _build_hypothesis_packets(tmp_path)
+    packet = payload["packets"][0]
+    policy_path = tmp_path / "policy_decision_vectors_v2.json"
+    policy_payload = json.loads(policy_path.read_text(encoding="utf-8"))
+    _, entity_index, _ = _mutate_pointed_policy_score(policy_payload, packet)
+
+    other_entity_index, other_entity = next(
+        (index, entity)
+        for index, entity in enumerate(policy_payload["entities"]["gene"])
+        if index != entity_index
+    )
+    other_score_index = next(
+        index
+        for index, score in enumerate(other_entity["policy_scores"])
+        if score["policy_id"] == packet["policy_id"]
+    )
+    other_entity["policy_scores"][other_score_index] = deepcopy(packet["policy_signal"])
+    other_entity["policy_vector"][packet["policy_id"]] = deepcopy(packet["policy_signal"])
+    packet["traceability"]["policy_score_pointer"] = (
+        f"/entities/gene/{other_entity_index}/policy_scores/{other_score_index}"
+    )
+
+    policy_path.write_text(json.dumps(policy_payload), encoding="utf-8")
+    invalid_path = tmp_path / "cross_entity_pointer_hypothesis_packets_v1.json"
+    invalid_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must belong to the packet policy_entity_pointer"):
         load_artifact(
             invalid_path,
             artifact_name="hypothesis_packets_v1",

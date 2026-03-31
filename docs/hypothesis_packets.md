@@ -63,7 +63,8 @@ The packet contract preserves the parts the upstream artifacts already make expl
   supporting program ids, structural failure program ids, and replay-reason event ids
 - packet validation now dereferences those pointers against the referenced
   `policy_decision_vectors_v2.json` and `gene_target_ledgers.json` artifacts instead of
-  only checking that the pointer strings are non-empty
+  only checking that the pointer strings are non-empty; the score pointer must also
+  belong to the same resolved policy entity and policy context as the packet payload
 
 The validator rejects vague packet stubs by requiring:
 
@@ -71,7 +72,8 @@ The validator rejects vague packet stubs by requiring:
 - non-`undetermined` perturbation direction and modality fields
 - non-empty preferred modalities
 - a non-placeholder hypothesis statement
-- a scored policy signal for every emitted packet, while allowing the artifact itself to be empty
+- a scored policy signal for every emitted packet, including non-null score fields and
+  an `available` or `partial` policy status, while allowing the artifact itself to be empty
 
 ## Generation Paths
 

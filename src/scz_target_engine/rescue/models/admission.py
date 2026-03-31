@@ -38,6 +38,48 @@ def _metric_value_beats(
     return float(model_value) > float(baseline_value)
 
 
+def resolve_rescue_model_admission_split(
+    model_definitions: tuple[RescueModelDefinition, ...],
+    *,
+    principal_split: str | None = None,
+) -> str:
+    if not model_definitions:
+        if principal_split is None:
+            raise ValueError(
+                "model admission requires at least one model definition"
+            )
+        return principal_split
+
+    declared_splits = {
+        model_definition.principal_split
+        for model_definition in model_definitions
+    }
+    if len(declared_splits) != 1:
+        raise ValueError(
+            "model admission requires a single shared declared principal_split; "
+            f"found {sorted(declared_splits)}"
+        )
+    declared_principal_split = next(iter(declared_splits))
+    if principal_split is not None and principal_split != declared_principal_split:
+        raise ValueError(
+            "model definition principal_split must match the admission split; "
+            f"declared {declared_principal_split}, received {principal_split}"
+        )
+    return declared_principal_split
+
+
+def _rows_by_scorer_id(
+    rows: tuple[RescueComparisonRow, ...],
+) -> dict[str, tuple[RescueComparisonRow, ...]]:
+    scorer_rows: dict[str, list[RescueComparisonRow]] = {}
+    for row in rows:
+        scorer_rows.setdefault(row.scorer_id, []).append(row)
+    return {
+        scorer_id: tuple(entries)
+        for scorer_id, entries in scorer_rows.items()
+    }
+
+
 @dataclass(frozen=True)
 class RescueModelAdmissionDecision:
     model_id: str
@@ -69,40 +111,76 @@ def build_rescue_model_admission_summary(
     *,
     comparison_rows: tuple[RescueComparisonRow, ...],
     model_definitions: tuple[RescueModelDefinition, ...],
-    principal_split: str,
+    principal_split: str | None = None,
     baseline_scorer_ids: tuple[str, ...],
 ) -> dict[str, object]:
+    resolved_principal_split = resolve_rescue_model_admission_split(
+        model_definitions,
+        principal_split=principal_split,
+    )
+    if model_definitions and not baseline_scorer_ids:
+        raise ValueError(
+            "benchmark-first model admission requires the declared baseline scorer set"
+        )
     split_rows = tuple(
         row
         for row in comparison_rows
-        if row.evaluation_split == principal_split
+        if row.evaluation_split == resolved_principal_split
     )
     baseline_rows = tuple(
         row
         for row in split_rows
         if row.scorer_role == "baseline" and row.scorer_id in baseline_scorer_ids
     )
-    if baseline_scorer_ids and not baseline_rows:
+    baseline_rows_by_scorer_id = _rows_by_scorer_id(baseline_rows)
+    missing_baseline_scorer_ids = tuple(
+        scorer_id
+        for scorer_id in baseline_scorer_ids
+        if scorer_id not in baseline_rows_by_scorer_id
+    )
+    duplicate_baseline_scorer_ids = tuple(
+        scorer_id
+        for scorer_id, rows in baseline_rows_by_scorer_id.items()
+        if len(rows) != 1
+    )
+    if missing_baseline_scorer_ids or duplicate_baseline_scorer_ids:
+        problems: list[str] = []
+        if missing_baseline_scorer_ids:
+            problems.append(
+                "missing baseline scorer rows: "
+                + ", ".join(missing_baseline_scorer_ids)
+            )
+        if duplicate_baseline_scorer_ids:
+            problems.append(
+                "duplicate baseline scorer rows: "
+                + ", ".join(duplicate_baseline_scorer_ids)
+            )
         raise ValueError(
-            "principal split comparison rows must include the declared baseline scorers"
+            "principal split comparison rows must include exactly one row for "
+            "every declared baseline scorer on "
+            f"{resolved_principal_split}; "
+            + "; ".join(problems)
         )
 
     decisions: list[RescueModelAdmissionDecision] = []
     for model_definition in model_definitions:
-        model_row = next(
-            (
-                row
-                for row in split_rows
-                if row.scorer_role == "model"
-                and row.scorer_id == model_definition.model_id
-            ),
-            None,
+        matching_model_rows = tuple(
+            row
+            for row in split_rows
+            if row.scorer_role == "model"
+            and row.scorer_id == model_definition.model_id
         )
-        if model_row is None:
+        if not matching_model_rows:
             raise ValueError(
                 "principal split comparison rows must include model scorer "
                 f"{model_definition.model_id}"
             )
+        if len(matching_model_rows) != 1:
+            raise ValueError(
+                "principal split comparison rows must include exactly one row for "
+                f"model scorer {model_definition.model_id}"
+            )
+        model_row = matching_model_rows[0]
 
         best_baseline_by_metric: dict[str, dict[str, object]] = {}
         blocking_metric_names: list[str] = []
@@ -115,7 +193,7 @@ def build_rescue_model_admission_summary(
             if not candidate_rows:
                 raise ValueError(
                     "baseline comparison rows must expose metric "
-                    f"{metric_name} on principal split {principal_split}"
+                    f"{metric_name} on principal split {resolved_principal_split}"
                 )
             best_baseline = max(
                 candidate_rows,
@@ -147,7 +225,7 @@ def build_rescue_model_admission_summary(
             RescueModelAdmissionDecision(
                 model_id=model_definition.model_id,
                 model_label=model_definition.label,
-                principal_split=principal_split,
+                principal_split=resolved_principal_split,
                 admission_metric_names=model_definition.admission_metric_names,
                 admitted=not blocking_metric_names,
                 blocking_metric_names=tuple(blocking_metric_names),
@@ -160,7 +238,7 @@ def build_rescue_model_admission_summary(
         )
 
     return {
-        "principal_split": principal_split,
+        "principal_split": resolved_principal_split,
         "baseline_scorer_ids": list(baseline_scorer_ids),
         "candidate_model_ids": [
             definition.model_id for definition in model_definitions
@@ -177,4 +255,5 @@ def build_rescue_model_admission_summary(
 __all__ = [
     "RescueModelAdmissionDecision",
     "build_rescue_model_admission_summary",
+    "resolve_rescue_model_admission_split",
 ]

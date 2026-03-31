@@ -1,6 +1,7 @@
 from scz_target_engine.rescue.models.admission import (
     RescueModelAdmissionDecision,
     build_rescue_model_admission_summary,
+    resolve_rescue_model_admission_split,
 )
 from scz_target_engine.rescue.models.base import (
     RescueModelDefinition,
@@ -21,5 +22,6 @@ __all__ = [
     "build_rescue_model_admission_summary",
     "list_rescue_model_definitions",
     "list_rescue_model_plugins",
+    "resolve_rescue_model_admission_split",
     "resolve_rescue_model_plugin",
 ]

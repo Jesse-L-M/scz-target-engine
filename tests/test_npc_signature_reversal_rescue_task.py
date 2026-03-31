@@ -6,20 +6,72 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
+from scz_target_engine.rescue.models import RescueModelDefinition
 from scz_target_engine.rescue.tasks import (
     NPC_SIGNATURE_REVERSAL_TASK_ID,
     NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
     materialize_npc_signature_reversal_baseline_pack,
     materialize_npc_signature_reversal_run,
 )
+from scz_target_engine.rescue.tasks import (
+    npc_signature_reversal as npc_signature_reversal_module,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+class _FakePrimaryNpcPlugin:
+    def __init__(
+        self,
+        ranked_gene_ids: tuple[str, ...],
+    ) -> None:
+        self.definition = RescueModelDefinition(
+            model_id=NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
+            task_id=NPC_SIGNATURE_REVERSAL_TASK_ID,
+            label="Fake NPC plugin",
+            description="Test plugin.",
+            leakage_rule="Frozen ranking rows only.",
+            input_fields=("npc_log_fc",),
+            admission_metric_names=(
+                "average_precision",
+                "mean_reciprocal_rank",
+                "first_positive_rank",
+            ),
+            principal_split="test",
+        )
+        self._ranked_gene_ids = ranked_gene_ids
+
+    def rank_entities(
+        self,
+        model_input,
+    ) -> tuple[str, ...]:
+        return self._ranked_gene_ids
+
+
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def _governed_npc_gene_ids() -> tuple[str, ...]:
+    bundle = npc_signature_reversal_module._load_bundle(
+        npc_signature_reversal_module._resolve_default_task_card_path()
+    )
+    return tuple(row["gene_id"] for row in bundle.ranking_input.rows)
+
+
+def _patch_primary_plugin(monkeypatch, plugin: _FakePrimaryNpcPlugin) -> None:
+    monkeypatch.setattr(
+        "scz_target_engine.rescue.tasks.npc_signature_reversal.list_rescue_model_plugins",
+        lambda task_id: (plugin,),
+    )
+    monkeypatch.setattr(
+        "scz_target_engine.rescue.tasks.npc_signature_reversal.resolve_rescue_model_plugin",
+        lambda task_id, model_id: plugin,
+    )
 
 
 def test_materialize_npc_signature_reversal_run_uses_only_frozen_bundle(
@@ -162,3 +214,53 @@ def test_npc_signature_reversal_baseline_pack_alias_runs(
 
     assert result["task_id"] == NPC_SIGNATURE_REVERSAL_TASK_ID
     assert Path(result["comparison_outputs"]["comparison_rows_file"]).exists()
+
+
+def test_npc_signature_reversal_rejects_partial_plugin_ranking(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    gene_ids = _governed_npc_gene_ids()
+    _patch_primary_plugin(monkeypatch, _FakePrimaryNpcPlugin(gene_ids[:-1]))
+
+    with pytest.raises(
+        ValueError,
+        match="must contain every governed candidate exactly once",
+    ) as exc_info:
+        materialize_npc_signature_reversal_run(output_dir=tmp_path / "npc_run")
+
+    assert "missing ids:" in str(exc_info.value)
+
+
+def test_npc_signature_reversal_rejects_duplicate_plugin_ranking(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    gene_ids = _governed_npc_gene_ids()
+    duplicate_ranking = gene_ids[:-1] + (gene_ids[0],)
+    _patch_primary_plugin(monkeypatch, _FakePrimaryNpcPlugin(duplicate_ranking))
+
+    with pytest.raises(
+        ValueError,
+        match="must contain every governed candidate exactly once",
+    ) as exc_info:
+        materialize_npc_signature_reversal_run(output_dir=tmp_path / "npc_run")
+
+    assert "duplicate ids:" in str(exc_info.value)
+
+
+def test_npc_signature_reversal_rejects_unknown_plugin_ranking(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    gene_ids = _governed_npc_gene_ids()
+    unknown_ranking = gene_ids[:-1] + ("ENSG_UNKNOWN_PLUGIN_ID",)
+    _patch_primary_plugin(monkeypatch, _FakePrimaryNpcPlugin(unknown_ranking))
+
+    with pytest.raises(
+        ValueError,
+        match="must contain every governed candidate exactly once",
+    ) as exc_info:
+        materialize_npc_signature_reversal_run(output_dir=tmp_path / "npc_run")
+
+    assert "unknown ids:" in str(exc_info.value)

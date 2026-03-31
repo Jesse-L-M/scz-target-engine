@@ -10,6 +10,30 @@ def _require_text(value: str, field_name: str) -> str:
     return value.strip()
 
 
+def _format_entity_id_sample(
+    entity_ids: tuple[str, ...],
+    *,
+    limit: int = 5,
+) -> str:
+    if not entity_ids:
+        return ""
+    sample = ", ".join(entity_ids[:limit])
+    if len(entity_ids) > limit:
+        return sample + ", ..."
+    return sample
+
+
+def _duplicate_entity_ids(entity_ids: tuple[str, ...]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for entity_id in entity_ids:
+        if entity_id in seen and entity_id not in duplicates:
+            duplicates.append(entity_id)
+            continue
+        seen.add(entity_id)
+    return tuple(duplicates)
+
+
 @dataclass(frozen=True)
 class RescueModelInput:
     task_id: str
@@ -60,6 +84,68 @@ class RescueModelInput:
                 "frozen ranking input is missing required model columns: "
                 + ", ".join(missing)
             )
+
+    def validate_ranked_entity_ids(
+        self,
+        ranked_entity_ids: tuple[str, ...],
+        *,
+        model_id: str,
+    ) -> tuple[str, ...]:
+        resolved_model_id = _require_text(model_id, "model_id")
+        normalized_entity_ids = tuple(
+            _require_text(entity_id, self.entity_id_field)
+            for entity_id in ranked_entity_ids
+        )
+        expected_entity_ids = self.entity_ids
+        expected_entity_id_set = set(expected_entity_ids)
+        normalized_entity_id_set = set(normalized_entity_ids)
+        missing_entity_ids = tuple(
+            entity_id
+            for entity_id in expected_entity_ids
+            if entity_id not in normalized_entity_id_set
+        )
+        duplicate_entity_ids = _duplicate_entity_ids(normalized_entity_ids)
+        unknown_entity_ids = tuple(
+            sorted(
+                entity_id
+                for entity_id in normalized_entity_id_set
+                if entity_id not in expected_entity_id_set
+            )
+        )
+
+        if (
+            len(normalized_entity_ids) != len(expected_entity_ids)
+            or missing_entity_ids
+            or duplicate_entity_ids
+            or unknown_entity_ids
+        ):
+            problems = [
+                (
+                    f"expected {len(expected_entity_ids)} {self.entity_id_field} values "
+                    f"but found {len(normalized_entity_ids)}"
+                )
+            ]
+            if missing_entity_ids:
+                problems.append(
+                    "missing ids: "
+                    + _format_entity_id_sample(missing_entity_ids)
+                )
+            if duplicate_entity_ids:
+                problems.append(
+                    "duplicate ids: "
+                    + _format_entity_id_sample(duplicate_entity_ids)
+                )
+            if unknown_entity_ids:
+                problems.append(
+                    "unknown ids: "
+                    + _format_entity_id_sample(unknown_entity_ids)
+                )
+            raise ValueError(
+                f"{resolved_model_id} ranking must contain every governed "
+                "candidate exactly once; "
+                + "; ".join(problems)
+            )
+        return normalized_entity_ids
 
 
 @dataclass(frozen=True)

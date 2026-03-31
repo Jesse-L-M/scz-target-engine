@@ -46,6 +46,7 @@ from scz_target_engine.rescue.models import (
     build_rescue_model_admission_summary,
     list_rescue_model_definitions,
     list_rescue_model_plugins,
+    resolve_rescue_model_admission_split,
     resolve_rescue_model_plugin,
 )
 from scz_target_engine.rescue.glutamatergic_convergence import (
@@ -164,6 +165,7 @@ __all__ = [
     "list_interneuron_baselines",
     "list_rescue_model_definitions",
     "list_rescue_model_plugins",
+    "resolve_rescue_model_admission_split",
     "build_glutamatergic_convergence_ranked_predictions",
     "evaluate_glutamatergic_convergence_ranked_predictions",
     "load_glutamatergic_convergence_rescue_bundle",

@@ -105,6 +105,7 @@ def build_blinded_expert_review_payloads(
     output_dir: Path,
     rubric_artifact_ref: str,
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    rubric_payload = _validate_review_rubric_payload(rubric_payload)
     packets = _require_list(hypothesis_payload.get("packets"), "hypothesis_packets_v1.packets")
     comparison_prompt = _require_text(
         rubric_payload.get("comparison_prompt"),
@@ -493,6 +494,10 @@ def _rebase_artifact_reference(
 def _load_review_rubric_payload(rubric_file: Path) -> dict[str, object]:
     with rubric_file.open(encoding="utf-8") as handle:
         payload = json.load(handle)
+    return _validate_review_rubric_payload(payload)
+
+
+def _validate_review_rubric_payload(payload: object) -> dict[str, object]:
     rubric = _require_mapping(payload, "review_rubric")
     _require_text(rubric.get("rubric_id"), "review_rubric.rubric_id")
     _require_text(rubric.get("review_goal"), "review_rubric.review_goal")

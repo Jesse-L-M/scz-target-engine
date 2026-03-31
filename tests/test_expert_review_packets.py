@@ -6,6 +6,7 @@ import pytest
 
 from scz_target_engine.hypothesis_lab import (
     BLINDED_EXPERT_REVIEW_RUBRIC,
+    build_blinded_expert_review_payloads,
     materialize_blinded_expert_review_packets,
 )
 from scz_target_engine.hypothesis_lab.expert_packets import (
@@ -24,6 +25,10 @@ def _read_json(path: Path) -> object:
 def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _read_example_hypothesis_payload() -> dict[str, object]:
+    return _read_json(Path("examples/v0/output/hypothesis_packets_v1.json"))
 
 
 def test_blinded_expert_review_examples_are_reproducible_from_shipped_packets(
@@ -67,6 +72,56 @@ def test_blinded_expert_review_examples_are_reproducible_from_shipped_packets(
         assert _read_json(temp_review_dir / filename) == _read_json(
             Path("examples/expert_review") / filename
         )
+
+
+def test_build_payloads_direct_api_accepts_valid_unique_dimension_ids() -> None:
+    custom_rubric = {
+        "rubric_id": "direct_api_valid_rubric_v1",
+        "review_goal": "Verify the direct API respects unique scoring dimensions.",
+        "comparison_prompt": "Direct API prompt.",
+        "dimensions": [
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity",
+                "question": "Is the packet easy to read?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            },
+            {
+                "dimension_id": "challengeability",
+                "label": "Challengeability",
+                "question": "Can the reviewer challenge the packet?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            },
+        ],
+        "required_findings": [
+            "winner_reason",
+            "novel_packet_gap",
+        ],
+    }
+
+    review_packets_payload, _, response_template_payload = build_blinded_expert_review_payloads(
+        _read_example_hypothesis_payload(),
+        rubric_payload=custom_rubric,
+        hypothesis_artifact_ref="../v0/output/hypothesis_packets_v1.json",
+        hypothesis_artifact_dir=Path("examples/v0/output").resolve(),
+        output_dir=Path("examples/expert_review").resolve(),
+        rubric_artifact_ref="../../docs/review_rubrics/blinded_expert_review_rubric.json",
+    )
+
+    assert review_packets_payload["comparison_prompt"] == custom_rubric["comparison_prompt"]
+    assert response_template_payload["rubric"] == custom_rubric
+    comparison_template = response_template_payload["comparisons"][0]
+    assert set(
+        comparison_template["blind_scores"][comparison_template["available_blind_ids"][0]]
+    ) == {"clarity", "challengeability"}
+    assert comparison_template["winner_reason"] == ""
+    assert comparison_template["novel_packet_gap"] is None
 
 
 def test_custom_rubric_file_changes_emitted_template_content(tmp_path: Path) -> None:
@@ -211,6 +266,47 @@ def test_custom_rubric_rejects_duplicate_dimension_ids(tmp_path: Path) -> None:
             Path("examples/v0/output/hypothesis_packets_v1.json"),
             output_dir=tmp_path / "expert_review",
             rubric_file=rubric_path,
+        )
+
+
+def test_build_payloads_direct_api_rejects_duplicate_dimension_ids() -> None:
+    custom_rubric = {
+        "rubric_id": "direct_api_duplicate_dimension_rubric_v1",
+        "review_goal": "Fail direct API payload building when dimensions repeat.",
+        "comparison_prompt": "This direct API rubric should fail validation.",
+        "dimensions": [
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity",
+                "question": "Is the packet easy to read?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            },
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity duplicate",
+                "question": "Would this overwrite the first slot?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            },
+        ],
+        "required_findings": [
+            "winner_reason",
+        ],
+    }
+
+    with pytest.raises(ValueError, match=r"dimension_id must be unique; duplicates: clarity"):
+        build_blinded_expert_review_payloads(
+            _read_example_hypothesis_payload(),
+            rubric_payload=custom_rubric,
+            hypothesis_artifact_ref="../v0/output/hypothesis_packets_v1.json",
+            hypothesis_artifact_dir=Path("examples/v0/output").resolve(),
+            output_dir=Path("examples/expert_review").resolve(),
+            rubric_artifact_ref="../../docs/review_rubrics/blinded_expert_review_rubric.json",
         )
 
 

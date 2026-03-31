@@ -46,8 +46,11 @@ Top-level fields:
 
 Each packet is one `(gene target, policy)` pair and carries:
 
+- a machine-readable `decision_focus` with the review question, allowed reviewer dispositions, and current packet readout
 - a concrete `hypothesis` statement plus desired direction and modality
 - the full `policy_signal` copied from the shipped policy artifact
+- first-class `evidence_anchors` rows plus explicit `evidence_anchor_gap_status` and `program_history_gap_status`
+- short `risk_digest` and `evidence_needed_next` summaries ahead of the long-form blocks
 - explicit `contradiction_handling`
 - `failure_memory` with the full structural failure history slice and replay-risk slice
 - `failure_escape_logic` with current escape routes and next falsification evidence
@@ -76,6 +79,27 @@ The validator rejects vague packet stubs by requiring:
 - a non-placeholder hypothesis statement
 - a scored policy signal for every emitted packet, including non-null score fields and
   an `available` or `partial` policy status, while allowing the artifact itself to be empty
+
+## PR-53 Revision
+
+`PR-53` translates the shipped `PR-61` blinded-review evidence into four additive
+packet-contract changes without changing the upstream scoring, replay, or
+traceability boundary:
+
+- `decision_focus` makes the review ask explicit through `review_question`,
+  `decision_options`, and `current_readout`
+- `evidence_anchors` promote the reviewer-facing anchor rows into the shipped packet
+  contract with `role`, `event_id`, `event_type`, `outcome`, and `why_it_matters`
+- `evidence_anchor_gap_status` and `program_history_gap_status` make "no anchors" or
+  "no direct program history" machine-readable instead of implicit
+- `risk_digest` and `evidence_needed_next` give packet consumers short review-ready
+  summaries ahead of the preserved long-form `contradiction_handling` and
+  `failure_escape_logic` blocks
+
+Those fields are derived from the same shipped policy, ledger, and failure-memory
+artifacts already carried by the packet. `PR-53` does not remove or weaken the
+existing contradiction handling, replay logic, failure-memory slices, or
+traceability pointers.
 
 ## Generation Paths
 
@@ -137,6 +161,11 @@ The checked-in pilot preserves two hard boundaries:
   packet derived from the same shipped source packet
 - the admin key records enough traceability to map every reviewed packet variant
   back to the shipped packet artifact and the exact source packet fields it used
+
+The historical pilot materials referenced by `pilot_results_v1.json` now live under
+`examples/expert_review/pilot_v1/`. The root `examples/expert_review/*.json`
+artifacts are the current generator outputs derived from the revised packet
+contract.
 
 The completed pilot outputs under `examples/expert_review/` are intended to feed
 the next packet-contract revision rather than to replace the shipped packet

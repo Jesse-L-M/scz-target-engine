@@ -156,6 +156,123 @@ def test_hypothesis_packets_preserve_contradictions_and_failure_escape_logic(
     ]
 
 
+def test_hypothesis_packets_surface_pilot_driven_decision_anchor_and_digest_fields(
+    tmp_path: Path,
+) -> None:
+    payload = _build_hypothesis_packets(tmp_path)
+
+    chrm4_acute = _find_packet(
+        payload,
+        entity_label="CHRM4",
+        policy_id="acute_translation_guardrails_v1",
+    )
+    assert chrm4_acute["decision_focus"] == {
+        "review_question": (
+            "Should CHRM4 advance, hold, or kill for Acute translation guardrails "
+            "in acute_positive_symptoms?"
+        ),
+        "decision_options": ["advance", "hold", "kill"],
+        "current_readout": (
+            "Acute translation guardrails scored 0.244 (available); contradiction "
+            "status contradicted; replay status replay_not_supported."
+        ),
+    }
+    assert chrm4_acute["evidence_anchor_gap_status"] == "evidence_anchors_present"
+    assert chrm4_acute["program_history_gap_status"] == "program_history_present"
+    assert chrm4_acute["evidence_anchors"] == [
+        {
+            "role": "supporting_program",
+            "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+            "event_type": "regulatory_approval",
+            "outcome": "approved_for_adults_with_schizophrenia",
+            "why_it_matters": (
+                "Landmark non-dopaminergic approval relevant to later class-baggage "
+                "reasoning."
+            ),
+        },
+        {
+            "role": "supporting_program",
+            "event_id": "emraclidine-empower-acute-scz-topline-2024",
+            "event_type": "topline_readout",
+            "outcome": "did_not_meet_primary_endpoint",
+            "why_it_matters": (
+                "Current seed evidence supports recording the miss and keeping "
+                "muscarinic biology live, but it does not yet justify a "
+                "molecule-level failure adjudication."
+            ),
+        },
+        {
+            "role": "offsetting_reason",
+            "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+            "event_type": "regulatory_approval",
+            "outcome": "approved_for_adults_with_schizophrenia",
+            "why_it_matters": (
+                "cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in "
+                "nonfailure anchor in the same biological neighborhood "
+                "(muscarinic cholinergic modulation). It is not a perfectly clean "
+                "single-target counterexample."
+            ),
+        },
+        {
+            "role": "uncertainty_reason",
+            "event_id": "emraclidine-empower-acute-scz-topline-2024",
+            "event_type": "topline_readout",
+            "outcome": "did_not_meet_primary_endpoint",
+            "why_it_matters": (
+                "emraclidine-empower-acute-scz-topline-2024 is recorded as an "
+                "unresolved miss, so it cannot by itself establish that the "
+                "proposal replays a defended prior failure scope."
+            ),
+        },
+    ]
+    assert chrm4_acute["risk_digest"] == [
+        (
+            "Replay: Checked-in history does not support calling this proposal a "
+            "replay: 1 nonfailure anchor(s) offset the currently available failure "
+            "analogs (1 remain cautionary)."
+        ),
+        (
+            "Main contradiction: Repeated adequately engaged selective CHRM4 "
+            "failures in aligned acute-schizophrenia populations."
+        ),
+        (
+            "Risk: high | Missing required layer groups: biological support "
+            "(cell_state_support or developmental_regulatory_support). Entity is "
+            "ineligible for composite ranking until they are sourced."
+        ),
+        (
+            "Risk: medium | Muscarinic relevance is plausible but target-level "
+            "direction is not yet cleanly pinned down here."
+        ),
+    ]
+    assert chrm4_acute["evidence_needed_next"] == chrm4_acute["failure_escape_logic"][
+        "next_evidence"
+    ]
+
+    slc39a8_acute = _find_packet(
+        payload,
+        entity_label="SLC39A8",
+        policy_id="acute_translation_guardrails_v1",
+    )
+    assert slc39a8_acute["evidence_anchors"] == []
+    assert slc39a8_acute["evidence_anchor_gap_status"] == "no_evidence_anchors"
+    assert slc39a8_acute["program_history_gap_status"] == "no_direct_program_history"
+    assert slc39a8_acute["risk_digest"][0] == (
+        "Replay: No checked-in analogs matched this proposal, so the repository "
+        "cannot yet call it a replay."
+    )
+    assert slc39a8_acute["evidence_needed_next"] == [
+        (
+            "Controlled perturbation shows that restoring transporter-linked "
+            "biology does not improve aligned schizophrenia-relevant readouts."
+        ),
+        (
+            "Repeated adequately engaged failures in the same target and domain "
+            "context would strengthen the replay claim."
+        ),
+    ]
+
+
 def test_hypothesis_packets_reject_vague_stub_packets(tmp_path: Path) -> None:
     payload = _build_hypothesis_packets(tmp_path)
     payload["packets"][0]["hypothesis"]["modality_hypothesis"] = "undetermined"
@@ -341,6 +458,19 @@ def test_hypothesis_packets_reject_scoreless_policy_signal_when_required(
     invalid_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="require_scored_policy_signal"):
+        load_artifact(
+            invalid_path,
+            artifact_name="hypothesis_packets_v1",
+        )
+
+
+def test_hypothesis_packets_reject_drifted_pilot_revision_fields(tmp_path: Path) -> None:
+    payload = _build_hypothesis_packets(tmp_path)
+    payload["packets"][0]["evidence_needed_next"] = ["invented summary"]
+    invalid_path = tmp_path / "invalid_pilot_revision_hypothesis_packets_v1.json"
+    invalid_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="evidence_needed_next"):
         load_artifact(
             invalid_path,
             artifact_name="hypothesis_packets_v1",

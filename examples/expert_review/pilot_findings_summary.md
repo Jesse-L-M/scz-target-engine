@@ -39,12 +39,23 @@ and, where relevant, `program_history_gap_status`.
 Reviewers wanted a short `risk_digest` and `evidence_needed_next` summary ahead
 of the full contradiction and open-risk blocks.
 
-## Feed Into PR-53
+## Implemented In PR-53
 
-`PR-53` can now revise the packet schema and generator around the concrete
-findings above:
+`PR-53` translates the pilot findings into a narrow packet-contract revision:
 
-- add `decision_focus` or `review_call`
-- add `evidence_anchors`
-- add structured gap states for missing anchor coverage
-- add generator-produced digest fields for risks and next evidence
+- finding: reviewers needed the review ask and disposition slot to be explicit
+  change: add `decision_focus.review_question`, `decision_options`, and
+  `current_readout`
+- finding: reviewers preferred anchor rows over raw ids or prose-only mentions
+  change: add first-class `evidence_anchors` with `role`, `event_id`,
+  `event_type`, `outcome`, and `why_it_matters`
+- finding: anchor absence was useful only when made explicit
+  change: add `evidence_anchor_gap_status` and `program_history_gap_status`
+- finding: short summaries should appear before long risk blocks
+  change: add `risk_digest` and `evidence_needed_next` while preserving the full
+  `contradiction_handling` and `failure_escape_logic` payloads
+
+The historical blinded review materials referenced by `pilot_results_v1.json`
+now live under `examples/expert_review/pilot_v1/`. The root
+`examples/expert_review/*.json` artifacts are the current generator outputs from
+the revised packet contract.

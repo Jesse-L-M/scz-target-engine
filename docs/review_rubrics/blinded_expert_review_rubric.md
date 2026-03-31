@@ -87,3 +87,19 @@ That means the completed review should surface both:
 
 - which blinded packet style experts preferred
 - which packet fields and generator behaviors should change in the next schema revision
+
+## PR-53 Translation
+
+`PR-53` lands the concrete schema/generator translation the pilot was meant to
+surface:
+
+- `decision_readiness` now lands as packet-level `decision_focus`
+- `evidence_traceability` now lands as first-class `evidence_anchors`
+- anchor absence now lands as `evidence_anchor_gap_status` and
+  `program_history_gap_status`
+- the requested generator-first summaries now land as `risk_digest` and
+  `evidence_needed_next`
+
+The pilot rubric itself stays stable. The response-template contract is still
+driven by `required_findings`; the new packet fields land in the upstream packet
+contract and the traceable expert-packet renderer.

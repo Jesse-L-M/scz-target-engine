@@ -1731,6 +1731,10 @@ def _validate_hypothesis_packets_payload_mapping(
             raise ValueError(
                 f"hypothesis_packets_v1.packets[{index}].priority_domain must match current v1 domains"
             )
+        decision_focus = _require_mapping(
+            packet.get("decision_focus"),
+            f"hypothesis_packets_v1.packets[{index}].decision_focus",
+        )
 
         hypothesis = _require_mapping(
             packet.get("hypothesis"),
@@ -1875,6 +1879,76 @@ def _validate_hypothesis_packets_payload_mapping(
         if replay_risk != policy_signal["uncertainty_context"]["replay_risk"]:
             raise ValueError(
                 f"hypothesis_packets_v1.packets[{index}].failure_memory.replay_risk must match policy_signal uncertainty_context replay_risk"
+            )
+        if decision_focus != _build_expected_hypothesis_packet_decision_focus(
+            entity_label=entity_label,
+            policy_label=_require_text(
+                packet.get("policy_label", ""),
+                f"hypothesis_packets_v1.packets[{index}].policy_label",
+            ),
+            priority_domain=priority_domain,
+            policy_signal=policy_signal,
+            contradiction_handling=contradiction_handling,
+            replay_risk=replay_risk,
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].decision_focus must match the derived review ask and packet readout"
+            )
+        evidence_anchors = [
+            _validate_hypothesis_packet_evidence_anchor_mapping(
+                anchor_item,
+                field_name=(
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].evidence_anchors[{anchor_index}]"
+                ),
+            )
+            for anchor_index, anchor_item in enumerate(
+                _require_list(
+                    packet.get("evidence_anchors"),
+                    f"hypothesis_packets_v1.packets[{index}].evidence_anchors",
+                )
+            )
+        ]
+        if evidence_anchors != _build_expected_hypothesis_packet_evidence_anchors(
+            hypothesis=hypothesis,
+            replay_risk=replay_risk,
+            structural_failure_history=structural_failure_history,
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].evidence_anchors must stay grounded in packet hypothesis and failure-memory artifacts"
+            )
+        if _require_text(
+            packet.get("evidence_anchor_gap_status", ""),
+            f"hypothesis_packets_v1.packets[{index}].evidence_anchor_gap_status",
+        ) != _expected_hypothesis_packet_evidence_anchor_gap_status(evidence_anchors):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].evidence_anchor_gap_status must match evidence_anchors coverage"
+            )
+        if _require_text(
+            packet.get("program_history_gap_status", ""),
+            f"hypothesis_packets_v1.packets[{index}].program_history_gap_status",
+        ) != _expected_hypothesis_packet_program_history_gap_status(
+            structural_failure_history
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].program_history_gap_status must match structural_failure_history coverage"
+            )
+        if _require_string_list(
+            packet.get("risk_digest"),
+            f"hypothesis_packets_v1.packets[{index}].risk_digest",
+        ) != _build_expected_hypothesis_packet_risk_digest(
+            contradiction_handling=contradiction_handling,
+            replay_risk=replay_risk,
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].risk_digest must match contradiction handling and replay risk"
+            )
+        if _require_string_list(
+            packet.get("evidence_needed_next"),
+            f"hypothesis_packets_v1.packets[{index}].evidence_needed_next",
+        ) != _build_expected_hypothesis_packet_evidence_needed_next(replay_risk):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].evidence_needed_next must match prioritized replay_risk falsification_conditions"
             )
 
         failure_escape_logic = _require_mapping(
@@ -2231,6 +2305,256 @@ def _validate_hypothesis_packets_payload_mapping(
     if len(packet_ids) != len(set(packet_ids)):
         raise ValueError("hypothesis_packets_v1.packets must not repeat packet_id")
     return payload
+
+
+def _build_expected_hypothesis_packet_decision_focus(
+    *,
+    entity_label: str,
+    policy_label: str,
+    priority_domain: str,
+    policy_signal: Mapping[str, object],
+    contradiction_handling: Mapping[str, object],
+    replay_risk: Mapping[str, object],
+) -> dict[str, object]:
+    return {
+        "review_question": (
+            f"Should {entity_label} advance, hold, or kill for {policy_label} in "
+            f"{priority_domain}?"
+        ),
+        "decision_options": ["advance", "hold", "kill"],
+        "current_readout": (
+            f"{policy_label} scored "
+            f"{_format_hypothesis_packet_score(policy_signal.get('score'), 'policy_signal.score')} "
+            f"({_require_text(policy_signal.get('status'), 'policy_signal.status')}); "
+            f"contradiction status "
+            f"{_require_text(contradiction_handling.get('status'), 'contradiction_handling.status')}; "
+            f"replay status {_require_text(replay_risk.get('status'), 'replay_risk.status')}."
+        ),
+    }
+
+
+def _build_expected_hypothesis_packet_evidence_anchors(
+    *,
+    hypothesis: Mapping[str, object],
+    replay_risk: Mapping[str, object],
+    structural_failure_history: Mapping[str, object],
+) -> list[dict[str, object]]:
+    structural_events = {
+        _require_text(
+            event.get("program_id"),
+            "hypothesis_packets_v1.failure_memory.structural_failure_history.events[].program_id",
+        ): event
+        for event in (
+            _require_mapping(
+                item,
+                "hypothesis_packets_v1.failure_memory.structural_failure_history.events[]",
+            )
+            for item in _require_list(
+                structural_failure_history.get("events"),
+                "hypothesis_packets_v1.failure_memory.structural_failure_history.events",
+            )
+        )
+    }
+    anchors: list[dict[str, object]] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    for program_id in _require_string_list(
+        hypothesis.get("supporting_program_ids"),
+        "hypothesis_packets_v1.hypothesis.supporting_program_ids",
+    ):
+        role = "supporting_program"
+        if (role, program_id) in seen_pairs:
+            continue
+        anchors.append(
+            _build_expected_hypothesis_packet_evidence_anchor(
+                role=role,
+                event_id=program_id,
+                event=structural_events.get(program_id),
+                why_it_matters=(
+                    _require_text(
+                        structural_events[program_id].get("notes"),
+                        "hypothesis_packets_v1.failure_memory.structural_failure_history.events[].notes",
+                    )
+                    if program_id in structural_events
+                    else "Program id is referenced in the packet hypothesis."
+                ),
+            )
+        )
+        seen_pairs.add((role, program_id))
+    for list_field, role in (
+        ("supporting_reasons", "supporting_reason"),
+        ("offsetting_reasons", "offsetting_reason"),
+        ("uncertainty_reasons", "uncertainty_reason"),
+    ):
+        for index, item in enumerate(
+            _require_list(
+                replay_risk.get(list_field),
+                f"hypothesis_packets_v1.failure_memory.replay_risk.{list_field}",
+            )
+        ):
+            reason = _require_mapping(
+                item,
+                f"hypothesis_packets_v1.failure_memory.replay_risk.{list_field}[{index}]",
+            )
+            event_id = _require_text(
+                reason.get("event_id"),
+                f"hypothesis_packets_v1.failure_memory.replay_risk.{list_field}[{index}].event_id",
+            )
+            if (role, event_id) in seen_pairs:
+                continue
+            anchors.append(
+                _build_expected_hypothesis_packet_evidence_anchor(
+                    role=role,
+                    event_id=event_id,
+                    event=structural_events.get(event_id),
+                    why_it_matters=_require_text(
+                        reason.get("explanation"),
+                        f"hypothesis_packets_v1.failure_memory.replay_risk.{list_field}[{index}].explanation",
+                    ),
+                )
+            )
+            seen_pairs.add((role, event_id))
+    return anchors
+
+
+def _build_expected_hypothesis_packet_evidence_anchor(
+    *,
+    role: str,
+    event_id: str,
+    event: Mapping[str, object] | None,
+    why_it_matters: str,
+) -> dict[str, object]:
+    if event is None:
+        return {
+            "role": role,
+            "event_id": event_id,
+            "event_type": "referenced_event",
+            "outcome": "details_not_recovered_from_program_history",
+            "why_it_matters": why_it_matters,
+        }
+    return {
+        "role": role,
+        "event_id": event_id,
+        "event_type": _require_text(
+            event.get("event_type"),
+            "hypothesis_packets_v1.failure_memory.structural_failure_history.events[].event_type",
+        ),
+        "outcome": _require_text(
+            event.get("primary_outcome_result"),
+            "hypothesis_packets_v1.failure_memory.structural_failure_history.events[].primary_outcome_result",
+        ),
+        "why_it_matters": why_it_matters,
+    }
+
+
+def _validate_hypothesis_packet_evidence_anchor_mapping(
+    payload: object,
+    *,
+    field_name: str,
+) -> dict[str, object]:
+    anchor = _require_mapping(payload, field_name)
+    return {
+        "role": _require_text(anchor.get("role"), f"{field_name}.role"),
+        "event_id": _require_text(anchor.get("event_id"), f"{field_name}.event_id"),
+        "event_type": _require_text(anchor.get("event_type"), f"{field_name}.event_type"),
+        "outcome": _require_text(anchor.get("outcome"), f"{field_name}.outcome"),
+        "why_it_matters": _require_text(
+            anchor.get("why_it_matters"),
+            f"{field_name}.why_it_matters",
+        ),
+    }
+
+
+def _expected_hypothesis_packet_evidence_anchor_gap_status(
+    evidence_anchors: list[dict[str, object]],
+) -> str:
+    return "evidence_anchors_present" if evidence_anchors else "no_evidence_anchors"
+
+
+def _expected_hypothesis_packet_program_history_gap_status(
+    structural_failure_history: Mapping[str, object],
+) -> str:
+    return (
+        "program_history_present"
+        if _require_list(
+            structural_failure_history.get("events"),
+            "hypothesis_packets_v1.failure_memory.structural_failure_history.events",
+        )
+        else "no_direct_program_history"
+    )
+
+
+def _build_expected_hypothesis_packet_risk_digest(
+    *,
+    contradiction_handling: Mapping[str, object],
+    replay_risk: Mapping[str, object],
+) -> list[str]:
+    contradiction_conditions = _require_string_list(
+        contradiction_handling.get("contradiction_conditions"),
+        "hypothesis_packets_v1.contradiction_handling.contradiction_conditions",
+    )
+    digest = [
+        (
+            "Replay: "
+            f"{_require_text(replay_risk.get('summary'), 'hypothesis_packets_v1.failure_memory.replay_risk.summary')}"
+        ),
+        (
+            f"Main contradiction: {contradiction_conditions[0]}"
+            if contradiction_conditions
+            else "Contradiction status: clear"
+        ),
+    ]
+    for risk in _sort_hypothesis_packet_open_risks(
+        _require_list(
+            contradiction_handling.get("open_risks"),
+            "hypothesis_packets_v1.contradiction_handling.open_risks",
+        )
+    )[:2]:
+        risk_mapping = _require_mapping(
+            risk,
+            "hypothesis_packets_v1.contradiction_handling.open_risks[]",
+        )
+        digest.append(
+            "Risk: "
+            f"{_require_text(risk_mapping.get('severity'), 'hypothesis_packets_v1.contradiction_handling.open_risks[].severity')} | "
+            f"{_require_text(risk_mapping.get('text'), 'hypothesis_packets_v1.contradiction_handling.open_risks[].text')}"
+        )
+    return digest
+
+
+def _build_expected_hypothesis_packet_evidence_needed_next(
+    replay_risk: Mapping[str, object],
+) -> list[str]:
+    next_evidence: list[str] = []
+    for item in _require_string_list(
+        replay_risk.get("falsification_conditions"),
+        "hypothesis_packets_v1.failure_memory.replay_risk.falsification_conditions",
+    ):
+        if item not in next_evidence:
+            next_evidence.append(item)
+    return next_evidence[:2]
+
+
+def _sort_hypothesis_packet_open_risks(open_risks: list[object]) -> list[object]:
+    severity_rank = {"high": 0, "medium": 1, "low": 2}
+    return sorted(
+        open_risks,
+        key=lambda risk: severity_rank.get(
+            _require_text(
+                _require_mapping(
+                    risk,
+                    "hypothesis_packets_v1.contradiction_handling.open_risks[]",
+                ).get("severity"),
+                "hypothesis_packets_v1.contradiction_handling.open_risks[].severity",
+            ),
+            99,
+        ),
+    )
+
+
+def _format_hypothesis_packet_score(value: object, field_name: str) -> str:
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"{field_name} must be numeric")
+    return f"{value:.3f}"
 
 
 def _validate_hypothesis_packets(

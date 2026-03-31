@@ -364,15 +364,63 @@ def test_blinded_expert_review_rubric_docs_match_runtime_contract() -> None:
     )
 
 
+def test_expert_review_packets_render_revised_packet_contract() -> None:
+    review_packets_payload, review_key_payload, _ = build_blinded_expert_review_payloads(
+        _read_example_hypothesis_payload(),
+        rubric_payload=BLINDED_EXPERT_REVIEW_RUBRIC,
+        hypothesis_artifact_ref="../v0/output/hypothesis_packets_v1.json",
+        hypothesis_artifact_dir=Path("examples/v0/output").resolve(),
+        output_dir=Path("examples/expert_review").resolve(),
+        rubric_artifact_ref="../../docs/review_rubrics/blinded_expert_review_rubric.json",
+    )
+    comparison = review_packets_payload["comparisons"][0]
+    key_comparison = review_key_payload["comparisons"][0]
+    expert_blind_id = next(
+        variant["blind_id"]
+        for variant in key_comparison["variants"]
+        if variant["style_id"] == EXPERT_PACKET_STYLE_ID
+    )
+    expert_review_packet = next(
+        variant["review_packet"]
+        for variant in comparison["variants"]
+        if variant["blind_id"] == expert_blind_id
+    )
+
+    assert [section["heading"] for section in expert_review_packet["sections"]] == [
+        "Decision focus",
+        "Hypothesis",
+        "Why it made the packet",
+        "Evidence anchors",
+        "Risk digest",
+        "Change-my-mind evidence",
+        "Contradictions and risks",
+        "Traceability",
+    ]
+    decision_focus_lines = expert_review_packet["sections"][0]["lines"]
+    assert any(line.startswith("Review question: Should ") for line in decision_focus_lines)
+    assert "Decision options: advance, hold, kill" in decision_focus_lines
+    assert any(line.startswith("Current readout: ") for line in decision_focus_lines)
+
+    evidence_anchor_lines = expert_review_packet["sections"][3]["lines"]
+    assert evidence_anchor_lines[0].startswith("Anchor coverage: ")
+    assert evidence_anchor_lines[1].startswith("Program history coverage: ")
+    assert any("supporting_program:" in line for line in evidence_anchor_lines[2:])
+
+    assert expert_review_packet["sections"][4]["lines"][0].startswith("Replay: ")
+    assert expert_review_packet["sections"][5]["lines"][0].startswith("Needed next: ")
+
+
 def test_pilot_results_decode_to_traceable_expert_packet_wins() -> None:
-    key_payload = _read_json(Path("examples/expert_review") / REVIEW_KEY_FILENAME)
+    pilot_results = _read_json(Path("examples/expert_review/pilot_results_v1.json"))
+    key_payload = _read_json(
+        Path("examples/expert_review") / pilot_results["materials"]["review_key_file"]
+    )
     style_index = {
         comparison["comparison_id"]: {
             variant["blind_id"]: variant["style_id"] for variant in comparison["variants"]
         }
         for comparison in key_payload["comparisons"]
     }
-    pilot_results = _read_json(Path("examples/expert_review/pilot_results_v1.json"))
 
     assert pilot_results["summary"]["preferred_style_id"] == EXPERT_PACKET_STYLE_ID
     assert pilot_results["summary"]["pr53_status"] == "unblocked"

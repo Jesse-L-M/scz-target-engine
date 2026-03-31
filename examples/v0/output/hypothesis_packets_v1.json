@@ -51,9 +51,53 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Acute translation guardrails scored 0.244 (available); contradiction status contradicted; replay status replay_not_supported.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should CHRM4 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?"
+      },
       "entity_id": "ENSG00000180720",
       "entity_label": "CHRM4",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "evidence_anchors_present",
+      "evidence_anchors": [
+        {
+          "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+          "event_type": "regulatory_approval",
+          "outcome": "approved_for_adults_with_schizophrenia",
+          "role": "supporting_program",
+          "why_it_matters": "Landmark non-dopaminergic approval relevant to later class-baggage reasoning."
+        },
+        {
+          "event_id": "emraclidine-empower-acute-scz-topline-2024",
+          "event_type": "topline_readout",
+          "outcome": "did_not_meet_primary_endpoint",
+          "role": "supporting_program",
+          "why_it_matters": "Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication."
+        },
+        {
+          "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+          "event_type": "regulatory_approval",
+          "outcome": "approved_for_adults_with_schizophrenia",
+          "role": "offsetting_reason",
+          "why_it_matters": "cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample."
+        },
+        {
+          "event_id": "emraclidine-empower-acute-scz-topline-2024",
+          "event_type": "topline_readout",
+          "outcome": "did_not_meet_primary_endpoint",
+          "role": "uncertainty_reason",
+          "why_it_matters": "emraclidine-empower-acute-scz-topline-2024 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope."
+        }
+      ],
+      "evidence_needed_next": [
+        "A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [
           {
@@ -420,6 +464,13 @@
         }
       },
       "priority_domain": "acute_positive_symptoms",
+      "program_history_gap_status": "program_history_present",
+      "risk_digest": [
+        "Replay: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
+        "Main contradiction: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+        "Risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+        "Risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [
           "cobenfy-xanomeline-trospium-approval-us-2024",
@@ -484,9 +535,46 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Refractory discovery upside scored 0.207 (available); contradiction status contradicted; replay status replay_inconclusive.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should CHRM4 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?"
+      },
       "entity_id": "ENSG00000180720",
       "entity_label": "CHRM4",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "evidence_anchors_present",
+      "evidence_anchors": [
+        {
+          "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+          "event_type": "regulatory_approval",
+          "outcome": "approved_for_adults_with_schizophrenia",
+          "role": "supporting_program",
+          "why_it_matters": "Landmark non-dopaminergic approval relevant to later class-baggage reasoning."
+        },
+        {
+          "event_id": "emraclidine-empower-acute-scz-topline-2024",
+          "event_type": "topline_readout",
+          "outcome": "did_not_meet_primary_endpoint",
+          "role": "supporting_program",
+          "why_it_matters": "Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication."
+        },
+        {
+          "event_id": "emraclidine-empower-acute-scz-topline-2024",
+          "event_type": "topline_readout",
+          "outcome": "did_not_meet_primary_endpoint",
+          "role": "uncertainty_reason",
+          "why_it_matters": "emraclidine-empower-acute-scz-topline-2024 is in acute_positive_symptoms, which differs from the proposal domain, so it is not a clean replay analog."
+        }
+      ],
+      "evidence_needed_next": [
+        "A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [],
         "next_evidence": [
@@ -823,6 +911,13 @@
         }
       },
       "priority_domain": "treatment_resistant_schizophrenia",
+      "program_history_gap_status": "program_history_present",
+      "risk_digest": [
+        "Replay: Replay remains inconclusive: 2 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
+        "Main contradiction: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+        "Risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+        "Risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [
           "cobenfy-xanomeline-trospium-approval-us-2024",
@@ -868,9 +963,32 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Acute translation guardrails scored 0.302 (available); contradiction status contradicted; replay status replay_inconclusive.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should DRD2 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?"
+      },
       "entity_id": "ENSG00000149295",
       "entity_label": "DRD2",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "evidence_anchors_present",
+      "evidence_anchors": [
+        {
+          "event_id": "clozapine-clozaril-trs-approval-us-1989",
+          "event_type": "regulatory_approval",
+          "outcome": "approved_for_treatment_resistant_schizophrenia",
+          "role": "supporting_program",
+          "why_it_matters": "TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels."
+        }
+      ],
+      "evidence_needed_next": [
+        "Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [],
         "next_evidence": [
@@ -1143,6 +1261,13 @@
         }
       },
       "priority_domain": "acute_positive_symptoms",
+      "program_history_gap_status": "program_history_present",
+      "risk_digest": [
+        "Replay: Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
+        "Main contradiction: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+        "Risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+        "Risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [
           "clozapine-clozaril-trs-approval-us-1989"
@@ -1184,9 +1309,39 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Refractory discovery upside scored 0.465 (available); contradiction status contradicted; replay status replay_not_supported.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should DRD2 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?"
+      },
       "entity_id": "ENSG00000149295",
       "entity_label": "DRD2",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "evidence_anchors_present",
+      "evidence_anchors": [
+        {
+          "event_id": "clozapine-clozaril-trs-approval-us-1989",
+          "event_type": "regulatory_approval",
+          "outcome": "approved_for_treatment_resistant_schizophrenia",
+          "role": "supporting_program",
+          "why_it_matters": "TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels."
+        },
+        {
+          "event_id": "clozapine-clozaril-trs-approval-us-1989",
+          "event_type": "regulatory_approval",
+          "outcome": "approved_for_treatment_resistant_schizophrenia",
+          "role": "offsetting_reason",
+          "why_it_matters": "clozapine-clozaril-trs-approval-us-1989 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample."
+        }
+      ],
+      "evidence_needed_next": [
+        "Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [
           {
@@ -1471,6 +1626,13 @@
         }
       },
       "priority_domain": "treatment_resistant_schizophrenia",
+      "program_history_gap_status": "program_history_present",
+      "risk_digest": [
+        "Replay: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (0 remain cautionary).",
+        "Main contradiction: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+        "Risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+        "Risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [
           "clozapine-clozaril-trs-approval-us-1989"
@@ -1508,9 +1670,24 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Acute translation guardrails scored 0.256 (available); contradiction status contradicted; replay status insufficient_history.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should SLC39A8 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?"
+      },
       "entity_id": "ENSG00000138821",
       "entity_label": "SLC39A8",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "no_evidence_anchors",
+      "evidence_anchors": [],
+      "evidence_needed_next": [
+        "Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [],
         "next_evidence": [
@@ -1725,6 +1902,12 @@
         }
       },
       "priority_domain": "acute_positive_symptoms",
+      "program_history_gap_status": "no_direct_program_history",
+      "risk_digest": [
+        "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+        "Main contradiction: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+        "Risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [],
         "ledger_target_pointer": "/targets/20",
@@ -1756,9 +1939,24 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Refractory discovery upside scored 0.331 (available); contradiction status contradicted; replay status insufficient_history.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should SLC39A8 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?"
+      },
       "entity_id": "ENSG00000138821",
       "entity_label": "SLC39A8",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "no_evidence_anchors",
+      "evidence_anchors": [],
+      "evidence_needed_next": [
+        "Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [],
         "next_evidence": [
@@ -1964,6 +2162,12 @@
         }
       },
       "priority_domain": "treatment_resistant_schizophrenia",
+      "program_history_gap_status": "no_direct_program_history",
+      "risk_digest": [
+        "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+        "Main contradiction: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+        "Risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [],
         "ledger_target_pointer": "/targets/20",
@@ -2001,9 +2205,24 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Acute translation guardrails scored 0.266 (available); contradiction status contradicted; replay status insufficient_history.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should SLC6A1 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?"
+      },
       "entity_id": "ENSG00000157103",
       "entity_label": "SLC6A1",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "no_evidence_anchors",
+      "evidence_anchors": [],
+      "evidence_needed_next": [
+        "Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [],
         "next_evidence": [
@@ -2234,6 +2453,13 @@
         }
       },
       "priority_domain": "acute_positive_symptoms",
+      "program_history_gap_status": "no_direct_program_history",
+      "risk_digest": [
+        "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+        "Main contradiction: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+        "Risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+        "Risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [],
         "ledger_target_pointer": "/targets/2",
@@ -2271,9 +2497,24 @@
         ],
         "status": "contradicted"
       },
+      "decision_focus": {
+        "current_readout": "Refractory discovery upside scored 0.337 (available); contradiction status contradicted; replay status insufficient_history.",
+        "decision_options": [
+          "advance",
+          "hold",
+          "kill"
+        ],
+        "review_question": "Should SLC6A1 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?"
+      },
       "entity_id": "ENSG00000157103",
       "entity_label": "SLC6A1",
       "entity_type": "gene",
+      "evidence_anchor_gap_status": "no_evidence_anchors",
+      "evidence_anchors": [],
+      "evidence_needed_next": [
+        "Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
       "failure_escape_logic": {
         "escape_routes": [],
         "next_evidence": [
@@ -2495,6 +2736,13 @@
         }
       },
       "priority_domain": "treatment_resistant_schizophrenia",
+      "program_history_gap_status": "no_direct_program_history",
+      "risk_digest": [
+        "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+        "Main contradiction: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+        "Risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+        "Risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+      ],
       "traceability": {
         "directionality_supporting_program_ids": [],
         "ledger_target_pointer": "/targets/2",

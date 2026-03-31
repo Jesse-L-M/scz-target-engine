@@ -94,6 +94,15 @@ LEGACY_REQUIRED_FINDING_DEFAULTS = {
     "schema_change_requests": [],
     "generator_revision_requests": [],
 }
+RESERVED_RESPONSE_TEMPLATE_FIELDS = frozenset(
+    {
+        "comparison_id",
+        "topic",
+        "available_blind_ids",
+        "preferred_blind_id",
+        "blind_scores",
+    }
+)
 
 
 def build_blinded_expert_review_payloads(
@@ -345,6 +354,7 @@ def materialize_blinded_expert_review_packets(
 
 
 def _build_expert_review_packet(packet: dict[str, object]) -> dict[str, object]:
+    decision_focus = _require_mapping(packet.get("decision_focus"), "packet.decision_focus")
     hypothesis = _require_mapping(packet.get("hypothesis"), "packet.hypothesis")
     policy_signal = _require_mapping(packet.get("policy_signal"), "packet.policy_signal")
     contradiction_handling = _require_mapping(
@@ -366,8 +376,16 @@ def _build_expert_review_packet(packet: dict[str, object]) -> dict[str, object]:
                 f"Policy: {_require_text(packet.get('policy_label'), 'packet.policy_label')}",
                 f"Priority domain: {_require_text(packet.get('priority_domain'), 'packet.priority_domain')}",
                 (
-                    "Decision ask: Decide whether this hypothesis is reviewable "
-                    "enough to advance, hold, or kill."
+                    "Review question: "
+                    f"{_require_text(decision_focus.get('review_question'), 'packet.decision_focus.review_question')}"
+                ),
+                (
+                    "Decision options: "
+                    f"{_format_string_list(_require_string_list(decision_focus.get('decision_options'), 'packet.decision_focus.decision_options'))}"
+                ),
+                (
+                    "Current readout: "
+                    f"{_require_text(decision_focus.get('current_readout'), 'packet.decision_focus.current_readout')}"
                 ),
             ],
         },
@@ -415,12 +433,19 @@ def _build_expert_review_packet(packet: dict[str, object]) -> dict[str, object]:
             "lines": _build_evidence_anchor_lines(packet),
         },
         {
-            "heading": "Contradictions and risks",
-            "lines": _build_contradiction_and_risk_lines(contradiction_handling),
+            "heading": "Risk digest",
+            "lines": _require_string_list(packet.get("risk_digest"), "packet.risk_digest"),
         },
         {
             "heading": "Change-my-mind evidence",
-            "lines": _build_change_my_mind_lines(failure_escape_logic),
+            "lines": _build_change_my_mind_lines(
+                packet,
+                failure_escape_logic=failure_escape_logic,
+            ),
+        },
+        {
+            "heading": "Contradictions and risks",
+            "lines": _build_contradiction_and_risk_lines(contradiction_handling),
         },
         {
             "heading": "Traceability",
@@ -550,11 +575,25 @@ def _validate_review_rubric_payload(payload: object) -> dict[str, object]:
         rubric.get("required_findings"),
         "review_rubric.required_findings",
     )
+    _validate_required_findings(required_findings)
+    return rubric
+
+
+def _validate_required_findings(required_findings: list[str]) -> None:
     if not required_findings:
         raise ValueError("review_rubric.required_findings must not be empty")
     if len(required_findings) != len(set(required_findings)):
         raise ValueError("review_rubric.required_findings must not repeat fields")
-    return rubric
+    reserved_collisions = sorted(
+        finding_name
+        for finding_name in required_findings
+        if finding_name in RESERVED_RESPONSE_TEMPLATE_FIELDS
+    )
+    if reserved_collisions:
+        raise ValueError(
+            "review_rubric.required_findings must not use reserved response-template "
+            "fields: " + ", ".join(reserved_collisions)
+        )
 
 
 def _build_required_finding_placeholders(required_findings: list[str]) -> dict[str, object]:
@@ -614,97 +653,33 @@ def _build_baseline_review_packet(packet: dict[str, object]) -> dict[str, object
 
 
 def _build_evidence_anchor_lines(packet: dict[str, object]) -> list[str]:
-    hypothesis = _require_mapping(packet.get("hypothesis"), "packet.hypothesis")
-    failure_memory = _require_mapping(packet.get("failure_memory"), "packet.failure_memory")
-    structural_failure_history = _require_mapping(
-        failure_memory.get("structural_failure_history"),
-        "packet.failure_memory.structural_failure_history",
-    )
-    replay_risk = _require_mapping(failure_memory.get("replay_risk"), "packet.failure_memory.replay_risk")
-    structural_events = {
-        _require_text(event.get("program_id"), "structural_failure_history.events[].program_id"): event
-        for event in (
-            _require_mapping(item, "structural_failure_history.events[]")
-            for item in _require_list(
-                structural_failure_history.get("events"),
-                "structural_failure_history.events",
-            )
-        )
-    }
-
-    seen_event_ids: set[str] = set()
-    lines: list[str] = []
-    for program_id in _require_string_list(
-        hypothesis.get("supporting_program_ids"),
-        "packet.hypothesis.supporting_program_ids",
-    ):
-        lines.append(
-            _format_anchor_line(
-                role="supporting_program",
-                event_id=program_id,
-                event=structural_events.get(program_id),
-                fallback_reason="Program id is referenced in the packet hypothesis.",
-            )
-        )
-        seen_event_ids.add(program_id)
-
-    for reason_field in (
-        ("supporting_reasons", "supporting_reason"),
-        ("offsetting_reasons", "offsetting_reason"),
-        ("uncertainty_reasons", "uncertainty_reason"),
-    ):
-        reason_list = _require_list(
-            replay_risk.get(reason_field[0]),
-            f"packet.failure_memory.replay_risk.{reason_field[0]}",
-        )
-        for index, item in enumerate(reason_list):
-            reason = _require_mapping(
-                item,
-                f"packet.failure_memory.replay_risk.{reason_field[0]}[{index}]",
-            )
-            event_id = _require_text(
-                reason.get("event_id"),
-                f"packet.failure_memory.replay_risk.{reason_field[0]}[{index}].event_id",
-            )
-            if event_id in seen_event_ids:
-                continue
-            lines.append(
-                _format_anchor_line(
-                    role=reason_field[1],
-                    event_id=event_id,
-                    event=structural_events.get(event_id),
-                    fallback_reason=_require_text(
-                        reason.get("explanation"),
-                        f"packet.failure_memory.replay_risk.{reason_field[0]}[{index}].explanation",
-                    ),
-                )
-            )
-            seen_event_ids.add(event_id)
-
-    if lines:
-        return lines
-    return [
-        "No supporting_program_ids or replay_reason_event_ids were emitted for this packet.",
+    lines = [
+        (
+            "Anchor coverage: "
+            f"{_require_text(packet.get('evidence_anchor_gap_status'), 'packet.evidence_anchor_gap_status')}"
+        ),
+        (
+            "Program history coverage: "
+            f"{_require_text(packet.get('program_history_gap_status'), 'packet.program_history_gap_status')}"
+        ),
     ]
+    evidence_anchors = _require_list(packet.get("evidence_anchors"), "packet.evidence_anchors")
+    if not evidence_anchors:
+        lines.append("No evidence anchors were emitted for this packet.")
+        return lines
+    for index, item in enumerate(evidence_anchors):
+        anchor = _require_mapping(item, f"packet.evidence_anchors[{index}]")
+        lines.append(_format_evidence_anchor_line(anchor))
+    return lines
 
 
-def _format_anchor_line(
-    *,
-    role: str,
-    event_id: str,
-    event: dict[str, object] | None,
-    fallback_reason: str,
-) -> str:
-    if event is None:
-        return f"{role}: {event_id} - {fallback_reason}"
-    event_type = _require_text(event.get("event_type"), "structural_failure_history.events[].event_type")
-    primary_outcome = _require_text(
-        event.get("primary_outcome_result"),
-        "structural_failure_history.events[].primary_outcome_result",
-    )
-    notes = _require_text(event.get("notes"), "structural_failure_history.events[].notes")
+def _format_evidence_anchor_line(anchor: dict[str, object]) -> str:
     return (
-        f"{role}: {event_id} ({event_type}, {primary_outcome}) - {notes}"
+        f"{_require_text(anchor.get('role'), 'packet.evidence_anchors[].role')}: "
+        f"{_require_text(anchor.get('event_id'), 'packet.evidence_anchors[].event_id')} "
+        f"({_require_text(anchor.get('event_type'), 'packet.evidence_anchors[].event_type')}, "
+        f"{_require_text(anchor.get('outcome'), 'packet.evidence_anchors[].outcome')}) - "
+        f"{_require_text(anchor.get('why_it_matters'), 'packet.evidence_anchors[].why_it_matters')}"
     )
 
 
@@ -747,13 +722,24 @@ def _build_contradiction_and_risk_lines(
     return lines
 
 
-def _build_change_my_mind_lines(failure_escape_logic: dict[str, object]) -> list[str]:
-    lines = [
-        (
-            "Escape status: "
-            f"{_require_text(failure_escape_logic.get('status'), 'packet.failure_escape_logic.status')}"
-        )
-    ]
+def _build_change_my_mind_lines(
+    packet: dict[str, object],
+    *,
+    failure_escape_logic: dict[str, object],
+) -> list[str]:
+    evidence_needed_next = _require_string_list(
+        packet.get("evidence_needed_next"),
+        "packet.evidence_needed_next",
+    )
+    lines = [f"Needed next: {item}" for item in evidence_needed_next]
+    lines.extend(
+        [
+            (
+                "Escape status: "
+                f"{_require_text(failure_escape_logic.get('status'), 'packet.failure_escape_logic.status')}"
+            )
+        ]
+    )
     escape_routes = _require_list(
         failure_escape_logic.get("escape_routes"),
         "packet.failure_escape_logic.escape_routes",
@@ -769,7 +755,11 @@ def _build_change_my_mind_lines(failure_escape_logic: dict[str, object]) -> list
         failure_escape_logic.get("next_evidence"),
         "packet.failure_escape_logic.next_evidence",
     )
-    lines.extend(f"Needed evidence: {item}" for item in next_evidence)
+    lines.extend(
+        f"Additional evidence: {item}"
+        for item in next_evidence
+        if item not in evidence_needed_next
+    )
     return lines
 
 
@@ -830,22 +820,25 @@ def _expert_packet_source_fields(packet_index: int) -> list[str]:
         f"{base}/entity_label",
         f"{base}/policy_label",
         f"{base}/priority_domain",
+        f"{base}/decision_focus",
         f"{base}/hypothesis/statement",
         f"{base}/hypothesis/desired_perturbation_direction",
         f"{base}/hypothesis/modality_hypothesis",
         f"{base}/hypothesis/confidence",
         f"{base}/hypothesis/evidence_basis",
-        f"{base}/hypothesis/supporting_program_ids",
+        f"{base}/evidence_anchors",
+        f"{base}/evidence_anchor_gap_status",
+        f"{base}/program_history_gap_status",
         f"{base}/policy_signal/score",
         f"{base}/policy_signal/base_score",
         f"{base}/policy_signal/status",
         f"{base}/policy_signal/description",
+        f"{base}/risk_digest",
+        f"{base}/evidence_needed_next",
         f"{base}/contradiction_handling/status",
         f"{base}/contradiction_handling/contradiction_conditions",
         f"{base}/contradiction_handling/directionality_falsification_conditions",
         f"{base}/contradiction_handling/open_risks",
-        f"{base}/failure_memory/structural_failure_history/events",
-        f"{base}/failure_memory/replay_risk",
         f"{base}/failure_escape_logic/status",
         f"{base}/failure_escape_logic/escape_routes",
         f"{base}/failure_escape_logic/next_evidence",

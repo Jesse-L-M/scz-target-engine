@@ -229,6 +229,77 @@ def test_custom_rubric_can_omit_legacy_required_findings(tmp_path: Path) -> None
     assert "generator_revision_requests" not in comparison_template
 
 
+def test_build_payloads_direct_api_rejects_reserved_required_finding_blind_scores() -> None:
+    custom_rubric = {
+        "rubric_id": "direct_api_reserved_required_finding_v1",
+        "review_goal": "Fail when a custom rubric reuses a reserved template field.",
+        "comparison_prompt": "This direct API rubric should fail validation.",
+        "dimensions": [
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity",
+                "question": "Is the packet easy to read?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            }
+        ],
+        "required_findings": [
+            "blind_scores",
+        ],
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=r"reserved response-template fields: blind_scores",
+    ):
+        build_blinded_expert_review_payloads(
+            _read_example_hypothesis_payload(),
+            rubric_payload=custom_rubric,
+            hypothesis_artifact_ref="../v0/output/hypothesis_packets_v1.json",
+            hypothesis_artifact_dir=Path("examples/v0/output").resolve(),
+            output_dir=Path("examples/expert_review").resolve(),
+            rubric_artifact_ref="../../docs/review_rubrics/blinded_expert_review_rubric.json",
+        )
+
+
+def test_custom_rubric_file_rejects_another_reserved_required_finding(
+    tmp_path: Path,
+) -> None:
+    custom_rubric = {
+        "rubric_id": "file_reserved_required_finding_v1",
+        "review_goal": "Fail when a custom rubric reuses another reserved template field.",
+        "comparison_prompt": "This rubric should fail validation.",
+        "dimensions": [
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity",
+                "question": "Is the packet easy to read?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            }
+        ],
+        "required_findings": [
+            "available_blind_ids",
+        ],
+    }
+    rubric_path = tmp_path / "reserved_required_finding_rubric.json"
+    _write_json(rubric_path, custom_rubric)
+
+    with pytest.raises(
+        ValueError,
+        match=r"reserved response-template fields: available_blind_ids",
+    ):
+        materialize_blinded_expert_review_packets(
+            Path("examples/v0/output/hypothesis_packets_v1.json"),
+            output_dir=tmp_path / "expert_review",
+            rubric_file=rubric_path,
+        )
+
+
 def test_custom_rubric_rejects_duplicate_dimension_ids(tmp_path: Path) -> None:
     custom_rubric = {
         "rubric_id": "duplicate_dimension_rubric_v1",
@@ -364,15 +435,63 @@ def test_blinded_expert_review_rubric_docs_match_runtime_contract() -> None:
     )
 
 
+def test_expert_review_packets_render_revised_packet_contract() -> None:
+    review_packets_payload, review_key_payload, _ = build_blinded_expert_review_payloads(
+        _read_example_hypothesis_payload(),
+        rubric_payload=BLINDED_EXPERT_REVIEW_RUBRIC,
+        hypothesis_artifact_ref="../v0/output/hypothesis_packets_v1.json",
+        hypothesis_artifact_dir=Path("examples/v0/output").resolve(),
+        output_dir=Path("examples/expert_review").resolve(),
+        rubric_artifact_ref="../../docs/review_rubrics/blinded_expert_review_rubric.json",
+    )
+    comparison = review_packets_payload["comparisons"][0]
+    key_comparison = review_key_payload["comparisons"][0]
+    expert_blind_id = next(
+        variant["blind_id"]
+        for variant in key_comparison["variants"]
+        if variant["style_id"] == EXPERT_PACKET_STYLE_ID
+    )
+    expert_review_packet = next(
+        variant["review_packet"]
+        for variant in comparison["variants"]
+        if variant["blind_id"] == expert_blind_id
+    )
+
+    assert [section["heading"] for section in expert_review_packet["sections"]] == [
+        "Decision focus",
+        "Hypothesis",
+        "Why it made the packet",
+        "Evidence anchors",
+        "Risk digest",
+        "Change-my-mind evidence",
+        "Contradictions and risks",
+        "Traceability",
+    ]
+    decision_focus_lines = expert_review_packet["sections"][0]["lines"]
+    assert any(line.startswith("Review question: Should ") for line in decision_focus_lines)
+    assert "Decision options: advance, hold, kill" in decision_focus_lines
+    assert any(line.startswith("Current readout: ") for line in decision_focus_lines)
+
+    evidence_anchor_lines = expert_review_packet["sections"][3]["lines"]
+    assert evidence_anchor_lines[0].startswith("Anchor coverage: ")
+    assert evidence_anchor_lines[1].startswith("Program history coverage: ")
+    assert any("supporting_program:" in line for line in evidence_anchor_lines[2:])
+
+    assert expert_review_packet["sections"][4]["lines"][0].startswith("Replay: ")
+    assert expert_review_packet["sections"][5]["lines"][0].startswith("Needed next: ")
+
+
 def test_pilot_results_decode_to_traceable_expert_packet_wins() -> None:
-    key_payload = _read_json(Path("examples/expert_review") / REVIEW_KEY_FILENAME)
+    pilot_results = _read_json(Path("examples/expert_review/pilot_results_v1.json"))
+    key_payload = _read_json(
+        Path("examples/expert_review") / pilot_results["materials"]["review_key_file"]
+    )
     style_index = {
         comparison["comparison_id"]: {
             variant["blind_id"]: variant["style_id"] for variant in comparison["variants"]
         }
         for comparison in key_payload["comparisons"]
     }
-    pilot_results = _read_json(Path("examples/expert_review/pilot_results_v1.json"))
 
     assert pilot_results["summary"]["preferred_style_id"] == EXPERT_PACKET_STYLE_ID
     assert pilot_results["summary"]["pr53_status"] == "unblocked"

@@ -137,6 +137,84 @@ def build_hypothesis_packets_payload(
                 ),
             )
             escape_routes = _build_escape_routes(replay_risk)
+            contradiction_handling = {
+                "status": (
+                    "contradicted"
+                    if _require_string_list(
+                        directionality.get("contradiction_conditions"),
+                        (
+                            "gene_target_ledgers.targets"
+                            f"[{ledger_index_value}].directionality_hypothesis"
+                            ".contradiction_conditions"
+                        ),
+                    )
+                    else "clear"
+                ),
+                "contradiction_conditions": _require_string_list(
+                    directionality.get("contradiction_conditions"),
+                    (
+                        "gene_target_ledgers.targets"
+                        f"[{ledger_index_value}].directionality_hypothesis"
+                        ".contradiction_conditions"
+                    ),
+                ),
+                "directionality_falsification_conditions": _require_string_list(
+                    ledger_target.get("falsification_conditions"),
+                    (
+                        "gene_target_ledgers.targets"
+                        f"[{ledger_index_value}].falsification_conditions"
+                    ),
+                ),
+                "open_risks": list(
+                    _require_list(
+                        ledger_target.get("open_risks"),
+                        f"gene_target_ledgers.targets[{ledger_index_value}].open_risks",
+                    )
+                ),
+            }
+            hypothesis = {
+                "statement": (
+                    f"Test {desired_direction} {entity_label} via "
+                    f"{modality_hypothesis} ({', '.join(preferred_modalities)}) "
+                    f"in {_require_text(score.get('primary_domain_slug'), 'policy score primary_domain_slug')}."
+                ),
+                "desired_perturbation_direction": desired_direction,
+                "modality_hypothesis": modality_hypothesis,
+                "preferred_modalities": preferred_modalities,
+                "confidence": _require_text(
+                    directionality.get("confidence"),
+                    (
+                        "gene_target_ledgers.targets"
+                        f"[{ledger_index_value}].directionality_hypothesis.confidence"
+                    ),
+                ),
+                "ambiguity": _require_string(
+                    directionality.get("ambiguity"),
+                    (
+                        "gene_target_ledgers.targets"
+                        f"[{ledger_index_value}].directionality_hypothesis.ambiguity"
+                    ),
+                ),
+                "evidence_basis": _require_string(
+                    directionality.get("evidence_basis"),
+                    (
+                        "gene_target_ledgers.targets"
+                        f"[{ledger_index_value}].directionality_hypothesis.evidence_basis"
+                    ),
+                ),
+                "supporting_program_ids": _require_string_list(
+                    directionality.get("supporting_program_ids"),
+                    (
+                        "gene_target_ledgers.targets"
+                        f"[{ledger_index_value}].directionality_hypothesis.supporting_program_ids"
+                    ),
+                ),
+            }
+            evidence_anchors = _build_evidence_anchors(
+                hypothesis=hypothesis,
+                replay_risk=replay_risk,
+                structural_failure_history=structural_failure_history,
+            )
             packet = {
                 "packet_id": f"{entity_id}__{policy_id}",
                 "entity_type": "gene",
@@ -157,80 +235,41 @@ def build_hypothesis_packets_payload(
                         f"[{entity_index}].policy_scores[{score_index}].primary_domain_slug"
                     ),
                 ),
-                "hypothesis": {
-                    "statement": (
-                        f"Test {desired_direction} {entity_label} via "
-                        f"{modality_hypothesis} ({', '.join(preferred_modalities)}) "
-                        f"in {_require_text(score.get('primary_domain_slug'), 'policy score primary_domain_slug')}."
-                    ),
-                    "desired_perturbation_direction": desired_direction,
-                    "modality_hypothesis": modality_hypothesis,
-                    "preferred_modalities": preferred_modalities,
-                    "confidence": _require_text(
-                        directionality.get("confidence"),
+                "decision_focus": _build_decision_focus(
+                    entity_label=entity_label,
+                    policy_label=_require_text(
+                        score.get("label"),
                         (
-                            "gene_target_ledgers.targets"
-                            f"[{ledger_index_value}].directionality_hypothesis.confidence"
+                            "policy_decision_vectors_v2.entities.gene"
+                            f"[{entity_index}].policy_scores[{score_index}].label"
                         ),
                     ),
-                    "ambiguity": _require_string(
-                        directionality.get("ambiguity"),
+                    priority_domain=_require_text(
+                        score.get("primary_domain_slug"),
                         (
-                            "gene_target_ledgers.targets"
-                            f"[{ledger_index_value}].directionality_hypothesis.ambiguity"
+                            "policy_decision_vectors_v2.entities.gene"
+                            f"[{entity_index}].policy_scores[{score_index}].primary_domain_slug"
                         ),
                     ),
-                    "evidence_basis": _require_string(
-                        directionality.get("evidence_basis"),
-                        (
-                            "gene_target_ledgers.targets"
-                            f"[{ledger_index_value}].directionality_hypothesis.evidence_basis"
-                        ),
-                    ),
-                    "supporting_program_ids": _require_string_list(
-                        directionality.get("supporting_program_ids"),
-                        (
-                            "gene_target_ledgers.targets"
-                            f"[{ledger_index_value}].directionality_hypothesis.supporting_program_ids"
-                        ),
-                    ),
-                },
+                    policy_signal=score,
+                    contradiction_handling=contradiction_handling,
+                    replay_risk=replay_risk,
+                ),
+                "hypothesis": hypothesis,
                 "policy_signal": dict(score),
-                "contradiction_handling": {
-                    "status": (
-                        "contradicted"
-                        if _require_string_list(
-                            directionality.get("contradiction_conditions"),
-                            (
-                                "gene_target_ledgers.targets"
-                                f"[{ledger_index_value}].directionality_hypothesis"
-                                ".contradiction_conditions"
-                            ),
-                        )
-                        else "clear"
-                    ),
-                    "contradiction_conditions": _require_string_list(
-                        directionality.get("contradiction_conditions"),
-                        (
-                            "gene_target_ledgers.targets"
-                            f"[{ledger_index_value}].directionality_hypothesis"
-                            ".contradiction_conditions"
-                        ),
-                    ),
-                    "directionality_falsification_conditions": _require_string_list(
-                        ledger_target.get("falsification_conditions"),
-                        (
-                            "gene_target_ledgers.targets"
-                            f"[{ledger_index_value}].falsification_conditions"
-                        ),
-                    ),
-                    "open_risks": list(
-                        _require_list(
-                            ledger_target.get("open_risks"),
-                            f"gene_target_ledgers.targets[{ledger_index_value}].open_risks",
-                        )
-                    ),
-                },
+                "evidence_anchors": evidence_anchors,
+                "evidence_anchor_gap_status": _determine_evidence_anchor_gap_status(
+                    evidence_anchors
+                ),
+                "program_history_gap_status": _determine_program_history_gap_status(
+                    structural_failure_history
+                ),
+                "risk_digest": _build_risk_digest(
+                    contradiction_handling=contradiction_handling,
+                    replay_risk=replay_risk,
+                ),
+                "evidence_needed_next": _build_evidence_needed_next(replay_risk),
+                "contradiction_handling": contradiction_handling,
                 "failure_memory": {
                     "structural_failure_history": dict(structural_failure_history),
                     "replay_risk": dict(replay_risk),
@@ -416,6 +455,198 @@ def _build_escape_routes(replay_risk: dict[str, object]) -> list[dict[str, objec
     return routes
 
 
+def _build_decision_focus(
+    *,
+    entity_label: str,
+    policy_label: str,
+    priority_domain: str,
+    policy_signal: dict[str, object],
+    contradiction_handling: dict[str, object],
+    replay_risk: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "review_question": (
+            f"Should {entity_label} advance, hold, or kill for {policy_label} in "
+            f"{priority_domain}?"
+        ),
+        "decision_options": ["advance", "hold", "kill"],
+        "current_readout": (
+            f"{policy_label} scored "
+            f"{_format_score(policy_signal.get('score'), 'policy_signal.score')} "
+            f"({_require_text(policy_signal.get('status'), 'policy_signal.status')}); "
+            f"contradiction status "
+            f"{_require_text(contradiction_handling.get('status'), 'contradiction_handling.status')}; "
+            f"replay status {_require_text(replay_risk.get('status'), 'replay_risk.status')}."
+        ),
+    }
+
+
+def _build_evidence_anchors(
+    *,
+    hypothesis: dict[str, object],
+    replay_risk: dict[str, object],
+    structural_failure_history: dict[str, object],
+) -> list[dict[str, object]]:
+    structural_events = {
+        _require_text(event.get("program_id"), "structural_failure_history.events[].program_id"): event
+        for event in (
+            _require_mapping(item, "structural_failure_history.events[]")
+            for item in _require_list(
+                structural_failure_history.get("events"),
+                "structural_failure_history.events",
+            )
+        )
+    }
+    anchors: list[dict[str, object]] = []
+    seen_pairs: set[tuple[str, str]] = set()
+
+    for program_id in _require_string_list(
+        hypothesis.get("supporting_program_ids"),
+        "hypothesis.supporting_program_ids",
+    ):
+        role = "supporting_program"
+        if (role, program_id) in seen_pairs:
+            continue
+        anchors.append(
+            _build_evidence_anchor(
+                role=role,
+                event_id=program_id,
+                event=structural_events.get(program_id),
+                why_it_matters=(
+                    _require_text(
+                        structural_events[program_id].get("notes"),
+                        "structural_failure_history.events[].notes",
+                    )
+                    if program_id in structural_events
+                    else "Program id is referenced in the packet hypothesis."
+                ),
+            )
+        )
+        seen_pairs.add((role, program_id))
+
+    for reason_list_field, role in (
+        ("supporting_reasons", "supporting_reason"),
+        ("offsetting_reasons", "offsetting_reason"),
+        ("uncertainty_reasons", "uncertainty_reason"),
+    ):
+        for index, item in enumerate(
+            _require_list(
+                replay_risk.get(reason_list_field),
+                f"replay_risk.{reason_list_field}",
+            )
+        ):
+            reason = _require_mapping(item, f"replay_risk.{reason_list_field}[{index}]")
+            event_id = _require_text(
+                reason.get("event_id"),
+                f"replay_risk.{reason_list_field}[{index}].event_id",
+            )
+            if (role, event_id) in seen_pairs:
+                continue
+            anchors.append(
+                _build_evidence_anchor(
+                    role=role,
+                    event_id=event_id,
+                    event=structural_events.get(event_id),
+                    why_it_matters=_require_text(
+                        reason.get("explanation"),
+                        f"replay_risk.{reason_list_field}[{index}].explanation",
+                    ),
+                )
+            )
+            seen_pairs.add((role, event_id))
+
+    return anchors
+
+
+def _build_evidence_anchor(
+    *,
+    role: str,
+    event_id: str,
+    event: dict[str, object] | None,
+    why_it_matters: str,
+) -> dict[str, object]:
+    if event is None:
+        return {
+            "role": role,
+            "event_id": event_id,
+            "event_type": "referenced_event",
+            "outcome": "details_not_recovered_from_program_history",
+            "why_it_matters": why_it_matters,
+        }
+    return {
+        "role": role,
+        "event_id": event_id,
+        "event_type": _require_text(
+            event.get("event_type"),
+            "structural_failure_history.events[].event_type",
+        ),
+        "outcome": _require_text(
+            event.get("primary_outcome_result"),
+            "structural_failure_history.events[].primary_outcome_result",
+        ),
+        "why_it_matters": why_it_matters,
+    }
+
+
+def _determine_evidence_anchor_gap_status(
+    evidence_anchors: list[dict[str, object]],
+) -> str:
+    return "evidence_anchors_present" if evidence_anchors else "no_evidence_anchors"
+
+
+def _determine_program_history_gap_status(
+    structural_failure_history: dict[str, object],
+) -> str:
+    structural_events = _require_list(
+        structural_failure_history.get("events"),
+        "structural_failure_history.events",
+    )
+    return "program_history_present" if structural_events else "no_direct_program_history"
+
+
+def _build_risk_digest(
+    *,
+    contradiction_handling: dict[str, object],
+    replay_risk: dict[str, object],
+) -> list[str]:
+    contradiction_conditions = _require_string_list(
+        contradiction_handling.get("contradiction_conditions"),
+        "contradiction_handling.contradiction_conditions",
+    )
+    digest = [
+        f"Replay: {_require_text(replay_risk.get('summary'), 'replay_risk.summary')}",
+        (
+            f"Main contradiction: {contradiction_conditions[0]}"
+            if contradiction_conditions
+            else "Contradiction status: clear"
+        ),
+    ]
+    for risk in _sort_open_risks(
+        _require_list(
+            contradiction_handling.get("open_risks"),
+            "contradiction_handling.open_risks",
+        )
+    )[:2]:
+        risk_mapping = _require_mapping(risk, "contradiction_handling.open_risks[]")
+        digest.append(
+            "Risk: "
+            f"{_require_text(risk_mapping.get('severity'), 'contradiction_handling.open_risks[].severity')} | "
+            f"{_require_text(risk_mapping.get('text'), 'contradiction_handling.open_risks[].text')}"
+        )
+    return digest
+
+
+def _build_evidence_needed_next(replay_risk: dict[str, object]) -> list[str]:
+    next_evidence: list[str] = []
+    for item in _require_string_list(
+        replay_risk.get("falsification_conditions"),
+        "replay_risk.falsification_conditions",
+    ):
+        if item not in next_evidence:
+            next_evidence.append(item)
+    return next_evidence[:2]
+
+
 def _determine_escape_status(
     *,
     replay_status: str,
@@ -475,6 +706,20 @@ def _collect_replay_event_ids(replay_risk: dict[str, object]) -> list[str]:
             if event_id not in event_ids:
                 event_ids.append(event_id)
     return event_ids
+
+
+def _sort_open_risks(open_risks: list[object]) -> list[object]:
+    severity_rank = {"high": 0, "medium": 1, "low": 2}
+    return sorted(
+        open_risks,
+        key=lambda risk: severity_rank.get(
+            _require_text(
+                _require_mapping(risk, "contradiction_handling.open_risks[]").get("severity"),
+                "contradiction_handling.open_risks[].severity",
+            ),
+            99,
+        ),
+    )
 
 
 def _is_packet_eligible_policy_signal(
@@ -537,3 +782,9 @@ def _require_specific_string_list(value: object, field_name: str) -> list[str]:
         if item == "undetermined":
             raise ValueError(f"{field_name}[{index}] must not be undetermined")
     return values
+
+
+def _format_score(value: object, field_name: str) -> str:
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"{field_name} must be numeric")
+    return f"{value:.3f}"

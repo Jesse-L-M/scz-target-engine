@@ -2,7 +2,7 @@
   "artifact_name": "hypothesis_packets_v1",
   "schema_version": "v1",
   "file_format": "json",
-  "description": "Policy-scoped hypothesis packets derived from shipped policy vectors and scoring-neutral failure-memory ledgers.",
+  "description": "Policy-scoped hypothesis packets derived from shipped policy vectors and scoring-neutral failure-memory ledgers, with explicit decision focus, evidence anchors, gap states, and review-ready digests layered on top of the preserved contradiction, replay, and traceability contract.",
   "key_fields": [
     "schema_version"
   ],

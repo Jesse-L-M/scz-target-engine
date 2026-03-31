@@ -75,8 +75,11 @@ That means:
 
 - adding a new required finding adds that field to every generated comparison entry
 - removing a required finding removes that field from the generated template
-- legacy findings keep their current empty defaults, while unknown finding names
-  are emitted as `null` placeholders
+- legacy findings keep their current empty defaults, while genuinely new finding
+  names are emitted as `null` placeholders
+- reserved comparison-template fields like `comparison_id`, `available_blind_ids`,
+  `preferred_blind_id`, and `blind_scores` are invalid rubric finding names and are
+  rejected instead of being silently overwritten
 
 ## Pilot Success Condition
 
@@ -87,3 +90,19 @@ That means the completed review should surface both:
 
 - which blinded packet style experts preferred
 - which packet fields and generator behaviors should change in the next schema revision
+
+## PR-53 Translation
+
+`PR-53` lands the concrete schema/generator translation the pilot was meant to
+surface:
+
+- `decision_readiness` now lands as packet-level `decision_focus`
+- `evidence_traceability` now lands as first-class `evidence_anchors`
+- anchor absence now lands as `evidence_anchor_gap_status` and
+  `program_history_gap_status`
+- the requested generator-first summaries now land as `risk_digest` and
+  `evidence_needed_next`
+
+The pilot rubric itself stays stable. The response-template contract is still
+driven by `required_findings`; the new packet fields land in the upstream packet
+contract and the traceable expert-packet renderer.

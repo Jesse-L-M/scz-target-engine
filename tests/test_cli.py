@@ -1,3 +1,4 @@
+import json
 import importlib
 from pathlib import Path
 
@@ -315,6 +316,50 @@ def test_cli_build_expert_review_packets_runs(tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert (tmp_path / "expert_review" / "blinded_expert_review_packets_v1.json").exists()
+
+
+def test_cli_build_expert_review_packets_rejects_reserved_required_finding(
+    tmp_path: Path,
+) -> None:
+    rubric_path = tmp_path / "reserved_required_finding_rubric.json"
+    rubric_path.write_text(
+        json.dumps(
+            {
+                "rubric_id": "cli_reserved_required_finding_v1",
+                "review_goal": "Fail when CLI receives a reserved response-template field.",
+                "comparison_prompt": "This rubric should fail validation.",
+                "dimensions": [
+                    {
+                        "dimension_id": "clarity",
+                        "label": "Clarity",
+                        "question": "Is the packet easy to read?",
+                        "scale_min": 1,
+                        "scale_max": 5,
+                        "low_anchor": "No.",
+                        "high_anchor": "Yes.",
+                    }
+                ],
+                "required_findings": ["comparison_id"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"reserved response-template fields: comparison_id",
+    ):
+        main(
+            [
+                "build-expert-review-packets",
+                "--hypothesis-artifact",
+                str(Path("examples/v0/output/hypothesis_packets_v1.json").resolve()),
+                "--output-dir",
+                str((tmp_path / "expert_review").resolve()),
+                "--rubric-file",
+                str(rubric_path.resolve()),
+            ]
+        )
 
 
 @pytest.mark.parametrize(

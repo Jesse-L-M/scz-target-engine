@@ -330,10 +330,10 @@
     }
   ],
   "materials": {
-    "review_key_file": "blinded_expert_review_key_v1.json",
-    "review_packets_file": "blinded_expert_review_packets_v1.json",
+    "review_key_file": "pilot_v1/blinded_expert_review_key_v1.json",
+    "review_packets_file": "pilot_v1/blinded_expert_review_packets_v1.json",
     "review_rubric_file": "../../docs/review_rubrics/blinded_expert_review_rubric.json",
-    "response_template_file": "blinded_expert_review_response_template_v1.json"
+    "response_template_file": "pilot_v1/blinded_expert_review_response_template_v1.json"
   },
   "pilot_id": "blinded_expert_review_pilot_2026_03_31",
   "reviewer": {

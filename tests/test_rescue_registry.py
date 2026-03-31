@@ -1,6 +1,7 @@
 import csv
 import json
 from pathlib import Path
+import shutil
 import subprocess
 
 import pytest
@@ -83,6 +84,139 @@ INTERNEURON_LINEAGE_PATH = Path(
     "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/"
     "lineage/interneuron_gene_raw_to_frozen_lineage_2026_03_31.json"
 )
+INTERNEURON_TRACKED_RESCUE_PATHS = (
+    Path("data/raw/rescue/README.md"),
+    Path(
+        "data/raw/rescue/interneuron_arbor/"
+        "interneuron_arbor_candidate_snapshot_2023_12_31.csv"
+    ),
+    Path(
+        "data/raw/rescue/interneuron_followup/"
+        "interneuron_followup_adjudications_2026_03_31.csv"
+    ),
+    Path(
+        "data/raw/rescue/interneuron_synapse/"
+        "interneuron_synapse_candidate_snapshot_2023_12_31.csv"
+    ),
+    Path("data/processed/rescue/README.md"),
+    Path(
+        "data/processed/rescue/interneuron_gene_rescue_task/frozen/"
+        "interneuron_arbor_ranking_inputs_2023_12_31.csv"
+    ),
+    Path(
+        "data/processed/rescue/interneuron_gene_rescue_task/frozen/"
+        "interneuron_followup_labels_2026_03_31.csv"
+    ),
+    Path(
+        "data/processed/rescue/interneuron_gene_rescue_task/frozen/"
+        "interneuron_synapse_ranking_inputs_2023_12_31.csv"
+    ),
+)
+IGNORED_RESCUE_PATH_PROBES = (
+    "data/raw/rescue/interneuron_arbor/unguarded_snapshot.csv",
+    "data/raw/rescue/untracked_probe.csv",
+    "data/processed/rescue/interneuron_gene_rescue_task/frozen/untracked_probe.csv",
+    "data/processed/rescue/untracked_probe.csv",
+)
+
+
+def _write_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def _clone_interneuron_governance_bundle(
+    tmp_path: Path,
+) -> tuple[Path, dict[str, Path]]:
+    bundle_root = tmp_path / "interneuron_bundle"
+
+    task_card_payload = json.loads(INTERNEURON_TASK_CARD_PATH.read_text(encoding="utf-8"))
+    freeze_manifest_payload = json.loads(
+        INTERNEURON_FREEZE_MANIFEST_PATH.read_text(encoding="utf-8")
+    )
+    lineage_payload = json.loads(INTERNEURON_LINEAGE_PATH.read_text(encoding="utf-8"))
+
+    source_paths: dict[str, Path] = {}
+    for source in freeze_manifest_payload["source_snapshots"]:
+        source_path = (bundle_root / source["source_path"]).resolve()
+        source_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2((REPO_ROOT / source["source_path"]).resolve(), source_path)
+        source["source_path"] = str(source_path)
+        source_paths[source["source_id"]] = source_path
+
+    lineage_sources_by_id = {source["source_id"]: source for source in lineage_payload["raw_sources"]}
+    for source in freeze_manifest_payload["source_snapshots"]:
+        lineage_sources_by_id[source["source_id"]]["source_path"] = source["source_path"]
+
+    dataset_card_paths: dict[str, Path] = {}
+    dataset_card_payloads: dict[str, dict[str, object]] = {}
+    for dataset_card_path_text in task_card_payload["dataset_card_paths"]:
+        dataset_card_path = Path(dataset_card_path_text)
+        payload = json.loads((REPO_ROOT / dataset_card_path).read_text(encoding="utf-8"))
+        cloned_path = (bundle_root / dataset_card_path).resolve()
+        dataset_card_paths[payload["dataset_id"]] = cloned_path
+        dataset_card_payloads[payload["dataset_id"]] = payload
+
+    freeze_manifest_path = (bundle_root / INTERNEURON_FREEZE_MANIFEST_PATH).resolve()
+    lineage_path = (bundle_root / INTERNEURON_LINEAGE_PATH).resolve()
+    split_manifest_paths = [
+        (bundle_root / path).resolve()
+        for path in (
+            INTERNEURON_SYNAPSE_SPLIT_MANIFEST_PATH,
+            INTERNEURON_ARBOR_SPLIT_MANIFEST_PATH,
+        )
+    ]
+    task_card_path = (bundle_root / INTERNEURON_TASK_CARD_PATH).resolve()
+
+    for payload in dataset_card_payloads.values():
+        payload["freeze_manifest_path"] = str(freeze_manifest_path)
+        payload["lineage_path"] = str(lineage_path)
+
+    for dataset in freeze_manifest_payload["frozen_datasets"]:
+        dataset["dataset_card_path"] = str(dataset_card_paths[dataset["dataset_id"]])
+
+    lineage_payload["freeze_manifest_path"] = str(freeze_manifest_path)
+    for dataset in lineage_payload["frozen_datasets"]:
+        dataset["dataset_card_path"] = str(dataset_card_paths[dataset["dataset_id"]])
+
+    task_card_payload["dataset_card_paths"] = [
+        str(dataset_card_paths[payload["dataset_id"]])
+        for payload in dataset_card_payloads.values()
+    ]
+    task_card_payload["freeze_manifest_paths"] = [str(freeze_manifest_path)]
+    task_card_payload["split_manifest_paths"] = [str(path) for path in split_manifest_paths]
+    task_card_payload["lineage_paths"] = [str(lineage_path)]
+
+    for original_path, cloned_path in zip(
+        (
+            INTERNEURON_SYNAPSE_SPLIT_MANIFEST_PATH,
+            INTERNEURON_ARBOR_SPLIT_MANIFEST_PATH,
+        ),
+        split_manifest_paths,
+        strict=True,
+    ):
+        payload = json.loads((REPO_ROOT / original_path).read_text(encoding="utf-8"))
+        payload["freeze_manifest_path"] = str(freeze_manifest_path)
+        _write_json(cloned_path, payload)
+
+    for dataset_id, payload in dataset_card_payloads.items():
+        _write_json(dataset_card_paths[dataset_id], payload)
+
+    _write_json(freeze_manifest_path, freeze_manifest_payload)
+    _write_json(lineage_path, lineage_payload)
+    _write_json(task_card_path, task_card_payload)
+
+    return task_card_path, source_paths
+
+
+def _path_is_ignored_by_git(path: Path | str) -> bool:
+    result = subprocess.run(
+        ["git", "check-ignore", "--no-index", "--quiet", str(path)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
 def _count_csv_rows(path: Path) -> int:
     with path.open(encoding="utf-8", newline="") as handle:
         return sum(1 for _ in csv.DictReader(handle))
@@ -280,6 +414,36 @@ def test_interneuron_rescue_governance_bundle_validates_from_task_card() -> None
     )
 
 
+def test_active_rescue_bundle_rejects_digest_drift_in_governed_raw_source(
+    tmp_path: Path,
+) -> None:
+    task_card_path, source_paths = _clone_interneuron_governance_bundle(tmp_path)
+    source_paths["interneuron_synapse_candidate_snapshot"].write_text(
+        source_paths["interneuron_synapse_candidate_snapshot"].read_text(encoding="utf-8")
+        + "\n# digest drift\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="governed raw source snapshot sha256 mismatch",
+    ):
+        validate_rescue_governance_bundle(task_card_path)
+
+
+def test_active_rescue_bundle_rejects_missing_governed_raw_source(
+    tmp_path: Path,
+) -> None:
+    task_card_path, source_paths = _clone_interneuron_governance_bundle(tmp_path)
+    source_paths["interneuron_arbor_candidate_snapshot"].unlink()
+
+    with pytest.raises(
+        ValueError,
+        match="governed raw source snapshot file is missing",
+    ):
+        validate_rescue_governance_bundle(task_card_path)
+
+
 def test_interneuron_frozen_outputs_exist_and_match_governed_bundle() -> None:
     bundle = validate_rescue_governance_bundle(INTERNEURON_TASK_CARD_PATH.resolve())
     row_counts = {
@@ -312,6 +476,15 @@ def test_interneuron_example_load_script_reports_frozen_row_counts() -> None:
         "interneuron_followup_labels_2026_03_31": 8,
         "interneuron_synapse_ranking_inputs_2023_12_31": 5,
     }
+
+
+def test_gitignore_only_unignores_governed_interneuron_rescue_artifacts() -> None:
+    for path in INTERNEURON_TRACKED_RESCUE_PATHS:
+        assert (REPO_ROOT / path).exists()
+        assert not _path_is_ignored_by_git(path)
+
+    for path in IGNORED_RESCUE_PATH_PROBES:
+        assert _path_is_ignored_by_git(path)
 
 
 def test_rescue_registry_rejects_registry_contract_identity_mismatch(

@@ -7,8 +7,6 @@ __pycache__/
 
 data/raw/*
 !data/raw/README.md
-!data/raw/sources/
-!data/raw/sources/README.md
 !data/raw/rescue/
 data/raw/rescue/*
 !data/raw/rescue/README.md
@@ -21,6 +19,9 @@ data/raw/rescue/interneuron_followup/*
 !data/raw/rescue/interneuron_synapse/
 data/raw/rescue/interneuron_synapse/*
 !data/raw/rescue/interneuron_synapse/interneuron_synapse_candidate_snapshot_2023_12_31.csv
+!data/raw/sources/
+data/raw/sources/*
+!data/raw/sources/README.md
 !data/raw/rescue/npc_signature_reversal/
 data/raw/rescue/npc_signature_reversal/*
 !data/raw/rescue/npc_signature_reversal/README.md
@@ -28,7 +29,6 @@ data/raw/rescue/npc_signature_reversal/*
 !data/raw/rescue/npc_signature_reversal/cos_hispc_npc_differential_expression_2017.csv
 !data/raw/rescue/npc_signature_reversal/source_manifest.json
 !data/raw/rescue/npc_signature_reversal/sz_npc_drug_gene_perturbations_2018.csv
-data/raw/sources/*
 data/processed/*
 !data/processed/README.md
 !data/processed/rescue/

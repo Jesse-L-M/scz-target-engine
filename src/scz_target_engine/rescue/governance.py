@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import hashlib
 from math import isclose
 from pathlib import Path
 from typing import Any
@@ -129,6 +130,35 @@ def _resolve_repo_relative_path(path_text: str) -> Path:
     if path.is_absolute():
         return path.resolve()
     return (REPO_ROOT / path).resolve()
+
+
+def _compute_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _validate_governed_source_snapshot_files(
+    source_snapshots: tuple["RescueSourceSnapshot", ...],
+    *,
+    governance_status: str,
+    context: str,
+) -> None:
+    if governance_status != "active":
+        return
+
+    for source in source_snapshots:
+        source_path = _resolve_repo_relative_path(source.source_path)
+        if not source_path.is_file():
+            raise ValueError(
+                f"{context} governed raw source snapshot file is missing: {source.source_id}"
+            )
+        if _compute_sha256(source_path) != source.sha256:
+            raise ValueError(
+                f"{context} governed raw source snapshot sha256 mismatch: {source.source_id}"
+            )
 
 
 def _require_unique(values: tuple[str, ...], field_name: str) -> None:
@@ -611,6 +641,11 @@ class RescueFreezeManifest:
             cutoff=cutoff,
             context="source_snapshots",
         )
+        _validate_governed_source_snapshot_files(
+            self.source_snapshots,
+            governance_status=self.governance_status,
+            context="source_snapshots",
+        )
         if (
             self.freeze_scope == "ranking_only"
             and any(source.availability == "post_cutoff" for source in self.source_snapshots)
@@ -960,6 +995,11 @@ class RescueRawToFrozenLineage:
         _validate_source_cutoff_alignment(
             self.raw_sources,
             cutoff=cutoff,
+            context="raw_sources",
+        )
+        _validate_governed_source_snapshot_files(
+            self.raw_sources,
+            governance_status=self.governance_status,
             context="raw_sources",
         )
         _reconcile_sources_against_freeze_manifest(self.raw_sources, freeze_manifest)

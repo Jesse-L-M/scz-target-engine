@@ -71,6 +71,17 @@ from scz_target_engine.sources.psychencode import (
     fetch_psychencode_module_table,
     fetch_psychencode_support,
 )
+from scz_target_engine.observatory.benchmark_nav import (
+    browse_leaderboard,
+    browse_report_cards,
+    list_available_leaderboard_slices,
+)
+from scz_target_engine.observatory.shell import (
+    build_observatory_index,
+    format_leaderboard,
+    format_observatory_index,
+    format_report_cards,
+)
 from scz_target_engine.sources.schema import fetch_schema_rare_variant_support
 
 
@@ -430,6 +441,33 @@ def _configure_hidden_eval_simulate_parser(
     parser.add_argument("--output-dir", required=True)
 
 
+def _configure_observatory_browse_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--data-dir")
+
+
+def _configure_observatory_leaderboard_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--entity-type", required=True)
+    parser.add_argument("--horizon", required=True)
+    parser.add_argument("--metric", required=True)
+    parser.add_argument("--generated-dir")
+
+
+def _configure_observatory_report_cards_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--generated-dir")
+
+
+def _configure_observatory_leaderboard_slices_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--generated-dir")
+
+
 COMMAND_ROUTES = (
     CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
     CommandRoute("build", ("engine", "build"), _configure_build_parser),
@@ -612,6 +650,26 @@ COMMAND_ROUTES = (
         "run-rescue-npc-signature-reversal",
         ("rescue", "npc-signature-reversal"),
         _configure_run_npc_signature_reversal_rescue_parser,
+    ),
+    CommandRoute(
+        "observatory-browse",
+        ("observatory", "browse"),
+        _configure_observatory_browse_parser,
+    ),
+    CommandRoute(
+        "observatory-leaderboard",
+        ("observatory", "leaderboard"),
+        _configure_observatory_leaderboard_parser,
+    ),
+    CommandRoute(
+        "observatory-report-cards",
+        ("observatory", "report-cards"),
+        _configure_observatory_report_cards_parser,
+    ),
+    CommandRoute(
+        "observatory-leaderboard-slices",
+        ("observatory", "leaderboard-slices"),
+        _configure_observatory_leaderboard_slices_parser,
     ),
 )
 
@@ -984,6 +1042,51 @@ def main(argv: list[str] | None = None) -> int:
             ),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "observatory-browse":
+        data_dir = Path(args.data_dir).resolve() if args.data_dir else None
+        index = build_observatory_index(data_dir=data_dir)
+        print(format_observatory_index(index))
+        return 0
+
+    if args.command == "observatory-leaderboard":
+        gen_dir = (
+            Path(args.generated_dir).resolve() if args.generated_dir else None
+        )
+        result = browse_leaderboard(
+            entity_type=args.entity_type,
+            horizon=args.horizon,
+            metric_name=args.metric,
+            generated_dir=gen_dir,
+        )
+        if result is None:
+            print(
+                f"No leaderboard found for "
+                f"{args.entity_type}/{args.horizon}/{args.metric}."
+            )
+            return 1
+        print(format_leaderboard(result))
+        return 0
+
+    if args.command == "observatory-report-cards":
+        gen_dir = (
+            Path(args.generated_dir).resolve() if args.generated_dir else None
+        )
+        cards = browse_report_cards(generated_dir=gen_dir)
+        print(format_report_cards(cards))
+        return 0
+
+    if args.command == "observatory-leaderboard-slices":
+        gen_dir = (
+            Path(args.generated_dir).resolve() if args.generated_dir else None
+        )
+        slices = list_available_leaderboard_slices(generated_dir=gen_dir)
+        if not slices:
+            print("No leaderboard slices found. Run benchmark reporting first.")
+            return 0
+        for sl in slices:
+            print(f"{sl.entity_type} / {sl.horizon} / {sl.metric_name}")
         return 0
 
     if args.command == "build-hypothesis-packets":

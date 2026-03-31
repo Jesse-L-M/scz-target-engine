@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.atlas.convergence import materialize_convergence_hubs
 from scz_target_engine.atlas.mechanistic_axes import load_atlas_tensor_bundle
@@ -16,6 +18,12 @@ from scz_target_engine.rescue import (
 from scz_target_engine.rescue.registry import (
     load_rescue_task_registrations,
     resolve_rescue_task_contract,
+)
+from scz_target_engine.rescue.tasks import (
+    build_glutamatergic_convergence_ranked_predictions,
+    evaluate_glutamatergic_convergence_ranked_predictions,
+    load_glutamatergic_convergence_rescue_task_bundle,
+    materialize_glutamatergic_convergence_rescue_evaluation,
 )
 
 
@@ -66,6 +74,22 @@ def test_load_glutamatergic_convergence_rescue_bundle_reads_frozen_artifacts() -
         "GRIN2A": "1",
         "GRM3": "1",
         "GRM5": "0",
+    }
+    assert {
+        row["gene_symbol"]: row["split_name"] for row in bundle.ranking_input_rows
+    } == {
+        "GRIA1": "validation",
+        "GRIN2A": "train",
+        "GRM3": "test",
+        "GRM5": "train",
+    }
+    assert {
+        row["gene_symbol"]: row["split_name"] for row in bundle.evaluation_label_rows
+    } == {
+        "GRIA1": "validation",
+        "GRIN2A": "train",
+        "GRM3": "test",
+        "GRM5": "train",
     }
 
 
@@ -265,3 +289,111 @@ def test_glutamatergic_ranking_inputs_match_materialized_convergence_fixture(
             ranking_row["variant_to_gene_uncertainty_max_level"]
             == variant_axis["uncertainty_max_level"]
         )
+
+
+def test_glutamatergic_convergence_task_ranks_full_convergence_genes_first() -> None:
+    bundle = load_glutamatergic_convergence_rescue_task_bundle()
+    predictions = build_glutamatergic_convergence_ranked_predictions(bundle)
+
+    assert len(predictions) == 4
+    assert [row["rank"] for row in predictions] == [1, 2, 3, 4]
+    assert {
+        predictions[0]["gene_symbol"],
+        predictions[1]["gene_symbol"],
+    } == {"GRIN2A", "GRM3"}
+    assert predictions[0]["priority_tier"] == "full_convergence"
+    assert predictions[0]["rescue_score"] >= predictions[-1]["rescue_score"]
+
+
+def test_glutamatergic_convergence_task_evaluation_uses_held_out_labels_only() -> None:
+    bundle = load_glutamatergic_convergence_rescue_task_bundle()
+    predictions = build_glutamatergic_convergence_ranked_predictions(bundle)
+    evaluation = evaluate_glutamatergic_convergence_ranked_predictions(
+        predictions=predictions,
+        bundle=bundle,
+    )
+
+    assert evaluation["summary"]["candidate_count"] == 4
+    assert evaluation["summary"]["positive_label_count"] == 2
+    assert evaluation["summary"]["metric_values"] == {
+        "average_precision_any_positive_outcome": 1.0,
+        "mean_reciprocal_rank_any_positive_outcome": 1.0,
+        "precision_at_1_any_positive_outcome": 1.0,
+        "precision_at_3_any_positive_outcome": 0.666667,
+        "precision_at_5_any_positive_outcome": 0.5,
+        "recall_at_1_any_positive_outcome": 0.5,
+        "recall_at_3_any_positive_outcome": 1.0,
+        "recall_at_5_any_positive_outcome": 1.0,
+    }
+    assert {
+        row["gene_symbol"]: row["evaluation_label"]
+        for row in evaluation["evaluation_rows"]
+    } == {
+        "GRIN2A": "1",
+        "GRM3": "1",
+        "GRIA1": "0",
+        "GRM5": "0",
+    }
+    assert evaluation["summary"]["split_counts"] == {
+        "train": 2,
+        "validation": 1,
+        "test": 1,
+    }
+    assert {
+        split_name: split_summary["candidate_count"]
+        for split_name, split_summary in evaluation["summary"]["split_summaries"].items()
+    } == {
+        "all": 4,
+        "train": 2,
+        "validation": 1,
+        "test": 1,
+    }
+
+
+def test_glutamatergic_convergence_evaluation_rejects_prediction_split_conflicts() -> None:
+    bundle = load_glutamatergic_convergence_rescue_task_bundle()
+    predictions = build_glutamatergic_convergence_ranked_predictions(bundle)
+    conflicted_predictions = [dict(row) for row in predictions]
+    conflicted_predictions[0]["split_name"] = "validation"
+
+    with pytest.raises(ValueError, match="prediction split_name conflicts"):
+        evaluate_glutamatergic_convergence_ranked_predictions(
+            predictions=conflicted_predictions,
+            bundle=bundle,
+        )
+
+
+def test_glutamatergic_convergence_evaluation_rejects_unknown_prediction_ids() -> None:
+    bundle = load_glutamatergic_convergence_rescue_task_bundle()
+    predictions = build_glutamatergic_convergence_ranked_predictions(bundle)
+    invalid_predictions = [dict(row) for row in predictions]
+    invalid_predictions[0]["gene_id"] = "ENSG99999999999"
+
+    with pytest.raises(ValueError, match="unknown gene_id"):
+        evaluate_glutamatergic_convergence_ranked_predictions(
+            predictions=invalid_predictions,
+            bundle=bundle,
+        )
+
+
+def test_glutamatergic_convergence_materializer_writes_end_to_end_outputs(
+    tmp_path: Path,
+) -> None:
+    result = materialize_glutamatergic_convergence_rescue_evaluation(
+        output_dir=tmp_path / "glutamatergic-run"
+    )
+
+    predictions = read_csv_rows(Path(result["predictions_file"]))
+    evaluation_rows = read_csv_rows(Path(result["evaluation_rows_file"]))
+    evaluation_summary = read_json(Path(result["evaluation_summary_file"]))
+    run_manifest = read_json(Path(result["run_manifest_file"]))
+
+    assert [row["gene_symbol"] for row in predictions[:2]] == ["GRIN2A", "GRM3"]
+    assert [row["rank"] for row in predictions] == ["1", "2", "3", "4"]
+    assert {row["split_name"] for row in evaluation_rows} == {
+        "train",
+        "validation",
+        "test",
+    }
+    assert evaluation_summary["metric_values"]["average_precision_any_positive_outcome"] == 1.0
+    assert run_manifest["task_id"] == "glutamatergic_convergence_rescue_task"

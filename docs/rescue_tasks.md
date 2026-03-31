@@ -294,3 +294,22 @@ assert bundle.governance_bundle.task_card.task_id == (
 )
 assert len(bundle.ranking_input_rows) == 4
 ```
+
+`PR-43` adds a task runner that ranks from the frozen convergence-hub state surface,
+consumes governed `split_name` assignments already present in the checked-in frozen
+ranking and evaluation CSVs, validates those final bytes against the freeze-manifest
+checksum and row-count contract, and joins the held-out labels only during offline
+evaluation:
+
+```bash
+uv run python -m scz_target_engine.cli \
+  rescue run glutamatergic-convergence \
+  --output-dir .context/glutamatergic-convergence-run
+```
+
+That command emits:
+
+- `ranked_predictions.csv`
+- `evaluation_rows.csv`
+- `evaluation_summary.json`
+- `run_manifest.json`

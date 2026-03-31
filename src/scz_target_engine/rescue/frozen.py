@@ -10,6 +10,7 @@ from scz_target_engine.rescue.governance import (
     RescueDatasetCard,
     RescueFrozenDatasetReference,
     RescueGovernanceBundle,
+    RescueSplitManifest,
     validate_rescue_governance_bundle,
 )
 
@@ -66,10 +67,7 @@ class FrozenRescueGovernedTaskBundle:
 
     @property
     def dataset_index(self) -> dict[str, FrozenRescueDataset]:
-        return {
-            dataset.card.dataset_id: dataset
-            for dataset in self.datasets
-        }
+        return {dataset.card.dataset_id: dataset for dataset in self.datasets}
 
 
 def _freeze_reference_by_dataset_id(
@@ -159,8 +157,57 @@ def _load_dataset(
     )
 
 
+def _select_split_manifest(
+    bundle: RescueGovernanceBundle,
+    *,
+    source_dataset_id: str,
+) -> RescueSplitManifest:
+    matches = tuple(
+        manifest
+        for manifest in bundle.split_manifests
+        if manifest.source_dataset_id == source_dataset_id
+    )
+    if len(matches) != 1:
+        raise ValueError(
+            "expected exactly one split manifest for "
+            f"{source_dataset_id}, found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _format_primary_keys(primary_keys: set[tuple[str, ...]]) -> str:
+    formatted_keys: list[str] = []
+    for primary_key in sorted(primary_keys):
+        if len(primary_key) == 1:
+            formatted_keys.append(primary_key[0])
+        else:
+            formatted_keys.append("|".join(primary_key))
+    preview = formatted_keys[:5]
+    suffix = ", ..." if len(formatted_keys) > len(preview) else ""
+    return ", ".join(preview) + suffix
+
+
+def _require_governed_split_names(
+    dataset: FrozenRescueDataset,
+    *,
+    allowed_split_names: set[str],
+) -> None:
+    if "split_name" not in dataset.columns:
+        raise ValueError(
+            f"{dataset.card.dataset_id} must expose split_name in the frozen artifact"
+        )
+    for row in dataset.rows:
+        split_name = row.get("split_name", "").strip()
+        if split_name not in allowed_split_names:
+            raise ValueError(
+                f"{dataset.card.dataset_id} contains an unsupported split_name: "
+                f"{split_name or '<blank>'}"
+            )
+
+
 def _require_split_consistency(
     *,
+    split_manifest: RescueSplitManifest,
     ranking_input: FrozenRescueDataset,
     evaluation_target: FrozenRescueDataset,
 ) -> None:
@@ -169,11 +216,17 @@ def _require_split_consistency(
             "ranking_input and evaluation_target must share primary_key_fields"
         )
 
-    for dataset in (ranking_input, evaluation_target):
-        if "split_name" not in dataset.columns:
-            raise ValueError(
-                f"{dataset.card.dataset_id} must expose split_name for governed split validation"
-            )
+    allowed_split_names = {
+        partition.split_name for partition in split_manifest.partitions
+    }
+    _require_governed_split_names(
+        ranking_input,
+        allowed_split_names=allowed_split_names,
+    )
+    _require_governed_split_names(
+        evaluation_target,
+        allowed_split_names=allowed_split_names,
+    )
 
     ranking_splits: dict[tuple[str, ...], str] = {}
     for row in ranking_input.rows:
@@ -184,12 +237,14 @@ def _require_split_consistency(
         )
         ranking_splits[primary_key] = row["split_name"]
 
+    evaluation_keys: set[tuple[str, ...]] = set()
     for row in evaluation_target.rows:
         primary_key = _primary_key_tuple(
             row,
             primary_key_fields=evaluation_target.card.primary_key_fields,
             dataset_id=evaluation_target.card.dataset_id,
         )
+        evaluation_keys.add(primary_key)
         ranking_split = ranking_splits.get(primary_key)
         if ranking_split is None:
             raise ValueError(
@@ -202,6 +257,13 @@ def _require_split_consistency(
                 "split_name drift detected between ranking_input and evaluation_target "
                 f"for {primary_key}: expected {ranking_split}, found {evaluation_split}"
             )
+
+    missing_evaluation_keys = set(ranking_splits) - evaluation_keys
+    if missing_evaluation_keys:
+        raise ValueError(
+            f"{evaluation_target.card.dataset_id} is missing held-out evaluation rows for "
+            f"{ranking_input.card.dataset_id}: {_format_primary_keys(missing_evaluation_keys)}"
+        )
 
 
 def _resolve_task_card_path(
@@ -255,7 +317,12 @@ def load_frozen_rescue_task_bundle(
     dataset_index = governed_bundle.dataset_index
     ranking_input = dataset_index[ranking_card.dataset_id]
     evaluation_target = dataset_index[evaluation_card.dataset_id]
+    split_manifest = _select_split_manifest(
+        governance,
+        source_dataset_id=ranking_card.dataset_id,
+    )
     _require_split_consistency(
+        split_manifest=split_manifest,
         ranking_input=ranking_input,
         evaluation_target=evaluation_target,
     )

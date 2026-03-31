@@ -213,6 +213,17 @@ def test_cli_validate_runs() -> None:
             "atlas-build-convergence-hubs",
             ("atlas", "build", "convergence-hubs"),
         ),
+        (
+            [
+                "rescue",
+                "run",
+                "glutamatergic-convergence",
+                "--output-dir",
+                "rescue_outputs",
+            ],
+            "rescue-run-glutamatergic-convergence",
+            ("rescue", "run", "glutamatergic-convergence"),
+        ),
     ],
 )
 def test_cli_namespaced_routes_map_to_legacy_commands(
@@ -937,6 +948,24 @@ def test_cli_run_benchmark_parser_accepts_files() -> None:
     assert args.deterministic_test_mode is True
 
 
+def test_cli_rescue_run_glutamatergic_convergence_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "rescue-run-glutamatergic-convergence",
+            "--output-dir",
+            "rescue_outputs",
+            "--task-card-path",
+            "task_card.json",
+            "--baseline-id",
+            "example_baseline",
+        ]
+    )
+    assert args.command == "rescue-run-glutamatergic-convergence"
+    assert args.output_dir == "rescue_outputs"
+    assert args.task_card_path == "task_card.json"
+    assert args.baseline_id == "example_baseline"
+
+
 def test_cli_backfill_benchmark_public_slices_parser_accepts_optional_paths() -> None:
     args = build_parser().parse_args(
         [
@@ -1026,6 +1055,49 @@ def test_cli_run_benchmark_runs(monkeypatch, tmp_path: Path) -> None:
     assert calls["bootstrap_confidence_level"] == 0.9
     assert calls["random_seed"] == 23
     assert calls["deterministic_test_mode"] is True
+
+
+def test_cli_rescue_run_glutamatergic_convergence_runs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "rescue_outputs"
+    task_card_path = tmp_path / "task_card.json"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_glutamatergic_convergence_rescue_evaluation(
+        *,
+        output_dir: Path,
+        task_card_path: Path | None,
+        baseline_id: str,
+    ) -> dict[str, object]:
+        calls["output_dir"] = output_dir
+        calls["task_card_path"] = task_card_path
+        calls["baseline_id"] = baseline_id
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_glutamatergic_convergence_rescue_evaluation",
+        fake_materialize_glutamatergic_convergence_rescue_evaluation,
+    )
+
+    exit_code = main(
+        [
+            "rescue-run-glutamatergic-convergence",
+            "--output-dir",
+            str(output_dir),
+            "--task-card-path",
+            str(task_card_path),
+            "--baseline-id",
+            "custom_baseline",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["output_dir"] == output_dir.resolve()
+    assert calls["task_card_path"] == task_card_path.resolve()
+    assert calls["baseline_id"] == "custom_baseline"
+
 
 def test_cli_backfill_benchmark_public_slices_runs(
     monkeypatch,

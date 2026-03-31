@@ -48,6 +48,10 @@ from scz_target_engine.prepare import (
 )
 from scz_target_engine.rescue.tasks import materialize_npc_signature_reversal_run
 from scz_target_engine.registry import build_candidate_registry
+from scz_target_engine.rescue.tasks import (
+    DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+    materialize_glutamatergic_convergence_rescue_evaluation,
+)
 from scz_target_engine.sources.chembl import fetch_chembl_tractability
 from scz_target_engine.sources.opentargets import fetch_opentargets_baseline
 from scz_target_engine.sources.pgc import fetch_pgc_scz2022_prioritized_genes
@@ -234,6 +238,17 @@ def _configure_atlas_build_convergence_hubs_parser(
 ) -> None:
     parser.add_argument("--tensor-manifest-file", required=True)
     parser.add_argument("--output-dir")
+
+
+def _configure_run_glutamatergic_convergence_rescue_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--task-card-path")
+    parser.add_argument(
+        "--baseline-id",
+        default=DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+    )
 
 
 def _configure_prepare_gene_table_parser(parser: argparse.ArgumentParser) -> None:
@@ -436,6 +451,11 @@ COMMAND_ROUTES = (
         "atlas-build-convergence-hubs",
         ("atlas", "build", "convergence-hubs"),
         _configure_atlas_build_convergence_hubs_parser,
+    ),
+    CommandRoute(
+        "rescue-run-glutamatergic-convergence",
+        ("rescue", "run", "glutamatergic-convergence"),
+        _configure_run_glutamatergic_convergence_rescue_parser,
     ),
     CommandRoute(
         "prepare-gene-table",
@@ -707,6 +727,19 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+        return 0
+
+    if args.command == "rescue-run-glutamatergic-convergence":
+        result = materialize_glutamatergic_convergence_rescue_evaluation(
+            output_dir=Path(args.output_dir).resolve(),
+            task_card_path=(
+                None
+                if not args.task_card_path
+                else Path(args.task_card_path).resolve()
+            ),
+            baseline_id=args.baseline_id,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
     if args.command == "build-benchmark-snapshot":

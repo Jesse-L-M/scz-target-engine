@@ -1,3 +1,11 @@
+from scz_target_engine.rescue.tasks.glutamatergic_convergence_rescue import (
+    DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID,
+    DEFAULT_GLUTAMATERGIC_CONVERGENCE_TASK_ID,
+    build_glutamatergic_convergence_ranked_predictions,
+    evaluate_glutamatergic_convergence_ranked_predictions,
+    load_glutamatergic_convergence_rescue_task_bundle,
+    materialize_glutamatergic_convergence_rescue_evaluation,
+)
 from scz_target_engine.rescue.tasks.interneuron_arbor import (
     INTERNEURON_ARBOR_AXIS_ID,
     load_interneuron_arbor_task_data,
@@ -34,6 +42,8 @@ from scz_target_engine.rescue.tasks.npc_signature_reversal import (
 )
 
 __all__ = [
+    "DEFAULT_GLUTAMATERGIC_CONVERGENCE_BASELINE_ID",
+    "DEFAULT_GLUTAMATERGIC_CONVERGENCE_TASK_ID",
     "DEFAULT_INTERNEURON_BASELINE_IDS",
     "DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS",
     "INTERNEURON_ARBOR_AXIS_ID",
@@ -48,12 +58,16 @@ __all__ = [
     "InterneuronSplitAssignment",
     "NpcSignatureReversalScorerDefinition",
     "VALID_INTERNEURON_AXIS_IDS",
+    "build_glutamatergic_convergence_ranked_predictions",
     "build_interneuron_axis_predictions",
+    "evaluate_glutamatergic_convergence_ranked_predictions",
     "evaluate_interneuron_axis_predictions",
     "list_interneuron_baselines",
+    "load_glutamatergic_convergence_rescue_task_bundle",
     "load_interneuron_arbor_task_data",
     "load_interneuron_axis_task_data",
     "load_interneuron_synapse_task_data",
+    "materialize_glutamatergic_convergence_rescue_evaluation",
     "materialize_interneuron_arbor_rescue_runs",
     "materialize_interneuron_axis_rescue_runs",
     "materialize_interneuron_rescue_lane",

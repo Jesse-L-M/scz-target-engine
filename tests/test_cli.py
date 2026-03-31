@@ -442,6 +442,78 @@ def test_cli_register_prospective_prediction_runs(tmp_path: Path) -> None:
     )
 
 
+def test_cli_register_prospective_prediction_rejects_existing_output_file(
+    tmp_path: Path,
+) -> None:
+    output_file = tmp_path / "prospective_prediction_registration.json"
+
+    exit_code = main(
+        [
+            "register-prospective-prediction",
+            "--hypothesis-artifact",
+            str(Path("examples/v0/output/hypothesis_packets_v1.json").resolve()),
+            "--packet-id",
+            "ENSG00000180720__acute_translation_guardrails_v1",
+            "--output-file",
+            str(output_file.resolve()),
+            "--registered-at",
+            "2026-03-31T00:00:00Z",
+            "--registered-by",
+            "repo_checked_in_example",
+            "--predicted-outcome",
+            "advance",
+            "--option-probability",
+            "advance=0.58",
+            "--option-probability",
+            "hold=0.32",
+            "--option-probability",
+            "kill=0.10",
+            "--outcome-window-closes-on",
+            "2027-12-31",
+            "--rationale",
+            "The packet carries a scoreable available policy signal and explicit nonfailure offsetting evidence.",
+            "--rationale",
+            "Contradiction and replay uncertainty remain live, so the forecast still assigns substantial hold and kill mass.",
+            "--registration-id",
+            "forecast_chrm4_acute_translation_guardrails_2026_03_31",
+        ]
+    )
+    assert exit_code == 0
+
+    with pytest.raises(ValueError, match="prospective registrations are immutable"):
+        main(
+            [
+                "register-prospective-prediction",
+                "--hypothesis-artifact",
+                str(Path("examples/v0/output/hypothesis_packets_v1.json").resolve()),
+                "--packet-id",
+                "ENSG00000180720__acute_translation_guardrails_v1",
+                "--output-file",
+                str(output_file.resolve()),
+                "--registered-at",
+                "2026-03-31T00:00:00Z",
+                "--registered-by",
+                "repo_checked_in_example",
+                "--predicted-outcome",
+                "advance",
+                "--option-probability",
+                "advance=0.58",
+                "--option-probability",
+                "hold=0.32",
+                "--option-probability",
+                "kill=0.10",
+                "--outcome-window-closes-on",
+                "2027-12-31",
+                "--rationale",
+                "The packet carries a scoreable available policy signal and explicit nonfailure offsetting evidence.",
+                "--rationale",
+                "Contradiction and replay uncertainty remain live, so the forecast still assigns substantial hold and kill mass.",
+                "--registration-id",
+                "forecast_chrm4_acute_translation_guardrails_2026_03_31",
+            ]
+        )
+
+
 def test_cli_build_expert_review_packets_rejects_reserved_required_finding(
     tmp_path: Path,
 ) -> None:

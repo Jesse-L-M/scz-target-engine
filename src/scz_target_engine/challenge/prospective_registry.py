@@ -27,7 +27,12 @@ DEFAULT_PROSPECTIVE_REGISTRATIONS_DIR = (
 DEFAULT_PROSPECTIVE_OUTCOMES_DIR = DEFAULT_PROSPECTIVE_REGISTRY_DIR / "outcomes"
 PROSPECTIVE_FORECAST_TYPE = "reviewed_packet_disposition"
 PROSPECTIVE_SCORING_TARGET = "multiclass_single_label"
-VALID_RECONCILIATION_STATUSES = ("pending", "resolved", "conflicted")
+VALID_RECONCILIATION_STATUSES = (
+    "pending",
+    "resolved",
+    "conflicted",
+    "out_of_window",
+)
 
 
 def _require_text(value: object, field_name: str) -> str:
@@ -112,6 +117,19 @@ def _compute_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _iter_json_files(directory: Path) -> tuple[Path, ...]:
+    resolved_dir = directory.resolve()
+    if not resolved_dir.exists():
+        return ()
+    return tuple(
+        sorted(
+            path
+            for path in resolved_dir.iterdir()
+            if path.is_file() and path.suffix == ".json"
+        )
+    )
+
+
 def _canonical_json_sha256(payload: object) -> str:
     return hashlib.sha256(
         json.dumps(
@@ -121,6 +139,68 @@ def _canonical_json_sha256(payload: object) -> str:
             ensure_ascii=True,
         ).encode("utf-8")
     ).hexdigest()
+
+
+def _require_registration_output_is_new(output_path: Path) -> None:
+    if output_path.exists():
+        raise ValueError(
+            "prospective registrations are immutable; output_file already exists: "
+            f"{output_path}"
+        )
+
+
+def _require_registration_id_is_unique(
+    registration_id: str,
+    *,
+    registrations_dir: Path,
+    output_path: Path,
+) -> None:
+    for path in _iter_json_files(registrations_dir):
+        if path.resolve() == output_path.resolve():
+            continue
+        payload = read_json(path)
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("schema_name") != PROSPECTIVE_PREDICTION_REGISTRATION_ARTIFACT_NAME:
+            continue
+        existing_registration_id = payload.get("registration_id")
+        if isinstance(existing_registration_id, str) and existing_registration_id.strip() == registration_id:
+            raise ValueError(
+                "registration_id must be unique within the registrations directory; "
+                f"{registration_id} already exists in {path}"
+            )
+
+
+def _outcome_window_bounds(
+    registration: ProspectivePredictionRegistration,
+) -> tuple[date, date]:
+    outcome_window = _require_mapping(
+        registration.frozen_forecast_payload.get("outcome_window"),
+        "registration.frozen_forecast_payload.outcome_window",
+    )
+    opens_on = date.fromisoformat(
+        _require_iso_date(
+            outcome_window.get("opens_on"),
+            "registration.frozen_forecast_payload.outcome_window.opens_on",
+        )
+    )
+    closes_on = date.fromisoformat(
+        _require_iso_date(
+            outcome_window.get("closes_on"),
+            "registration.frozen_forecast_payload.outcome_window.closes_on",
+        )
+    )
+    return opens_on, closes_on
+
+
+def _outcome_record_is_within_window(
+    record: "ProspectiveForecastOutcomeRecord",
+    *,
+    registration: ProspectivePredictionRegistration,
+) -> bool:
+    opens_on, closes_on = _outcome_window_bounds(registration)
+    observed_at = date.fromisoformat(record.observed_at)
+    return opens_on <= observed_at <= closes_on
 
 
 def _resolve_packet(packet_payload: dict[str, object], *, packet_id: str) -> tuple[int, dict[str, object]]:
@@ -730,6 +810,7 @@ def materialize_prospective_prediction_registration(
 
     resolved_hypothesis_path = hypothesis_artifact_file.resolve()
     resolved_output_path = output_file.resolve()
+    _require_registration_output_is_new(resolved_output_path)
     artifact = load_artifact(
         resolved_hypothesis_path,
         artifact_name="hypothesis_packets_v1",
@@ -756,6 +837,11 @@ def materialize_prospective_prediction_registration(
     validate_prospective_prediction_registration_payload(
         payload,
         artifact_path=resolved_output_path,
+    )
+    _require_registration_id_is_unique(
+        str(payload["registration_id"]),
+        registrations_dir=resolved_output_path.parent,
+        output_path=resolved_output_path,
     )
     write_json(resolved_output_path, payload)
     return payload
@@ -1033,10 +1119,7 @@ def _load_json_artifacts(
     resolved_dir = directory.resolve()
     if not resolved_dir.exists():
         return ()
-    paths = sorted(
-        path for path in resolved_dir.iterdir() if path.is_file() and path.suffix == ".json"
-    )
-    return tuple(reader(path) for path in paths)
+    return tuple(reader(path) for path in _iter_json_files(resolved_dir))
 
 
 def load_prospective_prediction_registrations(
@@ -1132,6 +1215,26 @@ def reconcile_prospective_forecasts(
             continue
         if len(records) == 1:
             record = records[0]
+            if not _outcome_record_is_within_window(
+                record,
+                registration=registration,
+            ):
+                reconciliations.append(
+                    ProspectiveForecastReconciliation(
+                        registration_id=registration.registration_id,
+                        packet_id=registration.packet_artifact.packet_id,
+                        resolution_status="out_of_window",
+                        predicted_outcome=_require_text(
+                            forecast_payload.get("predicted_outcome"),
+                            "registration.frozen_forecast_payload.predicted_outcome",
+                        ),
+                        option_probabilities=option_probabilities,
+                        observed_outcome=record.observed_outcome,
+                        observed_at=record.observed_at,
+                        outcome_record_ids=(record.outcome_record_id,),
+                    )
+                )
+                continue
             reconciliations.append(
                 ProspectiveForecastReconciliation(
                     registration_id=registration.registration_id,

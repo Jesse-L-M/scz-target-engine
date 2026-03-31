@@ -122,6 +122,34 @@ def test_prospective_registration_materializes_from_reviewed_packet_artifact(
     assert artifact.payload.frozen_forecast_payload["predicted_outcome"] == "advance"
 
 
+def test_prospective_registration_rejects_rewrite_of_existing_output_file(
+    tmp_path: Path,
+) -> None:
+    output_file = tmp_path / "prospective_prediction_registration.json"
+    _materialize_registration(output_file)
+    original_contents = output_file.read_text(encoding="utf-8")
+
+    with pytest.raises(ValueError, match="prospective registrations are immutable"):
+        _materialize_registration(output_file)
+
+    assert output_file.read_text(encoding="utf-8") == original_contents
+
+
+def test_prospective_registration_rejects_duplicate_registration_id_before_write(
+    tmp_path: Path,
+) -> None:
+    registrations_dir = tmp_path / "registrations"
+    first_output = registrations_dir / "first_registration.json"
+    second_output = registrations_dir / "second_registration.json"
+    _materialize_registration(first_output)
+
+    with pytest.raises(ValueError, match="registration_id must be unique"):
+        _materialize_registration(second_output)
+
+    assert first_output.exists()
+    assert not second_output.exists()
+
+
 def test_prospective_reconciliation_prepares_scoreable_records(tmp_path: Path) -> None:
     registrations_dir = tmp_path / "registrations"
     outcomes_dir = tmp_path / "outcomes"
@@ -173,6 +201,47 @@ def test_prospective_reconciliation_prepares_scoreable_records(tmp_path: Path) -
         "hold": 0.32,
         "kill": 0.10,
     }
+
+
+def test_prospective_reconciliation_keeps_out_of_window_outcome_non_scoreable(
+    tmp_path: Path,
+) -> None:
+    registrations_dir = tmp_path / "registrations"
+    outcomes_dir = tmp_path / "outcomes"
+    registration_path = (
+        registrations_dir / "forecast_chrm4_acute_translation_guardrails_2026_03_31.json"
+    )
+    _materialize_registration(registration_path)
+
+    evidence_file = outcomes_dir / "late_outcome_note.md"
+    evidence_file.parent.mkdir(parents=True, exist_ok=True)
+    evidence_file.write_text("late advance\n", encoding="utf-8")
+    outcome_log_path = outcomes_dir / "late_outcome_log.json"
+    _write_outcome_log(
+        outcome_log_path,
+        registration_path=registration_path,
+        observed_outcome="advance",
+        outcome_record_id="chrm4_acute_outcome_2028_01_02",
+        evidence_file=evidence_file,
+        observed_at="2028-01-02",
+        outcome_log_id="prospective_outcomes_2028_01_02",
+    )
+
+    reconciliations = reconcile_prospective_forecasts(
+        registrations_dir=registrations_dir,
+        outcomes_dir=outcomes_dir,
+    )
+
+    assert len(reconciliations) == 1
+    assert reconciliations[0].resolution_status == "out_of_window"
+    assert reconciliations[0].observed_outcome == "advance"
+    assert (
+        build_prospective_scoring_records(
+            registrations_dir=registrations_dir,
+            outcomes_dir=outcomes_dir,
+        )
+        == ()
+    )
 
 
 def test_prospective_reconciliation_marks_conflicting_outcomes(tmp_path: Path) -> None:

@@ -3,12 +3,15 @@ from pathlib import Path
 
 from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.atlas.convergence import materialize_convergence_hubs
+from scz_target_engine.atlas.mechanistic_axes import load_atlas_tensor_bundle
 from scz_target_engine.atlas.tensor import materialize_atlas_tensor
 from scz_target_engine.io import read_csv_rows
 from scz_target_engine.rescue import (
     GLUTAMATERGIC_CONVERGENCE_ATLAS_FIXTURE_MANIFEST_PATH,
+    GLUTAMATERGIC_CONVERGENCE_RAW_SNAPSHOT_MANIFEST_PATH,
     GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH,
     load_glutamatergic_convergence_rescue_bundle,
+    validate_glutamatergic_convergence_raw_snapshot_bundle,
 )
 from scz_target_engine.rescue.registry import (
     load_rescue_task_registrations,
@@ -64,6 +67,59 @@ def test_load_glutamatergic_convergence_rescue_bundle_reads_frozen_artifacts() -
         "GRM3": "1",
         "GRM5": "0",
     }
+
+
+def test_glutamatergic_raw_snapshot_manifest_chain_is_self_contained() -> None:
+    raw_snapshot_bundle = validate_glutamatergic_convergence_raw_snapshot_bundle()
+
+    assert raw_snapshot_bundle.raw_snapshot_manifest_file.resolve() == (
+        GLUTAMATERGIC_CONVERGENCE_RAW_SNAPSHOT_MANIFEST_PATH
+    )
+    assert raw_snapshot_bundle.atlas_ingest_manifest_file.resolve() == (
+        GLUTAMATERGIC_CONVERGENCE_ATLAS_FIXTURE_MANIFEST_PATH
+    )
+    assert tuple(sorted(raw_snapshot_bundle.tensor_artifact_files)) == (
+        "entity_alignments_file",
+        "evidence_tensor_file",
+        "provenance_bundles_file",
+        "taxonomy_manifest_file",
+    )
+    assert tuple(sorted(raw_snapshot_bundle.convergence_artifact_files)) == (
+        "convergence_hubs_file",
+        "hub_axis_members_file",
+        "hub_evidence_links_file",
+    )
+    assert len(raw_snapshot_bundle.provenance_bundle_rows) == 2
+
+
+def test_glutamatergic_raw_snapshot_manifest_rebuilds_checked_in_convergence(
+    tmp_path: Path,
+) -> None:
+    raw_snapshot_bundle = validate_glutamatergic_convergence_raw_snapshot_bundle()
+
+    tensor_bundle = load_atlas_tensor_bundle(raw_snapshot_bundle.tensor_manifest_file)
+    assert len(tensor_bundle.tensor_rows) == 88
+
+    regenerated_convergence = materialize_convergence_hubs(
+        tensor_manifest_file=raw_snapshot_bundle.tensor_manifest_file,
+        output_dir=tmp_path / "convergence",
+    )
+
+    assert read_csv_rows(Path(regenerated_convergence["convergence_hubs_file"])) == (
+        read_csv_rows(
+            raw_snapshot_bundle.convergence_artifact_files["convergence_hubs_file"]
+        )
+    )
+    assert read_csv_rows(Path(regenerated_convergence["hub_axis_members_file"])) == (
+        read_csv_rows(
+            raw_snapshot_bundle.convergence_artifact_files["hub_axis_members_file"]
+        )
+    )
+    assert read_csv_rows(Path(regenerated_convergence["hub_evidence_links_file"])) == (
+        read_csv_rows(
+            raw_snapshot_bundle.convergence_artifact_files["hub_evidence_links_file"]
+        )
+    )
 
 
 def test_glutamatergic_ranking_inputs_match_materialized_convergence_fixture(

@@ -1,0 +1,12 @@
+dimension_id,dimension_label,description,member_count
+channel,Channel,"Separates observed evidence from explicit missingness, conflict, and uncertainty rows.",4
+source,Source,Names the raw-source adapter or atlas-native structural producer associated with a tensor row.,3
+dataset,Dataset,Names the processed dataset or atlas-native structural dataset associated with a tensor row.,3
+alignment_status,Alignment Status,"Describes whether a cross-source alignment is ID-consistent, label-only, or ID-conflicted.",3
+missingness_kind,Missingness Kind,Explains whether a missing tensor slice comes from source absence or a blank source field.,2
+conflict_kind,Conflict Kind,Explains the structural conflict captured by an atlas-native conflict slice.,1
+uncertainty_level,Uncertainty Level,Qualitative level attached to structural uncertainty rows.,3
+disease,Disease,Disease context carried through from source-level disease-scoped pulls.,1
+datatype,Datatype,Open Targets datatype subscore context.,2
+study,Study,Study or release context carried through from the processed source table.,1
+criterion,Criterion,Binary prioritization criterion context carried through from the processed source table.,4

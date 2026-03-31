@@ -1,0 +1,20 @@
+{
+  "alignment_count": 4,
+  "channel_counts": {
+    "missingness": 17,
+    "observed": 27,
+    "uncertainty": 44
+  },
+  "contract_version": "atlas-evidence-tensor/v1",
+  "emitted_artifacts": {
+    "entity_alignments_file": "entity_alignments.csv",
+    "evidence_tensor_file": "evidence_tensor.csv",
+    "provenance_bundles_file": "provenance_bundles.csv",
+    "taxonomy_manifest_file": "taxonomy/taxonomy_manifest.json"
+  },
+  "ingest_manifest_file": "../../../../../curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json",
+  "output_dir": ".",
+  "provenance_bundle_count": 2,
+  "taxonomy_output_dir": "taxonomy",
+  "tensor_row_count": 88
+}

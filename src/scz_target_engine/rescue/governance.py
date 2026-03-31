@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import hashlib
 from math import isclose
 from pathlib import Path
 from typing import Any
@@ -129,6 +130,49 @@ def _resolve_repo_relative_path(path_text: str) -> Path:
     if path.is_absolute():
         return path.resolve()
     return (REPO_ROOT / path).resolve()
+
+
+def _compute_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _validate_governed_source_snapshot_files(
+    source_snapshots: tuple["RescueSourceSnapshot", ...],
+    *,
+    governance_status: str,
+    context: str,
+) -> None:
+    if governance_status != "active":
+        return
+
+    for source in source_snapshots:
+        source_path = _resolve_repo_relative_path(source.source_path)
+        if not source_path.is_file():
+            raise ValueError(
+                f"{context} governed raw source snapshot file is missing: {source.source_id}"
+            )
+        if _compute_sha256(source_path) != source.sha256:
+            raise ValueError(
+                f"{context} governed raw source snapshot sha256 mismatch: {source.source_id}"
+            )
+
+
+def _require_governance_status_match(
+    expected_status: str,
+    observed_status: str,
+    *,
+    artifact_kind: str,
+    artifact_id: str,
+) -> None:
+    if observed_status != expected_status:
+        raise ValueError(
+            f"{artifact_kind} governance_status must match the task card governance_status: "
+            f"{artifact_id}"
+        )
 
 
 def _require_unique(values: tuple[str, ...], field_name: str) -> None:
@@ -487,6 +531,8 @@ class RescueFrozenDatasetReference:
     availability: str
     dataset_card_path: str
     expected_output_path: str
+    expected_sha256: str = ""
+    expected_row_count: int | None = None
 
     def __post_init__(self) -> None:
         _require_text(self.dataset_id, "dataset_id")
@@ -495,6 +541,10 @@ class RescueFrozenDatasetReference:
         _require_enum(self.availability, "availability", VALID_DATASET_AVAILABILITIES)
         _require_text(self.dataset_card_path, "dataset_card_path")
         _require_text(self.expected_output_path, "expected_output_path")
+        if self.expected_sha256:
+            _require_sha256(self.expected_sha256, "expected_sha256")
+        if self.expected_row_count is not None and self.expected_row_count < 0:
+            raise ValueError("expected_row_count must be zero or greater")
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> RescueFrozenDatasetReference:
@@ -511,6 +561,18 @@ class RescueFrozenDatasetReference:
                 payload["expected_output_path"],
                 "expected_output_path",
             ),
+            expected_sha256=_require_sha256(
+                payload["expected_sha256"],
+                "expected_sha256",
+            )
+            if "expected_sha256" in payload
+            else "",
+            expected_row_count=_require_int(
+                payload["expected_row_count"],
+                "expected_row_count",
+            )
+            if "expected_row_count" in payload
+            else None,
         )
 
 
@@ -591,6 +653,11 @@ class RescueFreezeManifest:
         _validate_source_cutoff_alignment(
             self.source_snapshots,
             cutoff=cutoff,
+            context="source_snapshots",
+        )
+        _validate_governed_source_snapshot_files(
+            self.source_snapshots,
+            governance_status=self.governance_status,
             context="source_snapshots",
         )
         if (
@@ -944,6 +1011,11 @@ class RescueRawToFrozenLineage:
             cutoff=cutoff,
             context="raw_sources",
         )
+        _validate_governed_source_snapshot_files(
+            self.raw_sources,
+            governance_status=self.governance_status,
+            context="raw_sources",
+        )
         _reconcile_sources_against_freeze_manifest(self.raw_sources, freeze_manifest)
 
         known_ids = set(raw_source_ids)
@@ -1079,6 +1151,49 @@ def read_rescue_raw_to_frozen_lineage(path: Path) -> RescueRawToFrozenLineage:
     )
 
 
+def _validate_bundle_governance_status_parity(
+    task_card: RescueTaskCard,
+    *,
+    dataset_cards: tuple[RescueDatasetCard, ...],
+    freeze_manifests: tuple[RescueFreezeManifest, ...],
+    split_manifests: tuple[RescueSplitManifest, ...],
+    lineages: tuple[RescueRawToFrozenLineage, ...],
+) -> None:
+    expected_status = task_card.governance_status
+
+    for dataset in dataset_cards:
+        _require_governance_status_match(
+            expected_status,
+            dataset.governance_status,
+            artifact_kind="dataset card",
+            artifact_id=dataset.dataset_id,
+        )
+
+    for freeze_manifest in freeze_manifests:
+        _require_governance_status_match(
+            expected_status,
+            freeze_manifest.governance_status,
+            artifact_kind="freeze manifest",
+            artifact_id=freeze_manifest.freeze_manifest_id,
+        )
+
+    for split_manifest in split_manifests:
+        _require_governance_status_match(
+            expected_status,
+            split_manifest.governance_status,
+            artifact_kind="split manifest",
+            artifact_id=split_manifest.split_manifest_id,
+        )
+
+    for lineage in lineages:
+        _require_governance_status_match(
+            expected_status,
+            lineage.governance_status,
+            artifact_kind="lineage artifact",
+            artifact_id=lineage.lineage_id,
+        )
+
+
 def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceBundle:
     task_card = read_rescue_task_card(task_card_path.resolve())
     contract = _load_contract(task_card.contract_path)
@@ -1098,6 +1213,13 @@ def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceB
     lineages = tuple(
         read_rescue_raw_to_frozen_lineage(_resolve_repo_relative_path(path_text))
         for path_text in task_card.lineage_paths
+    )
+    _validate_bundle_governance_status_parity(
+        task_card,
+        dataset_cards=dataset_cards,
+        freeze_manifests=freeze_manifests,
+        split_manifests=split_manifests,
+        lineages=lineages,
     )
 
     dataset_by_id = {dataset.dataset_id: dataset for dataset in dataset_cards}

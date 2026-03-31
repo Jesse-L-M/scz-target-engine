@@ -72,6 +72,32 @@ The task card is the top-level governance entry point. It binds one rescue task
 contract to the checked-in dataset cards, freeze manifest, split manifest, and
 raw-to-frozen lineage artifacts that later rescue-data PRs must materialize.
 
+## Active Interneuron Family
+
+`PR-40C` now ships one active rescue family for downstream interneuron work:
+
+- `data/curated/rescue_tasks/contracts/interneuron_gene_rescue_task.json`
+- `data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/task_card.json`
+- `data/raw/rescue/interneuron_synapse/interneuron_synapse_candidate_snapshot_2023_12_31.csv`
+- `data/raw/rescue/interneuron_arbor/interneuron_arbor_candidate_snapshot_2023_12_31.csv`
+- `data/raw/rescue/interneuron_followup/interneuron_followup_adjudications_2026_03_31.csv`
+- `data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_synapse_ranking_inputs_2023_12_31.csv`
+- `data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_arbor_ranking_inputs_2023_12_31.csv`
+- `data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_followup_labels_2026_03_31.csv`
+
+The active family keeps two ranking-input datasets (`synapse`, `arbor`) separate
+under one task contract and binds both to a shared held-out post-cutoff follow-up
+label table.
+
+The checked-in example validation and load path is:
+
+```bash
+python3 scripts/rescue/load_interneuron_bundle.py
+```
+
+That script validates the full governance bundle from the task card and then opens
+each checked-in frozen CSV referenced by the dataset cards.
+
 ## Leakage Boundary After PR-40A
 
 The rescue leakage policy is explicit and now requires schema-validated governance
@@ -125,20 +151,61 @@ The normal artifact path now enforces the same bundle checks. A
 dataset cards, freeze manifests, split manifests, or lineage artifacts are missing or
 broken.
 
+## Active NPC Freeze
+
+`PR-40B` adds the first active rescue-data bundle:
+
+- contract:
+  `data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json`
+- governance:
+  `data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/`
+- raw staged inputs:
+  `data/raw/rescue/npc_signature_reversal/`
+- frozen outputs:
+  `data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/`
+
+This task freezes a schizophrenia NPC gene universe at `2020-12-31` using only
+pre-cutoff sources in the ranking inputs:
+
+- 2017 hiPSC-derived NPC differential expression
+- 2018 SZ_iPSC_NPC perturbation signatures
+
+The evaluation labels come from a post-cutoff 2022 rescue paper and stay in a
+separate governed dataset. The checked-in ranking CSV already includes deterministic
+`split_name` assignments so downstream task code can load one pre-cutoff artifact and
+avoid any raw extraction path.
+
+The preferred load path for downstream rescue work is now:
+
+```python
+from scz_target_engine.rescue import load_frozen_rescue_task_bundle
+
+bundle = load_frozen_rescue_task_bundle(
+    rescue_task_id="scz_npc_signature_reversal_rescue_task"
+)
+assert bundle.ranking_input.path.name == (
+    "scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv"
+)
+assert bundle.evaluation_target.path.name == (
+    "scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv"
+)
+```
+
 ## Active Glutamatergic Convergence Lane
 
-The repo now also ships an active rescue family under:
+`PR-40D` adds a convergence-hub-grounded rescue family under:
 
 - `data/curated/rescue_tasks/glutamatergic_convergence/`
-
-Its provenance snapshots live under:
-
 - `data/raw/rescue/glutamatergic_convergence/`
 
 The ranking-input freeze is anchored to the shipped convergence-hub framing generated
 from the dedicated atlas fixture:
 
 - `data/curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json`
+
+The checked-in raw rescue chain is portable and self-contained in git. Its manifests
+resolve without developer-local absolute paths or `.context` dependencies, and
+regeneration from the checked-in fixture preserves that portable-path behavior.
 
 Downstream rescue implementations must stay on the frozen CSV surface and must not
 re-open either the raw rescue snapshots or the atlas fixture inputs.

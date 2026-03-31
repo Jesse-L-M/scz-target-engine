@@ -26,3 +26,8 @@ workflows and publishes `examples/v0/input/gene_evidence.csv` plus
 `examples/v0/input/module_evidence.csv`.
 
 This directory is gitignored except for this file.
+
+Exception:
+
+- governed rescue frozen datasets referenced by checked-in rescue dataset cards
+  may be checked in under `data/processed/rescue/`

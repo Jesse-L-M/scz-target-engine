@@ -1,0 +1,87 @@
+{
+  "schema_name": "rescue_task_contract",
+  "schema_version": "v1",
+  "contract_version": "rescue-contract-v1",
+  "suite_id": "scz_rescue_contract_suite",
+  "suite_label": "Schizophrenia Rescue Task Suite",
+  "task_id": "interneuron_gene_rescue_task",
+  "task_label": "Interneuron synapse and arbor rescue task",
+  "task_type": "gene_rescue_ranking",
+  "disease": "schizophrenia",
+  "entity_type": "gene",
+  "summary": "Active governed rescue task that freezes historical interneuron synapse and arbor candidate datasets alongside held-out post-cutoff follow-up labels.",
+  "contract_scope": "rescue_only",
+  "artifact_contracts": [
+    {
+      "artifact_id": "interneuron_synapse_candidates",
+      "artifact_label": "Interneuron synapse candidate freeze",
+      "io_direction": "consumes",
+      "channel": "ranking_input",
+      "availability": "pre_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Frozen pre-cutoff interneuron synapse candidates with explicit source provenance.",
+      "leakage_rule": "Must be assembled only from pre-cutoff literature snapshots and must exclude post-cutoff follow-up adjudications."
+    },
+    {
+      "artifact_id": "interneuron_arbor_candidates",
+      "artifact_label": "Interneuron arbor candidate freeze",
+      "io_direction": "consumes",
+      "channel": "ranking_input",
+      "availability": "pre_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Frozen pre-cutoff interneuron arbor candidates with explicit source provenance.",
+      "leakage_rule": "Must be assembled only from pre-cutoff literature snapshots and must exclude post-cutoff follow-up adjudications."
+    },
+    {
+      "artifact_id": "post_cutoff_followup_labels",
+      "artifact_label": "Held-out post-cutoff follow-up labels",
+      "io_direction": "consumes",
+      "channel": "evaluation_target",
+      "availability": "post_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Manual post-cutoff follow-up labels used only for offline rescue evaluation.",
+      "leakage_rule": "May summarize post-cutoff follow-up support but must never be exposed to candidate selection, ranking, or thresholding."
+    },
+    {
+      "artifact_id": "ranked_predictions",
+      "artifact_label": "Ranked rescue predictions",
+      "io_direction": "emits",
+      "channel": "task_output",
+      "availability": "derived",
+      "file_format": "csv",
+      "required": true,
+      "description": "Future ranked rescue outputs emitted by downstream rescue implementations.",
+      "leakage_rule": "Must depend only on frozen ranking-input datasets and must not embed hidden evaluation labels."
+    },
+    {
+      "artifact_id": "task_context",
+      "artifact_label": "Task context metadata",
+      "io_direction": "consumes",
+      "channel": "task_metadata",
+      "availability": "operator_supplied",
+      "file_format": "json",
+      "required": false,
+      "description": "Optional operator metadata that documents why the synapse and arbor axes were frozen together.",
+      "leakage_rule": "May document intended scope and cutoff but must not summarize post-cutoff evaluation outcomes."
+    }
+  ],
+  "leakage_boundary": {
+    "policy_id": "strict_rescue_task_boundary_v1",
+    "requires_explicit_cutoff": true,
+    "requires_explicit_artifact_contracts": true,
+    "forbid_post_cutoff_artifacts_in_ranking": true,
+    "forbid_evaluation_labels_in_ranking": true,
+    "freeze_manifest_required": true,
+    "freeze_manifest_policy": "schema_validated_rescue_governance_v1",
+    "dataset_cards_required": true,
+    "task_card_required": true,
+    "split_manifest_required": true,
+    "raw_to_frozen_lineage_required": true,
+    "current_head_policy": "reject_unfrozen_current_head_state",
+    "notes": "The active interneuron family preserves the strict rescue-only leakage boundary introduced in PR-40 and PR-40A."
+  },
+  "notes": "PR-40C materializes two pre-cutoff ranking-input datasets and one held-out post-cutoff evaluation dataset for downstream rescue consumers."
+}

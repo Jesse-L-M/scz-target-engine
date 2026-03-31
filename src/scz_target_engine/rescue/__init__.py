@@ -7,6 +7,11 @@ from scz_target_engine.rescue.contracts import (
     RescueTaskContract,
     read_rescue_task_contract,
 )
+from scz_target_engine.rescue.frozen import (
+    FrozenRescueDataset,
+    FrozenRescueTaskBundle,
+    load_frozen_rescue_task_bundle,
+)
 from scz_target_engine.rescue.governance import (
     RESCUE_DATASET_CARD_ARTIFACT_NAME,
     RESCUE_FREEZE_MANIFEST_ARTIFACT_NAME,
@@ -49,6 +54,8 @@ __all__ = [
     "GLUTAMATERGIC_CONVERGENCE_RAW_TENSOR_MANIFEST_PATH",
     "GLUTAMATERGIC_CONVERGENCE_RANKING_INPUTS_PATH",
     "GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH",
+    "FrozenRescueDataset",
+    "FrozenRescueTaskBundle",
     "RESCUE_DATASET_CARD_ARTIFACT_NAME",
     "RESCUE_FREEZE_MANIFEST_ARTIFACT_NAME",
     "RESCUE_RAW_TO_FROZEN_LINEAGE_ARTIFACT_NAME",
@@ -77,6 +84,7 @@ __all__ = [
     "load_rescue_task_registrations",
     "load_glutamatergic_convergence_rescue_bundle",
     "validate_glutamatergic_convergence_raw_snapshot_bundle",
+    "load_frozen_rescue_task_bundle",
     "read_rescue_task_contract",
     "read_rescue_task_card",
     "resolve_rescue_suite_contract",

@@ -1,0 +1,76 @@
+{
+  "schema_name": "rescue_task_contract",
+  "schema_version": "v1",
+  "contract_version": "rescue-contract-v1",
+  "suite_id": "scz_rescue_contract_suite",
+  "suite_label": "Schizophrenia Rescue Task Suite",
+  "task_id": "scz_npc_signature_reversal_rescue_task",
+  "task_label": "Schizophrenia NPC signature-reversal rescue task",
+  "task_type": "gene_rescue_ranking",
+  "disease": "schizophrenia",
+  "entity_type": "gene",
+  "summary": "Governed schizophrenia rescue task that freezes a gene-level NPC disease-signature and reversal-feature universe before exposing sparse post-cutoff rescue labels for offline evaluation.",
+  "contract_scope": "rescue_only",
+  "artifact_contracts": [
+    {
+      "artifact_id": "candidate_universe",
+      "artifact_label": "NPC signature-reversal ranking inputs",
+      "io_direction": "consumes",
+      "channel": "ranking_input",
+      "availability": "pre_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Frozen gene-level ranking inputs derived only from pre-cutoff schizophrenia NPC signature and drug-perturbation evidence.",
+      "leakage_rule": "Must be materialized from rescue evidence frozen on or before the rescue cutoff and must exclude post-cutoff rescue labels, later source refreshes, and any raw-source dependency at task runtime."
+    },
+    {
+      "artifact_id": "evaluation_labels",
+      "artifact_label": "Post-cutoff rescue labels",
+      "io_direction": "consumes",
+      "channel": "evaluation_target",
+      "availability": "post_cutoff",
+      "file_format": "csv",
+      "required": true,
+      "description": "Post-cutoff rescue-positive labels held out for offline evaluation only.",
+      "leakage_rule": "May close after the rescue cutoff but must never be exposed to feature construction, ranking, split selection, or threshold tuning."
+    },
+    {
+      "artifact_id": "ranked_predictions",
+      "artifact_label": "Ranked rescue predictions",
+      "io_direction": "emits",
+      "channel": "task_output",
+      "availability": "derived",
+      "file_format": "csv",
+      "required": true,
+      "description": "Ordered gene-level rescue predictions emitted by downstream rescue task runners.",
+      "leakage_rule": "Must be derived only from ranking inputs allowed by this contract and must not embed hidden evaluation labels or post-cutoff features."
+    },
+    {
+      "artifact_id": "task_context",
+      "artifact_label": "Task context metadata",
+      "io_direction": "consumes",
+      "channel": "task_metadata",
+      "availability": "operator_supplied",
+      "file_format": "json",
+      "required": false,
+      "description": "Optional operator metadata documenting task scope and freeze selection.",
+      "leakage_rule": "May describe task scope, split policy, or cutoff intent but must not summarize post-cutoff outcome adjudications."
+    }
+  ],
+  "leakage_boundary": {
+    "policy_id": "strict_rescue_task_boundary_v1",
+    "requires_explicit_cutoff": true,
+    "requires_explicit_artifact_contracts": true,
+    "forbid_post_cutoff_artifacts_in_ranking": true,
+    "forbid_evaluation_labels_in_ranking": true,
+    "freeze_manifest_required": true,
+    "freeze_manifest_policy": "schema_validated_rescue_governance_v1",
+    "dataset_cards_required": true,
+    "task_card_required": true,
+    "split_manifest_required": true,
+    "raw_to_frozen_lineage_required": true,
+    "current_head_policy": "reject_unfrozen_current_head_state",
+    "notes": "This task remains inside the strict rescue governance lane and requires schema-validated dataset cards, task cards, freeze manifests, split manifests, and lineage artifacts before downstream consumption."
+  },
+  "notes": "PR-41 should consume only the checked-in frozen ranking and evaluation artifacts declared by this contract and should not call raw-source extraction logic."
+}

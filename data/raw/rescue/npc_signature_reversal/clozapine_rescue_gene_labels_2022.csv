@@ -1,0 +1,15 @@
+gene_symbol,source_doi,source_publication_date,evidence_scope,evidence_note
+ATP1B1,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as dysregulated in schizophrenia neurons and up-regulated by clozapine.
+GRIN2A,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as part of glutamatergic signaling enhanced by clozapine pretreatment.
+GRIN2B,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as part of glutamatergic signaling enhanced by clozapine pretreatment.
+KCNB1,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as a dysregulated K+ channel gene implicated in schizophrenia and clozapine response.
+KCNH8,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional channel gene implicated in schizophrenia and clozapine response.
+KCNK10,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional channel gene implicated in schizophrenia and clozapine response.
+KCTD2,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional channel-associated gene implicated in schizophrenia and clozapine response.
+SCN2A,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as a dysregulated Na+ channel gene implicated in schizophrenia and clozapine response.
+SCN3A,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as a dysregulated Na+ channel gene implicated in schizophrenia and clozapine response.
+SLC13A4,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional transporter gene implicated in schizophrenia and clozapine response.
+SLC1A4,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional transporter gene implicated in schizophrenia and clozapine response.
+SLC32A1,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional transporter gene implicated in schizophrenia and clozapine response.
+SLC4A4,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional transporter gene implicated in schizophrenia and clozapine response.
+SLC6A1,10.3389/fncel.2022.830757,2022-02-23,clozapine-responsive schizophrenia glutamatergic neurons,Explicitly described as an additional transporter gene implicated in schizophrenia and clozapine response.

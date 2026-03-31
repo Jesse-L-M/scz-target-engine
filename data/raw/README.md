@@ -21,5 +21,9 @@ The checked-in historical archives used by the benchmark path are fixture-scale 
 under `data/benchmark/fixtures/scz_small/archives/`. They are benchmark fixtures, not a
 general raw-data landing zone and not a production historical backfill catalog.
 
-This directory is gitignored except for this file and the governed rescue snapshots
-under `data/raw/rescue/`.
+This directory is gitignored except for this file.
+
+Exception:
+
+- governed rescue historical snapshots that are explicitly frozen, carded, and
+  referenced by rescue freeze manifests may be checked in under `data/raw/rescue/`

@@ -50,6 +50,18 @@ def test_cli_validate_runs() -> None:
         ),
         (
             [
+                "hypothesis-lab",
+                "build-expert-review",
+                "--hypothesis-artifact",
+                "hypothesis_packets_v1.json",
+                "--output-dir",
+                "examples/expert_review",
+            ],
+            "build-expert-review-packets",
+            ("hypothesis-lab", "build-expert-review"),
+        ),
+        (
+            [
                 "program-memory",
                 "harvest",
                 "--input-file",
@@ -260,6 +272,27 @@ def test_cli_build_hypothesis_packets_runs(tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert (tmp_path / "cli_hypothesis_packets_v1.json").exists()
+
+
+def test_cli_build_expert_review_packets_runs(tmp_path: Path) -> None:
+    exit_code = main(
+        [
+            "build-expert-review-packets",
+            "--hypothesis-artifact",
+            str(Path("examples/v0/output/hypothesis_packets_v1.json").resolve()),
+            "--output-dir",
+            str((tmp_path / "expert_review").resolve()),
+            "--rubric-file",
+            str(
+                Path(
+                    "docs/review_rubrics/blinded_expert_review_rubric.json"
+                ).resolve()
+            ),
+        ]
+    )
+
+    assert exit_code == 0
+    assert (tmp_path / "expert_review" / "blinded_expert_review_packets_v1.json").exists()
 
 
 @pytest.mark.parametrize(

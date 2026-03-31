@@ -26,7 +26,10 @@ from scz_target_engine.benchmark_snapshots import (
 )
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
-from scz_target_engine.hypothesis_lab import materialize_hypothesis_packets
+from scz_target_engine.hypothesis_lab import (
+    materialize_blinded_expert_review_packets,
+    materialize_hypothesis_packets,
+)
 from scz_target_engine.ingest import refresh_candidate_registry
 from scz_target_engine.io import read_json, write_csv
 from scz_target_engine.program_memory import (
@@ -89,6 +92,14 @@ def _configure_build_hypothesis_packets_parser(
     parser.add_argument("--policy-artifact", required=True)
     parser.add_argument("--ledger-artifact", required=True)
     parser.add_argument("--output-file", required=True)
+
+
+def _configure_build_expert_review_packets_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--hypothesis-artifact", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--rubric-file")
 
 
 def _configure_program_memory_harvest_parser(
@@ -338,6 +349,11 @@ COMMAND_ROUTES = (
         "build-hypothesis-packets",
         ("hypothesis-lab", "build-packets"),
         _configure_build_hypothesis_packets_parser,
+    ),
+    CommandRoute(
+        "build-expert-review-packets",
+        ("hypothesis-lab", "build-expert-review"),
+        _configure_build_expert_review_packets_parser,
     ),
     CommandRoute(
         "program-memory-harvest",
@@ -773,6 +789,16 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+        return 0
+
+    if args.command == "build-expert-review-packets":
+        output_dir = Path(args.output_dir).resolve()
+        result = materialize_blinded_expert_review_packets(
+            Path(args.hypothesis_artifact).resolve(),
+            output_dir=output_dir,
+            rubric_file=Path(args.rubric_file).resolve() if args.rubric_file else None,
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
     if args.command == "fetch-opentargets":

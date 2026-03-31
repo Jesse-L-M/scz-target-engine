@@ -1,0 +1,923 @@
+{
+  "artifact_kind": "blinded_expert_review_packets",
+  "comparison_count": 8,
+  "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+  "comparisons": [
+    {
+      "comparison_id": "comparison_001",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "CHRM4",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_001_A",
+          "content_sha256": "6e569f37f14e0891c7b07752ee31f725e737654aa27911414d974c210cc634cf",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "CHRM4 | Acute translation guardrails | acute_positive_symptoms",
+                  "Test increase_activity CHRM4 via muscarinic_agonism_or_positive_allosteric_modulation (small_molecule, positive_allosteric_modulator) in acute_positive_symptoms.",
+                  "Policy score: 0.244 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "xanomeline-based approval supports muscarinic agonism in schizophrenia, while emraclidine keeps selective CHRM4 translation unresolved.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: replay_not_supported",
+                  "Main contradiction: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+                  "Risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+                  "Risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+                ]
+              }
+            ],
+            "title": "CHRM4 | Acute translation guardrails"
+          }
+        },
+        {
+          "blind_id": "comparison_001_B",
+          "content_sha256": "97e11cfa456299bd0576e0cb46c9c4825a2c91b7c1d1b8c4d2340dcffe8844c5",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: CHRM4",
+                  "Policy: Acute translation guardrails",
+                  "Priority domain: acute_positive_symptoms",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test increase_activity CHRM4 via muscarinic_agonism_or_positive_allosteric_modulation (small_molecule, positive_allosteric_modulator) in acute_positive_symptoms.",
+                  "Direction / modality: increase_activity via muscarinic_agonism_or_positive_allosteric_modulation",
+                  "Confidence: medium",
+                  "Evidence basis: xanomeline-based approval supports muscarinic agonism in schizophrenia, while emraclidine keeps selective CHRM4 translation unresolved."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Acute translation guardrails scored 0.244 (available) with base 0.364.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
+                  "Replay summary: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary)."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "supporting_program: cobenfy-xanomeline-trospium-approval-us-2024 (regulatory_approval, approved_for_adults_with_schizophrenia) - Landmark non-dopaminergic approval relevant to later class-baggage reasoning.",
+                  "supporting_program: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+                  "Falsification condition: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+                  "Open risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+                  "Open risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here.",
+                  "Open risk: medium | Missing source-backed biological support; matched SCHEMA rare-variant support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support and PsychENCODE biological support.",
+                  "Open risk: medium | Selective CHRM4 may not capture the broader muscarinic signal seen with xanomeline-based combinations.",
+                  "Open risk: medium | Tolerability and engagement windows can still distort target-readout interpretation."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: escape_evidence_present",
+                  "Escape route: cobenfy-xanomeline-trospium-approval-us-2024 - cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample.",
+                  "Needed evidence: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000180720__acute_translation_guardrails_v1",
+                  "Policy pointer: /entities/gene/25 -> /entities/gene/25/policy_scores/0",
+                  "Ledger pointer: /targets/25",
+                  "Replay event ids: cobenfy-xanomeline-trospium-approval-us-2024, emraclidine-empower-acute-scz-topline-2024"
+                ]
+              }
+            ],
+            "title": "CHRM4 | Acute translation guardrails"
+          }
+        }
+      ]
+    },
+    {
+      "comparison_id": "comparison_002",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "CHRM4",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_002_A",
+          "content_sha256": "19508873f1767c15fe5ccfb6acb5cf62c191dc710a11ea431955f8f3ebbdaf3d",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: CHRM4",
+                  "Policy: Refractory discovery upside",
+                  "Priority domain: treatment_resistant_schizophrenia",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test increase_activity CHRM4 via muscarinic_agonism_or_positive_allosteric_modulation (small_molecule, positive_allosteric_modulator) in treatment_resistant_schizophrenia.",
+                  "Direction / modality: increase_activity via muscarinic_agonism_or_positive_allosteric_modulation",
+                  "Confidence: medium",
+                  "Evidence basis: xanomeline-based approval supports muscarinic agonism in schizophrenia, while emraclidine keeps selective CHRM4 translation unresolved."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Refractory discovery upside scored 0.207 (available) with base 0.327.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties.",
+                  "Replay summary: Replay remains inconclusive: 2 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "supporting_program: cobenfy-xanomeline-trospium-approval-us-2024 (regulatory_approval, approved_for_adults_with_schizophrenia) - Landmark non-dopaminergic approval relevant to later class-baggage reasoning.",
+                  "supporting_program: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+                  "Falsification condition: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+                  "Open risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+                  "Open risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here.",
+                  "Open risk: medium | Missing source-backed biological support; matched SCHEMA rare-variant support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support and PsychENCODE biological support.",
+                  "Open risk: medium | Selective CHRM4 may not capture the broader muscarinic signal seen with xanomeline-based combinations.",
+                  "Open risk: medium | Tolerability and engagement windows can still distort target-readout interpretation."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: escape_unresolved",
+                  "Needed evidence: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000180720__refractory_discovery_upside_v1",
+                  "Policy pointer: /entities/gene/25 -> /entities/gene/25/policy_scores/1",
+                  "Ledger pointer: /targets/25",
+                  "Replay event ids: emraclidine-empower-acute-scz-topline-2024"
+                ]
+              }
+            ],
+            "title": "CHRM4 | Refractory discovery upside"
+          }
+        },
+        {
+          "blind_id": "comparison_002_B",
+          "content_sha256": "9f10412bec46af43bc5091c401ddc1df5cb8814e10db0f0da1362327b029449b",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "CHRM4 | Refractory discovery upside | treatment_resistant_schizophrenia",
+                  "Test increase_activity CHRM4 via muscarinic_agonism_or_positive_allosteric_modulation (small_molecule, positive_allosteric_modulator) in treatment_resistant_schizophrenia.",
+                  "Policy score: 0.207 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "xanomeline-based approval supports muscarinic agonism in schizophrenia, while emraclidine keeps selective CHRM4 translation unresolved.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: replay_inconclusive",
+                  "Main contradiction: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+                  "Risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+                  "Risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+                ]
+              }
+            ],
+            "title": "CHRM4 | Refractory discovery upside"
+          }
+        }
+      ]
+    },
+    {
+      "comparison_id": "comparison_003",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "DRD2",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_003_A",
+          "content_sha256": "94e3c3c7aab7133c26626bd265c44ecf35dde4d87daa8db89e66acbeb578ae6a",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: DRD2",
+                  "Policy: Acute translation guardrails",
+                  "Priority domain: acute_positive_symptoms",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test decrease_activity DRD2 via d2_antagonism_or_partial_agonism (small_molecule) in acute_positive_symptoms.",
+                  "Direction / modality: decrease_activity via d2_antagonism_or_partial_agonism",
+                  "Confidence: high",
+                  "Evidence basis: Decades of antipsychotic use establish symptom control relevance for net DRD2 dampening, with clozapine as a permissive but nonselective anchor."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Acute translation guardrails scored 0.302 (available) with base 0.462.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
+                  "Replay summary: Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "supporting_program: clozapine-clozaril-trs-approval-us-1989 (regulatory_approval, approved_for_treatment_resistant_schizophrenia) - TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+                  "Falsification condition: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+                  "Open risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+                  "Open risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: escape_unresolved",
+                  "Needed evidence: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000149295__acute_translation_guardrails_v1",
+                  "Policy pointer: /entities/gene/4 -> /entities/gene/4/policy_scores/0",
+                  "Ledger pointer: /targets/4",
+                  "Replay event ids: none"
+                ]
+              }
+            ],
+            "title": "DRD2 | Acute translation guardrails"
+          }
+        },
+        {
+          "blind_id": "comparison_003_B",
+          "content_sha256": "bd55fdf5db446a19576f684ccd13f21a98b4b6b6e69d1597ef94b57d54b9d0b6",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "DRD2 | Acute translation guardrails | acute_positive_symptoms",
+                  "Test decrease_activity DRD2 via d2_antagonism_or_partial_agonism (small_molecule) in acute_positive_symptoms.",
+                  "Policy score: 0.302 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "Decades of antipsychotic use establish symptom control relevance for net DRD2 dampening, with clozapine as a permissive but nonselective anchor.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: replay_inconclusive",
+                  "Main contradiction: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+                  "Risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+                  "Risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+                ]
+              }
+            ],
+            "title": "DRD2 | Acute translation guardrails"
+          }
+        }
+      ]
+    },
+    {
+      "comparison_id": "comparison_004",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "DRD2",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_004_A",
+          "content_sha256": "9bf6f98a8c4f59059824cc29dd7e30f5839b6212458e689f4a718ba948729b52",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "DRD2 | Refractory discovery upside | treatment_resistant_schizophrenia",
+                  "Test decrease_activity DRD2 via d2_antagonism_or_partial_agonism (small_molecule) in treatment_resistant_schizophrenia.",
+                  "Policy score: 0.465 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "Decades of antipsychotic use establish symptom control relevance for net DRD2 dampening, with clozapine as a permissive but nonselective anchor.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: replay_not_supported",
+                  "Main contradiction: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+                  "Risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+                  "Risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+                ]
+              }
+            ],
+            "title": "DRD2 | Refractory discovery upside"
+          }
+        },
+        {
+          "blind_id": "comparison_004_B",
+          "content_sha256": "dcde0baf9c90fd2b8b51017c3e9e2f2b6f0419c4688fa63e3a841827910f2edd",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: DRD2",
+                  "Policy: Refractory discovery upside",
+                  "Priority domain: treatment_resistant_schizophrenia",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test decrease_activity DRD2 via d2_antagonism_or_partial_agonism (small_molecule) in treatment_resistant_schizophrenia.",
+                  "Direction / modality: decrease_activity via d2_antagonism_or_partial_agonism",
+                  "Confidence: high",
+                  "Evidence basis: Decades of antipsychotic use establish symptom control relevance for net DRD2 dampening, with clozapine as a permissive but nonselective anchor."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Refractory discovery upside scored 0.465 (available) with base 0.470.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties.",
+                  "Replay summary: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (0 remain cautionary)."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "supporting_program: clozapine-clozaril-trs-approval-us-1989 (regulatory_approval, approved_for_treatment_resistant_schizophrenia) - TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+                  "Falsification condition: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+                  "Open risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+                  "Open risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: escape_evidence_present",
+                  "Escape route: clozapine-clozaril-trs-approval-us-1989 - clozapine-clozaril-trs-approval-us-1989 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "Needed evidence: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000149295__refractory_discovery_upside_v1",
+                  "Policy pointer: /entities/gene/4 -> /entities/gene/4/policy_scores/1",
+                  "Ledger pointer: /targets/4",
+                  "Replay event ids: clozapine-clozaril-trs-approval-us-1989"
+                ]
+              }
+            ],
+            "title": "DRD2 | Refractory discovery upside"
+          }
+        }
+      ]
+    },
+    {
+      "comparison_id": "comparison_005",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "SLC39A8",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_005_A",
+          "content_sha256": "e6848bcfd624c89dfa849d44e0caaaf15166607bf2b81c856feaef52e3c91069",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "SLC39A8 | Acute translation guardrails | acute_positive_symptoms",
+                  "Test restore_or_normalize_activity SLC39A8 via precision_or_biomarker_stratified_intervention (small_molecule, biomarker_stratified) in acute_positive_symptoms.",
+                  "Policy score: 0.256 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "The current substrate only supports a normalization-style hypothesis from genetics and biology, not a validated clinical intervention mode.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: insufficient_history",
+                  "Main contradiction: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+                  "Risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+                ]
+              }
+            ],
+            "title": "SLC39A8 | Acute translation guardrails"
+          }
+        },
+        {
+          "blind_id": "comparison_005_B",
+          "content_sha256": "d38204f89873c394cd1daef099480e0af2589cebc401ff5af67b1c7a0ea36b05",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: SLC39A8",
+                  "Policy: Acute translation guardrails",
+                  "Priority domain: acute_positive_symptoms",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test restore_or_normalize_activity SLC39A8 via precision_or_biomarker_stratified_intervention (small_molecule, biomarker_stratified) in acute_positive_symptoms.",
+                  "Direction / modality: restore_or_normalize_activity via precision_or_biomarker_stratified_intervention",
+                  "Confidence: low",
+                  "Evidence basis: The current substrate only supports a normalization-style hypothesis from genetics and biology, not a validated clinical intervention mode."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Acute translation guardrails scored 0.256 (available) with base 0.306.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
+                  "Replay summary: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+                  "Falsification condition: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+                  "Open risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: history_insufficient",
+                  "Needed evidence: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000138821__acute_translation_guardrails_v1",
+                  "Policy pointer: /entities/gene/20 -> /entities/gene/20/policy_scores/0",
+                  "Ledger pointer: /targets/20",
+                  "Replay event ids: none"
+                ]
+              }
+            ],
+            "title": "SLC39A8 | Acute translation guardrails"
+          }
+        }
+      ]
+    },
+    {
+      "comparison_id": "comparison_006",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "SLC39A8",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_006_A",
+          "content_sha256": "91e5648957a611059b84fa4e3e3ce4474127d6a871eb8cb5c3f1f32d6fa581de",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "SLC39A8 | Refractory discovery upside | treatment_resistant_schizophrenia",
+                  "Test restore_or_normalize_activity SLC39A8 via precision_or_biomarker_stratified_intervention (small_molecule, biomarker_stratified) in treatment_resistant_schizophrenia.",
+                  "Policy score: 0.331 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "The current substrate only supports a normalization-style hypothesis from genetics and biology, not a validated clinical intervention mode.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: insufficient_history",
+                  "Main contradiction: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+                  "Risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+                ]
+              }
+            ],
+            "title": "SLC39A8 | Refractory discovery upside"
+          }
+        },
+        {
+          "blind_id": "comparison_006_B",
+          "content_sha256": "ebf5a804453944a57664f8cdc5df1fb84328811a56efc9225d98485e12a31928",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: SLC39A8",
+                  "Policy: Refractory discovery upside",
+                  "Priority domain: treatment_resistant_schizophrenia",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test restore_or_normalize_activity SLC39A8 via precision_or_biomarker_stratified_intervention (small_molecule, biomarker_stratified) in treatment_resistant_schizophrenia.",
+                  "Direction / modality: restore_or_normalize_activity via precision_or_biomarker_stratified_intervention",
+                  "Confidence: low",
+                  "Evidence basis: The current substrate only supports a normalization-style hypothesis from genetics and biology, not a validated clinical intervention mode."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Refractory discovery upside scored 0.331 (available) with base 0.356.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties.",
+                  "Replay summary: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+                  "Falsification condition: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+                  "Open risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: history_insufficient",
+                  "Needed evidence: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000138821__refractory_discovery_upside_v1",
+                  "Policy pointer: /entities/gene/20 -> /entities/gene/20/policy_scores/1",
+                  "Ledger pointer: /targets/20",
+                  "Replay event ids: none"
+                ]
+              }
+            ],
+            "title": "SLC39A8 | Refractory discovery upside"
+          }
+        }
+      ]
+    },
+    {
+      "comparison_id": "comparison_007",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "SLC6A1",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_007_A",
+          "content_sha256": "9a06113e3b01db63c3502bceceaffcd62b91e2c87af9d9e3c6aceec77ceb75e4",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "SLC6A1 | Acute translation guardrails | acute_positive_symptoms",
+                  "Test increase_gaba_tone SLC6A1 via gaba_reuptake_inhibition_or_positive_modulation (small_molecule) in acute_positive_symptoms.",
+                  "Policy score: 0.266 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "Prepared-source biology supports GABAergic relevance, but the repository does not yet carry a schizophrenia clinical anchor for SLC6A1.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: insufficient_history",
+                  "Main contradiction: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+                  "Risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+                  "Risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+                ]
+              }
+            ],
+            "title": "SLC6A1 | Acute translation guardrails"
+          }
+        },
+        {
+          "blind_id": "comparison_007_B",
+          "content_sha256": "872cf0d86fdf493df7f6d889ab473a071e657b621a5c41ed157e78693bdcfcfe",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: SLC6A1",
+                  "Policy: Acute translation guardrails",
+                  "Priority domain: acute_positive_symptoms",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test increase_gaba_tone SLC6A1 via gaba_reuptake_inhibition_or_positive_modulation (small_molecule) in acute_positive_symptoms.",
+                  "Direction / modality: increase_gaba_tone via gaba_reuptake_inhibition_or_positive_modulation",
+                  "Confidence: low",
+                  "Evidence basis: Prepared-source biology supports GABAergic relevance, but the repository does not yet carry a schizophrenia clinical anchor for SLC6A1."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Acute translation guardrails scored 0.266 (available) with base 0.351.",
+                  "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
+                  "Replay summary: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+                  "Falsification condition: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+                  "Open risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+                  "Open risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: history_insufficient",
+                  "Needed evidence: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000157103__acute_translation_guardrails_v1",
+                  "Policy pointer: /entities/gene/2 -> /entities/gene/2/policy_scores/0",
+                  "Ledger pointer: /targets/2",
+                  "Replay event ids: none"
+                ]
+              }
+            ],
+            "title": "SLC6A1 | Acute translation guardrails"
+          }
+        }
+      ]
+    },
+    {
+      "comparison_id": "comparison_008",
+      "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+      "topic": {
+        "entity_label": "SLC6A1",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "variants": [
+        {
+          "blind_id": "comparison_008_A",
+          "content_sha256": "83b55427503e84e1a50748101a292a0cdb0e19236bd311beb552d7969978c0de",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Decision focus",
+                "lines": [
+                  "Target: SLC6A1",
+                  "Policy: Refractory discovery upside",
+                  "Priority domain: treatment_resistant_schizophrenia",
+                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                ]
+              },
+              {
+                "heading": "Hypothesis",
+                "lines": [
+                  "Test increase_gaba_tone SLC6A1 via gaba_reuptake_inhibition_or_positive_modulation (small_molecule) in treatment_resistant_schizophrenia.",
+                  "Direction / modality: increase_gaba_tone via gaba_reuptake_inhibition_or_positive_modulation",
+                  "Confidence: low",
+                  "Evidence basis: Prepared-source biology supports GABAergic relevance, but the repository does not yet carry a schizophrenia clinical anchor for SLC6A1."
+                ]
+              },
+              {
+                "heading": "Why it made the packet",
+                "lines": [
+                  "Policy signal: Refractory discovery upside scored 0.337 (available) with base 0.377.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties.",
+                  "Replay summary: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay."
+                ]
+              },
+              {
+                "heading": "Evidence anchors",
+                "lines": [
+                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Contradictions and risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Contradiction condition: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+                  "Falsification condition: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+                  "Open risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+                  "Open risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Escape status: history_insufficient",
+                  "Needed evidence: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+                ]
+              },
+              {
+                "heading": "Traceability",
+                "lines": [
+                  "Source packet id: ENSG00000157103__refractory_discovery_upside_v1",
+                  "Policy pointer: /entities/gene/2 -> /entities/gene/2/policy_scores/1",
+                  "Ledger pointer: /targets/2",
+                  "Replay event ids: none"
+                ]
+              }
+            ],
+            "title": "SLC6A1 | Refractory discovery upside"
+          }
+        },
+        {
+          "blind_id": "comparison_008_B",
+          "content_sha256": "6e0d5f4a49d2ca322ec973f49599b2007d80db024f85254933897a7d26f83a69",
+          "review_packet": {
+            "sections": [
+              {
+                "heading": "Summary",
+                "lines": [
+                  "SLC6A1 | Refractory discovery upside | treatment_resistant_schizophrenia",
+                  "Test increase_gaba_tone SLC6A1 via gaba_reuptake_inhibition_or_positive_modulation (small_molecule) in treatment_resistant_schizophrenia.",
+                  "Policy score: 0.337 (available)"
+                ]
+              },
+              {
+                "heading": "Rationale",
+                "lines": [
+                  "Prepared-source biology supports GABAergic relevance, but the repository does not yet carry a schizophrenia clinical anchor for SLC6A1.",
+                  "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties."
+                ]
+              },
+              {
+                "heading": "Risks",
+                "lines": [
+                  "Contradiction status: contradicted",
+                  "Replay status: insufficient_history",
+                  "Main contradiction: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+                  "Risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+                  "Risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+                ]
+              }
+            ],
+            "title": "SLC6A1 | Refractory discovery upside"
+          }
+        }
+      ]
+    }
+  ],
+  "schema_version": "v1",
+  "source_artifacts": {
+    "hypothesis_packets_v1": "../v0/output/hypothesis_packets_v1.json",
+    "review_rubric": "../../docs/review_rubrics/blinded_expert_review_rubric.json"
+  },
+  "style_family_count": 2
+}

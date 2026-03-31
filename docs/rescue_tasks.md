@@ -345,3 +345,19 @@ writes:
 
 The comparison reports stay aggregate-only. They never join held-out labels back into
 prediction files, and they do not reopen raw rescue sources at runtime.
+
+## Hidden Eval Packaging
+
+`PR-62` adds a submitter-facing hidden-eval packaging path rooted in the real shipped
+glutamatergic rescue artifacts. The public package copies only the governed
+`ranking_input` CSV plus a blank submission template and explicit protocol metadata.
+The held-out `evaluation_target` CSV remains operator-only and is resolved by the
+hidden-eval simulator from the checked-in governance bundle.
+
+Important: because this repository itself still contains the held-out evaluation CSVs,
+genuine hidden eval requires distribution separation. Submitters must receive the
+exported public task package, not a checkout of the repo.
+
+See [docs/hidden_eval.md](hidden_eval.md) for the canonical
+`hidden-eval-task-package`, `hidden-eval-pack-submission`, and
+`hidden-eval-simulate` workflow.

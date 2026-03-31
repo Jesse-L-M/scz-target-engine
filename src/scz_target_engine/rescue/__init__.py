@@ -44,9 +44,19 @@ from scz_target_engine.rescue.glutamatergic_convergence import (
     load_glutamatergic_convergence_rescue_bundle,
     validate_glutamatergic_convergence_raw_snapshot_bundle,
 )
+from scz_target_engine.rescue.tasks import (
+    DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS,
+    NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
+    NPC_SIGNATURE_REVERSAL_TASK_ID,
+    NPC_SIGNATURE_REVERSAL_TASK_LABEL,
+    NpcSignatureReversalScorerDefinition,
+    materialize_npc_signature_reversal_run,
+)
 
 __all__ = [
     "DEFAULT_RESCUE_TASK_REGISTRY_PATH",
+    "DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS",
+    "NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID",
     "GLUTAMATERGIC_CONVERGENCE_ATLAS_FIXTURE_MANIFEST_PATH",
     "GLUTAMATERGIC_CONVERGENCE_EVALUATION_LABELS_PATH",
     "GLUTAMATERGIC_CONVERGENCE_RAW_CONVERGENCE_MANIFEST_PATH",
@@ -54,6 +64,8 @@ __all__ = [
     "GLUTAMATERGIC_CONVERGENCE_RAW_TENSOR_MANIFEST_PATH",
     "GLUTAMATERGIC_CONVERGENCE_RANKING_INPUTS_PATH",
     "GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH",
+    "NPC_SIGNATURE_REVERSAL_TASK_ID",
+    "NPC_SIGNATURE_REVERSAL_TASK_LABEL",
     "FrozenRescueDataset",
     "FrozenRescueTaskBundle",
     "RESCUE_DATASET_CARD_ARTIFACT_NAME",
@@ -64,6 +76,7 @@ __all__ = [
     "RESCUE_TASK_CARD_ARTIFACT_NAME",
     "GlutamatergicConvergenceRawSnapshotBundle",
     "GlutamatergicConvergenceRescueBundle",
+    "NpcSignatureReversalScorerDefinition",
     "RescueArtifactContract",
     "RescueDatasetCard",
     "RescueFreezeManifest",
@@ -85,6 +98,7 @@ __all__ = [
     "load_glutamatergic_convergence_rescue_bundle",
     "validate_glutamatergic_convergence_raw_snapshot_bundle",
     "load_frozen_rescue_task_bundle",
+    "materialize_npc_signature_reversal_run",
     "read_rescue_task_contract",
     "read_rescue_task_card",
     "resolve_rescue_suite_contract",

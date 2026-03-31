@@ -121,19 +121,21 @@ python3 scripts/rescue/run_interneuron_rescue_lane.py \
   --output-dir .context/interneuron_rescue_lane_run
 ```
 
-That command writes one `predictions.csv` and one `summary.json` per
-axis/baseline pair beneath the output directory, plus a top-level
+That command writes one `predictions.csv` and one public `summary.json` per
+axis/baseline pair beneath the output directory, plus a top-level public
 `lane_summary.json`.
 
-The emitted summaries stay leakage-safe. They record that offline evaluation ran,
-and they keep provenance only for the frozen ranking input that drove the emitted
-predictions. They do not emit label-derived metrics, per-gene held-out positives,
-or hidden evaluation-target identifiers, paths, hashes, row counts, or similar
-provenance. They also do not emit filesystem paths, task-card paths, freeze or
-split manifest ids, or other governance pointers that would let a caller walk
-from the runnable outputs back to the hidden post-cutoff evaluation artifact
-metadata. If you need detailed offline evaluation for development, call the
-in-memory helper directly instead of relying on emitted JSON.
+The emitted summaries use a strict public schema. Per-run `summary.json` keeps
+only `task_id`, `axis_id`, `baseline_id`, `baseline_label`,
+`baseline_description`, `baseline_leakage_rule`, `cutoff_date`,
+`leakage_boundary_policy_id`, `prediction_count`, `split_counts`,
+`offline_evaluation.executed`, and `notes`. Lane summaries keep only `task_id`,
+`axis_ids`, `baseline_ids`, and `axis_runs`.
+
+Those public outputs do not emit manifest ids, dataset ids, hashes, row counts,
+filesystem paths, task-card pointers, or other governed artifact provenance.
+If you need detailed offline evaluation for development, call the in-memory
+helper directly instead of relying on emitted JSON.
 
 The shipped baselines are intentionally simple and explicit:
 

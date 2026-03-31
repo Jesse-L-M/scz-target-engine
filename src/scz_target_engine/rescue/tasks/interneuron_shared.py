@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date
-import hashlib
 from pathlib import Path
 import random
 
@@ -17,10 +16,7 @@ from scz_target_engine.rescue.frozen import (
     FrozenRescueGovernedTaskBundle,
     load_frozen_rescue_governance_bundle,
 )
-from scz_target_engine.rescue.governance import (
-    RescueFrozenDatasetReference,
-    RescueSplitManifest,
-)
+from scz_target_engine.rescue.governance import RescueSplitManifest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -172,14 +168,6 @@ def _parse_published_at(value: str) -> date:
     return date.fromisoformat(value)
 
 
-def _sha256_path(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def list_interneuron_baselines() -> tuple[InterneuronBaselineDefinition, ...]:
     return INTERNEURON_BASELINE_DEFINITIONS
 
@@ -192,24 +180,6 @@ def resolve_interneuron_baseline(
             return baseline
     valid_baselines = ", ".join(DEFAULT_INTERNEURON_BASELINE_IDS)
     raise ValueError(f"unknown baseline_id: {baseline_id}; expected one of {valid_baselines}")
-
-
-def _freeze_reference_for_dataset(
-    task_data: InterneuronAxisTaskData,
-    dataset: FrozenRescueDataset,
-) -> RescueFrozenDatasetReference:
-    freeze_manifest_by_path = {
-        freeze_manifest_path: freeze_manifest
-        for freeze_manifest_path, freeze_manifest in zip(
-            task_data.frozen_bundle.governance.task_card.freeze_manifest_paths,
-            task_data.frozen_bundle.governance.freeze_manifests,
-        )
-    }
-    freeze_manifest = freeze_manifest_by_path[dataset.card.freeze_manifest_path]
-    for frozen_dataset in freeze_manifest.frozen_datasets:
-        if frozen_dataset.dataset_id == dataset.card.dataset_id:
-            return frozen_dataset
-    raise KeyError(f"missing frozen dataset reference: {dataset.card.dataset_id}")
 
 
 def _resolve_split_counts(
@@ -488,29 +458,36 @@ def evaluate_interneuron_axis_predictions(
 
 
 def _build_emitted_offline_evaluation_metadata() -> dict[str, object]:
-    return {
-        "executed": True,
-        "output_policy": (
-            "Label-derived evaluation summaries are withheld from emitted outputs. "
-            "Use the in-memory evaluation helpers for offline analysis."
-        ),
-    }
+    return {"executed": True}
 
 
-def _build_ranking_input_artifact_summary(
+def _build_public_run_summary(
     task_data: InterneuronAxisTaskData,
-    dataset: FrozenRescueDataset,
+    *,
+    baseline: InterneuronBaselineDefinition,
+    prediction_count: int,
 ) -> dict[str, object]:
-    freeze_reference = _freeze_reference_for_dataset(task_data, dataset)
     return {
-        "artifact_contract_id": dataset.card.artifact_contract_id,
-        "dataset_id": dataset.card.dataset_id,
-        "dataset_role": dataset.card.dataset_role,
-        "availability": dataset.card.availability,
-        "row_count": len(dataset.rows),
-        "sha256": _sha256_path(dataset.path),
-        "governed_row_count": freeze_reference.expected_row_count,
-        "governed_sha256": freeze_reference.expected_sha256,
+        "task_id": task_data.task_id,
+        "axis_id": task_data.axis_id,
+        "baseline_id": baseline.baseline_id,
+        "baseline_label": baseline.label,
+        "baseline_description": baseline.description,
+        "baseline_leakage_rule": baseline.leakage_rule,
+        "cutoff_date": (
+            task_data.frozen_bundle.governance.freeze_manifests[0].cutoff_date
+        ),
+        "leakage_boundary_policy_id": (
+            task_data.frozen_bundle.governance.contract.leakage_boundary.policy_id
+        ),
+        "prediction_count": prediction_count,
+        "split_counts": task_data.split_counts,
+        "offline_evaluation": _build_emitted_offline_evaluation_metadata(),
+        "notes": (
+            "Predictions were built from governed pre-cutoff ranking inputs only. "
+            "Held-out post-cutoff labels were consumed only during internal offline "
+            "evaluation, and public outputs omit governed artifact provenance."
+        ),
     }
 
 
@@ -549,33 +526,11 @@ def materialize_interneuron_axis_rescue_runs(
             fieldnames=PREDICTION_FIELDNAMES,
         )
 
-        summary_payload = {
-            "task_id": task_data.task_id,
-            "axis_id": task_data.axis_id,
-            "baseline_id": baseline.baseline_id,
-            "baseline_label": baseline.label,
-            "baseline_description": baseline.description,
-            "baseline_leakage_rule": baseline.leakage_rule,
-            "cutoff_date": (
-                task_data.frozen_bundle.governance.freeze_manifests[0].cutoff_date
-            ),
-            "leakage_boundary_policy_id": (
-                task_data.frozen_bundle.governance.contract.leakage_boundary.policy_id
-            ),
-            "ranking_dataset_id": task_data.ranking_input.card.dataset_id,
-            "prediction_count": len(prediction_rows),
-            "split_counts": task_data.split_counts,
-            "ranking_input_artifact": _build_ranking_input_artifact_summary(
-                task_data,
-                task_data.ranking_input,
-            ),
-            "offline_evaluation": _build_emitted_offline_evaluation_metadata(),
-            "notes": (
-                "Predictions were built from the governed pre-cutoff ranking artifact "
-                "only. Held-out post-cutoff follow-up labels were consumed only during "
-                "offline evaluation."
-            ),
-        }
+        summary_payload = _build_public_run_summary(
+            task_data,
+            baseline=baseline,
+            prediction_count=len(prediction_rows),
+        )
         write_json(summary_file, summary_payload)
         run_summaries.append(summary_payload)
 

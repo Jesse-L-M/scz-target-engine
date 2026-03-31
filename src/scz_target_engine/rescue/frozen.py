@@ -62,18 +62,31 @@ class FrozenRescueTaskBundle:
 def _freeze_reference_by_dataset_id(
     bundle: RescueGovernanceBundle,
     *,
-    dataset_id: str,
+    card: RescueDatasetCard,
 ) -> RescueFrozenDatasetReference:
+    freeze_manifest_by_path = {
+        path_text: freeze_manifest
+        for path_text, freeze_manifest in zip(
+            bundle.task_card.freeze_manifest_paths,
+            bundle.freeze_manifests,
+        )
+    }
+    freeze_manifest = freeze_manifest_by_path.get(card.freeze_manifest_path)
+    if freeze_manifest is None:
+        raise ValueError(
+            f"{card.dataset_id} referenced an unknown freeze_manifest_path: "
+            f"{card.freeze_manifest_path}"
+        )
+
     matches = [
         dataset
-        for freeze_manifest in bundle.freeze_manifests
         for dataset in freeze_manifest.frozen_datasets
-        if dataset.dataset_id == dataset_id
+        if dataset.dataset_id == card.dataset_id
     ]
     if len(matches) != 1:
         raise ValueError(
-            f"expected exactly one frozen dataset reference for {dataset_id}, "
-            f"found {len(matches)}"
+            f"expected exactly one frozen dataset reference for {card.dataset_id} "
+            f"inside {card.freeze_manifest_path}, found {len(matches)}"
         )
     return matches[0]
 
@@ -230,14 +243,14 @@ def load_frozen_rescue_task_bundle(
         ranking_card,
         freeze_reference=_freeze_reference_by_dataset_id(
             governance,
-            dataset_id=ranking_card.dataset_id,
+            card=ranking_card,
         ),
     )
     evaluation_target = _load_dataset(
         evaluation_card,
         freeze_reference=_freeze_reference_by_dataset_id(
             governance,
-            dataset_id=evaluation_card.dataset_id,
+            card=evaluation_card,
         ),
     )
     _require_split_consistency(

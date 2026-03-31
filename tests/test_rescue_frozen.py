@@ -1,12 +1,16 @@
 import csv
 import hashlib
 import json
+from collections.abc import Callable
 from collections import Counter
 from pathlib import Path
 
 import pytest
 
-from scz_target_engine.rescue import load_frozen_rescue_task_bundle
+from scz_target_engine.rescue import (
+    load_frozen_rescue_task_bundle,
+    validate_rescue_governance_bundle,
+)
 
 
 SOURCE_MANIFEST_PATH = Path(
@@ -165,6 +169,45 @@ def _build_temp_bundle(
     return task_card_path
 
 
+def _build_multi_freeze_bundle(
+    tmp_path: Path,
+    *,
+    alternate_freeze_mutator: Callable[[dict[str, object]], None] | None = None,
+) -> Path:
+    task_card_path = _build_temp_bundle(tmp_path)
+    task_card_payload = json.loads(task_card_path.read_text(encoding="utf-8"))
+    base_freeze_path = Path(task_card_payload["freeze_manifest_paths"][0])
+    base_lineage_path = Path(task_card_payload["lineage_paths"][0])
+    alternate_freeze_path = base_freeze_path.with_name("alternate_freeze_manifest.json")
+    alternate_lineage_path = base_lineage_path.with_name("alternate_lineage.json")
+
+    alternate_freeze_payload = json.loads(base_freeze_path.read_text(encoding="utf-8"))
+    alternate_freeze_payload["freeze_manifest_id"] = "alternate_freeze_manifest"
+    if alternate_freeze_mutator is not None:
+        alternate_freeze_mutator(alternate_freeze_payload)
+
+    alternate_lineage_payload = json.loads(base_lineage_path.read_text(encoding="utf-8"))
+    alternate_lineage_payload["lineage_id"] = "alternate_lineage"
+    alternate_lineage_payload["freeze_manifest_path"] = str(alternate_freeze_path)
+
+    alternate_freeze_path.write_text(
+        json.dumps(alternate_freeze_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    alternate_lineage_path.write_text(
+        json.dumps(alternate_lineage_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    task_card_payload["freeze_manifest_paths"].append(str(alternate_freeze_path))
+    task_card_payload["lineage_paths"].append(str(alternate_lineage_path))
+    task_card_path.write_text(
+        json.dumps(task_card_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return task_card_path
+
+
 def test_npc_source_manifest_matches_checked_in_artifacts() -> None:
     manifest = json.loads(SOURCE_MANIFEST_PATH.read_text(encoding="utf-8"))
 
@@ -281,3 +324,37 @@ def test_frozen_loader_rejects_invalid_entry_point_arguments() -> None:
 def test_frozen_loader_rejects_unknown_rescue_task_id() -> None:
     with pytest.raises(KeyError, match="unknown rescue_task_id"):
         load_frozen_rescue_task_bundle(rescue_task_id="missing_rescue_task")
+
+
+def test_multi_freeze_bundle_that_passes_governance_also_loads(tmp_path: Path) -> None:
+    task_card_path = _build_multi_freeze_bundle(tmp_path)
+
+    governance_bundle = validate_rescue_governance_bundle(task_card_path)
+    loaded_bundle = load_frozen_rescue_task_bundle(task_card_path=task_card_path)
+
+    assert len(governance_bundle.freeze_manifests) == 2
+    assert loaded_bundle.ranking_input.card.dataset_id == (
+        "scz_npc_signature_reversal_ranking_inputs_2020_12_31"
+    )
+    assert loaded_bundle.evaluation_target.card.dataset_id == (
+        "scz_npc_signature_reversal_evaluation_labels_2022_02_23"
+    )
+
+
+def test_loader_uses_dataset_card_declared_freeze_manifest_path(tmp_path: Path) -> None:
+    def mutate_alternate_freeze(payload: dict[str, object]) -> None:
+        frozen_datasets = payload["frozen_datasets"]
+        assert isinstance(frozen_datasets, list)
+        ranking_reference = frozen_datasets[0]
+        assert isinstance(ranking_reference, dict)
+        ranking_reference["expected_sha256"] = "0" * 64
+
+    task_card_path = _build_multi_freeze_bundle(
+        tmp_path,
+        alternate_freeze_mutator=mutate_alternate_freeze,
+    )
+
+    bundle = load_frozen_rescue_task_bundle(task_card_path=task_card_path)
+
+    assert len(bundle.ranking_input.rows) == 15614
+    assert len(bundle.evaluation_target.rows) == 15614

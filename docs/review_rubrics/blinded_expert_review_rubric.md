@@ -75,8 +75,11 @@ That means:
 
 - adding a new required finding adds that field to every generated comparison entry
 - removing a required finding removes that field from the generated template
-- legacy findings keep their current empty defaults, while unknown finding names
-  are emitted as `null` placeholders
+- legacy findings keep their current empty defaults, while genuinely new finding
+  names are emitted as `null` placeholders
+- reserved comparison-template fields like `comparison_id`, `available_blind_ids`,
+  `preferred_blind_id`, and `blind_scores` are invalid rubric finding names and are
+  rejected instead of being silently overwritten
 
 ## Pilot Success Condition
 

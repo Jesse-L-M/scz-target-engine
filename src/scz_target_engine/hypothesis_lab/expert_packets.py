@@ -94,6 +94,15 @@ LEGACY_REQUIRED_FINDING_DEFAULTS = {
     "schema_change_requests": [],
     "generator_revision_requests": [],
 }
+RESERVED_RESPONSE_TEMPLATE_FIELDS = frozenset(
+    {
+        "comparison_id",
+        "topic",
+        "available_blind_ids",
+        "preferred_blind_id",
+        "blind_scores",
+    }
+)
 
 
 def build_blinded_expert_review_payloads(
@@ -566,11 +575,25 @@ def _validate_review_rubric_payload(payload: object) -> dict[str, object]:
         rubric.get("required_findings"),
         "review_rubric.required_findings",
     )
+    _validate_required_findings(required_findings)
+    return rubric
+
+
+def _validate_required_findings(required_findings: list[str]) -> None:
     if not required_findings:
         raise ValueError("review_rubric.required_findings must not be empty")
     if len(required_findings) != len(set(required_findings)):
         raise ValueError("review_rubric.required_findings must not repeat fields")
-    return rubric
+    reserved_collisions = sorted(
+        finding_name
+        for finding_name in required_findings
+        if finding_name in RESERVED_RESPONSE_TEMPLATE_FIELDS
+    )
+    if reserved_collisions:
+        raise ValueError(
+            "review_rubric.required_findings must not use reserved response-template "
+            "fields: " + ", ".join(reserved_collisions)
+        )
 
 
 def _build_required_finding_placeholders(required_findings: list[str]) -> dict[str, object]:

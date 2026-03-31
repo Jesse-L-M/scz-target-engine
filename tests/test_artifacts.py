@@ -48,6 +48,8 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
         "domain_head_rankings_v1",
         "policy_pareto_fronts_v1",
         "hypothesis_packets_v1",
+        "prospective_prediction_registration",
+        "prospective_forecast_outcome_log",
     }
 
 
@@ -296,6 +298,26 @@ def test_example_rescue_governance_artifacts_validate_against_registered_schemas
         "example_scz_gene_ranking_inputs_2025_01_15",
         "example_scz_gene_evaluation_labels_2025_06_30",
     }
+
+
+def test_example_prospective_registration_validates_against_registered_schema() -> None:
+    registration_artifact = load_artifact(
+        Path(
+            "data/prospective_registry/registrations/"
+            "forecast_chrm4_acute_translation_guardrails_2026_03_31.json"
+        ).resolve()
+    )
+
+    assert registration_artifact.artifact_name == "prospective_prediction_registration"
+    assert registration_artifact.payload.registration_id == (
+        "forecast_chrm4_acute_translation_guardrails_2026_03_31"
+    )
+    assert registration_artifact.payload.packet_artifact.packet_id == (
+        "ENSG00000180720__acute_translation_guardrails_v1"
+    )
+    assert registration_artifact.payload.frozen_forecast_payload["predicted_outcome"] == (
+        "advance"
+    )
 
 def test_npc_rescue_task_contract_validates_against_registered_schema() -> None:
     rescue_contract_artifact = load_artifact(

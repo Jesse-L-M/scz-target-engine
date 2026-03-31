@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.cli import build_parser, main
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs
@@ -60,6 +61,37 @@ def test_cli_validate_runs() -> None:
             ],
             "build-expert-review-packets",
             ("hypothesis-lab", "build-expert-review"),
+        ),
+        (
+            [
+                "challenge",
+                "prospective",
+                "register",
+                "--hypothesis-artifact",
+                "hypothesis_packets_v1.json",
+                "--packet-id",
+                "ENSG00000180720__acute_translation_guardrails_v1",
+                "--output-file",
+                "prospective_prediction_registration.json",
+                "--registered-at",
+                "2026-03-31T00:00:00Z",
+                "--registered-by",
+                "repo_checked_in_example",
+                "--predicted-outcome",
+                "advance",
+                "--option-probability",
+                "advance=0.58",
+                "--option-probability",
+                "hold=0.32",
+                "--option-probability",
+                "kill=0.10",
+                "--outcome-window-closes-on",
+                "2027-12-31",
+                "--rationale",
+                "Explicit offsetting evidence keeps the packet live.",
+            ],
+            "register-prospective-prediction",
+            ("challenge", "prospective", "register"),
         ),
         (
             [
@@ -362,6 +394,52 @@ def test_cli_build_expert_review_packets_runs(tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert (tmp_path / "expert_review" / "blinded_expert_review_packets_v1.json").exists()
+
+
+def test_cli_register_prospective_prediction_runs(tmp_path: Path) -> None:
+    output_file = tmp_path / "prospective_prediction_registration.json"
+
+    exit_code = main(
+        [
+            "register-prospective-prediction",
+            "--hypothesis-artifact",
+            str(Path("examples/v0/output/hypothesis_packets_v1.json").resolve()),
+            "--packet-id",
+            "ENSG00000180720__acute_translation_guardrails_v1",
+            "--output-file",
+            str(output_file.resolve()),
+            "--registered-at",
+            "2026-03-31T00:00:00Z",
+            "--registered-by",
+            "repo_checked_in_example",
+            "--predicted-outcome",
+            "advance",
+            "--option-probability",
+            "advance=0.58",
+            "--option-probability",
+            "hold=0.32",
+            "--option-probability",
+            "kill=0.10",
+            "--outcome-window-closes-on",
+            "2027-12-31",
+            "--rationale",
+            "The packet carries a scoreable available policy signal and explicit nonfailure offsetting evidence.",
+            "--rationale",
+            "Contradiction and replay uncertainty remain live, so the forecast still assigns substantial hold and kill mass.",
+            "--registration-id",
+            "forecast_chrm4_acute_translation_guardrails_2026_03_31",
+        ]
+    )
+
+    assert exit_code == 0
+    artifact = load_artifact(
+        output_file,
+        artifact_name="prospective_prediction_registration",
+    )
+    assert artifact.artifact_name == "prospective_prediction_registration"
+    assert artifact.payload.registration_id == (
+        "forecast_chrm4_acute_translation_guardrails_2026_03_31"
+    )
 
 
 def test_cli_build_expert_review_packets_rejects_reserved_required_finding(

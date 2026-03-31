@@ -1,0 +1,55 @@
+{
+  "artifact_name": "prospective_forecast_outcome_log",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Append-only realized outcome log for previously registered prospective forecasts, with explicit references back to the frozen registration artifact and evidence source.",
+  "key_fields": [
+    "outcome_log_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Prospective forecast outcome log schema version."
+    },
+    {
+      "name": "outcome_log_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable identifier for the append-only outcome log file."
+    },
+    {
+      "name": "logged_at",
+      "field_type": "string",
+      "required": true,
+      "description": "ISO datetime recording when this outcome log file was written."
+    },
+    {
+      "name": "logged_by",
+      "field_type": "string",
+      "required": true,
+      "description": "Human or process label that logged the realized outcomes."
+    },
+    {
+      "name": "outcome_records",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Observed outcomes for previously registered forecasts, each referencing the immutable registration artifact and evidence file."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional notes about the outcome logging batch."
+    }
+  ]
+}

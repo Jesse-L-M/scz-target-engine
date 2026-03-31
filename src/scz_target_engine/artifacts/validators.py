@@ -30,6 +30,12 @@ from scz_target_engine.benchmark_runner import (
     read_benchmark_model_run_manifest,
 )
 from scz_target_engine.benchmark_snapshots import read_benchmark_snapshot_manifest
+from scz_target_engine.challenge import (
+    ProspectiveForecastOutcomeLog,
+    ProspectivePredictionRegistration,
+    read_prospective_forecast_outcome_log,
+    read_prospective_prediction_registration,
+)
 from scz_target_engine.decision_vector import (
     AVAILABLE_STATUS,
     DECISION_HEAD_DEFINITIONS,
@@ -2568,6 +2574,38 @@ def _validate_hypothesis_packets(
     )
 
 
+def _validate_prospective_prediction_registration(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> ProspectivePredictionRegistration:
+    payload = _load_json_mapping(path)
+    if payload.get("schema_name") != schema.artifact_name:
+        raise ValueError(
+            f"{schema.artifact_name} schema_name must be {schema.artifact_name}"
+        )
+    if payload.get("schema_version") != schema.schema_version:
+        raise ValueError(
+            f"{schema.artifact_name} schema_version must be {schema.schema_version}"
+        )
+    return read_prospective_prediction_registration(path)
+
+
+def _validate_prospective_forecast_outcome_log(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> ProspectiveForecastOutcomeLog:
+    payload = _load_json_mapping(path)
+    if payload.get("schema_name") != schema.artifact_name:
+        raise ValueError(
+            f"{schema.artifact_name} schema_name must be {schema.artifact_name}"
+        )
+    if payload.get("schema_version") != schema.schema_version:
+        raise ValueError(
+            f"{schema.artifact_name} schema_version must be {schema.schema_version}"
+        )
+    return read_prospective_forecast_outcome_log(path)
+
+
 def validate_hypothesis_packets_payload(
     payload: Mapping[str, object],
     *,
@@ -2710,6 +2748,8 @@ _ARTIFACT_VALIDATORS = {
     "domain_head_rankings_v1": _validate_domain_head_rankings,
     "policy_pareto_fronts_v1": _validate_policy_pareto_fronts,
     "hypothesis_packets_v1": _validate_hypothesis_packets,
+    "prospective_prediction_registration": _validate_prospective_prediction_registration,
+    "prospective_forecast_outcome_log": _validate_prospective_forecast_outcome_log,
 }
 
 

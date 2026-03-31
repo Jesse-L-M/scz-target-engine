@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         default=str(REPO_ROOT / ".context" / "interneuron_rescue_lane_run"),
-        help="Directory where predictions and evaluation summaries will be written.",
+        help="Directory where predictions and leakage-safe summaries will be written.",
     )
     parser.add_argument(
         "--axis",

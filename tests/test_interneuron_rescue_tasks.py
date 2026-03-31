@@ -24,6 +24,41 @@ INTERNEURON_TASK_CARD_PATH = (
 )
 
 
+def _assert_emitted_text_has_no_dereferenceable_pointers(
+    text: str,
+    *,
+    task_data,
+    output_root: Path,
+) -> None:
+    ranking_input_path = str(task_data.ranking_input.path)
+    evaluation_dataset_id = task_data.evaluation_target.card.dataset_id
+    evaluation_dataset_path = str(task_data.evaluation_target.path)
+    evaluation_dataset_sha256 = sha256(task_data.evaluation_target.path.read_bytes()).hexdigest()
+    freeze_manifest_id = (
+        task_data.frozen_bundle.governance.freeze_manifests[0].freeze_manifest_id
+    )
+    split_manifest_id = task_data.split_manifest.split_manifest_id
+    forbidden_tokens = {
+        '"task_card_path"',
+        '"output_dir"',
+        '"prediction_file"',
+        '"freeze_manifest_id"',
+        '"split_manifest_id"',
+        '"evaluation_dataset_id"',
+        '"input_artifacts"',
+        str(INTERNEURON_TASK_CARD_PATH),
+        str(output_root.resolve()),
+        ranking_input_path,
+        evaluation_dataset_id,
+        evaluation_dataset_path,
+        evaluation_dataset_sha256,
+        freeze_manifest_id,
+        split_manifest_id,
+    }
+    for token in forbidden_tokens:
+        assert token not in text
+
+
 def test_load_frozen_interneuron_governance_bundle_reads_all_governed_datasets() -> None:
     bundle = load_frozen_rescue_governance_bundle(
         task_card_path=INTERNEURON_TASK_CARD_PATH
@@ -125,17 +160,15 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
     assert set(result["baseline_ids"]) == set(DEFAULT_INTERNEURON_BASELINE_IDS)
 
     for axis_summary in result["axis_runs"]:
-        assert Path(axis_summary["output_dir"]).exists()
+        axis_output_dir = tmp_path / axis_summary["axis_id"]
+        assert axis_output_dir.exists()
         assert set(axis_summary["baseline_ids"]) == set(DEFAULT_INTERNEURON_BASELINE_IDS)
         for run_summary in axis_summary["runs"]:
             task_data = load_interneuron_axis_task_data(run_summary["axis_id"])
-            evaluation_dataset_id = task_data.evaluation_target.card.dataset_id
-            evaluation_dataset_path = str(task_data.evaluation_target.path)
-            evaluation_dataset_sha256 = sha256(
-                task_data.evaluation_target.path.read_bytes()
-            ).hexdigest()
-            prediction_file = Path(run_summary["prediction_file"])
-            summary_file = prediction_file.parent / "summary.json"
+            prediction_file = (
+                axis_output_dir / run_summary["baseline_id"] / "predictions.csv"
+            )
+            summary_file = axis_output_dir / run_summary["baseline_id"] / "summary.json"
             assert prediction_file.exists()
             assert summary_file.exists()
 
@@ -149,19 +182,31 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
             assert "evaluation_summaries" not in written_summary
             assert "evaluation_dataset_id" not in written_summary
             assert "input_artifacts" not in written_summary
+            assert "freeze_manifest_id" not in written_summary
+            assert "split_manifest_id" not in written_summary
+            assert "prediction_file" not in written_summary
             assert written_summary["ranking_input_artifact"]["dataset_id"] == (
                 task_data.ranking_input.card.dataset_id
             )
-            assert written_summary["ranking_input_artifact"]["path"] == str(
-                task_data.ranking_input.path
-            )
             assert written_summary["ranking_input_artifact"]["governed_sha256"]
+            assert "path" not in written_summary["ranking_input_artifact"]
             assert "positive_gene_ids" not in summary_text
             assert "ranked_gene_ids" not in summary_text
             assert "metric_values" not in summary_text
-            assert evaluation_dataset_id not in summary_text
-            assert evaluation_dataset_path not in summary_text
-            assert evaluation_dataset_sha256 not in summary_text
+            _assert_emitted_text_has_no_dereferenceable_pointers(
+                summary_text,
+                task_data=task_data,
+                output_root=tmp_path,
+            )
+
+        axis_summary_text = (axis_output_dir / "axis_summary.json").read_text(
+            encoding="utf-8"
+        )
+        _assert_emitted_text_has_no_dereferenceable_pointers(
+            axis_summary_text,
+            task_data=load_interneuron_axis_task_data(axis_summary["axis_id"]),
+            output_root=tmp_path,
+        )
 
     lane_summary_text = (tmp_path / "lane_summary.json").read_text(encoding="utf-8")
     assert "evaluation_summaries" not in lane_summary_text
@@ -169,6 +214,15 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
     assert "input_artifacts" not in lane_summary_text
     assert "positive_gene_ids" not in lane_summary_text
     assert "metric_values" not in lane_summary_text
+    assert "task_card_path" not in result
+    assert "output_dir" not in result
+    assert all("output_dir" not in axis_summary for axis_summary in result["axis_runs"])
+    for axis_id in VALID_INTERNEURON_AXIS_IDS:
+        _assert_emitted_text_has_no_dereferenceable_pointers(
+            lane_summary_text,
+            task_data=load_interneuron_axis_task_data(axis_id),
+            output_root=tmp_path,
+        )
 
 
 def test_interneuron_run_script_executes_synapse_axis(tmp_path: Path) -> None:
@@ -195,3 +249,8 @@ def test_interneuron_run_script_executes_synapse_axis(tmp_path: Path) -> None:
     assert "evaluation_summaries" not in result.stdout
     assert "evaluation_dataset_id" not in result.stdout
     assert "input_artifacts" not in result.stdout
+    _assert_emitted_text_has_no_dereferenceable_pointers(
+        result.stdout,
+        task_data=load_interneuron_axis_task_data("interneuron_synapse"),
+        output_root=output_dir,
+    )

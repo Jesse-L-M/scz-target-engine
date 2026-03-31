@@ -129,7 +129,10 @@ The emitted summaries stay leakage-safe. They record that offline evaluation ran
 and they keep provenance only for the frozen ranking input that drove the emitted
 predictions. They do not emit label-derived metrics, per-gene held-out positives,
 or hidden evaluation-target identifiers, paths, hashes, row counts, or similar
-provenance. If you need detailed offline evaluation for development, call the
+provenance. They also do not emit filesystem paths, task-card paths, freeze or
+split manifest ids, or other governance pointers that would let a caller walk
+from the runnable outputs back to the hidden post-cutoff evaluation artifact
+metadata. If you need detailed offline evaluation for development, call the
 in-memory helper directly instead of relying on emitted JSON.
 
 The shipped baselines are intentionally simple and explicit:

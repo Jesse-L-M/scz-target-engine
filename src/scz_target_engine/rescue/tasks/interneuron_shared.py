@@ -507,7 +507,6 @@ def _build_ranking_input_artifact_summary(
         "dataset_id": dataset.card.dataset_id,
         "dataset_role": dataset.card.dataset_role,
         "availability": dataset.card.availability,
-        "path": str(dataset.path),
         "row_count": len(dataset.rows),
         "sha256": _sha256_path(dataset.path),
         "governed_row_count": freeze_reference.expected_row_count,
@@ -557,18 +556,13 @@ def materialize_interneuron_axis_rescue_runs(
             "baseline_label": baseline.label,
             "baseline_description": baseline.description,
             "baseline_leakage_rule": baseline.leakage_rule,
-            "freeze_manifest_id": (
-                task_data.frozen_bundle.governance.freeze_manifests[0].freeze_manifest_id
-            ),
             "cutoff_date": (
                 task_data.frozen_bundle.governance.freeze_manifests[0].cutoff_date
             ),
-            "split_manifest_id": task_data.split_manifest.split_manifest_id,
             "leakage_boundary_policy_id": (
                 task_data.frozen_bundle.governance.contract.leakage_boundary.policy_id
             ),
             "ranking_dataset_id": task_data.ranking_input.card.dataset_id,
-            "prediction_file": str(prediction_file),
             "prediction_count": len(prediction_rows),
             "split_counts": task_data.split_counts,
             "ranking_input_artifact": _build_ranking_input_artifact_summary(
@@ -588,7 +582,6 @@ def materialize_interneuron_axis_rescue_runs(
     axis_summary = {
         "task_id": task_data.task_id,
         "axis_id": task_data.axis_id,
-        "output_dir": str(axis_output_dir),
         "baseline_ids": list(resolved_baseline_ids),
         "runs": run_summaries,
     }
@@ -614,14 +607,12 @@ def materialize_interneuron_rescue_lane(
     ]
     lane_summary = {
         "task_id": INTERNEURON_TASK_ID,
-        "task_card_path": str(INTERNEURON_TASK_CARD_PATH),
         "axis_ids": list(resolved_axis_ids),
         "baseline_ids": list(
             DEFAULT_INTERNEURON_BASELINE_IDS
             if baseline_ids is None
             else baseline_ids
         ),
-        "output_dir": str(lane_output_dir),
         "axis_runs": axis_summaries,
     }
     write_json(lane_output_dir / "lane_summary.json", lane_summary)

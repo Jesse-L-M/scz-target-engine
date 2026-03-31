@@ -126,10 +126,11 @@ axis/baseline pair beneath the output directory, plus a top-level
 `lane_summary.json`.
 
 The emitted summaries stay leakage-safe. They record that offline evaluation ran,
-but they do not emit label-derived metrics, per-gene held-out positives, or any
-other payload that would let a caller reconstruct post-cutoff labels from the
-public output files. If you need detailed offline evaluation for development, call
-the in-memory helper directly instead of relying on emitted JSON.
+and they keep provenance only for the frozen ranking input that drove the emitted
+predictions. They do not emit label-derived metrics, per-gene held-out positives,
+or hidden evaluation-target identifiers, paths, hashes, row counts, or similar
+provenance. If you need detailed offline evaluation for development, call the
+in-memory helper directly instead of relying on emitted JSON.
 
 The shipped baselines are intentionally simple and explicit:
 
@@ -229,6 +230,36 @@ assert bundle.evaluation_target.path.name == (
     "scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv"
 )
 ```
+
+`PR-41` adds the first runnable downstream task path on top of that frozen bundle. The
+task runner:
+
+- loads the governed frozen ranking/evaluation CSVs through
+  `load_frozen_rescue_task_bundle(...)`
+- ranks genes with a truthful frozen-input default scorer
+  (`npc_abs_log_fc_priority_v1`), which orders genes by absolute frozen `npc_log_fc`
+  because that is the strongest shipped scorer on the declared principal `test` split
+- evaluates that ranking offline against the held-out label CSV without joining labels
+  back into the emitted predictions file
+- emits explicit single-input baselines for `signature_weight`,
+  `reversal_fraction`, `max_abs_reversal_rzs`, and `reversal_drug_count`
+- keeps the scorer set fixed in code; there is no public scorer-override hook on the
+  task runner
+
+The end-to-end CLI path is:
+
+```bash
+uv run scz-target-engine rescue npc-signature-reversal \
+  --output-dir .context/npc_signature_reversal_run
+```
+
+This writes:
+
+- `ranked_predictions.csv`, derived only from pre-cutoff frozen ranking inputs
+- `run_summary.json`, an aggregate-only evaluation report with split-aware metrics and
+  explicit scorer/baseline declarations
+
+The runner does not reopen `data/raw/rescue/npc_signature_reversal/` at runtime.
 
 ## Active Glutamatergic Convergence Lane
 

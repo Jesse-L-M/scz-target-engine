@@ -497,7 +497,7 @@ def _build_emitted_offline_evaluation_metadata() -> dict[str, object]:
     }
 
 
-def _build_input_artifact_summary(
+def _build_ranking_input_artifact_summary(
     task_data: InterneuronAxisTaskData,
     dataset: FrozenRescueDataset,
 ) -> dict[str, object]:
@@ -568,14 +568,13 @@ def materialize_interneuron_axis_rescue_runs(
                 task_data.frozen_bundle.governance.contract.leakage_boundary.policy_id
             ),
             "ranking_dataset_id": task_data.ranking_input.card.dataset_id,
-            "evaluation_dataset_id": task_data.evaluation_target.card.dataset_id,
             "prediction_file": str(prediction_file),
             "prediction_count": len(prediction_rows),
             "split_counts": task_data.split_counts,
-            "input_artifacts": [
-                _build_input_artifact_summary(task_data, task_data.ranking_input),
-                _build_input_artifact_summary(task_data, task_data.evaluation_target),
-            ],
+            "ranking_input_artifact": _build_ranking_input_artifact_summary(
+                task_data,
+                task_data.ranking_input,
+            ),
             "offline_evaluation": _build_emitted_offline_evaluation_metadata(),
             "notes": (
                 "Predictions were built from the governed pre-cutoff ranking artifact "

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
@@ -127,6 +128,12 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
         assert Path(axis_summary["output_dir"]).exists()
         assert set(axis_summary["baseline_ids"]) == set(DEFAULT_INTERNEURON_BASELINE_IDS)
         for run_summary in axis_summary["runs"]:
+            task_data = load_interneuron_axis_task_data(run_summary["axis_id"])
+            evaluation_dataset_id = task_data.evaluation_target.card.dataset_id
+            evaluation_dataset_path = str(task_data.evaluation_target.path)
+            evaluation_dataset_sha256 = sha256(
+                task_data.evaluation_target.path.read_bytes()
+            ).hexdigest()
             prediction_file = Path(run_summary["prediction_file"])
             summary_file = prediction_file.parent / "summary.json"
             assert prediction_file.exists()
@@ -140,16 +147,26 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
             assert written_summary["split_counts"]["test"] == 1
             assert written_summary["offline_evaluation"]["executed"] is True
             assert "evaluation_summaries" not in written_summary
-            assert all(
-                artifact["governed_sha256"]
-                for artifact in written_summary["input_artifacts"]
+            assert "evaluation_dataset_id" not in written_summary
+            assert "input_artifacts" not in written_summary
+            assert written_summary["ranking_input_artifact"]["dataset_id"] == (
+                task_data.ranking_input.card.dataset_id
             )
+            assert written_summary["ranking_input_artifact"]["path"] == str(
+                task_data.ranking_input.path
+            )
+            assert written_summary["ranking_input_artifact"]["governed_sha256"]
             assert "positive_gene_ids" not in summary_text
             assert "ranked_gene_ids" not in summary_text
             assert "metric_values" not in summary_text
+            assert evaluation_dataset_id not in summary_text
+            assert evaluation_dataset_path not in summary_text
+            assert evaluation_dataset_sha256 not in summary_text
 
     lane_summary_text = (tmp_path / "lane_summary.json").read_text(encoding="utf-8")
     assert "evaluation_summaries" not in lane_summary_text
+    assert "evaluation_dataset_id" not in lane_summary_text
+    assert "input_artifacts" not in lane_summary_text
     assert "positive_gene_ids" not in lane_summary_text
     assert "metric_values" not in lane_summary_text
 
@@ -176,3 +193,5 @@ def test_interneuron_run_script_executes_synapse_axis(tmp_path: Path) -> None:
     assert set(payload["baseline_ids"]) == set(DEFAULT_INTERNEURON_BASELINE_IDS)
     assert (output_dir / "lane_summary.json").exists()
     assert "evaluation_summaries" not in result.stdout
+    assert "evaluation_dataset_id" not in result.stdout
+    assert "input_artifacts" not in result.stdout

@@ -24,17 +24,29 @@ from scz_target_engine.rescue.tasks.interneuron_synapse import (
     load_interneuron_synapse_task_data,
     materialize_interneuron_synapse_rescue_runs,
 )
-
+from scz_target_engine.rescue.tasks.npc_signature_reversal import (
+    DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS,
+    NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
+    NPC_SIGNATURE_REVERSAL_TASK_ID,
+    NPC_SIGNATURE_REVERSAL_TASK_LABEL,
+    NpcSignatureReversalScorerDefinition,
+    materialize_npc_signature_reversal_run,
+)
 
 __all__ = [
     "DEFAULT_INTERNEURON_BASELINE_IDS",
+    "DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS",
     "INTERNEURON_ARBOR_AXIS_ID",
     "INTERNEURON_SYNAPSE_AXIS_ID",
     "INTERNEURON_TASK_CARD_PATH",
     "INTERNEURON_TASK_ID",
+    "NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID",
+    "NPC_SIGNATURE_REVERSAL_TASK_ID",
+    "NPC_SIGNATURE_REVERSAL_TASK_LABEL",
     "InterneuronAxisTaskData",
     "InterneuronBaselineDefinition",
     "InterneuronSplitAssignment",
+    "NpcSignatureReversalScorerDefinition",
     "VALID_INTERNEURON_AXIS_IDS",
     "build_interneuron_axis_predictions",
     "evaluate_interneuron_axis_predictions",
@@ -46,5 +58,6 @@ __all__ = [
     "materialize_interneuron_axis_rescue_runs",
     "materialize_interneuron_rescue_lane",
     "materialize_interneuron_synapse_rescue_runs",
+    "materialize_npc_signature_reversal_run",
     "resolve_interneuron_baseline",
 ]

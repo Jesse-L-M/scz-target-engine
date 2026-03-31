@@ -439,13 +439,15 @@ def test_interneuron_rescue_governance_artifacts_validate_against_registered_sch
         "interneuron_gene_rescue_freeze_2023_12_31"
     )
     assert synapse_split_artifact.artifact_name == "rescue_split_manifest"
-    assert synapse_split_artifact.payload.source_dataset_id == (
-        "interneuron_synapse_ranking_inputs_2023_12_31",
+    assert (
+        synapse_split_artifact.payload.source_dataset_id
+        == "interneuron_synapse_ranking_inputs_2023_12_31"
     )
     assert arbor_split_artifact.artifact_name == "rescue_split_manifest"
-    assert arbor_split_artifact.payload.source_dataset_id == (
-        "interneuron_arbor_ranking_inputs_2023_12_31",
-    }
+    assert (
+        arbor_split_artifact.payload.source_dataset_id
+        == "interneuron_arbor_ranking_inputs_2023_12_31"
+    )
     assert lineage_artifact.artifact_name == "rescue_raw_to_frozen_lineage"
     assert {
         dataset.dataset_id for dataset in lineage_artifact.payload.frozen_datasets

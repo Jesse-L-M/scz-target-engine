@@ -6,6 +6,7 @@ from pathlib import Path
 from scz_target_engine.atlas.substrate import load_atlas_source_bundles, resolve_manifest_path
 from scz_target_engine.io import read_csv_rows
 from scz_target_engine.io import read_json
+from scz_target_engine.rescue.frozen import load_frozen_rescue_task_bundle
 from scz_target_engine.rescue.governance import (
     RescueGovernanceBundle,
     validate_rescue_governance_bundle,
@@ -206,9 +207,10 @@ class GlutamatergicConvergenceRawSnapshotBundle:
 def load_glutamatergic_convergence_rescue_bundle() -> (
     GlutamatergicConvergenceRescueBundle
 ):
-    governance_bundle = validate_rescue_governance_bundle(
-        GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH
+    frozen_bundle = load_frozen_rescue_task_bundle(
+        rescue_task_id="glutamatergic_convergence_rescue_task"
     )
+    governance_bundle = frozen_bundle.governance
     dataset_cards = {
         dataset.dataset_id: dataset for dataset in governance_bundle.dataset_cards
     }
@@ -233,8 +235,8 @@ def load_glutamatergic_convergence_rescue_bundle() -> (
             "convergence frozen CSV"
         )
 
-    ranking_input_rows = tuple(read_csv_rows(ranking_inputs_path))
-    evaluation_label_rows = tuple(read_csv_rows(evaluation_labels_path))
+    ranking_input_rows = frozen_bundle.ranking_input.rows
+    evaluation_label_rows = frozen_bundle.evaluation_target.rows
     if not ranking_input_rows:
         raise ValueError("glutamatergic convergence ranking inputs must not be empty")
     if not evaluation_label_rows:

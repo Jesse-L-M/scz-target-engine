@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from scz_target_engine.rescue import (
+    GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH,
     load_frozen_rescue_task_bundle,
     validate_rescue_governance_bundle,
 )
@@ -263,6 +264,37 @@ def test_npc_frozen_bundle_loads_checked_in_csvs_only() -> None:
         if row["rescue_positive_label"] == "1"
     )
     assert positive_counts == {"train": 9, "validation": 3, "test": 2}
+
+
+def test_glutamatergic_frozen_bundle_derives_split_names_from_manifest() -> None:
+    bundle = load_frozen_rescue_task_bundle(
+        task_card_path=GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH
+    )
+
+    assert bundle.governance.task_card.task_id == "glutamatergic_convergence_rescue_task"
+    assert "split_name" in bundle.ranking_input.columns
+    assert "split_name" in bundle.evaluation_target.columns
+    assert Counter(row["split_name"] for row in bundle.ranking_input.rows) == {
+        "train": 2,
+        "validation": 1,
+        "test": 1,
+    }
+    assert {
+        row["gene_symbol"]: row["split_name"] for row in bundle.ranking_input.rows
+    } == {
+        "GRIA1": "validation",
+        "GRIN2A": "train",
+        "GRM3": "test",
+        "GRM5": "train",
+    }
+    assert {
+        row["gene_symbol"]: row["split_name"] for row in bundle.evaluation_target.rows
+    } == {
+        "GRIA1": "validation",
+        "GRIN2A": "train",
+        "GRM3": "test",
+        "GRM5": "train",
+    }
 
 
 def test_frozen_loader_rejects_checksum_drift(tmp_path: Path) -> None:

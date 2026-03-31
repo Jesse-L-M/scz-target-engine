@@ -2,7 +2,8 @@
 
 Verifies that rescue evidence sections and first-assay logic are
 correctly integrated into hypothesis packets without regressing the
-post-review packet contract.
+post-review packet contract and without leaking held-out evaluation
+labels across the rescue leakage boundary.
 """
 import json
 from pathlib import Path
@@ -20,12 +21,29 @@ from scz_target_engine.hypothesis_lab.rescue_sections import (
     RESCUE_AUGMENTED_PACKETS_SCHEMA_VERSION,
     RESCUE_COVERAGE_MATCH,
     RESCUE_COVERAGE_NONE,
+    _SAFE_MATCHED_TASK_FIELDS,
     augment_packets_with_rescue,
     build_first_assay_section,
-    build_rescue_entity_labels,
+    build_rescue_entity_decisions,
     build_rescue_evidence_section,
     materialize_rescue_augmented_packets,
 )
+
+
+# Fields that must NEVER appear in emitted matched_task payloads.
+_LEAKED_FIELDS = frozenset({
+    "entity_evaluation_label",
+    "entity_split",
+    "label_rationale",
+    "evaluation_label",
+    "split_name",
+    "gene_symbol",
+})
+
+# Keys that must NEVER appear in rescue_augmentation.source_artifacts.
+_LEAKED_SOURCE_ARTIFACT_KEYS = frozenset({
+    "evaluation_labels",
+})
 
 
 def _build_hypothesis_packets(tmp_path: Path) -> dict[str, object]:
@@ -44,12 +62,37 @@ def _find_packet(
     )
 
 
+def _assert_no_leakage_in_payload(payload: dict[str, object]) -> None:
+    """Walk an augmented payload and assert no held-out fields leak."""
+    # Check source_artifacts
+    source_artifacts = payload.get("rescue_augmentation", {}).get("source_artifacts", {})
+    for leaked_key in _LEAKED_SOURCE_ARTIFACT_KEYS:
+        assert leaked_key not in source_artifacts, (
+            f"source_artifacts must not reference '{leaked_key}'"
+        )
+
+    # Check every packet
+    for packet in payload.get("packets", []):
+        rescue_evidence = packet.get("rescue_evidence", {})
+        for task in rescue_evidence.get("matched_tasks", []):
+            for leaked_field in _LEAKED_FIELDS:
+                assert leaked_field not in task, (
+                    f"matched_task must not contain leaked field '{leaked_field}'"
+                )
+            # Whitelist check: only safe fields present
+            for key in task:
+                assert key in _SAFE_MATCHED_TASK_FIELDS, (
+                    f"matched_task contains unexpected field '{key}' "
+                    f"outside the safe whitelist"
+                )
+
+
 # ---------------------------------------------------------------------------
-# Rescue entity labels
+# Rescue entity decisions (leakage-safe)
 # ---------------------------------------------------------------------------
 
 
-def test_build_rescue_entity_labels_from_evaluation_rows() -> None:
+def test_build_rescue_entity_decisions_extracts_only_safe_fields() -> None:
     rows = [
         {
             "gene_id": "ENSG00000183454",
@@ -68,26 +111,34 @@ def test_build_rescue_entity_labels_from_evaluation_rows() -> None:
             "label_rationale": "Single-source, mixed missingness.",
         },
     ]
-    labels = build_rescue_entity_labels(
+    decisions = build_rescue_entity_decisions(
         rows,
         task_id="glutamatergic_convergence_rescue_task",
         task_label="Glutamatergic convergence rescue task",
     )
-    assert "ENSG00000183454" in labels
-    assert labels["ENSG00000183454"]["decision"] == "advance"
-    assert labels["ENSG00000183454"]["gene_symbol"] == "GRIN2A"
-    assert "ENSG00000168959" in labels
-    assert labels["ENSG00000168959"]["decision"] == "deprioritize"
+    assert "ENSG00000183454" in decisions
+    assert decisions["ENSG00000183454"]["decision"] == "advance"
+    assert "ENSG00000168959" in decisions
+    assert decisions["ENSG00000168959"]["decision"] == "deprioritize"
+
+    # Verify no held-out fields leaked into the decision lookup
+    for entry in decisions.values():
+        assert "evaluation_label" not in entry
+        assert "split_name" not in entry
+        assert "label_rationale" not in entry
+        assert "gene_symbol" not in entry
+        # Only safe fields
+        assert set(entry.keys()) == {"task_id", "task_label", "entity_id", "decision"}
 
 
-def test_build_rescue_entity_labels_skips_empty_ids() -> None:
+def test_build_rescue_entity_decisions_skips_empty_ids() -> None:
     rows = [{"gene_id": "", "gene_symbol": "", "decision": "hold"}]
-    labels = build_rescue_entity_labels(
+    decisions = build_rescue_entity_decisions(
         rows,
         task_id="test_task",
         task_label="Test task",
     )
-    assert labels == {}
+    assert decisions == {}
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +153,7 @@ def test_rescue_evidence_section_no_match(tmp_path: Path) -> None:
     )
     evidence = build_rescue_evidence_section(
         chrm4_acute,
-        rescue_entity_labels={},
+        rescue_entity_decisions={},
         baseline_comparison_summaries=[],
     )
     assert evidence["coverage_status"] == RESCUE_COVERAGE_NONE
@@ -115,21 +166,17 @@ def test_rescue_evidence_section_with_match(tmp_path: Path) -> None:
     chrm4_acute = _find_packet(
         payload, entity_label="CHRM4", policy_id="acute_translation_guardrails_v1"
     )
-    rescue_labels = {
+    rescue_decisions = {
         chrm4_acute["entity_id"]: {
             "task_id": "test_rescue_task",
             "task_label": "Test rescue task",
             "entity_id": chrm4_acute["entity_id"],
-            "gene_symbol": "CHRM4",
             "decision": "advance",
-            "evaluation_label": "1",
-            "split_name": "test",
-            "label_rationale": "Convergence support intact.",
         }
     }
     evidence = build_rescue_evidence_section(
         chrm4_acute,
-        rescue_entity_labels=rescue_labels,
+        rescue_entity_decisions=rescue_decisions,
         baseline_comparison_summaries=[],
     )
     assert evidence["coverage_status"] == RESCUE_COVERAGE_MATCH
@@ -137,10 +184,12 @@ def test_rescue_evidence_section_with_match(tmp_path: Path) -> None:
     matched = evidence["matched_tasks"][0]
     assert matched["task_id"] == "test_rescue_task"
     assert matched["entity_rescue_decision"] == "advance"
-    assert matched["entity_split"] == "test"
-    assert matched["label_rationale"] == "Convergence support intact."
     assert matched["baseline_performance"]["status"] == "no_baseline_data"
     assert matched["model_admission"]["status"] == "no_models_evaluated"
+
+    # Verify no held-out fields leaked
+    for leaked_field in _LEAKED_FIELDS:
+        assert leaked_field not in matched
 
 
 def test_rescue_evidence_section_with_baseline_summary(tmp_path: Path) -> None:
@@ -149,16 +198,12 @@ def test_rescue_evidence_section_with_baseline_summary(tmp_path: Path) -> None:
         payload, entity_label="CHRM4", policy_id="acute_translation_guardrails_v1"
     )
     entity_id = chrm4_acute["entity_id"]
-    rescue_labels = {
+    rescue_decisions = {
         entity_id: {
             "task_id": "glut_task",
             "task_label": "Glut task",
             "entity_id": entity_id,
-            "gene_symbol": "CHRM4",
             "decision": "advance",
-            "evaluation_label": "1",
-            "split_name": "test",
-            "label_rationale": "Good convergence.",
         }
     }
     baseline_summary = {
@@ -185,7 +230,7 @@ def test_rescue_evidence_section_with_baseline_summary(tmp_path: Path) -> None:
     }
     evidence = build_rescue_evidence_section(
         chrm4_acute,
-        rescue_entity_labels=rescue_labels,
+        rescue_entity_decisions=rescue_decisions,
         baseline_comparison_summaries=[baseline_summary],
     )
     matched = evidence["matched_tasks"][0]
@@ -206,21 +251,17 @@ def test_conflict_signal_deprioritize_vs_hypothesis(tmp_path: Path) -> None:
     chrm4_acute = _find_packet(
         payload, entity_label="CHRM4", policy_id="acute_translation_guardrails_v1"
     )
-    rescue_labels = {
+    rescue_decisions = {
         chrm4_acute["entity_id"]: {
             "task_id": "t",
             "task_label": "Rescue Task",
             "entity_id": chrm4_acute["entity_id"],
-            "gene_symbol": "CHRM4",
             "decision": "deprioritize",
-            "evaluation_label": "0",
-            "split_name": "test",
-            "label_rationale": "Single-source.",
         }
     }
     evidence = build_rescue_evidence_section(
         chrm4_acute,
-        rescue_entity_labels=rescue_labels,
+        rescue_entity_decisions=rescue_decisions,
         baseline_comparison_summaries=[],
     )
     assert len(evidence["conflict_signals"]) >= 1
@@ -233,21 +274,17 @@ def test_conflict_signal_advance_vs_contradicted(tmp_path: Path) -> None:
         payload, entity_label="DRD2", policy_id="acute_translation_guardrails_v1"
     )
     assert drd2_acute["contradiction_handling"]["status"] == "contradicted"
-    rescue_labels = {
+    rescue_decisions = {
         drd2_acute["entity_id"]: {
             "task_id": "t",
             "task_label": "Rescue Task",
             "entity_id": drd2_acute["entity_id"],
-            "gene_symbol": "DRD2",
             "decision": "advance",
-            "evaluation_label": "1",
-            "split_name": "test",
-            "label_rationale": "Converged.",
         }
     }
     evidence = build_rescue_evidence_section(
         drd2_acute,
-        rescue_entity_labels=rescue_labels,
+        rescue_entity_decisions=rescue_decisions,
         baseline_comparison_summaries=[],
     )
     conflict_texts = " ".join(evidence["conflict_signals"])
@@ -290,7 +327,6 @@ def test_first_assay_rescue_advance(tmp_path: Path) -> None:
                 "task_id": "t",
                 "task_label": "Test task",
                 "entity_rescue_decision": "advance",
-                "label_rationale": "Good.",
             }
         ],
         "conflict_signals": [],
@@ -315,7 +351,6 @@ def test_first_assay_rescue_hold(tmp_path: Path) -> None:
                 "task_id": "t",
                 "task_label": "Test task",
                 "entity_rescue_decision": "hold",
-                "label_rationale": "Needs more data.",
             }
         ],
         "conflict_signals": [],
@@ -338,7 +373,6 @@ def test_first_assay_conflict(tmp_path: Path) -> None:
                 "task_id": "t",
                 "task_label": "Test task",
                 "entity_rescue_decision": "deprioritize",
-                "label_rationale": "Single-source.",
             }
         ],
         "conflict_signals": ["Rescue deprioritizes but hypothesis proposes."],
@@ -362,7 +396,7 @@ def test_augment_packets_preserves_post_review_contract(tmp_path: Path) -> None:
 
     augmented = augment_packets_with_rescue(
         payload,
-        rescue_entity_labels={},
+        rescue_entity_decisions={},
         baseline_comparison_summaries=[],
     )
 
@@ -382,7 +416,7 @@ def test_augment_packets_adds_rescue_metadata(tmp_path: Path) -> None:
     payload = _build_hypothesis_packets(tmp_path)
     augmented = augment_packets_with_rescue(
         payload,
-        rescue_entity_labels={},
+        rescue_entity_decisions={},
         baseline_comparison_summaries=[],
     )
     assert "rescue_augmentation" in augmented
@@ -399,26 +433,197 @@ def test_augment_packets_with_partial_rescue_coverage(tmp_path: Path) -> None:
         for p in payload["packets"]
         if p["entity_label"] == "CHRM4"
     )
-    rescue_labels = {
+    rescue_decisions = {
         chrm4_id: {
             "task_id": "test_task",
             "task_label": "Test task",
             "entity_id": chrm4_id,
-            "gene_symbol": "CHRM4",
             "decision": "advance",
-            "evaluation_label": "1",
-            "split_name": "test",
-            "label_rationale": "Good.",
         }
     }
     augmented = augment_packets_with_rescue(
         payload,
-        rescue_entity_labels=rescue_labels,
+        rescue_entity_decisions=rescue_decisions,
         baseline_comparison_summaries=[],
     )
     meta = augmented["rescue_augmentation"]
     assert meta["rescue_match_count"] == 2  # CHRM4 has 2 policy packets
     assert meta["rescue_unmatched_count"] == 6  # remaining 6 packets
+    _assert_no_leakage_in_payload(augmented)
+
+
+# ---------------------------------------------------------------------------
+# Leakage boundary regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_emitted_packets_never_contain_held_out_fields(tmp_path: Path) -> None:
+    """Explicit regression: no held-out evaluation label metadata in output."""
+    payload = _build_hypothesis_packets(tmp_path)
+    chrm4_id = next(
+        p["entity_id"]
+        for p in payload["packets"]
+        if p["entity_label"] == "CHRM4"
+    )
+    rescue_decisions = {
+        chrm4_id: {
+            "task_id": "test_task",
+            "task_label": "Test task",
+            "entity_id": chrm4_id,
+            "decision": "advance",
+        }
+    }
+    augmented = augment_packets_with_rescue(
+        payload,
+        rescue_entity_decisions=rescue_decisions,
+        baseline_comparison_summaries=[],
+    )
+    _assert_no_leakage_in_payload(augmented)
+
+
+def test_source_artifacts_do_not_reference_evaluation_labels(tmp_path: Path) -> None:
+    """Explicit regression: source_artifacts must not point to held-out files."""
+    packets_path = Path("examples/v0/output/hypothesis_packets_v1.json").resolve()
+    decisions_path = Path(
+        "data/curated/rescue_tasks/glutamatergic_convergence/frozen/"
+        "glutamatergic_convergence_evaluation_labels_2025_06_30.csv"
+    ).resolve()
+    output_path = tmp_path / "rescue_augmented_packets_v1.json"
+
+    result = materialize_rescue_augmented_packets(
+        packets_path,
+        rescue_decisions_file=decisions_path,
+        task_id="glutamatergic_convergence_rescue_task",
+        task_label="Glutamatergic convergence rescue task",
+        output_file=output_path,
+    )
+
+    source_artifacts = result["rescue_augmentation"]["source_artifacts"]
+    assert "evaluation_labels" not in source_artifacts
+    assert "hypothesis_packets_v1" in source_artifacts
+    _assert_no_leakage_in_payload(result)
+
+    # Also verify the written file
+    written = json.loads(output_path.read_text())
+    _assert_no_leakage_in_payload(written)
+
+
+# ---------------------------------------------------------------------------
+# Model admission task-matching regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_unrelated_admission_summary_not_attached(tmp_path: Path) -> None:
+    """Admission summaries without a matching task_id must not attach."""
+    payload = _build_hypothesis_packets(tmp_path)
+    chrm4_id = next(
+        p["entity_id"]
+        for p in payload["packets"]
+        if p["entity_label"] == "CHRM4"
+    )
+    rescue_decisions = {
+        chrm4_id: {
+            "task_id": "my_task",
+            "task_label": "My task",
+            "entity_id": chrm4_id,
+            "decision": "advance",
+        }
+    }
+    # This summary belongs to a different task
+    unrelated_admission = {
+        "task_id": "completely_different_task",
+        "principal_split": "test",
+        "admitted_model_ids": ["some_model"],
+        "decisions": [{"model_id": "some_model", "admitted": True}],
+    }
+    augmented = augment_packets_with_rescue(
+        payload,
+        rescue_entity_decisions=rescue_decisions,
+        baseline_comparison_summaries=[],
+        model_admission_summaries=[unrelated_admission],
+    )
+    chrm4_pkt = next(
+        p for p in augmented["packets"]
+        if p["entity_label"] == "CHRM4"
+        and p["policy_id"] == "acute_translation_guardrails_v1"
+    )
+    admission = chrm4_pkt["rescue_evidence"]["matched_tasks"][0]["model_admission"]
+    assert admission["status"] == "no_models_evaluated"
+
+
+def test_admission_summary_without_task_id_not_attached(tmp_path: Path) -> None:
+    """Admission summaries without a task_id field must not match."""
+    payload = _build_hypothesis_packets(tmp_path)
+    chrm4_id = next(
+        p["entity_id"]
+        for p in payload["packets"]
+        if p["entity_label"] == "CHRM4"
+    )
+    rescue_decisions = {
+        chrm4_id: {
+            "task_id": "my_task",
+            "task_label": "My task",
+            "entity_id": chrm4_id,
+            "decision": "advance",
+        }
+    }
+    # This summary has no task_id at all
+    orphan_admission = {
+        "principal_split": "test",
+        "admitted_model_ids": ["orphan_model"],
+        "decisions": [{"model_id": "orphan_model", "admitted": True}],
+    }
+    augmented = augment_packets_with_rescue(
+        payload,
+        rescue_entity_decisions=rescue_decisions,
+        baseline_comparison_summaries=[],
+        model_admission_summaries=[orphan_admission],
+    )
+    chrm4_pkt = next(
+        p for p in augmented["packets"]
+        if p["entity_label"] == "CHRM4"
+        and p["policy_id"] == "acute_translation_guardrails_v1"
+    )
+    admission = chrm4_pkt["rescue_evidence"]["matched_tasks"][0]["model_admission"]
+    assert admission["status"] == "no_models_evaluated"
+
+
+def test_matching_admission_summary_attaches_correctly(tmp_path: Path) -> None:
+    """Admission summary with matching task_id attaches to the right task."""
+    payload = _build_hypothesis_packets(tmp_path)
+    chrm4_id = next(
+        p["entity_id"]
+        for p in payload["packets"]
+        if p["entity_label"] == "CHRM4"
+    )
+    rescue_decisions = {
+        chrm4_id: {
+            "task_id": "my_task",
+            "task_label": "My task",
+            "entity_id": chrm4_id,
+            "decision": "advance",
+        }
+    }
+    matching_admission = {
+        "task_id": "my_task",
+        "principal_split": "test",
+        "admitted_model_ids": ["good_model"],
+        "decisions": [{"model_id": "good_model", "admitted": True}],
+    }
+    augmented = augment_packets_with_rescue(
+        payload,
+        rescue_entity_decisions=rescue_decisions,
+        baseline_comparison_summaries=[],
+        model_admission_summaries=[matching_admission],
+    )
+    chrm4_pkt = next(
+        p for p in augmented["packets"]
+        if p["entity_label"] == "CHRM4"
+        and p["policy_id"] == "acute_translation_guardrails_v1"
+    )
+    admission = chrm4_pkt["rescue_evidence"]["matched_tasks"][0]["model_admission"]
+    assert admission["status"] == "models_admitted"
+    assert "good_model" in admission["admitted_model_ids"]
 
 
 # ---------------------------------------------------------------------------
@@ -430,11 +635,11 @@ def test_materialize_rescue_augmented_packets_from_checked_in_artifacts(
     tmp_path: Path,
 ) -> None:
     """Concrete generation path using checked-in hypothesis packets and
-    glutamatergic convergence evaluation labels."""
+    glutamatergic convergence decisions."""
     packets_path = Path(
         "examples/v0/output/hypothesis_packets_v1.json"
     ).resolve()
-    labels_path = Path(
+    decisions_path = Path(
         "data/curated/rescue_tasks/glutamatergic_convergence/frozen/"
         "glutamatergic_convergence_evaluation_labels_2025_06_30.csv"
     ).resolve()
@@ -442,7 +647,7 @@ def test_materialize_rescue_augmented_packets_from_checked_in_artifacts(
 
     result = materialize_rescue_augmented_packets(
         packets_path,
-        evaluation_labels_file=labels_path,
+        rescue_decisions_file=decisions_path,
         task_id="glutamatergic_convergence_rescue_task",
         task_label="Glutamatergic convergence rescue task",
         output_file=output_path,
@@ -456,7 +661,7 @@ def test_materialize_rescue_augmented_packets_from_checked_in_artifacts(
         "glutamatergic_convergence_rescue_task"
     ]
     assert result["rescue_augmentation"]["source_artifacts"]["hypothesis_packets_v1"]
-    assert result["rescue_augmentation"]["source_artifacts"]["evaluation_labels"]
+    assert "evaluation_labels" not in result["rescue_augmentation"]["source_artifacts"]
 
     # No gene overlap between example packets (CHRM4/DRD2/SLC39A8/SLC6A1)
     # and glutamatergic rescue genes (GRIA1/GRIN2A/GRM3/GRM5), so all
@@ -480,17 +685,22 @@ def test_materialize_rescue_augmented_packets_from_checked_in_artifacts(
         assert "failure_escape_logic" in packet
         assert "traceability" in packet
 
+    _assert_no_leakage_in_payload(result)
+    _assert_no_leakage_in_payload(written)
+
 
 def test_materialize_with_synthetic_overlapping_entity(tmp_path: Path) -> None:
-    """Build a synthetic rescue label set that overlaps with example
+    """Build a synthetic rescue decision set that overlaps with example
     hypothesis packet entities to exercise the match path."""
     packets_path = Path(
         "examples/v0/output/hypothesis_packets_v1.json"
     ).resolve()
 
-    # Create synthetic evaluation labels that match CHRM4 entity_id
-    synthetic_labels_path = tmp_path / "synthetic_labels.csv"
-    synthetic_labels_path.write_text(
+    # Create synthetic decisions that match CHRM4 and DRD2 entity_ids.
+    # The CSV still has evaluation_label/split_name columns (the source
+    # file format hasn't changed) but those MUST NOT leak into output.
+    synthetic_decisions_path = tmp_path / "synthetic_decisions.csv"
+    synthetic_decisions_path.write_text(
         "gene_id,gene_symbol,evaluation_label,evaluation_label_name,"
         "decision,adjudicated_at,decision_owner,label_rationale,split_name\n"
         "ENSG00000180720,CHRM4,1,follow_up_priority,advance,2025-06-30,"
@@ -503,7 +713,7 @@ def test_materialize_with_synthetic_overlapping_entity(tmp_path: Path) -> None:
 
     result = materialize_rescue_augmented_packets(
         packets_path,
-        evaluation_labels_file=synthetic_labels_path,
+        rescue_decisions_file=synthetic_decisions_path,
         task_id="synthetic_rescue_task",
         task_label="Synthetic rescue task",
         output_file=output_path,
@@ -521,8 +731,6 @@ def test_materialize_with_synthetic_overlapping_entity(tmp_path: Path) -> None:
         assert pkt["rescue_evidence"]["coverage_status"] == RESCUE_COVERAGE_MATCH
         matched = pkt["rescue_evidence"]["matched_tasks"][0]
         assert matched["entity_rescue_decision"] == "advance"
-        assert matched["entity_split"] == "test"
-        assert matched["label_rationale"] == "Muscarinic convergence retained."
         # CHRM4 has contradiction_handling.status == "contradicted" and
         # rescue says "advance" -> conflict signal
         assert len(pkt["rescue_evidence"]["conflict_signals"]) >= 1
@@ -545,20 +753,27 @@ def test_materialize_with_synthetic_overlapping_entity(tmp_path: Path) -> None:
         assert pkt["rescue_evidence"]["coverage_status"] == RESCUE_COVERAGE_NONE
         assert pkt["first_assay"]["recommended_assay_class"] == FIRST_ASSAY_CLASS_NO_RESCUE
 
+    # Full leakage audit on the output
+    _assert_no_leakage_in_payload(result)
+    written = json.loads(output_path.read_text())
+    _assert_no_leakage_in_payload(written)
+
 
 def test_materialize_with_model_admission_summary(tmp_path: Path) -> None:
-    """Exercise model admission data flowing into rescue evidence."""
+    """Exercise model admission data flowing into rescue evidence via
+    the materializer, which tags the summary with task_id."""
     packets_path = Path(
         "examples/v0/output/hypothesis_packets_v1.json"
     ).resolve()
-    synthetic_labels_path = tmp_path / "labels.csv"
-    synthetic_labels_path.write_text(
+    synthetic_decisions_path = tmp_path / "decisions.csv"
+    synthetic_decisions_path.write_text(
         "gene_id,gene_symbol,evaluation_label,decision,split_name,label_rationale\n"
         "ENSG00000180720,CHRM4,1,advance,test,Converged.\n",
         encoding="utf-8",
     )
     admission_path = tmp_path / "admission.json"
     admission_payload = {
+        "task_id": "test_task",
         "principal_split": "test",
         "baseline_scorer_ids": ["convergence_state"],
         "candidate_model_ids": ["test_model_v1"],
@@ -578,7 +793,7 @@ def test_materialize_with_model_admission_summary(tmp_path: Path) -> None:
 
     result = materialize_rescue_augmented_packets(
         packets_path,
-        evaluation_labels_file=synthetic_labels_path,
+        rescue_decisions_file=synthetic_decisions_path,
         task_id="test_task",
         task_label="Test task",
         model_admission_summary_file=admission_path,
@@ -593,3 +808,5 @@ def test_materialize_with_model_admission_summary(tmp_path: Path) -> None:
     admission = chrm4_pkt["rescue_evidence"]["matched_tasks"][0]["model_admission"]
     assert admission["status"] == "models_admitted"
     assert "test_model_v1" in admission["admitted_model_ids"]
+
+    _assert_no_leakage_in_payload(result)

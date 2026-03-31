@@ -2,9 +2,11 @@
 
 Adds rescue evidence sections and first-assay logic to existing
 hypothesis packets without modifying the post-review packet contract.
-Rescue evidence is grounded in shipped rescue task outputs: baseline
-comparison summaries, model admission decisions, and frozen evaluation
-labels.
+Rescue evidence is grounded in leakage-safe rescue task outputs:
+task-level governance decisions, baseline comparison summaries, and
+model admission decisions.  Per-entity held-out evaluation labels,
+split assignments, and label rationales are never serialized into the
+emitted packet artifact.
 """
 from __future__ import annotations
 
@@ -13,7 +15,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from scz_target_engine.io import read_csv_rows, read_json, write_json
+from scz_target_engine.io import read_csv_rows, write_json
 
 
 RESCUE_AUGMENTED_PACKETS_SCHEMA_VERSION = "v1"
@@ -27,49 +29,47 @@ FIRST_ASSAY_CLASS_NO_RESCUE = "policy_only"
 FIRST_ASSAY_CLASS_CONFLICT = "rescue_policy_conflict"
 
 
-def build_rescue_entity_labels(
-    evaluation_label_rows: list[dict[str, str]],
+def build_rescue_entity_decisions(
+    rescue_decision_rows: list[dict[str, str]],
     *,
     task_id: str,
     task_label: str,
     entity_id_field: str = "gene_id",
 ) -> dict[str, dict[str, str]]:
-    """Build a lookup from entity_id to rescue task label metadata.
+    """Build a leakage-safe lookup from entity_id to rescue task decision.
 
-    Returns a dict mapping entity_id to a dict with task_id, task_label,
-    decision, evaluation_label, split_name, and label_rationale.
+    Returns a dict mapping entity_id to a dict with only task_id,
+    task_label, entity_id, and decision.  Held-out evaluation labels,
+    split assignments, and label rationales are intentionally excluded
+    to respect the rescue leakage boundary.
     """
     _require_text(task_id, "task_id")
     _require_text(task_label, "task_label")
-    labels: dict[str, dict[str, str]] = {}
-    for row in evaluation_label_rows:
+    decisions: dict[str, dict[str, str]] = {}
+    for row in rescue_decision_rows:
         entity_id = row.get(entity_id_field, "").strip()
         if not entity_id:
             continue
-        labels[entity_id] = {
+        decisions[entity_id] = {
             "task_id": task_id,
             "task_label": task_label,
             "entity_id": entity_id,
-            "gene_symbol": row.get("gene_symbol", "").strip(),
             "decision": row.get("decision", "").strip(),
-            "evaluation_label": row.get("evaluation_label", "").strip(),
-            "split_name": row.get("split_name", "").strip(),
-            "label_rationale": row.get("label_rationale", "").strip(),
         }
-    return labels
+    return decisions
 
 
 def build_rescue_evidence_section(
     packet: dict[str, object],
     *,
-    rescue_entity_labels: dict[str, dict[str, str]],
+    rescue_entity_decisions: dict[str, dict[str, str]],
     baseline_comparison_summaries: list[dict[str, object]],
     model_admission_summaries: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """Build the rescue_evidence section for a single hypothesis packet.
 
     Matches the packet entity to rescue tasks by entity_id. Returns a
-    rescue evidence payload grounded in concrete rescue task outputs.
+    rescue evidence payload grounded in leakage-safe rescue task outputs.
     """
     entity_id = _require_text(
         packet.get("entity_id"), "packet.entity_id"
@@ -78,11 +78,11 @@ def build_rescue_evidence_section(
         packet.get("entity_label"), "packet.entity_label"
     )
 
-    entity_label_entry = rescue_entity_labels.get(entity_id)
+    entity_decision_entry = rescue_entity_decisions.get(entity_id)
     matched_tasks = _build_matched_tasks(
         entity_id=entity_id,
         entity_label=entity_label,
-        entity_label_entry=entity_label_entry,
+        entity_decision_entry=entity_decision_entry,
         baseline_comparison_summaries=baseline_comparison_summaries,
         model_admission_summaries=model_admission_summaries or [],
     )
@@ -180,7 +180,7 @@ def build_first_assay_section(
 def augment_packets_with_rescue(
     hypothesis_payload: dict[str, object],
     *,
-    rescue_entity_labels: dict[str, dict[str, str]],
+    rescue_entity_decisions: dict[str, dict[str, str]],
     baseline_comparison_summaries: list[dict[str, object]],
     model_admission_summaries: list[dict[str, object]] | None = None,
     rescue_source_artifacts: dict[str, str] | None = None,
@@ -201,7 +201,7 @@ def augment_packets_with_rescue(
         packet_copy = deepcopy(packet)
         rescue_evidence = build_rescue_evidence_section(
             packet_copy,
-            rescue_entity_labels=rescue_entity_labels,
+            rescue_entity_decisions=rescue_entity_decisions,
             baseline_comparison_summaries=baseline_comparison_summaries,
             model_admission_summaries=model_admission_summaries,
         )
@@ -223,10 +223,9 @@ def augment_packets_with_rescue(
         "rescue_unmatched_count": len(packets) - rescue_match_count,
         "rescue_task_ids": sorted(
             {
-                task["task_id"]
-                for labels in rescue_entity_labels.values()
-                for task in [labels]
-                if "task_id" in task
+                entry["task_id"]
+                for entry in rescue_entity_decisions.values()
+                if "task_id" in entry
             }
         ),
         "source_artifacts": rescue_source_artifacts or {},
@@ -237,7 +236,7 @@ def augment_packets_with_rescue(
 def materialize_rescue_augmented_packets(
     hypothesis_packets_file: Path,
     *,
-    evaluation_labels_file: Path,
+    rescue_decisions_file: Path,
     task_id: str,
     task_label: str,
     baseline_comparison_summary_file: Path | None = None,
@@ -247,18 +246,21 @@ def materialize_rescue_augmented_packets(
 ) -> dict[str, object]:
     """End-to-end materialization path from checked-in artifacts.
 
-    Reads a hypothesis packets artifact and rescue artifacts, augments
-    the packets with rescue evidence and first-assay logic, and
-    optionally writes the result.
+    Reads a hypothesis packets artifact and a rescue decisions source,
+    extracts only leakage-safe decision fields (task_id, entity_id,
+    decision), and augments the packets with rescue evidence and
+    first-assay logic.  The rescue decisions source file is NOT
+    recorded in the emitted artifact's source_artifacts to avoid
+    leaking held-out evaluation label provenance.
     """
     resolved_packets_path = hypothesis_packets_file.resolve()
-    resolved_labels_path = evaluation_labels_file.resolve()
+    resolved_decisions_path = rescue_decisions_file.resolve()
 
     hypothesis_payload = _load_json(resolved_packets_path)
-    evaluation_rows = read_csv_rows(resolved_labels_path)
+    decision_rows = read_csv_rows(resolved_decisions_path)
 
-    rescue_entity_labels = build_rescue_entity_labels(
-        evaluation_rows,
+    rescue_entity_decisions = build_rescue_entity_decisions(
+        decision_rows,
         task_id=task_id,
         task_label=task_label,
         entity_id_field=entity_id_field,
@@ -276,6 +278,7 @@ def materialize_rescue_augmented_packets(
         resolved_admission_path = model_admission_summary_file.resolve()
         admission = _load_json(resolved_admission_path)
         if isinstance(admission, dict):
+            admission.setdefault("task_id", task_id)
             model_summaries.append(admission)
 
     output_dir = (
@@ -286,9 +289,6 @@ def materialize_rescue_augmented_packets(
     rescue_source_artifacts: dict[str, str] = {
         "hypothesis_packets_v1": os.path.relpath(
             resolved_packets_path, output_dir
-        ),
-        "evaluation_labels": os.path.relpath(
-            resolved_labels_path, output_dir
         ),
     }
     if baseline_comparison_summary_file is not None:
@@ -302,7 +302,7 @@ def materialize_rescue_augmented_packets(
 
     augmented_payload = augment_packets_with_rescue(
         hypothesis_payload,
-        rescue_entity_labels=rescue_entity_labels,
+        rescue_entity_decisions=rescue_entity_decisions,
         baseline_comparison_summaries=baseline_summaries,
         model_admission_summaries=model_summaries or None,
         rescue_source_artifacts=rescue_source_artifacts,
@@ -319,19 +319,30 @@ def materialize_rescue_augmented_packets(
 # ---------------------------------------------------------------------------
 
 
+_SAFE_MATCHED_TASK_FIELDS = frozenset({
+    "task_id",
+    "task_label",
+    "entity_id",
+    "entity_label",
+    "entity_rescue_decision",
+    "baseline_performance",
+    "model_admission",
+})
+
+
 def _build_matched_tasks(
     *,
     entity_id: str,
     entity_label: str,
-    entity_label_entry: dict[str, str] | None,
+    entity_decision_entry: dict[str, str] | None,
     baseline_comparison_summaries: list[dict[str, object]],
     model_admission_summaries: list[dict[str, object]],
 ) -> list[dict[str, object]]:
-    if entity_label_entry is None:
+    if entity_decision_entry is None:
         return []
 
-    task_id = entity_label_entry.get("task_id", "")
-    task_label = entity_label_entry.get("task_label", "")
+    task_id = entity_decision_entry.get("task_id", "")
+    task_label = entity_decision_entry.get("task_label", "")
 
     baseline_summary_for_task = _find_summary_for_task(
         task_id, baseline_comparison_summaries
@@ -345,10 +356,7 @@ def _build_matched_tasks(
         "task_label": task_label,
         "entity_id": entity_id,
         "entity_label": entity_label,
-        "entity_rescue_decision": entity_label_entry.get("decision", ""),
-        "entity_evaluation_label": entity_label_entry.get("evaluation_label", ""),
-        "entity_split": entity_label_entry.get("split_name", ""),
-        "label_rationale": entity_label_entry.get("label_rationale", ""),
+        "entity_rescue_decision": entity_decision_entry.get("decision", ""),
     }
 
     if baseline_summary_for_task is not None:
@@ -386,14 +394,15 @@ def _find_admission_for_task(
     task_id: str,
     summaries: list[dict[str, object]],
 ) -> dict[str, object] | None:
+    """Find a model admission summary by exact task_id match.
+
+    Returns the first summary whose ``task_id`` field equals the
+    requested task_id.  Summaries without a ``task_id`` field or with
+    a different ``task_id`` are skipped so that unrelated admission
+    evidence cannot bleed into the wrong packet.
+    """
     for summary in summaries:
-        decisions = summary.get("decisions")
-        if not isinstance(decisions, list):
-            continue
-        for decision in decisions:
-            if isinstance(decision, dict) and decision.get("model_id", "").startswith(task_id):
-                return summary
-        if summary.get("admitted_model_ids") is not None:
+        if summary.get("task_id") == task_id:
             return summary
     return None
 
@@ -557,9 +566,7 @@ def _build_assay_rationale(
         task = matched_tasks[0]
         task_context = (
             f" Rescue task '{task.get('task_label', '')}' labels entity as "
-            f"'{rescue_label}'"
-            + (f": {task.get('label_rationale', '')}" if task.get("label_rationale") else "")
-            + "."
+            f"'{rescue_label}'."
         )
 
     if assay_class == FIRST_ASSAY_CLASS_CONFLICT:

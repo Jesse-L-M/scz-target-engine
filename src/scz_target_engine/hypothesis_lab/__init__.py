@@ -10,7 +10,7 @@ from scz_target_engine.hypothesis_lab.packets import (
 from scz_target_engine.hypothesis_lab.rescue_sections import (
     augment_packets_with_rescue,
     build_first_assay_section,
-    build_rescue_entity_labels,
+    build_rescue_entity_decisions,
     build_rescue_evidence_section,
     materialize_rescue_augmented_packets,
 )
@@ -21,7 +21,7 @@ __all__ = [
     "build_blinded_expert_review_payloads",
     "build_first_assay_section",
     "build_hypothesis_packets_payload",
-    "build_rescue_entity_labels",
+    "build_rescue_entity_decisions",
     "build_rescue_evidence_section",
     "materialize_blinded_expert_review_packets",
     "materialize_hypothesis_packets",

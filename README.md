@@ -17,6 +17,7 @@ fixtures.
 - Additive `v1` decision vectors plus per-domain/per-stage ranking artifacts
 - PR7 scoring-neutral target ledgers with failure history, directionality hypotheses, and source primitives
 - PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort labels, runner manifests, metric payloads, and confidence interval payloads
+- A rescue hidden-eval packaging and simulation path for the shipped glutamatergic rescue task, with a public submitter package built from the real governed ranking artifact and an operator-side evaluator that keeps held-out labels out of the public scorecard
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
 - A checked-in example scoring fixture path under `examples/v0/`, where `v0` still exists as the reference workflow and `v1` outputs are emitted alongside it when you rerun the build
 - Live fetchers for `Open Targets`, `ChEMBL`, `PGC`, `SCHEMA`, and `PsychENCODE / BrainSCOPE`
@@ -59,7 +60,8 @@ output contract, [docs/benchmarking.md](docs/benchmarking.md) for the canonical
 benchmark workflow, and [docs/artifact_schemas.md](docs/artifact_schemas.md) for the
 registered artifact families and runtime validation surface. See
 [docs/rescue_tasks.md](docs/rescue_tasks.md) for the dedicated rescue registry and
-contract surface. See
+contract surface, and [docs/hidden_eval.md](docs/hidden_eval.md) for the partner-facing
+hidden-eval packaging and simulation workflow. See
 [docs/atlas_source_ingest.md](docs/atlas_source_ingest.md) for the staged raw-source
 contract and atlas ingest boundary, and [docs/atlas_tensor.md](docs/atlas_tensor.md)
 for the taxonomy/tensor contract layered on top of that ingest foundation.
@@ -214,6 +216,7 @@ that call the same handlers with the same flags:
 - `atlas sources opentargets`, `atlas sources pgc scz2022`, `atlas ingest candidate-registry`
 - `atlas build taxonomy`, `atlas build tensor`
 - `prepare gene-table`, `prepare example-gene-table`, `prepare example-module-table`, `prepare example-inputs`
+- `hidden-eval task-package`, `hidden-eval pack-submission`, `hidden-eval simulate`
 - `benchmark snapshot`, `benchmark cohort`, `benchmark run`, `benchmark reporting`
 
 Migration posture:
@@ -370,6 +373,7 @@ See [docs/artifact_schemas.md](docs/artifact_schemas.md) for details and example
 - [docs/scoring_contract.md](docs/scoring_contract.md): methodological contract for `v0`
 - [docs/benchmarking.md](docs/benchmarking.md): frozen benchmark question, canonical workflow, artifact layout, and current runner boundary
 - [docs/rescue_tasks.md](docs/rescue_tasks.md): dedicated rescue registry shape, contract surface, and leakage boundary
+- [docs/hidden_eval.md](docs/hidden_eval.md): public submitter package boundary and operator-side hidden-eval simulator for the shipped glutamatergic rescue task
 - [data/benchmark](data/benchmark): checked-in benchmark fixtures plus the canonical generated benchmark output path under `data/benchmark/generated/`
 - [docs/ledger_contract.md](docs/ledger_contract.md): structured failure and directionality ledger contract
 - [schemas/artifact_schemas](schemas/artifact_schemas): registered schema files for current emitted artifact families

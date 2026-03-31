@@ -19,8 +19,8 @@
           "emraclidine-empower-acute-scz-topline-2024"
         ],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": [
           "cobenfy-xanomeline-trospium-approval-us-2024",
@@ -96,8 +96,8 @@
           "emraclidine-empower-acute-scz-topline-2024"
         ],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": [
           "cobenfy-xanomeline-trospium-approval-us-2024",
@@ -170,8 +170,8 @@
         "policy_score_pointer": "/entities/gene/4/policy_scores/0",
         "replay_reason_event_ids": [],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": [
           "clozapine-clozaril-trs-approval-us-1989"
@@ -245,8 +245,8 @@
           "clozapine-clozaril-trs-approval-us-1989"
         ],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": [
           "clozapine-clozaril-trs-approval-us-1989"
@@ -316,8 +316,8 @@
         "policy_score_pointer": "/entities/gene/20/policy_scores/0",
         "replay_reason_event_ids": [],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": []
       },
@@ -385,8 +385,8 @@
         "policy_score_pointer": "/entities/gene/20/policy_scores/1",
         "replay_reason_event_ids": [],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": []
       },
@@ -454,8 +454,8 @@
         "policy_score_pointer": "/entities/gene/2/policy_scores/0",
         "replay_reason_event_ids": [],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": []
       },
@@ -523,8 +523,8 @@
         "policy_score_pointer": "/entities/gene/2/policy_scores/1",
         "replay_reason_event_ids": [],
         "source_artifacts": {
-          "gene_target_ledgers": "gene_target_ledgers.json",
-          "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+          "gene_target_ledgers": "../v0/output/gene_target_ledgers.json",
+          "policy_decision_vectors_v2": "../v0/output/policy_decision_vectors_v2.json"
         },
         "structural_failure_program_ids": []
       },

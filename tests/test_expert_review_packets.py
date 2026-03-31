@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 import shutil
 
+import pytest
+
 from scz_target_engine.hypothesis_lab import (
     BLINDED_EXPERT_REVIEW_RUBRIC,
     materialize_blinded_expert_review_packets,
@@ -17,6 +19,11 @@ from scz_target_engine.hypothesis_lab.expert_packets import (
 
 def _read_json(path: Path) -> object:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def test_blinded_expert_review_examples_are_reproducible_from_shipped_packets(
@@ -62,6 +69,73 @@ def test_blinded_expert_review_examples_are_reproducible_from_shipped_packets(
         )
 
 
+def test_custom_rubric_file_changes_emitted_template_content(tmp_path: Path) -> None:
+    custom_rubric = {
+        "rubric_id": "custom_expert_review_rubric_v1",
+        "review_goal": "Use a custom rubric for the blinded packet review.",
+        "comparison_prompt": "Custom prompt: pick the packet that is easiest to challenge.",
+        "dimensions": [
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity",
+                "question": "Is the packet easy to understand?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "Hard to understand.",
+                "high_anchor": "Very easy to understand.",
+            },
+            {
+                "dimension_id": "challengeability",
+                "label": "Challengeability",
+                "question": "Does the packet make it easy to disagree with the thesis?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No clear way to challenge it.",
+                "high_anchor": "Challenge paths are explicit.",
+            },
+        ],
+        "required_findings": [
+            "winner_reason",
+            "schema_change_requests",
+        ],
+    }
+    rubric_path = tmp_path / "custom_rubric.json"
+    _write_json(rubric_path, custom_rubric)
+
+    materialize_blinded_expert_review_packets(
+        Path("examples/v0/output/hypothesis_packets_v1.json"),
+        output_dir=tmp_path / "expert_review",
+        rubric_file=rubric_path,
+    )
+
+    review_packets_payload = _read_json(tmp_path / "expert_review" / REVIEW_PACKETS_FILENAME)
+    response_template_payload = _read_json(
+        tmp_path / "expert_review" / RESPONSE_TEMPLATE_FILENAME
+    )
+
+    assert response_template_payload["rubric"] == custom_rubric
+    assert review_packets_payload["comparison_prompt"] == custom_rubric["comparison_prompt"]
+    assert review_packets_payload["comparisons"][0]["comparison_prompt"] == custom_rubric[
+        "comparison_prompt"
+    ]
+    assert set(
+        response_template_payload["comparisons"][0]["blind_scores"][
+            response_template_payload["comparisons"][0]["available_blind_ids"][0]
+        ]
+    ) == {"clarity", "challengeability"}
+
+
+def test_missing_custom_rubric_file_fails(tmp_path: Path) -> None:
+    missing_rubric_path = tmp_path / "missing_rubric.json"
+
+    with pytest.raises(FileNotFoundError):
+        materialize_blinded_expert_review_packets(
+            Path("examples/v0/output/hypothesis_packets_v1.json"),
+            output_dir=tmp_path / "expert_review",
+            rubric_file=missing_rubric_path,
+        )
+
+
 def test_blinded_expert_review_key_preserves_traceable_and_baseline_styles() -> None:
     payload = _read_json(Path("examples/expert_review") / REVIEW_KEY_FILENAME)
 
@@ -82,6 +156,21 @@ def test_blinded_expert_review_key_preserves_traceable_and_baseline_styles() -> 
             assert variant["blind_id"].startswith(comparison["comparison_id"])
             assert variant["content_sha256"]
             assert variant["source_field_paths"]
+
+
+def test_example_key_provenance_references_resolve_from_output_location() -> None:
+    output_dir = Path("examples/expert_review").resolve()
+    key_payload = _read_json(output_dir / REVIEW_KEY_FILENAME)
+
+    top_level_sources = key_payload["source_artifacts"]
+    assert (output_dir / top_level_sources["review_packets_file"]).resolve().exists()
+    assert (output_dir / top_level_sources["response_template_file"]).resolve().exists()
+    assert (output_dir / top_level_sources["review_rubric"]).resolve().exists()
+    assert (output_dir / top_level_sources["hypothesis_packets_v1"]).resolve().exists()
+
+    for comparison in key_payload["comparisons"]:
+        for artifact_ref in comparison["source_traceability"]["source_artifacts"].values():
+            assert (output_dir / artifact_ref).resolve().exists()
 
 
 def test_blinded_expert_review_rubric_docs_match_runtime_contract() -> None:

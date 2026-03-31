@@ -91,10 +91,18 @@ BASELINE_PACKET_STYLE_ID = "simplified_baseline_packet"
 def build_blinded_expert_review_payloads(
     hypothesis_payload: dict[str, object],
     *,
+    rubric_payload: dict[str, object],
     hypothesis_artifact_ref: str,
+    hypothesis_artifact_dir: Path,
+    output_dir: Path,
     rubric_artifact_ref: str,
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     packets = _require_list(hypothesis_payload.get("packets"), "hypothesis_packets_v1.packets")
+    comparison_prompt = _require_text(
+        rubric_payload.get("comparison_prompt"),
+        "review_rubric.comparison_prompt",
+    )
+    dimensions = _require_list(rubric_payload.get("dimensions"), "review_rubric.dimensions")
 
     comparisons: list[dict[str, object]] = []
     key_comparisons: list[dict[str, object]] = []
@@ -162,7 +170,7 @@ def build_blinded_expert_review_payloads(
             {
                 "comparison_id": comparison_id,
                 "topic": topic,
-                "comparison_prompt": BLINDED_EXPERT_REVIEW_RUBRIC["comparison_prompt"],
+                "comparison_prompt": comparison_prompt,
                 "variants": blinded_variants,
             }
         )
@@ -172,9 +180,13 @@ def build_blinded_expert_review_payloads(
                 "source_packet_id": source_packet_id,
                 "source_packet_pointer": f"/packets/{packet_index}",
                 "source_traceability": deepcopy(
-                    _require_mapping(
-                        packet.get("traceability"),
-                        f"hypothesis_packets_v1.packets[{packet_index}].traceability",
+                    _rebase_traceability_paths(
+                        _require_mapping(
+                            packet.get("traceability"),
+                            f"hypothesis_packets_v1.packets[{packet_index}].traceability",
+                        ),
+                        hypothesis_artifact_dir=hypothesis_artifact_dir,
+                        output_dir=output_dir,
                     )
                 ),
                 "variants": blinded_key_variants,
@@ -188,8 +200,14 @@ def build_blinded_expert_review_payloads(
                 "preferred_blind_id": None,
                 "blind_scores": {
                     blind_id: {
-                        dimension["dimension_id"]: None
-                        for dimension in BLINDED_EXPERT_REVIEW_RUBRIC["dimensions"]
+                        _require_text(
+                            _require_mapping(
+                                dimension,
+                                "review_rubric.dimensions[]",
+                            ).get("dimension_id"),
+                            "review_rubric.dimensions[].dimension_id",
+                        ): None
+                        for dimension in dimensions
                     }
                     for blind_id in blind_ids
                 },
@@ -211,7 +229,7 @@ def build_blinded_expert_review_payloads(
         },
         "style_family_count": 2,
         "comparison_count": len(comparisons),
-        "comparison_prompt": BLINDED_EXPERT_REVIEW_RUBRIC["comparison_prompt"],
+        "comparison_prompt": comparison_prompt,
         "comparisons": comparisons,
     }
     review_key_payload = {
@@ -250,7 +268,7 @@ def build_blinded_expert_review_payloads(
             "review_key_file": REVIEW_KEY_FILENAME,
             "review_rubric": rubric_artifact_ref,
         },
-        "rubric": deepcopy(BLINDED_EXPERT_REVIEW_RUBRIC),
+        "rubric": deepcopy(rubric_payload),
         "reviewer": {
             "reviewer_id": "",
             "reviewer_role": "",
@@ -280,6 +298,7 @@ def materialize_blinded_expert_review_packets(
             / "blinded_expert_review_rubric.json"
         ).resolve()
     )
+    rubric_payload = _load_review_rubric_payload(resolved_rubric_path)
     hypothesis_artifact = load_artifact(
         resolved_hypothesis_path,
         artifact_name="hypothesis_packets_v1",
@@ -287,10 +306,13 @@ def materialize_blinded_expert_review_packets(
     review_packets_payload, review_key_payload, response_template_payload = (
         build_blinded_expert_review_payloads(
             dict(hypothesis_artifact.payload),
+            rubric_payload=rubric_payload,
             hypothesis_artifact_ref=os.path.relpath(
                 resolved_hypothesis_path,
                 resolved_output_dir,
             ),
+            hypothesis_artifact_dir=resolved_hypothesis_path.parent,
+            output_dir=resolved_output_dir,
             rubric_artifact_ref=os.path.relpath(
                 resolved_rubric_path,
                 resolved_output_dir,
@@ -419,6 +441,92 @@ def _build_expert_review_packet(packet: dict[str, object]) -> dict[str, object]:
         ),
         "sections": sections,
     }
+
+
+def _rebase_traceability_paths(
+    traceability: dict[str, object],
+    *,
+    hypothesis_artifact_dir: Path,
+    output_dir: Path,
+) -> dict[str, object]:
+    rebased_traceability = deepcopy(traceability)
+    source_artifacts = _require_mapping(
+        rebased_traceability.get("source_artifacts"),
+        "packet.traceability.source_artifacts",
+    )
+    rebased_traceability["source_artifacts"] = {
+        artifact_name: _rebase_artifact_reference(
+            _require_text(
+                reference,
+                f"packet.traceability.source_artifacts.{artifact_name}",
+            ),
+            hypothesis_artifact_dir=hypothesis_artifact_dir,
+            output_dir=output_dir,
+        )
+        for artifact_name, reference in source_artifacts.items()
+    }
+    return rebased_traceability
+
+
+def _rebase_artifact_reference(
+    reference: str,
+    *,
+    hypothesis_artifact_dir: Path,
+    output_dir: Path,
+) -> str:
+    candidate = Path(reference)
+    resolved = (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (hypothesis_artifact_dir / candidate).resolve()
+    )
+    return os.path.relpath(resolved, output_dir)
+
+
+def _load_review_rubric_payload(rubric_file: Path) -> dict[str, object]:
+    with rubric_file.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    rubric = _require_mapping(payload, "review_rubric")
+    _require_text(rubric.get("rubric_id"), "review_rubric.rubric_id")
+    _require_text(rubric.get("review_goal"), "review_rubric.review_goal")
+    _require_text(rubric.get("comparison_prompt"), "review_rubric.comparison_prompt")
+    dimensions = _require_list(rubric.get("dimensions"), "review_rubric.dimensions")
+    if not dimensions:
+        raise ValueError("review_rubric.dimensions must not be empty")
+    for index, item in enumerate(dimensions):
+        dimension = _require_mapping(item, f"review_rubric.dimensions[{index}]")
+        _require_text(
+            dimension.get("dimension_id"),
+            f"review_rubric.dimensions[{index}].dimension_id",
+        )
+        _require_text(dimension.get("label"), f"review_rubric.dimensions[{index}].label")
+        _require_text(
+            dimension.get("question"),
+            f"review_rubric.dimensions[{index}].question",
+        )
+        _require_int(
+            dimension.get("scale_min"),
+            f"review_rubric.dimensions[{index}].scale_min",
+        )
+        _require_int(
+            dimension.get("scale_max"),
+            f"review_rubric.dimensions[{index}].scale_max",
+        )
+        _require_text(
+            dimension.get("low_anchor"),
+            f"review_rubric.dimensions[{index}].low_anchor",
+        )
+        _require_text(
+            dimension.get("high_anchor"),
+            f"review_rubric.dimensions[{index}].high_anchor",
+        )
+    required_findings = _require_string_list(
+        rubric.get("required_findings"),
+        "review_rubric.required_findings",
+    )
+    if not required_findings:
+        raise ValueError("review_rubric.required_findings must not be empty")
+    return rubric
 
 
 def _build_baseline_review_packet(packet: dict[str, object]) -> dict[str, object]:
@@ -766,6 +874,12 @@ def _require_list(value: object, field_name: str) -> list[object]:
 def _require_string(value: object, field_name: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{field_name} must be a string")
+    return value
+
+
+def _require_int(value: object, field_name: str) -> int:
+    if not isinstance(value, int):
+        raise ValueError(f"{field_name} must be an integer")
     return value
 
 

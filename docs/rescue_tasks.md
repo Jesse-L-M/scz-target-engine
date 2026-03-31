@@ -296,8 +296,9 @@ assert len(bundle.ranking_input_rows) == 4
 ```
 
 `PR-43` adds a task runner that ranks from the frozen convergence-hub state surface,
-derives deterministic split assignments from the governed split manifest when the
-checked-in CSV omits `split_name`, and joins the held-out labels only during offline
+consumes governed `split_name` assignments already present in the checked-in frozen
+ranking and evaluation CSVs, validates those final bytes against the freeze-manifest
+checksum and row-count contract, and joins the held-out labels only during offline
 evaluation:
 
 ```bash

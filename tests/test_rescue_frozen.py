@@ -408,11 +408,15 @@ def test_npc_frozen_bundle_loads_checked_in_csvs_only() -> None:
     assert positive_counts == {"train": 9, "validation": 3, "test": 2}
 
 
-def test_glutamatergic_frozen_bundle_derives_split_names_from_manifest() -> None:
+def test_glutamatergic_frozen_bundle_reads_governed_split_names_from_shipped_csvs() -> None:
+    ranking_columns, _ = _read_csv_rows(GLUTAMATERGIC_RANKING_OUTPUT_PATH)
+    evaluation_columns, _ = _read_csv_rows(GLUTAMATERGIC_EVALUATION_OUTPUT_PATH)
     bundle = load_frozen_rescue_task_bundle(
         task_card_path=GLUTAMATERGIC_CONVERGENCE_TASK_CARD_PATH
     )
 
+    assert "split_name" in ranking_columns
+    assert "split_name" in evaluation_columns
     assert bundle.governance.task_card.task_id == "glutamatergic_convergence_rescue_task"
     assert "split_name" in bundle.ranking_input.columns
     assert "split_name" in bundle.evaluation_target.columns
@@ -439,10 +443,12 @@ def test_glutamatergic_frozen_bundle_derives_split_names_from_manifest() -> None
     }
 
 
-def test_glutamatergic_frozen_bundle_rejects_checksum_drift(tmp_path: Path) -> None:
+def test_glutamatergic_frozen_bundle_rejects_split_membership_checksum_drift(
+    tmp_path: Path,
+) -> None:
     _, ranking_rows = _read_csv_rows(GLUTAMATERGIC_RANKING_OUTPUT_PATH)
     drifted_ranking_rows = [dict(row) for row in ranking_rows]
-    drifted_ranking_rows[0]["gene_symbol"] = "GRIA1_DRIFT"
+    drifted_ranking_rows[0]["split_name"] = "train"
     drifted_task_card = _build_glutamatergic_temp_bundle(
         tmp_path,
         ranking_rows=drifted_ranking_rows,
@@ -470,6 +476,24 @@ def test_glutamatergic_frozen_bundle_rejects_row_count_drift(tmp_path: Path) -> 
     )
 
     with pytest.raises(ValueError, match="row count drift detected"):
+        load_frozen_rescue_task_bundle(task_card_path=drifted_task_card)
+
+
+def test_glutamatergic_frozen_bundle_rejects_missing_evaluation_rows_up_front(
+    tmp_path: Path,
+) -> None:
+    _, evaluation_rows = _read_csv_rows(GLUTAMATERGIC_EVALUATION_OUTPUT_PATH)
+    drifted_task_card = _build_glutamatergic_temp_bundle(
+        tmp_path,
+        evaluation_rows=[
+            row
+            for row in evaluation_rows
+            if row["gene_id"] != "ENSG00000168959"
+        ],
+        use_materialized_integrity=True,
+    )
+
+    with pytest.raises(ValueError, match="missing held-out evaluation rows"):
         load_frozen_rescue_task_bundle(task_card_path=drifted_task_card)
 
 

@@ -81,6 +81,14 @@ def test_load_glutamatergic_convergence_rescue_bundle_reads_frozen_artifacts() -
         "GRM3": "test",
         "GRM5": "train",
     }
+    assert {
+        row["gene_symbol"]: row["split_name"] for row in bundle.evaluation_label_rows
+    } == {
+        "GRIA1": "validation",
+        "GRIN2A": "train",
+        "GRM3": "test",
+        "GRM5": "train",
+    }
 
 
 def test_glutamatergic_raw_snapshot_manifest_chain_is_self_contained() -> None:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 from scz_target_engine.io import read_csv_table

@@ -31,8 +31,10 @@ from scz_target_engine.benchmark_runner import (
 )
 from scz_target_engine.benchmark_snapshots import read_benchmark_snapshot_manifest
 from scz_target_engine.decision_vector import (
+    AVAILABLE_STATUS,
     DECISION_HEAD_DEFINITIONS,
     DOMAIN_HEAD_DEFINITIONS,
+    PARTIAL_STATUS,
 )
 from scz_target_engine.io import read_json
 from scz_target_engine.ledger import TargetLedger
@@ -1040,6 +1042,154 @@ def _validate_policy_definition_payloads(
     return observed_policy_ids, valid_domain_slugs
 
 
+def _validate_replay_risk_payload(
+    payload: Mapping[str, object],
+    *,
+    field_name: str,
+) -> Mapping[str, object]:
+    _require_text(
+        payload.get("status", ""),
+        f"{field_name}.status",
+    )
+    _require_text(
+        payload.get("summary", ""),
+        f"{field_name}.summary",
+    )
+    proposal = _require_mapping(
+        payload.get("proposal"),
+        f"{field_name}.proposal",
+    )
+    for proposal_field in (
+        "entity_id",
+        "target_symbol",
+        "domain",
+        "population",
+        "mono_or_adjunct",
+    ):
+        _require_string(
+            proposal.get(proposal_field),
+            f"{field_name}.proposal.{proposal_field}",
+        )
+    for count_field in (
+        "supporting_reason_count",
+        "offsetting_reason_count",
+        "uncertainty_reason_count",
+        "uncertainty_flag_count",
+    ):
+        value = _require_int(
+            payload.get(count_field),
+            f"{field_name}.{count_field}",
+        )
+        if value < 0:
+            raise ValueError(f"{field_name}.{count_field} must be non-negative")
+    for list_field in (
+        "supporting_reasons",
+        "offsetting_reasons",
+        "uncertainty_reasons",
+    ):
+        reasons = _require_list(
+            payload.get(list_field),
+            f"{field_name}.{list_field}",
+        )
+        for index, item in enumerate(reasons):
+            reason = _require_mapping(
+                item,
+                f"{field_name}.{list_field}[{index}]",
+            )
+            for required_field in (
+                "relation",
+                "event_id",
+                "failure_scope",
+                "explanation",
+            ):
+                _require_text(
+                    reason.get(required_field, ""),
+                    f"{field_name}.{list_field}[{index}].{required_field}",
+                )
+    uncertainty_flags = _require_list(
+        payload.get("uncertainty_flags"),
+        f"{field_name}.uncertainty_flags",
+    )
+    for index, item in enumerate(uncertainty_flags):
+        flag = _require_mapping(
+            item,
+            f"{field_name}.uncertainty_flags[{index}]",
+        )
+        _require_text(
+            flag.get("code", ""),
+            f"{field_name}.uncertainty_flags[{index}].code",
+        )
+        _require_text(
+            flag.get("explanation", ""),
+            f"{field_name}.uncertainty_flags[{index}].explanation",
+        )
+    _require_string_list(
+        payload.get("falsification_conditions"),
+        f"{field_name}.falsification_conditions",
+    )
+    return payload
+
+
+def _resolve_artifact_reference(
+    artifact_path: Path,
+    reference: str,
+    *,
+    field_name: str,
+) -> Path:
+    candidate = Path(reference)
+    resolved = (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (artifact_path.parent / candidate).resolve()
+    )
+    if not resolved.exists():
+        raise ValueError(f"{field_name} points to a missing artifact: {reference}")
+    return resolved
+
+
+def _decode_json_pointer_token(token: str) -> str:
+    return token.replace("~1", "/").replace("~0", "~")
+
+
+def _split_json_pointer(
+    pointer: str,
+    *,
+    field_name: str,
+) -> list[str]:
+    if not pointer.startswith("/"):
+        raise ValueError(f"{field_name} must be an absolute JSON pointer")
+    return [_decode_json_pointer_token(token) for token in pointer.split("/")[1:]]
+
+
+def _resolve_json_pointer(
+    payload: object,
+    pointer: str,
+    *,
+    field_name: str,
+) -> object:
+    current = payload
+    for raw_token, token in zip(
+        pointer.split("/")[1:],
+        _split_json_pointer(pointer, field_name=field_name),
+        strict=True,
+    ):
+        if isinstance(current, Mapping):
+            if token not in current:
+                raise ValueError(f"{field_name} does not resolve within the source artifact")
+            current = current[token]
+            continue
+        if isinstance(current, list):
+            if not raw_token.isdigit():
+                raise ValueError(f"{field_name} must use numeric indexes for array steps")
+            index = int(raw_token)
+            if index >= len(current):
+                raise ValueError(f"{field_name} does not resolve within the source artifact")
+            current = current[index]
+            continue
+        raise ValueError(f"{field_name} does not resolve to a nested source value")
+    return current
+
+
 def _validate_policy_score_payload(
     payload: Mapping[str, object],
     *,
@@ -1163,94 +1313,32 @@ def _validate_policy_score_payload(
         uncertainty_context.get("replay_risk"),
         f"{field_name}.uncertainty_context.replay_risk",
     )
-    _require_text(
-        replay_risk.get("status", ""),
-        f"{field_name}.uncertainty_context.replay_risk.status",
+    _validate_replay_risk_payload(
+        replay_risk,
+        field_name=f"{field_name}.uncertainty_context.replay_risk",
     )
-    _require_text(
-        replay_risk.get("summary", ""),
-        f"{field_name}.uncertainty_context.replay_risk.summary",
+
+
+def validate_required_scored_policy_signal(
+    payload: Mapping[str, object],
+    *,
+    field_name: str,
+) -> None:
+    score = _require_optional_number(payload.get("score"), f"{field_name}.score")
+    base_score = _require_optional_number(payload.get("base_score"), f"{field_name}.base_score")
+    score_before_clamp = _require_optional_number(
+        payload.get("score_before_clamp"),
+        f"{field_name}.score_before_clamp",
     )
-    proposal = _require_mapping(
-        replay_risk.get("proposal"),
-        f"{field_name}.uncertainty_context.replay_risk.proposal",
-    )
-    for proposal_field in (
-        "entity_id",
-        "target_symbol",
-        "domain",
-        "population",
-        "mono_or_adjunct",
-    ):
-        _require_string(
-            proposal.get(proposal_field),
-            f"{field_name}.uncertainty_context.replay_risk.proposal.{proposal_field}",
+    if score is None or base_score is None or score_before_clamp is None:
+        raise ValueError(
+            f"{field_name} must include non-null score, base_score, and score_before_clamp when require_scored_policy_signal is true"
         )
-    for count_field in (
-        "supporting_reason_count",
-        "offsetting_reason_count",
-        "uncertainty_reason_count",
-        "uncertainty_flag_count",
-    ):
-        value = _require_int(
-            replay_risk.get(count_field),
-            f"{field_name}.uncertainty_context.replay_risk.{count_field}",
+    status = _require_text(payload.get("status", ""), f"{field_name}.status")
+    if status not in {AVAILABLE_STATUS, PARTIAL_STATUS}:
+        raise ValueError(
+            f"{field_name}.status must be available or partial when require_scored_policy_signal is true"
         )
-        if value < 0:
-            raise ValueError(
-                f"{field_name}.uncertainty_context.replay_risk.{count_field} must be non-negative"
-            )
-    for list_field in (
-        "supporting_reasons",
-        "offsetting_reasons",
-        "uncertainty_reasons",
-    ):
-        reasons = _require_list(
-            replay_risk.get(list_field),
-            f"{field_name}.uncertainty_context.replay_risk.{list_field}",
-        )
-        for index, item in enumerate(reasons):
-            reason = _require_mapping(
-                item,
-                f"{field_name}.uncertainty_context.replay_risk.{list_field}[{index}]",
-            )
-            for required_field in (
-                "relation",
-                "event_id",
-                "failure_scope",
-                "explanation",
-            ):
-                _require_text(
-                    reason.get(required_field, ""),
-                    (
-                        f"{field_name}.uncertainty_context.replay_risk."
-                        f"{list_field}[{index}].{required_field}"
-                    ),
-                )
-    uncertainty_flags = _require_list(
-        replay_risk.get("uncertainty_flags"),
-        f"{field_name}.uncertainty_context.replay_risk.uncertainty_flags",
-    )
-    for index, item in enumerate(uncertainty_flags):
-        flag = _require_mapping(
-            item,
-            f"{field_name}.uncertainty_context.replay_risk.uncertainty_flags[{index}]",
-        )
-        _require_text(
-            flag.get("code", ""),
-            f"{field_name}.uncertainty_context.replay_risk.uncertainty_flags[{index}].code",
-        )
-        _require_text(
-            flag.get("explanation", ""),
-            (
-                f"{field_name}.uncertainty_context.replay_risk."
-                f"uncertainty_flags[{index}].explanation"
-            ),
-        )
-    _require_string_list(
-        replay_risk.get("falsification_conditions"),
-        f"{field_name}.uncertainty_context.replay_risk.falsification_conditions",
-    )
 
 
 def _validate_policy_decision_vector_entity(
@@ -1505,6 +1593,674 @@ def _validate_policy_pareto_fronts(
     return payload
 
 
+def _validate_hypothesis_packets_payload_mapping(
+    payload: Mapping[str, object],
+    *,
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    payload = dict(payload)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    if payload.get("schema_version") != schema.schema_version:
+        raise ValueError(
+            f"{schema.artifact_name} schema_version must be {schema.schema_version}"
+        )
+
+    source_artifacts = _require_mapping(
+        payload.get("source_artifacts"),
+        "hypothesis_packets_v1.source_artifacts",
+    )
+    for artifact_key in (
+        "policy_decision_vectors_v2",
+        "gene_target_ledgers",
+    ):
+        _require_text(
+            source_artifacts.get(artifact_key, ""),
+            f"hypothesis_packets_v1.source_artifacts.{artifact_key}",
+        )
+
+    packet_generation_criteria = _require_mapping(
+        payload.get("packet_generation_criteria"),
+        "hypothesis_packets_v1.packet_generation_criteria",
+    )
+    if _require_string_list(
+        packet_generation_criteria.get("entity_types"),
+        "hypothesis_packets_v1.packet_generation_criteria.entity_types",
+    ) != ["gene"]:
+        raise ValueError(
+            "hypothesis_packets_v1.packet_generation_criteria.entity_types must be ['gene']"
+        )
+    if not _require_bool(
+        packet_generation_criteria.get("require_curated_directionality"),
+        "hypothesis_packets_v1.packet_generation_criteria.require_curated_directionality",
+    ):
+        raise ValueError(
+            "hypothesis_packets_v1.packet_generation_criteria.require_curated_directionality must be true"
+        )
+    if not _require_bool(
+        packet_generation_criteria.get("require_non_stub_hypothesis"),
+        "hypothesis_packets_v1.packet_generation_criteria.require_non_stub_hypothesis",
+    ):
+        raise ValueError(
+            "hypothesis_packets_v1.packet_generation_criteria.require_non_stub_hypothesis must be true"
+        )
+    if not _require_bool(
+        packet_generation_criteria.get("require_scored_policy_signal"),
+        "hypothesis_packets_v1.packet_generation_criteria.require_scored_policy_signal",
+    ):
+        raise ValueError(
+            "hypothesis_packets_v1.packet_generation_criteria.require_scored_policy_signal must be true"
+        )
+    require_scored_policy_signal = True
+
+    policy_source_path = _resolve_artifact_reference(
+        path,
+        _require_text(
+            source_artifacts.get("policy_decision_vectors_v2", ""),
+            "hypothesis_packets_v1.source_artifacts.policy_decision_vectors_v2",
+        ),
+        field_name="hypothesis_packets_v1.source_artifacts.policy_decision_vectors_v2",
+    )
+    ledger_source_path = _resolve_artifact_reference(
+        path,
+        _require_text(
+            source_artifacts.get("gene_target_ledgers", ""),
+            "hypothesis_packets_v1.source_artifacts.gene_target_ledgers",
+        ),
+        field_name="hypothesis_packets_v1.source_artifacts.gene_target_ledgers",
+    )
+    policy_source_payload = load_artifact(
+        policy_source_path,
+        artifact_name="policy_decision_vectors_v2",
+    ).payload
+    ledger_source_payload = load_artifact(
+        ledger_source_path,
+        artifact_name="gene_target_ledgers",
+    ).payload
+
+    packets = _require_list(payload.get("packets"), "hypothesis_packets_v1.packets")
+    if _require_int(payload.get("packet_count"), "hypothesis_packets_v1.packet_count") != len(
+        packets
+    ):
+        raise ValueError("hypothesis_packets_v1.packet_count must match packets")
+
+    valid_domain_slugs = {definition.slug for definition in DOMAIN_HEAD_DEFINITIONS}
+    packet_ids: list[str] = []
+    for index, item in enumerate(packets):
+        packet = _require_mapping(item, f"hypothesis_packets_v1.packets[{index}]")
+        packet_id = _require_text(
+            packet.get("packet_id", ""),
+            f"hypothesis_packets_v1.packets[{index}].packet_id",
+        )
+        packet_ids.append(packet_id)
+        entity_type = _require_text(
+            packet.get("entity_type", ""),
+            f"hypothesis_packets_v1.packets[{index}].entity_type",
+        )
+        if entity_type != "gene":
+            raise ValueError(f"hypothesis_packets_v1.packets[{index}].entity_type must be gene")
+        entity_id = _require_text(
+            packet.get("entity_id", ""),
+            f"hypothesis_packets_v1.packets[{index}].entity_id",
+        )
+        entity_label = _require_text(
+            packet.get("entity_label", ""),
+            f"hypothesis_packets_v1.packets[{index}].entity_label",
+        )
+        policy_id = _require_text(
+            packet.get("policy_id", ""),
+            f"hypothesis_packets_v1.packets[{index}].policy_id",
+        )
+        if packet_id != f"{entity_id}__{policy_id}":
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].packet_id must match entity_id__policy_id"
+            )
+        _require_text(
+            packet.get("policy_label", ""),
+            f"hypothesis_packets_v1.packets[{index}].policy_label",
+        )
+        priority_domain = _require_text(
+            packet.get("priority_domain", ""),
+            f"hypothesis_packets_v1.packets[{index}].priority_domain",
+        )
+        if priority_domain not in valid_domain_slugs:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].priority_domain must match current v1 domains"
+            )
+
+        hypothesis = _require_mapping(
+            packet.get("hypothesis"),
+            f"hypothesis_packets_v1.packets[{index}].hypothesis",
+        )
+        statement = _require_text(
+            hypothesis.get("statement", ""),
+            f"hypothesis_packets_v1.packets[{index}].hypothesis.statement",
+        )
+        if "undetermined" in statement:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].hypothesis.statement must not be a vague stub"
+            )
+        for field_name in (
+            "desired_perturbation_direction",
+            "modality_hypothesis",
+        ):
+            value = _require_text(
+                hypothesis.get(field_name, ""),
+                f"hypothesis_packets_v1.packets[{index}].hypothesis.{field_name}",
+            )
+            if value == "undetermined":
+                raise ValueError(
+                    f"hypothesis_packets_v1.packets[{index}].hypothesis.{field_name} must not be undetermined"
+                )
+        preferred_modalities = _require_string_list(
+            hypothesis.get("preferred_modalities"),
+            f"hypothesis_packets_v1.packets[{index}].hypothesis.preferred_modalities",
+        )
+        if not preferred_modalities:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].hypothesis.preferred_modalities must not be empty"
+            )
+        if any(value == "undetermined" for value in preferred_modalities):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].hypothesis.preferred_modalities must not contain undetermined"
+            )
+        _require_text(
+            hypothesis.get("confidence", ""),
+            f"hypothesis_packets_v1.packets[{index}].hypothesis.confidence",
+        )
+        _require_string(
+            hypothesis.get("ambiguity"),
+            f"hypothesis_packets_v1.packets[{index}].hypothesis.ambiguity",
+        )
+        _require_string(
+            hypothesis.get("evidence_basis"),
+            f"hypothesis_packets_v1.packets[{index}].hypothesis.evidence_basis",
+        )
+        supporting_program_ids = _require_string_list(
+            hypothesis.get("supporting_program_ids"),
+            f"hypothesis_packets_v1.packets[{index}].hypothesis.supporting_program_ids",
+        )
+
+        policy_signal = _require_mapping(
+            packet.get("policy_signal"),
+            f"hypothesis_packets_v1.packets[{index}].policy_signal",
+        )
+        _validate_policy_score_payload(
+            policy_signal,
+            field_name=f"hypothesis_packets_v1.packets[{index}].policy_signal",
+            valid_policy_ids=[policy_id],
+            valid_domain_slugs=valid_domain_slugs,
+        )
+        if require_scored_policy_signal:
+            validate_required_scored_policy_signal(
+                policy_signal,
+                field_name=f"hypothesis_packets_v1.packets[{index}].policy_signal",
+            )
+        if policy_signal["label"] != packet["policy_label"]:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].policy_label must match policy_signal.label"
+            )
+        if policy_signal["primary_domain_slug"] != priority_domain:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].priority_domain must match policy_signal.primary_domain_slug"
+            )
+
+        contradiction_handling = _require_mapping(
+            packet.get("contradiction_handling"),
+            f"hypothesis_packets_v1.packets[{index}].contradiction_handling",
+        )
+        contradiction_status = _require_text(
+            contradiction_handling.get("status", ""),
+            f"hypothesis_packets_v1.packets[{index}].contradiction_handling.status",
+        )
+        contradiction_conditions = _require_string_list(
+            contradiction_handling.get("contradiction_conditions"),
+            f"hypothesis_packets_v1.packets[{index}].contradiction_handling.contradiction_conditions",
+        )
+        if contradiction_status not in {"clear", "contradicted"}:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].contradiction_handling.status must be clear or contradicted"
+            )
+        if bool(contradiction_conditions) != (contradiction_status == "contradicted"):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].contradiction_handling.status does not match contradiction_conditions"
+            )
+        _require_string_list(
+            contradiction_handling.get("directionality_falsification_conditions"),
+            f"hypothesis_packets_v1.packets[{index}].contradiction_handling.directionality_falsification_conditions",
+        )
+        open_risks = _require_list(
+            contradiction_handling.get("open_risks"),
+            f"hypothesis_packets_v1.packets[{index}].contradiction_handling.open_risks",
+        )
+        for risk_index, risk_item in enumerate(open_risks):
+            risk = _require_mapping(
+                risk_item,
+                f"hypothesis_packets_v1.packets[{index}].contradiction_handling.open_risks[{risk_index}]",
+            )
+            for required_key in ("source", "risk_kind", "severity", "text"):
+                _require_text(
+                    risk.get(required_key, ""),
+                    (
+                        "hypothesis_packets_v1.packets"
+                        f"[{index}].contradiction_handling.open_risks[{risk_index}].{required_key}"
+                    ),
+                )
+
+        failure_memory = _require_mapping(
+            packet.get("failure_memory"),
+            f"hypothesis_packets_v1.packets[{index}].failure_memory",
+        )
+        structural_failure_history = _validate_structural_failure_history(
+            _require_mapping(
+                failure_memory.get("structural_failure_history"),
+                f"hypothesis_packets_v1.packets[{index}].failure_memory.structural_failure_history",
+            ),
+            field_name=(
+                "hypothesis_packets_v1.packets"
+                f"[{index}].failure_memory.structural_failure_history"
+            ),
+        )
+        replay_risk = _validate_replay_risk_payload(
+            _require_mapping(
+                failure_memory.get("replay_risk"),
+                f"hypothesis_packets_v1.packets[{index}].failure_memory.replay_risk",
+            ),
+            field_name=f"hypothesis_packets_v1.packets[{index}].failure_memory.replay_risk",
+        )
+        if replay_risk != policy_signal["uncertainty_context"]["replay_risk"]:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].failure_memory.replay_risk must match policy_signal uncertainty_context replay_risk"
+            )
+
+        failure_escape_logic = _require_mapping(
+            packet.get("failure_escape_logic"),
+            f"hypothesis_packets_v1.packets[{index}].failure_escape_logic",
+        )
+        escape_status = _require_text(
+            failure_escape_logic.get("status", ""),
+            f"hypothesis_packets_v1.packets[{index}].failure_escape_logic.status",
+        )
+        if escape_status not in {
+            "escape_evidence_present",
+            "history_insufficient",
+            "escape_blocked",
+            "escape_unresolved",
+        }:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].failure_escape_logic.status is unsupported"
+            )
+        escape_routes = _require_list(
+            failure_escape_logic.get("escape_routes"),
+            f"hypothesis_packets_v1.packets[{index}].failure_escape_logic.escape_routes",
+        )
+        for route_index, route_item in enumerate(escape_routes):
+            route = _require_mapping(
+                route_item,
+                (
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].failure_escape_logic.escape_routes[{route_index}]"
+                ),
+            )
+            if (
+                _require_text(
+                    route.get("route_kind", ""),
+                    (
+                        "hypothesis_packets_v1.packets"
+                        f"[{index}].failure_escape_logic.escape_routes[{route_index}].route_kind"
+                    ),
+                )
+                != "offsetting_reason"
+            ):
+                raise ValueError(
+                    "hypothesis_packets_v1 failure_escape_logic escape_routes currently only support offsetting_reason"
+                )
+            for required_key in ("event_id", "failure_scope", "explanation"):
+                _require_text(
+                    route.get(required_key, ""),
+                    (
+                        "hypothesis_packets_v1.packets"
+                        f"[{index}].failure_escape_logic.escape_routes[{route_index}].{required_key}"
+                    ),
+                )
+        if bool(escape_routes) != (escape_status == "escape_evidence_present"):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].failure_escape_logic.status does not match escape_routes"
+            )
+        next_evidence = _require_string_list(
+            failure_escape_logic.get("next_evidence"),
+            f"hypothesis_packets_v1.packets[{index}].failure_escape_logic.next_evidence",
+        )
+        if next_evidence != _require_string_list(
+            replay_risk.get("falsification_conditions"),
+            f"hypothesis_packets_v1.packets[{index}].failure_memory.replay_risk.falsification_conditions",
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].failure_escape_logic.next_evidence must match replay_risk.falsification_conditions"
+            )
+
+        traceability = _require_mapping(
+            packet.get("traceability"),
+            f"hypothesis_packets_v1.packets[{index}].traceability",
+        )
+        trace_source_artifacts = _require_mapping(
+            traceability.get("source_artifacts"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.source_artifacts",
+        )
+        if dict(trace_source_artifacts) != dict(source_artifacts):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.source_artifacts must match top-level source_artifacts"
+            )
+        policy_entity_pointer = _require_text(
+            traceability.get("policy_entity_pointer", ""),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer",
+        )
+        policy_entity_payload = _require_mapping(
+            _resolve_json_pointer(
+                policy_source_payload,
+                policy_entity_pointer,
+                field_name=(
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.policy_entity_pointer"
+                ),
+            ),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer",
+        )
+        if (
+            _require_text(
+                policy_entity_payload.get("entity_id", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.entity_id",
+            )
+            != entity_id
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer must resolve to the packet entity_id"
+            )
+        if (
+            _require_text(
+                policy_entity_payload.get("entity_label", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.entity_label",
+            )
+            != entity_label
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer must resolve to the packet entity_label"
+            )
+        if (
+            _require_text(
+                policy_entity_payload.get("entity_type", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.entity_type",
+            )
+            != entity_type
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer must resolve to the packet entity_type"
+            )
+        policy_entity_pointer_tokens = _split_json_pointer(
+            policy_entity_pointer,
+            field_name=(
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_entity_pointer"
+            ),
+        )
+
+        policy_score_pointer = _require_text(
+            traceability.get("policy_score_pointer", ""),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer",
+        )
+        policy_score_pointer_tokens = _split_json_pointer(
+            policy_score_pointer,
+            field_name=(
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_score_pointer"
+            ),
+        )
+        expected_score_pointer_prefix = [
+            *policy_entity_pointer_tokens,
+            "policy_scores",
+        ]
+        if (
+            len(policy_score_pointer_tokens) != len(expected_score_pointer_prefix) + 1
+            or policy_score_pointer_tokens[: len(expected_score_pointer_prefix)]
+            != expected_score_pointer_prefix
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must belong to the packet policy_entity_pointer policy_scores list"
+            )
+        score_index_token = policy_score_pointer_tokens[-1]
+        if not score_index_token.isdigit():
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must end in a numeric policy_scores index"
+            )
+        score_index = int(score_index_token)
+        policy_score_payload = _require_mapping(
+            _resolve_json_pointer(
+                policy_source_payload,
+                policy_score_pointer,
+                field_name=(
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.policy_score_pointer"
+                ),
+            ),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer",
+        )
+        policy_entity_scores = _require_list(
+            policy_entity_payload.get("policy_scores"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.policy_scores",
+        )
+        if score_index >= len(policy_entity_scores):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer does not resolve within the packet policy_entity_pointer policy_scores list"
+            )
+        policy_entity_score_payload = _require_mapping(
+            policy_entity_scores[score_index],
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_entity.policy_scores[{score_index}]"
+            ),
+        )
+        if dict(policy_entity_score_payload) != dict(policy_score_payload):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the same entity-scoped policy_scores row as policy_entity_pointer"
+            )
+        if (
+            _require_text(
+                policy_entity_score_payload.get("policy_id", ""),
+                (
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.policy_entity.policy_scores[{score_index}].policy_id"
+                ),
+            )
+            != policy_id
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the packet policy_id within the packet policy_entity_pointer context"
+            )
+        policy_entity_policy_vector = _require_mapping(
+            policy_entity_payload.get("policy_vector"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.policy_vector",
+        )
+        policy_vector_score_payload = _require_mapping(
+            policy_entity_policy_vector.get(policy_id),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.policy_entity.policy_vector.{policy_id}"
+            ),
+        )
+        if dict(policy_vector_score_payload) != dict(policy_score_payload):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the packet policy_id entry in the packet policy_entity_pointer policy_vector"
+            )
+        if dict(policy_score_payload) != dict(policy_signal):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the packet policy_signal payload"
+            )
+
+        ledger_target_pointer = _require_text(
+            traceability.get("ledger_target_pointer", ""),
+            f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer",
+        )
+        ledger_target_payload = _require_mapping(
+            _resolve_json_pointer(
+                ledger_source_payload,
+                ledger_target_pointer,
+                field_name=(
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.ledger_target_pointer"
+                ),
+            ),
+            f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer",
+        )
+        if (
+            _require_text(
+                ledger_target_payload.get("entity_id", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target.entity_id",
+            )
+            != entity_id
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet entity_id"
+            )
+        if (
+            _require_text(
+                ledger_target_payload.get("entity_label", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target.entity_label",
+            )
+            != entity_label
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet entity_label"
+            )
+        if _require_mapping(
+            ledger_target_payload.get("structural_failure_history"),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.ledger_target.structural_failure_history"
+            ),
+        ) != dict(structural_failure_history):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet structural_failure_history payload"
+            )
+        if _require_string_list(
+            _require_mapping(
+                ledger_target_payload.get("directionality_hypothesis"),
+                (
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.ledger_target.directionality_hypothesis"
+                ),
+            ).get("supporting_program_ids"),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.ledger_target.directionality_hypothesis.supporting_program_ids"
+            ),
+        ) != supporting_program_ids:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet supporting_program_ids"
+            )
+        if _require_string_list(
+            ledger_target_payload.get("falsification_conditions"),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.ledger_target.falsification_conditions"
+            ),
+        ) != _require_string_list(
+            contradiction_handling.get("directionality_falsification_conditions"),
+            f"hypothesis_packets_v1.packets[{index}].contradiction_handling.directionality_falsification_conditions",
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet directionality_falsification_conditions"
+            )
+        if _require_list(
+            ledger_target_payload.get("open_risks"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target.open_risks",
+        ) != list(open_risks):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet open_risks payload"
+            )
+        if _require_string_list(
+            traceability.get("directionality_supporting_program_ids"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.directionality_supporting_program_ids",
+        ) != supporting_program_ids:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.directionality_supporting_program_ids must match hypothesis.supporting_program_ids"
+            )
+        if _require_string_list(
+            traceability.get("structural_failure_program_ids"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.structural_failure_program_ids",
+        ) != [
+            _require_text(
+                event["program_id"],
+                (
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].failure_memory.structural_failure_history.events[].program_id"
+                ),
+            )
+            for event in structural_failure_history["events"]
+        ]:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.structural_failure_program_ids must match structural_failure_history.events"
+            )
+        replay_reason_event_ids: list[str] = []
+        for list_field in (
+            "supporting_reasons",
+            "offsetting_reasons",
+            "uncertainty_reasons",
+        ):
+            for reason in replay_risk[list_field]:
+                event_id_value = _require_text(
+                    reason["event_id"],
+                    (
+                        "hypothesis_packets_v1.packets"
+                        f"[{index}].failure_memory.replay_risk.{list_field}[].event_id"
+                    ),
+                )
+                if event_id_value not in replay_reason_event_ids:
+                    replay_reason_event_ids.append(event_id_value)
+        if _require_string_list(
+            traceability.get("replay_reason_event_ids"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.replay_reason_event_ids",
+        ) != replay_reason_event_ids:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.replay_reason_event_ids must match failure_memory.replay_risk reason event_ids"
+            )
+
+    if len(packet_ids) != len(set(packet_ids)):
+        raise ValueError("hypothesis_packets_v1.packets must not repeat packet_id")
+    return payload
+
+
+def _validate_hypothesis_packets(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    return _validate_hypothesis_packets_payload_mapping(
+        _load_json_mapping(path),
+        path=path,
+        schema=schema,
+    )
+
+
+def validate_hypothesis_packets_payload(
+    payload: Mapping[str, object],
+    *,
+    artifact_path: Path,
+    schema_dir: Path | None = None,
+) -> dict[str, object]:
+    schema = get_artifact_schema(
+        "hypothesis_packets_v1",
+        schema_dir=schema_dir,
+    )
+    return _validate_hypothesis_packets_payload_mapping(
+        payload,
+        path=artifact_path.resolve(),
+        schema=schema,
+    )
+
+
 def _validate_domain_head_rankings(
     path: Path,
     schema: ArtifactSchemaDefinition,
@@ -1593,6 +2349,13 @@ def infer_artifact_name(
             return "decision_vectors_v1"
         if {"schema_version", "policy_ids", "entity_types"}.issubset(payload):
             return "policy_pareto_fronts_v1"
+        if {
+            "schema_version",
+            "source_artifacts",
+            "packet_generation_criteria",
+            "packets",
+        }.issubset(payload):
+            return "hypothesis_packets_v1"
 
     if suffix == ".csv":
         fieldnames, _ = _read_csv_artifact(path)
@@ -1622,6 +2385,7 @@ _ARTIFACT_VALIDATORS = {
     "policy_decision_vectors_v2": _validate_policy_decision_vectors,
     "domain_head_rankings_v1": _validate_domain_head_rankings,
     "policy_pareto_fronts_v1": _validate_policy_pareto_fronts,
+    "hypothesis_packets_v1": _validate_hypothesis_packets,
 }
 
 

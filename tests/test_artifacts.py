@@ -47,6 +47,7 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
         "policy_decision_vectors_v2",
         "domain_head_rankings_v1",
         "policy_pareto_fronts_v1",
+        "hypothesis_packets_v1",
     }
 
 
@@ -83,6 +84,7 @@ def test_example_build_artifacts_validate_against_registered_schemas(
     policy_vector_artifact = load_artifact(tmp_path / "policy_decision_vectors_v2.json")
     domain_ranking_artifact = load_artifact(tmp_path / "domain_head_rankings_v1.csv")
     policy_pareto_artifact = load_artifact(tmp_path / "policy_pareto_fronts_v1.json")
+    hypothesis_packets_artifact = load_artifact(tmp_path / "hypothesis_packets_v1.json")
 
     assert ledger_artifact.artifact_name == "gene_target_ledgers"
     assert ledger_artifact.payload["target_count"] == len(ledger_artifact.payload["targets"])
@@ -94,6 +96,8 @@ def test_example_build_artifacts_validate_against_registered_schemas(
     assert len(domain_ranking_artifact.payload) > 0
     assert policy_pareto_artifact.artifact_name == "policy_pareto_fronts_v1"
     assert set(policy_pareto_artifact.payload["entity_types"]) == {"gene", "module"}
+    assert hypothesis_packets_artifact.artifact_name == "hypothesis_packets_v1"
+    assert hypothesis_packets_artifact.payload["packet_count"] > 0
 
 
 def test_policy_decision_vector_artifact_rejects_invalid_definition_payloads(

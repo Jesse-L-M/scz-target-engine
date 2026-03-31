@@ -203,6 +203,63 @@ def test_prospective_reconciliation_prepares_scoreable_records(tmp_path: Path) -
     }
 
 
+def test_prospective_reconciliation_resolves_multiple_agreeing_outcomes(
+    tmp_path: Path,
+) -> None:
+    registrations_dir = tmp_path / "registrations"
+    outcomes_dir = tmp_path / "outcomes"
+    registration_path = (
+        registrations_dir / "forecast_chrm4_acute_translation_guardrails_2026_03_31.json"
+    )
+    _materialize_registration(registration_path)
+
+    evidence_a = outcomes_dir / "agreeing_outcome_note_a.md"
+    evidence_b = outcomes_dir / "agreeing_outcome_note_b.md"
+    evidence_a.parent.mkdir(parents=True, exist_ok=True)
+    evidence_a.write_text("advance\n", encoding="utf-8")
+    evidence_b.write_text("advance again\n", encoding="utf-8")
+
+    _write_outcome_log(
+        outcomes_dir / "agreeing_outcome_log_a.json",
+        registration_path=registration_path,
+        observed_outcome="advance",
+        outcome_record_id="chrm4_acute_outcome_2027_06_30_a",
+        evidence_file=evidence_a,
+        observed_at="2027-06-30",
+        outcome_log_id="prospective_outcomes_2027_06_30_a",
+    )
+    _write_outcome_log(
+        outcomes_dir / "agreeing_outcome_log_b.json",
+        registration_path=registration_path,
+        observed_outcome="advance",
+        outcome_record_id="chrm4_acute_outcome_2027_07_02_b",
+        evidence_file=evidence_b,
+        observed_at="2027-07-02",
+        outcome_log_id="prospective_outcomes_2027_07_02_b",
+    )
+
+    reconciliations = reconcile_prospective_forecasts(
+        registrations_dir=registrations_dir,
+        outcomes_dir=outcomes_dir,
+    )
+    scoring_records = build_prospective_scoring_records(
+        registrations_dir=registrations_dir,
+        outcomes_dir=outcomes_dir,
+    )
+
+    assert len(reconciliations) == 1
+    assert reconciliations[0].resolution_status == "resolved"
+    assert reconciliations[0].observed_outcome == "advance"
+    assert reconciliations[0].observed_at == "2027-06-30"
+    assert reconciliations[0].outcome_record_ids == (
+        "chrm4_acute_outcome_2027_06_30_a",
+        "chrm4_acute_outcome_2027_07_02_b",
+    )
+    assert len(scoring_records) == 1
+    assert scoring_records[0].observed_outcome == "advance"
+    assert scoring_records[0].observed_at == "2027-06-30"
+
+
 def test_prospective_reconciliation_keeps_out_of_window_outcome_non_scoreable(
     tmp_path: Path,
 ) -> None:

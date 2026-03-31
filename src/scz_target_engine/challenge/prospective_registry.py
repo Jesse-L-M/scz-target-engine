@@ -203,6 +203,17 @@ def _outcome_record_is_within_window(
     return opens_on <= observed_at <= closes_on
 
 
+def _sort_outcome_records(
+    records: list["ProspectiveForecastOutcomeRecord"],
+) -> tuple["ProspectiveForecastOutcomeRecord", ...]:
+    return tuple(
+        sorted(
+            records,
+            key=lambda record: (record.observed_at, record.outcome_record_id),
+        )
+    )
+
+
 def _resolve_packet(packet_payload: dict[str, object], *, packet_id: str) -> tuple[int, dict[str, object]]:
     packets = _require_list(packet_payload.get("packets"), "hypothesis_packets_v1.packets")
     matches: list[tuple[int, dict[str, object]]] = []
@@ -1213,28 +1224,40 @@ def reconcile_prospective_forecasts(
                 )
             )
             continue
-        if len(records) == 1:
-            record = records[0]
-            if not _outcome_record_is_within_window(
+        sorted_records = _sort_outcome_records(records)
+        in_window_records = tuple(
+            record
+            for record in sorted_records
+            if _outcome_record_is_within_window(
                 record,
                 registration=registration,
-            ):
-                reconciliations.append(
-                    ProspectiveForecastReconciliation(
-                        registration_id=registration.registration_id,
-                        packet_id=registration.packet_artifact.packet_id,
-                        resolution_status="out_of_window",
-                        predicted_outcome=_require_text(
-                            forecast_payload.get("predicted_outcome"),
-                            "registration.frozen_forecast_payload.predicted_outcome",
-                        ),
-                        option_probabilities=option_probabilities,
-                        observed_outcome=record.observed_outcome,
-                        observed_at=record.observed_at,
-                        outcome_record_ids=(record.outcome_record_id,),
-                    )
+            )
+        )
+        valid_outcomes = tuple(
+            sorted({record.observed_outcome for record in in_window_records})
+        )
+
+        if not in_window_records:
+            reconciliations.append(
+                ProspectiveForecastReconciliation(
+                    registration_id=registration.registration_id,
+                    packet_id=registration.packet_artifact.packet_id,
+                    resolution_status="out_of_window",
+                    predicted_outcome=_require_text(
+                        forecast_payload.get("predicted_outcome"),
+                        "registration.frozen_forecast_payload.predicted_outcome",
+                    ),
+                    option_probabilities=option_probabilities,
+                    observed_outcome=sorted_records[0].observed_outcome,
+                    observed_at=sorted_records[0].observed_at,
+                    outcome_record_ids=tuple(
+                        record.outcome_record_id for record in sorted_records
+                    ),
                 )
-                continue
+            )
+            continue
+
+        if len(valid_outcomes) == 1:
             reconciliations.append(
                 ProspectiveForecastReconciliation(
                     registration_id=registration.registration_id,
@@ -1245,9 +1268,11 @@ def reconcile_prospective_forecasts(
                         "registration.frozen_forecast_payload.predicted_outcome",
                     ),
                     option_probabilities=option_probabilities,
-                    observed_outcome=record.observed_outcome,
-                    observed_at=record.observed_at,
-                    outcome_record_ids=(record.outcome_record_id,),
+                    observed_outcome=valid_outcomes[0],
+                    observed_at=in_window_records[0].observed_at,
+                    outcome_record_ids=tuple(
+                        record.outcome_record_id for record in in_window_records
+                    ),
                 )
             )
             continue
@@ -1263,11 +1288,9 @@ def reconcile_prospective_forecasts(
                 ),
                 option_probabilities=option_probabilities,
                 outcome_record_ids=tuple(
-                    sorted(record.outcome_record_id for record in records)
+                    record.outcome_record_id for record in in_window_records
                 ),
-                conflict_outcomes=tuple(
-                    sorted({record.observed_outcome for record in records})
-                ),
+                conflict_outcomes=valid_outcomes,
             )
         )
     return tuple(reconciliations)

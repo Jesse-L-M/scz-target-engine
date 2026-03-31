@@ -71,11 +71,13 @@ That means later outcome logging does not edit the original forecast file.
 Reconciliation is intentionally conservative:
 
 - zero outcome records for a registration => `pending`
-- exactly one outcome record inside the inclusive `opens_on` / `closes_on` window => `resolved`
-- exactly one outcome record outside that inclusive window => `out_of_window`
-- more than one outcome record => `conflicted`
+- no in-window outcome records => `out_of_window`
+- one or more in-window outcome records with exactly one unique `observed_outcome` => `resolved`
+- in-window outcome records with more than one unique `observed_outcome` => `conflicted`
 
-The loader does not silently choose between competing outcome records.
+Resolved multi-record cases carry the earliest in-window `observed_at` plus all
+supporting in-window `outcome_record_ids`.
+The loader does not silently choose between competing valid in-window outcomes.
 Conflicted histories are excluded from `build_prospective_scoring_records(...)`
 until the repo has an explicit resolution artifact or manual cleanup path.
 Out-of-window histories are also excluded from scoring. They stay visible in

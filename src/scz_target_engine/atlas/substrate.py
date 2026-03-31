@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 from scz_target_engine.atlas.staging import slugify
 from scz_target_engine.io import read_csv_table, read_json
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass(frozen=True)
@@ -46,11 +50,49 @@ def normalize_alignment_label(value: str | None) -> str:
     return " ".join(value.strip().upper().split())
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 def resolve_manifest_path(reference_file: Path, raw_path: str) -> Path:
     path = Path(raw_path)
     if path.is_absolute():
         return path.resolve()
-    return (reference_file.parent / path).resolve()
+
+    resolved_reference_dir = reference_file.parent.resolve()
+    reference_candidate = (resolved_reference_dir / path).resolve()
+    if reference_candidate.exists():
+        return reference_candidate
+
+    repo_candidate = (REPO_ROOT / path).resolve()
+    if _is_within(repo_candidate, REPO_ROOT) and repo_candidate.exists():
+        return repo_candidate
+
+    return reference_candidate
+
+
+def serialize_manifest_path(reference_file: Path, path: Path) -> str:
+    resolved_reference_dir = reference_file.parent.resolve()
+    resolved_path = path.resolve()
+    reference_in_repo = _is_within(resolved_reference_dir, REPO_ROOT)
+    path_in_repo = _is_within(resolved_path, REPO_ROOT)
+
+    if reference_in_repo == path_in_repo:
+        return Path(os.path.relpath(resolved_path, resolved_reference_dir)).as_posix()
+    if path_in_repo:
+        return resolved_path.relative_to(REPO_ROOT).as_posix()
+    return str(resolved_path)
+
+
+def serialize_provenance_path(path: Path) -> str:
+    resolved_path = path.resolve()
+    if _is_within(resolved_path, REPO_ROOT):
+        return resolved_path.relative_to(REPO_ROOT).as_posix()
+    return str(resolved_path)
 
 
 def resolve_optional_manifest_path(

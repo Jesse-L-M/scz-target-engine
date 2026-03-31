@@ -1,0 +1,13 @@
+{
+  "contract_version": "atlas-context-taxonomy/v1",
+  "dimension_count": 11,
+  "emitted_artifacts": {
+    "context_dimensions_file": "context_dimensions.csv",
+    "context_members_file": "context_members.csv",
+    "feature_taxonomy_file": "feature_taxonomy.csv"
+  },
+  "feature_count": 12,
+  "ingest_manifest_file": "../../../../../../curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json",
+  "member_count": 27,
+  "output_dir": "."
+}

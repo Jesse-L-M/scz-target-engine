@@ -1,0 +1,8 @@
+{
+  "disease": {
+    "id": "MONDO_0005090",
+    "name": "schizophrenia"
+  },
+  "scope_boundary": "Fixture-scale Open Targets baseline rows for glutamatergic genes derived from the checked-in v0 evidence table.",
+  "derived_from": "examples/v0/input/gene_evidence.csv"
+}

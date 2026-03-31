@@ -1,0 +1,40 @@
+{
+  "contract_version": "atlas-ingest-foundation/v1",
+  "materialized_at": "2026-03-31",
+  "raw_source_root": "example_raw",
+  "scope_boundary": "Checked-in deterministic glutamatergic atlas fixture for rescue validation. It preserves atlas provenance handles and convergence-hub framing without introducing a live-source ingest path.",
+  "sources": {
+    "opentargets": {
+      "contract_version": "atlas-source-contract/v1",
+      "materialized_at": "2026-03-31",
+      "processed_metadata_file": "example_sources/opentargets/glutamatergic_baseline.metadata.json",
+      "processed_output_file": "example_sources/opentargets/glutamatergic_baseline.csv",
+      "raw_manifest_file": "example_raw/opentargets/manifest.json",
+      "source_contract": {
+        "adapter_name": "atlas.sources.opentargets",
+        "dataset_name": "glutamatergic_baseline",
+        "preserved_output_contract": "fixture_from_examples_v0_gene_evidence",
+        "processed_artifact_name": "glutamatergic_baseline.csv",
+        "scope_boundary": "Fixture-scale Open Targets rows for glutamatergic convergence rescue validation only.",
+        "source_name": "opentargets",
+        "upstream_artifact_kind": "fixture_projection_from_checked_in_gene_evidence"
+      }
+    },
+    "pgc": {
+      "contract_version": "atlas-source-contract/v1",
+      "materialized_at": "2026-03-31",
+      "processed_metadata_file": "example_sources/pgc/glutamatergic_prioritized_genes.metadata.json",
+      "processed_output_file": "example_sources/pgc/glutamatergic_prioritized_genes.csv",
+      "raw_manifest_file": "example_raw/pgc/manifest.json",
+      "source_contract": {
+        "adapter_name": "atlas.sources.pgc_scz2022",
+        "dataset_name": "glutamatergic_prioritized_genes",
+        "preserved_output_contract": "fixture_from_examples_v0_gene_evidence",
+        "processed_artifact_name": "glutamatergic_prioritized_genes.csv",
+        "scope_boundary": "Fixture-scale PGC prioritized-gene rows for glutamatergic convergence rescue validation only.",
+        "source_name": "pgc",
+        "upstream_artifact_kind": "fixture_projection_from_checked_in_gene_evidence"
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+dimension_id,member_id,member_label,member_description,source_name,dataset_name,attributes_json
+alignment_status,alignment_status:id-conflict,id_conflict,Alignment rows classified as id_conflict.,,,{}
+alignment_status,alignment_status:id-consistent,id_consistent,Alignment rows classified as id_consistent.,,,{}
+alignment_status,alignment_status:label-only,label_only,Alignment rows classified as label_only.,,,{}
+channel,channel:conflict,conflict,Tensor rows in the conflict channel.,,,{}
+channel,channel:missingness,missingness,Tensor rows in the missingness channel.,,,{}
+channel,channel:observed,observed,Tensor rows in the observed channel.,,,{}
+channel,channel:uncertainty,uncertainty,Tensor rows in the uncertainty channel.,,,{}
+conflict_kind,conflict_kind:id-conflict,id_conflict,Cross-source alignments that carried multiple non-empty entity IDs.,,,{}
+criterion,criterion:finemap-priority-gene,FINEMAP.priority.gene,PGC binary prioritization criterion.,pgc,glutamatergic_prioritized_genes,{}
+criterion,criterion:sig-adultfusion,sig.adultFUSION,PGC binary prioritization criterion.,pgc,glutamatergic_prioritized_genes,{}
+criterion,criterion:smr-priority-gene,SMR.priority.gene,PGC binary prioritization criterion.,pgc,glutamatergic_prioritized_genes,{}
+criterion,criterion:smrpsych,SMRpsych,PGC binary prioritization criterion.,pgc,glutamatergic_prioritized_genes,{}
+dataset,dataset:alignment,alignment,Atlas-native structural dataset for cross-source alignments.,,alignment,{}
+dataset,dataset:glutamatergic-baseline,glutamatergic_baseline,Processed dataset for source opentargets.,,glutamatergic_baseline,{}
+dataset,dataset:glutamatergic-prioritized-genes,glutamatergic_prioritized_genes,Processed dataset for source pgc.,,glutamatergic_prioritized_genes,{}
+datatype,datatype:clinical,clinical,Open Targets datatype score context.,opentargets,glutamatergic_baseline,{}
+datatype,datatype:genetic-association,genetic_association,Open Targets datatype score context.,opentargets,glutamatergic_baseline,{}
+disease,disease:mondo-0005090,schizophrenia,Disease context sourced from the Open Targets baseline pull.,opentargets,glutamatergic_baseline,"{""disease_id"": ""MONDO_0005090"", ""disease_name"": ""schizophrenia""}"
+missingness_kind,missingness_kind:source-absent,source_absent,Missingness rows with kind source_absent.,,,{}
+missingness_kind,missingness_kind:source-field-blank,source_field_blank,Missingness rows with kind source_field_blank.,,,{}
+source,source:atlas,atlas,Atlas-native structural slices emitted by the tensor builder.,,,{}
+source,source:opentargets,opentargets,Processed Open Targets baseline rows staged through atlas ingest.,,,{}
+source,source:pgc,pgc,Processed PGC prioritized-gene rows staged through atlas ingest.,,,{}
+study,study:pgc-scz2022,pgc_scz2022,PGC schizophrenia 2022 prioritized-gene release context.,pgc,glutamatergic_prioritized_genes,{}
+uncertainty_level,uncertainty_level:high,high,Structural uncertainty rows with high uncertainty.,,,{}
+uncertainty_level,uncertainty_level:low,low,Structural uncertainty rows with low uncertainty.,,,{}
+uncertainty_level,uncertainty_level:medium,medium,Structural uncertainty rows with medium uncertainty.,,,{}

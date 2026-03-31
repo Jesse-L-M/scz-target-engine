@@ -1,0 +1,39 @@
+{
+  "schema_name": "rescue_split_manifest",
+  "schema_version": "v1",
+  "split_manifest_id": "glutamatergic_convergence_split_2025_01_16",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "glutamatergic_convergence_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/glutamatergic_convergence_rescue_task.json",
+  "governance_status": "active",
+  "freeze_manifest_path": "data/curated/rescue_tasks/glutamatergic_convergence/freeze_manifests/glutamatergic_convergence_freeze_2025_01_15.json",
+  "source_dataset_id": "glutamatergic_convergence_ranking_inputs_2025_01_15",
+  "split_strategy_id": "gene_level_seeded_hash_v1",
+  "split_seed": 11,
+  "assignment_unit": "gene",
+  "partitions": [
+    {
+      "split_name": "train",
+      "purpose": "train",
+      "expected_fraction": 0.5,
+      "selection_rule": "Assign genes into train using a deterministic gene_id hash keyed by split_seed after the ranking-input freeze is fixed.",
+      "leakage_rule": "Train rows may consume only the frozen pre-cutoff ranking-input dataset and must not join post-cutoff evaluation labels."
+    },
+    {
+      "split_name": "validation",
+      "purpose": "validation",
+      "expected_fraction": 0.25,
+      "selection_rule": "Assign the validation partition with the same deterministic hash after the train allocation is fixed.",
+      "leakage_rule": "Validation rows may tune rescue-task hyperparameters but must not expose held-out evaluation labels outside the validation partition."
+    },
+    {
+      "split_name": "test",
+      "purpose": "test",
+      "expected_fraction": 0.25,
+      "selection_rule": "Assign the remaining genes to the held-out test partition from the frozen ranking-input dataset.",
+      "leakage_rule": "Test rows remain fully held out until scoring time and must never leak into feature construction or threshold selection."
+    }
+  ],
+  "description": "Active deterministic split manifest for the frozen glutamatergic convergence rescue ranking inputs.",
+  "notes": "The split contract exists so PR-43 can respect a frozen assignment policy without reopening the raw rescue or atlas data lanes."
+}

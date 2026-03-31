@@ -1,0 +1,26 @@
+{
+  "schema_name": "rescue_task_card",
+  "schema_version": "v1",
+  "task_card_id": "glutamatergic_convergence_rescue_task_governance_v1",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "glutamatergic_convergence_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/glutamatergic_convergence_rescue_task.json",
+  "governance_status": "active",
+  "owner": "rescue-data-governance",
+  "summary": "Active governance bundle for the glutamatergic convergence rescue lane. A convergence hub remains a gene-alignment surface with one or more supported or partially supported mechanistic axes, and downstream consumers must use the frozen hub and axis states checked in here instead of re-deriving them from raw sources.",
+  "leakage_boundary_policy_id": "strict_rescue_task_boundary_v1",
+  "dataset_card_paths": [
+    "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_ranking_inputs.json",
+    "data/curated/rescue_tasks/glutamatergic_convergence/dataset_cards/glutamatergic_convergence_evaluation_labels.json"
+  ],
+  "freeze_manifest_paths": [
+    "data/curated/rescue_tasks/glutamatergic_convergence/freeze_manifests/glutamatergic_convergence_freeze_2025_01_15.json"
+  ],
+  "split_manifest_paths": [
+    "data/curated/rescue_tasks/glutamatergic_convergence/split_manifests/glutamatergic_convergence_split_2025_01_16.json"
+  ],
+  "lineage_paths": [
+    "data/curated/rescue_tasks/glutamatergic_convergence/lineage/glutamatergic_convergence_raw_to_frozen_lineage_2025_01_16.json"
+  ],
+  "notes": "The frozen artifacts in this family are the only supported PR-43 input surface. Raw rescue snapshots and atlas fixture inputs stay provenance-only."
+}

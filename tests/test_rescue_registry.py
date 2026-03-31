@@ -278,6 +278,7 @@ def test_rescue_registry_groups_tasks_under_single_suite() -> None:
     assert suites[0].suite_id == "scz_rescue_contract_suite"
     assert {task.task_id for task in suites[0].tasks} == {
         "example_scz_gene_rescue_task",
+        "glutamatergic_convergence_rescue_task",
         "scz_npc_signature_reversal_rescue_task",
         "interneuron_gene_rescue_task",
     }

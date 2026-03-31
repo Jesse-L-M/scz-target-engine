@@ -190,3 +190,32 @@ assert bundle.evaluation_target.path.name == (
     "scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv"
 )
 ```
+
+## Active Glutamatergic Convergence Lane
+
+`PR-40D` adds a convergence-hub-grounded rescue family under:
+
+- `data/curated/rescue_tasks/glutamatergic_convergence/`
+- `data/raw/rescue/glutamatergic_convergence/`
+
+The ranking-input freeze is anchored to the shipped convergence-hub framing generated
+from the dedicated atlas fixture:
+
+- `data/curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json`
+
+The checked-in raw rescue chain is portable and self-contained in git. Its manifests
+resolve without developer-local absolute paths or `.context` dependencies, and
+regeneration from the checked-in fixture preserves that portable-path behavior.
+
+Downstream rescue implementations must stay on the frozen CSV surface and must not
+re-open either the raw rescue snapshots or the atlas fixture inputs.
+
+```python
+from scz_target_engine.rescue import load_glutamatergic_convergence_rescue_bundle
+
+bundle = load_glutamatergic_convergence_rescue_bundle()
+assert bundle.governance_bundle.task_card.task_id == (
+    "glutamatergic_convergence_rescue_task"
+)
+assert len(bundle.ranking_input_rows) == 4
+```

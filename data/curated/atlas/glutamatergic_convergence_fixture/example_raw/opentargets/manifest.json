@@ -1,0 +1,5 @@
+{
+  "source_name": "opentargets",
+  "dataset_name": "glutamatergic_baseline",
+  "scope_boundary": "Fixture raw-manifest stub used only for atlas provenance tests."
+}

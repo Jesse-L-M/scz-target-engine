@@ -10,6 +10,8 @@ data/raw/*
 !data/raw/rescue/
 data/raw/rescue/*
 !data/raw/rescue/README.md
+!data/raw/rescue/glutamatergic_convergence/
+!data/raw/rescue/glutamatergic_convergence/**
 !data/raw/rescue/interneuron_arbor/
 data/raw/rescue/interneuron_arbor/*
 !data/raw/rescue/interneuron_arbor/interneuron_arbor_candidate_snapshot_2023_12_31.csv

@@ -88,3 +88,33 @@ def test_materialize_atlas_tensor_emits_provenance_alignment_and_channel_rows(
     manifest = json.loads(Path(result["manifest_file"]).read_text(encoding="utf-8"))
     assert manifest["contract_version"] == "atlas-evidence-tensor/v1"
     assert manifest["channel_counts"]["conflict"] == 1
+    assert manifest["ingest_manifest_file"] == "data/curated/atlas/example_ingest_manifest.json"
+    assert manifest["output_dir"] == "."
+    assert manifest["taxonomy_output_dir"] == "taxonomy"
+    assert manifest["emitted_artifacts"] == {
+        "entity_alignments_file": "entity_alignments.csv",
+        "evidence_tensor_file": "evidence_tensor.csv",
+        "provenance_bundles_file": "provenance_bundles.csv",
+        "taxonomy_manifest_file": "taxonomy/taxonomy_manifest.json",
+    }
+    assert {
+        row["processed_output_file"]
+        for row in provenance_rows
+    } == {
+        "data/curated/atlas/example_sources/opentargets/schizophrenia_baseline.csv",
+        "data/curated/atlas/example_sources/pgc/scz2022_prioritized_genes.csv",
+    }
+    assert {
+        row["processed_metadata_file"]
+        for row in provenance_rows
+    } == {
+        "data/curated/atlas/example_sources/opentargets/schizophrenia_baseline.metadata.json",
+        "data/curated/atlas/example_sources/pgc/scz2022_prioritized_genes.metadata.json",
+    }
+    assert {
+        row["raw_manifest_file"]
+        for row in provenance_rows
+    } == {
+        "data/curated/atlas/example_raw/opentargets/manifest.json",
+        "data/curated/atlas/example_raw/pgc/manifest.json",
+    }

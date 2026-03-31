@@ -1,0 +1,29 @@
+{
+  "schema_name": "rescue_dataset_card",
+  "schema_version": "v1",
+  "dataset_id": "glutamatergic_convergence_evaluation_labels_2025_06_30",
+  "dataset_label": "Held-out glutamatergic convergence rescue evaluation labels",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "glutamatergic_convergence_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/glutamatergic_convergence_rescue_task.json",
+  "artifact_contract_id": "evaluation_labels",
+  "dataset_role": "evaluation_target",
+  "availability": "post_cutoff",
+  "governance_status": "active",
+  "source_stage": "frozen",
+  "entity_type": "gene",
+  "record_grain": "gene",
+  "primary_key_fields": [
+    "gene_id"
+  ],
+  "contains_post_cutoff_labels": true,
+  "allowed_uses": [
+    "offline_evaluation"
+  ],
+  "freeze_manifest_path": "data/curated/rescue_tasks/glutamatergic_convergence/freeze_manifests/glutamatergic_convergence_freeze_2025_01_15.json",
+  "lineage_path": "data/curated/rescue_tasks/glutamatergic_convergence/lineage/glutamatergic_convergence_raw_to_frozen_lineage_2025_01_16.json",
+  "expected_output_path": "data/curated/rescue_tasks/glutamatergic_convergence/frozen/glutamatergic_convergence_evaluation_labels_2025_06_30.csv",
+  "file_format": "csv",
+  "description": "Frozen post-cutoff evaluation labels for the glutamatergic convergence rescue lane. The held-out labels remain isolated from ranking-input construction and exist only for offline evaluation.",
+  "notes": "The binary follow_up_priority label is evaluation-only and must never be joined back into the ranking-input CSV."
+}

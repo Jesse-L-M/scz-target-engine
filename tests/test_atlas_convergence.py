@@ -106,3 +106,11 @@ def test_materialize_convergence_hubs_emits_axis_and_tensor_links(
     manifest = json.loads(Path(result["manifest_file"]).read_text(encoding="utf-8"))
     assert manifest["contract_version"] == "atlas-convergence-hubs/v1"
     assert manifest["hub_count"] == 4
+    assert manifest["tensor_manifest_file"] == "../tensor/tensor_manifest.json"
+    assert manifest["evidence_tensor_file"] == "../tensor/evidence_tensor.csv"
+    assert manifest["output_dir"] == "."
+    assert manifest["emitted_artifacts"] == {
+        "convergence_hubs_file": "convergence_hubs.csv",
+        "hub_axis_members_file": "hub_axis_members.csv",
+        "hub_evidence_links_file": "hub_evidence_links.csv",
+    }

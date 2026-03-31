@@ -13,6 +13,8 @@ from scz_target_engine.atlas.substrate import (
     build_atlas_feature_specs,
     load_atlas_source_bundles,
     normalize_alignment_label,
+    serialize_manifest_path,
+    serialize_provenance_path,
     taxonomy_member_id,
 )
 from scz_target_engine.atlas.taxonomy import materialize_atlas_taxonomy
@@ -276,14 +278,18 @@ def materialize_atlas_tensor(
                 "provenance_bundle_id": bundle.provenance_bundle_id,
                 "source_name": bundle.source_name,
                 "dataset_name": bundle.dataset_name,
-                "processed_output_file": str(bundle.processed_output_file),
+                "processed_output_file": serialize_provenance_path(
+                    bundle.processed_output_file
+                ),
                 "processed_metadata_file": (
-                    str(bundle.processed_metadata_file)
+                    serialize_provenance_path(bundle.processed_metadata_file)
                     if bundle.processed_metadata_file is not None
                     else ""
                 ),
                 "raw_manifest_file": (
-                    str(bundle.raw_manifest_file) if bundle.raw_manifest_file is not None else ""
+                    serialize_provenance_path(bundle.raw_manifest_file)
+                    if bundle.raw_manifest_file is not None
+                    else ""
                 ),
                 "raw_status": raw_status,
                 "raw_artifact_count": len(raw_artifacts),
@@ -704,18 +710,30 @@ def materialize_atlas_tensor(
         manifest_file,
         {
             "contract_version": ATLAS_TENSOR_CONTRACT_VERSION,
-            "ingest_manifest_file": str(resolved_manifest_file),
-            "output_dir": str(resolved_output_dir),
-            "taxonomy_output_dir": str(resolved_taxonomy_dir),
+            "ingest_manifest_file": serialize_manifest_path(
+                manifest_file, resolved_manifest_file
+            ),
+            "output_dir": serialize_manifest_path(manifest_file, resolved_output_dir),
+            "taxonomy_output_dir": serialize_manifest_path(
+                manifest_file, resolved_taxonomy_dir
+            ),
             "alignment_count": len(alignment_rows),
             "provenance_bundle_count": len(provenance_rows),
             "tensor_row_count": len(tensor_rows),
             "channel_counts": dict(sorted(channel_counts.items())),
             "emitted_artifacts": {
-                "provenance_bundles_file": str(provenance_file),
-                "entity_alignments_file": str(alignments_file),
-                "evidence_tensor_file": str(tensor_file),
-                "taxonomy_manifest_file": str(taxonomy_result["manifest_file"]),
+                "provenance_bundles_file": serialize_manifest_path(
+                    manifest_file, provenance_file
+                ),
+                "entity_alignments_file": serialize_manifest_path(
+                    manifest_file, alignments_file
+                ),
+                "evidence_tensor_file": serialize_manifest_path(
+                    manifest_file, tensor_file
+                ),
+                "taxonomy_manifest_file": serialize_manifest_path(
+                    manifest_file, Path(str(taxonomy_result["manifest_file"]))
+                ),
             },
         },
     )

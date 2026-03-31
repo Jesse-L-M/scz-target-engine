@@ -98,6 +98,37 @@ python3 scripts/rescue/load_interneuron_bundle.py
 That script validates the full governance bundle from the task card and then opens
 each checked-in frozen CSV referenced by the dataset cards.
 
+`PR-42` adds the first frozen-only execution path for this family. The runtime lives
+under `src/scz_target_engine/rescue/tasks/` and resolves the two governed ranking
+artifacts independently:
+
+- `scz_target_engine.rescue.tasks.interneuron_synapse`
+- `scz_target_engine.rescue.tasks.interneuron_arbor`
+
+Each axis loader:
+
+- validates the active task card and freeze manifest
+- checksum-validates the checked-in frozen ranking/evaluation CSVs
+- materializes deterministic train/validation/test splits from the checked-in split
+  manifest instead of reopening raw data
+- emits baseline rankings from frozen ranking fields only
+- uses the held-out follow-up labels only during offline evaluation
+
+The runnable end-to-end entry point is:
+
+```bash
+python3 scripts/rescue/run_interneuron_rescue_lane.py \
+  --output-dir .context/interneuron_rescue_lane_run
+```
+
+That command writes one `predictions.csv` and one `summary.json` per
+axis/baseline pair beneath the output directory, plus a top-level
+`lane_summary.json`. The shipped baselines are intentionally simple and explicit:
+
+- `frozen_priority_rank`
+- `recent_publication_first`
+- `alphabetical_gene_symbol`
+
 ## Leakage Boundary After PR-40A
 
 The rescue leakage policy is explicit and now requires schema-validated governance

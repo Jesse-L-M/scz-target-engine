@@ -98,7 +98,9 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
 - `hypothesis_packets_v1` validates policy-scoped gene hypothesis packets built from
   shipped `policy_decision_vectors_v2` and `gene_target_ledgers` artifacts, including
   explicit contradiction handling, explicit failure-escape logic, and per-packet
-  traceability pointers back to the source artifacts
+  traceability pointers that now dereference against the source artifacts rather than
+  only checking string presence; empty packet artifacts are valid when no target meets
+  the packet-generation criteria
 - `rescue_task_contract` validates registry-backed rescue task identity, artifact
   interface declarations, and the strict no-leakage rescue boundary
 - `rescue_dataset_card` validates that a governed rescue dataset card resolves back

@@ -9,6 +9,7 @@ from scz_target_engine.io import write_json
 
 
 HYPOTHESIS_PACKETS_SCHEMA_VERSION = "v1"
+REQUIRE_SCORED_POLICY_SIGNAL = True
 
 
 def build_hypothesis_packets_payload(
@@ -82,7 +83,6 @@ def build_hypothesis_packets_payload(
             entity.get("policy_scores"),
             f"policy_decision_vectors_v2.entities.gene[{entity_index}].policy_scores",
         )
-        generated_for_entity = 0
         for score_index, score_item in enumerate(policy_scores):
             score = _require_mapping(
                 score_item,
@@ -271,19 +271,6 @@ def build_hypothesis_packets_payload(
                 },
             }
             packets.append(packet)
-            generated_for_entity += 1
-
-        if generated_for_entity == 0:
-            raise ValueError(
-                "hypothesis packets require at least one scored policy output for "
-                f"curated target {entity_label} ({entity_id})"
-            )
-
-    if not packets:
-        raise ValueError(
-            "hypothesis packets generation produced no packets; "
-            "checked-in outputs likely lack curated directionality-supported targets"
-        )
 
     packets.sort(key=lambda packet: (packet["entity_label"].lower(), packet["policy_id"]))
     return {
@@ -296,6 +283,7 @@ def build_hypothesis_packets_payload(
             "entity_types": ["gene"],
             "require_curated_directionality": True,
             "require_non_stub_hypothesis": True,
+            "require_scored_policy_signal": REQUIRE_SCORED_POLICY_SIGNAL,
         },
         "packet_count": len(packets),
         "packets": packets,

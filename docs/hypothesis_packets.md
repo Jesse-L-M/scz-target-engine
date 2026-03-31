@@ -23,7 +23,14 @@ The current generator only emits packets for:
 - policy rows with a concrete scored policy signal
 
 That gate is explicit in the artifact under `packet_generation_criteria` so
-consumers can see why uncurated targets were excluded.
+consumers can see why uncurated or scoreless targets were excluded.
+
+`packet_count = 0` with `packets = []` is now a valid outcome.
+
+That means:
+
+- otherwise-valid builds do not fail just because no target passes the packet gate
+- a curated target with only null policy scores is skipped instead of aborting the artifact
 
 ## Packet Shape
 
@@ -54,6 +61,9 @@ The packet contract preserves the parts the upstream artifacts already make expl
   `failure_escape_logic.status`, `escape_routes`, and `next_evidence`
 - traceability stays explicit through artifact-path refs, JSON-pointer-style paths,
   supporting program ids, structural failure program ids, and replay-reason event ids
+- packet validation now dereferences those pointers against the referenced
+  `policy_decision_vectors_v2.json` and `gene_target_ledgers.json` artifacts instead of
+  only checking that the pointer strings are non-empty
 
 The validator rejects vague packet stubs by requiring:
 
@@ -61,6 +71,7 @@ The validator rejects vague packet stubs by requiring:
 - non-`undetermined` perturbation direction and modality fields
 - non-empty preferred modalities
 - a non-placeholder hypothesis statement
+- a scored policy signal for every emitted packet, while allowing the artifact itself to be empty
 
 ## Generation Paths
 

@@ -5,7 +5,8 @@
       "gene"
     ],
     "require_curated_directionality": true,
-    "require_non_stub_hypothesis": true
+    "require_non_stub_hypothesis": true,
+    "require_scored_policy_signal": true
   },
   "packets": [
     {

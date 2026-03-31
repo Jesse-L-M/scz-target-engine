@@ -23,7 +23,7 @@
       "name": "packet_generation_criteria",
       "field_type": "object",
       "required": true,
-      "description": "Explicit generation gates that prevent vague packet stubs."
+      "description": "Explicit generation gates that prevent vague packet stubs and explain valid empty packet artifacts."
     },
     {
       "name": "packet_count",
@@ -35,7 +35,7 @@
       "name": "packets",
       "field_type": "object[]",
       "required": true,
-      "description": "Per-policy hypothesis packets for curated gene targets."
+      "description": "Per-policy hypothesis packets for curated gene targets; may be empty when no target passes the generation criteria."
     }
   ],
   "optional_fields": []

@@ -1128,6 +1128,55 @@ def _validate_replay_risk_payload(
     return payload
 
 
+def _resolve_artifact_reference(
+    artifact_path: Path,
+    reference: str,
+    *,
+    field_name: str,
+) -> Path:
+    candidate = Path(reference)
+    resolved = (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (artifact_path.parent / candidate).resolve()
+    )
+    if not resolved.exists():
+        raise ValueError(f"{field_name} points to a missing artifact: {reference}")
+    return resolved
+
+
+def _decode_json_pointer_token(token: str) -> str:
+    return token.replace("~1", "/").replace("~0", "~")
+
+
+def _resolve_json_pointer(
+    payload: object,
+    pointer: str,
+    *,
+    field_name: str,
+) -> object:
+    if not pointer.startswith("/"):
+        raise ValueError(f"{field_name} must be an absolute JSON pointer")
+    current = payload
+    for raw_token in pointer.split("/")[1:]:
+        token = _decode_json_pointer_token(raw_token)
+        if isinstance(current, Mapping):
+            if token not in current:
+                raise ValueError(f"{field_name} does not resolve within the source artifact")
+            current = current[token]
+            continue
+        if isinstance(current, list):
+            if not raw_token.isdigit():
+                raise ValueError(f"{field_name} must use numeric indexes for array steps")
+            index = int(raw_token)
+            if index >= len(current):
+                raise ValueError(f"{field_name} does not resolve within the source artifact")
+            current = current[index]
+            continue
+        raise ValueError(f"{field_name} does not resolve to a nested source value")
+    return current
+
+
 def _validate_policy_score_payload(
     payload: Mapping[str, object],
     *,
@@ -1562,14 +1611,44 @@ def _validate_hypothesis_packets(
         raise ValueError(
             "hypothesis_packets_v1.packet_generation_criteria.require_non_stub_hypothesis must be true"
         )
+    if not _require_bool(
+        packet_generation_criteria.get("require_scored_policy_signal"),
+        "hypothesis_packets_v1.packet_generation_criteria.require_scored_policy_signal",
+    ):
+        raise ValueError(
+            "hypothesis_packets_v1.packet_generation_criteria.require_scored_policy_signal must be true"
+        )
+
+    policy_source_path = _resolve_artifact_reference(
+        path,
+        _require_text(
+            source_artifacts.get("policy_decision_vectors_v2", ""),
+            "hypothesis_packets_v1.source_artifacts.policy_decision_vectors_v2",
+        ),
+        field_name="hypothesis_packets_v1.source_artifacts.policy_decision_vectors_v2",
+    )
+    ledger_source_path = _resolve_artifact_reference(
+        path,
+        _require_text(
+            source_artifacts.get("gene_target_ledgers", ""),
+            "hypothesis_packets_v1.source_artifacts.gene_target_ledgers",
+        ),
+        field_name="hypothesis_packets_v1.source_artifacts.gene_target_ledgers",
+    )
+    policy_source_payload = load_artifact(
+        policy_source_path,
+        artifact_name="policy_decision_vectors_v2",
+    ).payload
+    ledger_source_payload = load_artifact(
+        ledger_source_path,
+        artifact_name="gene_target_ledgers",
+    ).payload
 
     packets = _require_list(payload.get("packets"), "hypothesis_packets_v1.packets")
     if _require_int(payload.get("packet_count"), "hypothesis_packets_v1.packet_count") != len(
         packets
     ):
         raise ValueError("hypothesis_packets_v1.packet_count must match packets")
-    if not packets:
-        raise ValueError("hypothesis_packets_v1.packets must not be empty")
 
     valid_domain_slugs = {definition.slug for definition in DOMAIN_HEAD_DEFINITIONS}
     packet_ids: list[str] = []
@@ -1833,18 +1912,153 @@ def _validate_hypothesis_packets(
             raise ValueError(
                 f"hypothesis_packets_v1.packets[{index}].traceability.source_artifacts must match top-level source_artifacts"
             )
-        _require_text(
+        policy_entity_pointer = _require_text(
             traceability.get("policy_entity_pointer", ""),
             f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer",
         )
-        _require_text(
+        policy_entity_payload = _require_mapping(
+            _resolve_json_pointer(
+                policy_source_payload,
+                policy_entity_pointer,
+                field_name=(
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.policy_entity_pointer"
+                ),
+            ),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer",
+        )
+        if (
+            _require_text(
+                policy_entity_payload.get("entity_id", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.entity_id",
+            )
+            != entity_id
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer must resolve to the packet entity_id"
+            )
+        if (
+            _require_text(
+                policy_entity_payload.get("entity_label", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.entity_label",
+            )
+            != entity_label
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer must resolve to the packet entity_label"
+            )
+        if (
+            _require_text(
+                policy_entity_payload.get("entity_type", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity.entity_type",
+            )
+            != entity_type
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_entity_pointer must resolve to the packet entity_type"
+            )
+
+        policy_score_pointer = _require_text(
             traceability.get("policy_score_pointer", ""),
             f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer",
         )
-        _require_text(
+        policy_score_payload = _require_mapping(
+            _resolve_json_pointer(
+                policy_source_payload,
+                policy_score_pointer,
+                field_name=(
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.policy_score_pointer"
+                ),
+            ),
+            f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer",
+        )
+        if dict(policy_score_payload) != dict(policy_signal):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.policy_score_pointer must resolve to the packet policy_signal payload"
+            )
+
+        ledger_target_pointer = _require_text(
             traceability.get("ledger_target_pointer", ""),
             f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer",
         )
+        ledger_target_payload = _require_mapping(
+            _resolve_json_pointer(
+                ledger_source_payload,
+                ledger_target_pointer,
+                field_name=(
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.ledger_target_pointer"
+                ),
+            ),
+            f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer",
+        )
+        if (
+            _require_text(
+                ledger_target_payload.get("entity_id", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target.entity_id",
+            )
+            != entity_id
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet entity_id"
+            )
+        if (
+            _require_text(
+                ledger_target_payload.get("entity_label", ""),
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target.entity_label",
+            )
+            != entity_label
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet entity_label"
+            )
+        if _require_mapping(
+            ledger_target_payload.get("structural_failure_history"),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.ledger_target.structural_failure_history"
+            ),
+        ) != dict(structural_failure_history):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet structural_failure_history payload"
+            )
+        if _require_string_list(
+            _require_mapping(
+                ledger_target_payload.get("directionality_hypothesis"),
+                (
+                    "hypothesis_packets_v1.packets"
+                    f"[{index}].traceability.ledger_target.directionality_hypothesis"
+                ),
+            ).get("supporting_program_ids"),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.ledger_target.directionality_hypothesis.supporting_program_ids"
+            ),
+        ) != supporting_program_ids:
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet supporting_program_ids"
+            )
+        if _require_string_list(
+            ledger_target_payload.get("falsification_conditions"),
+            (
+                "hypothesis_packets_v1.packets"
+                f"[{index}].traceability.ledger_target.falsification_conditions"
+            ),
+        ) != _require_string_list(
+            contradiction_handling.get("directionality_falsification_conditions"),
+            f"hypothesis_packets_v1.packets[{index}].contradiction_handling.directionality_falsification_conditions",
+        ):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet directionality_falsification_conditions"
+            )
+        if _require_list(
+            ledger_target_payload.get("open_risks"),
+            f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target.open_risks",
+        ) != list(open_risks):
+            raise ValueError(
+                f"hypothesis_packets_v1.packets[{index}].traceability.ledger_target_pointer must resolve to the packet open_risks payload"
+            )
         if _require_string_list(
             traceability.get("directionality_supporting_program_ids"),
             f"hypothesis_packets_v1.packets[{index}].traceability.directionality_supporting_program_ids",

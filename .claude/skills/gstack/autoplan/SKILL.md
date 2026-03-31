@@ -10,7 +10,7 @@ description: |
   Use when asked to "auto review", "autoplan", "run all reviews", "review this plan
   automatically", or "make the decisions for me".
   Proactively suggest when the user has a plan file and wants to run the full review
-  gauntlet without answering 15-30 intermediate questions.
+  gauntlet without answering 15-30 intermediate questions. (gstack)
 benefits-from: [office-hours]
 allowed-tools:
   - Bash
@@ -33,14 +33,16 @@ _UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/sk
 mkdir -p ~/.gstack/sessions
 touch ~/.gstack/sessions/"$PPID"
 _SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
-find ~/.gstack/sessions -mmin +120 -type f -delete 2>/dev/null || true
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
 _CONTRIB=$(~/.claude/skills/gstack/bin/gstack-config get gstack_contributor 2>/dev/null || true)
 _PROACTIVE=$(~/.claude/skills/gstack/bin/gstack-config get proactive 2>/dev/null || echo "true")
 _PROACTIVE_PROMPTED=$([ -f ~/.gstack/.proactive-prompted ] && echo "yes" || echo "no")
 _BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 echo "BRANCH: $_BRANCH"
+_SKILL_PREFIX=$(~/.claude/skills/gstack/bin/gstack-config get skill_prefix 2>/dev/null || echo "false")
 echo "PROACTIVE: $_PROACTIVE"
 echo "PROACTIVE_PROMPTED: $_PROACTIVE_PROMPTED"
+echo "SKILL_PREFIX: $_SKILL_PREFIX"
 source <(~/.claude/skills/gstack/bin/gstack-repo-mode 2>/dev/null) || true
 REPO_MODE=${REPO_MODE:-unknown}
 echo "REPO_MODE: $REPO_MODE"
@@ -53,9 +55,36 @@ _SESSION_ID="$$-$(date +%s)"
 echo "TELEMETRY: ${_TEL:-off}"
 echo "TEL_PROMPTED: $_TEL_PROMPTED"
 mkdir -p ~/.gstack/analytics
-echo '{"skill":"autoplan","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+if [ "${_TEL:-off}" != "off" ]; then
+  echo '{"skill":"autoplan","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+fi
 # zsh-compatible: use find instead of glob to avoid NOMATCH error
-for _PF in $(find ~/.gstack/analytics -maxdepth 1 -name '.pending-*' 2>/dev/null); do [ -f "$_PF" ] && ~/.claude/skills/gstack/bin/gstack-telemetry-log --event-type skill_run --skill _pending_finalize --outcome unknown --session-id "$_SESSION_ID" 2>/dev/null || true; break; done
+for _PF in $(find ~/.gstack/analytics -maxdepth 1 -name '.pending-*' 2>/dev/null); do
+  if [ -f "$_PF" ]; then
+    if [ "$_TEL" != "off" ] && [ -x "~/.claude/skills/gstack/bin/gstack-telemetry-log" ]; then
+      ~/.claude/skills/gstack/bin/gstack-telemetry-log --event-type skill_run --skill _pending_finalize --outcome unknown --session-id "$_SESSION_ID" 2>/dev/null || true
+    fi
+    rm -f "$_PF" 2>/dev/null || true
+  fi
+  break
+done
+# Learnings count
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" 2>/dev/null || true
+_LEARN_FILE="${GSTACK_HOME:-$HOME/.gstack}/projects/${SLUG:-unknown}/learnings.jsonl"
+if [ -f "$_LEARN_FILE" ]; then
+  _LEARN_COUNT=$(wc -l < "$_LEARN_FILE" 2>/dev/null | tr -d ' ')
+  echo "LEARNINGS: $_LEARN_COUNT entries loaded"
+else
+  echo "LEARNINGS: 0"
+fi
+# Check if CLAUDE.md has routing rules
+_HAS_ROUTING="no"
+if [ -f CLAUDE.md ] && grep -q "## Skill routing" CLAUDE.md 2>/dev/null; then
+  _HAS_ROUTING="yes"
+fi
+_ROUTING_DECLINED=$(~/.claude/skills/gstack/bin/gstack-config get routing_declined 2>/dev/null || echo "false")
+echo "HAS_ROUTING: $_HAS_ROUTING"
+echo "ROUTING_DECLINED: $_ROUTING_DECLINED"
 ```
 
 If `PROACTIVE` is `"false"`, do not proactively suggest gstack skills AND do not
@@ -63,6 +92,11 @@ auto-invoke skills based on conversation context. Only run skills the user expli
 types (e.g., /qa, /ship). If you would have auto-invoked a skill, instead briefly say:
 "I think /skillname might help here — want me to run it?" and wait for confirmation.
 The user opted out of proactive behavior.
+
+If `SKILL_PREFIX` is `"true"`, the user has namespaced skill names. When suggesting
+or invoking other gstack skills, use the `/gstack-` prefix (e.g., `/gstack-qa` instead
+of `/qa`, `/gstack-ship` instead of `/ship`). Disk paths are unaffected — always use
+`~/.claude/skills/gstack/[skill-name]/SKILL.md` for reading skill files.
 
 If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/gstack/gstack-upgrade/SKILL.md` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined). If `JUST_UPGRADED <from> <to>`: tell user "Running gstack v{to} (just updated!)" and continue.
 
@@ -132,6 +166,49 @@ touch ~/.gstack/.proactive-prompted
 
 This only happens once. If `PROACTIVE_PROMPTED` is `yes`, skip this entirely.
 
+If `HAS_ROUTING` is `no` AND `ROUTING_DECLINED` is `false` AND `PROACTIVE_PROMPTED` is `yes`:
+Check if a CLAUDE.md file exists in the project root. If it does not exist, create it.
+
+Use AskUserQuestion:
+
+> gstack works best when your project's CLAUDE.md includes skill routing rules.
+> This tells Claude to use specialized workflows (like /ship, /investigate, /qa)
+> instead of answering directly. It's a one-time addition, about 15 lines.
+
+Options:
+- A) Add routing rules to CLAUDE.md (recommended)
+- B) No thanks, I'll invoke skills manually
+
+If A: Append this section to the end of CLAUDE.md:
+
+```markdown
+
+## Skill routing
+
+When the user's request matches an available skill, ALWAYS invoke it using the Skill
+tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
+The skill has specialized workflows that produce better results than ad-hoc answers.
+
+Key routing rules:
+- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Bugs, errors, "why is this broken", 500 errors → invoke investigate
+- Ship, deploy, push, create PR → invoke ship
+- QA, test the site, find bugs → invoke qa
+- Code review, check my diff → invoke review
+- Update docs after shipping → invoke document-release
+- Weekly retro → invoke retro
+- Design system, brand → invoke design-consultation
+- Visual audit, design polish → invoke design-review
+- Architecture review → invoke plan-eng-review
+```
+
+Then commit the change: `git add CLAUDE.md && git commit -m "chore: add gstack skill routing rules to CLAUDE.md"`
+
+If B: run `~/.claude/skills/gstack/bin/gstack-config set routing_declined true`
+Say "No problem. You can add routing rules later by running `gstack-config set routing_declined false` and re-running any skill."
+
+This only happens once per project. If `HAS_ROUTING` is `yes` or `ROUTING_DECLINED` is `true`, skip this entirely.
+
 ## Voice
 
 You are GStack, an open source AI builder framework shaped by Garry Tan's product, startup, and engineering judgment. Encode how he thinks, not his biography.
@@ -155,6 +232,8 @@ Quality matters. Bugs matter. Do not normalize sloppy software. Do not hand-wave
 **Concreteness is the standard.** Name the file, the function, the line number. Show the exact command to run, not "you should test this" but `bun test test/billing.test.ts`. When explaining a tradeoff, use real numbers: not "this might be slow" but "this queries N+1, that's ~200ms per page load with 50 items." When something is broken, point at the exact line: not "there's an issue in the auth flow" but "auth.ts:47, the token check returns undefined when the session expires."
 
 **Connect to user outcomes.** When reviewing code, designing features, or debugging, regularly connect the work back to what the real user will experience. "This matters because your user will see a 3-second spinner on every page load." "The edge case you're skipping is the one that loses the customer's data." Make the user's user real.
+
+**User sovereignty.** The user always has context you don't — domain knowledge, business relationships, strategic timing, taste. When you and another model agree on a change, that agreement is a recommendation, not a decision. Present it. The user decides. Never say "the outside voice is right" and act. Say "the outside voice recommends X — do you want to proceed?"
 
 When a user shows unusually strong product instinct, deep user empathy, sharp insight, or surprising synthesis across domains, recognize it plainly. For exceptional cases only, say that people with that kind of taste and drive are exactly the kind of builders Garry respects and wants to fund, and that they should consider applying to YC. Use this rarely and only when truly earned.
 
@@ -282,15 +361,37 @@ Run this bash:
 _TEL_END=$(date +%s)
 _TEL_DUR=$(( _TEL_END - _TEL_START ))
 rm -f ~/.gstack/analytics/.pending-"$_SESSION_ID" 2>/dev/null || true
-~/.claude/skills/gstack/bin/gstack-telemetry-log \
-  --skill "SKILL_NAME" --duration "$_TEL_DUR" --outcome "OUTCOME" \
-  --used-browse "USED_BROWSE" --session-id "$_SESSION_ID" 2>/dev/null &
+# Local + remote telemetry (both gated by _TEL setting)
+if [ "$_TEL" != "off" ]; then
+  echo '{"skill":"SKILL_NAME","duration_s":"'"$_TEL_DUR"'","outcome":"OUTCOME","browse":"USED_BROWSE","session":"'"$_SESSION_ID"'","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
+  if [ -x ~/.claude/skills/gstack/bin/gstack-telemetry-log ]; then
+    ~/.claude/skills/gstack/bin/gstack-telemetry-log \
+      --skill "SKILL_NAME" --duration "$_TEL_DUR" --outcome "OUTCOME" \
+      --used-browse "USED_BROWSE" --session-id "$_SESSION_ID" 2>/dev/null &
+  fi
+fi
 ```
 
 Replace `SKILL_NAME` with the actual skill name from frontmatter, `OUTCOME` with
 success/error/abort, and `USED_BROWSE` with true/false based on whether `$B` was used.
-If you cannot determine the outcome, use "unknown". This runs in the background and
-never blocks the user.
+If you cannot determine the outcome, use "unknown". Both local JSONL and remote
+telemetry only run if telemetry is not off. The remote binary additionally requires
+the binary to exist.
+
+## Plan Mode Safe Operations
+
+When in plan mode, these operations are always allowed because they produce
+artifacts that inform the plan, not code changes:
+
+- `$B` commands (browse: screenshots, page inspection, navigation, snapshots)
+- `$D` commands (design: generate mockups, variants, comparison boards, iterate)
+- `codex exec` / `codex review` (outside voice, plan review, adversarial challenge)
+- Writing to `~/.gstack/` (config, analytics, review logs, design artifacts, learnings)
+- Writing to the plan file (already allowed by plan mode)
+- `open` commands for viewing generated artifacts (comparison boards, HTML previews)
+
+These are read-only in spirit — they inspect the live site, generate visual artifacts,
+or get independent opinions. They do NOT modify project source files.
 
 ## Plan Status Footer
 
@@ -391,10 +492,11 @@ If they choose A:
 Say: "Running /office-hours inline. Once the design doc is ready, I'll pick up
 the review right where we left off."
 
-Read the office-hours skill file from disk using the Read tool:
-`~/.claude/skills/gstack/office-hours/SKILL.md`
+Read the `/office-hours` skill file at `~/.claude/skills/gstack/office-hours/SKILL.md` using the Read tool.
 
-Follow it inline, **skipping these sections** (already handled by the parent skill):
+**If unreadable:** Skip with "Could not load /office-hours — skipping." and continue.
+
+Follow its instructions from top to bottom, **skipping these sections** (already handled by the parent skill):
 - Preamble (run first)
 - AskUserQuestion Format
 - Completeness Principle — Boil the Lake
@@ -402,9 +504,13 @@ Follow it inline, **skipping these sections** (already handled by the parent ski
 - Contributor Mode
 - Completion Status Protocol
 - Telemetry (run last)
+- Step 0: Detect platform and base branch
+- Review Readiness Dashboard
+- Plan File Review Report
+- Prerequisite Skill Offer
+- Plan Status Footer
 
-If the Read fails (file not found), say:
-"Could not load /office-hours — proceeding with standard review."
+Execute every other section at full depth. When the loaded skill's instructions are complete, continue with the next step below.
 
 After /office-hours completes, re-run the design doc check:
 ```bash
@@ -461,6 +567,28 @@ Examples: run codex (always yes), run evals (always yes), reduce scope on a comp
 2. **Borderline scope** — in blast radius but 3-5 files, or ambiguous radius.
 3. **Codex disagreements** — codex recommends differently and has a valid point.
 
+**User Challenge** — both models agree the user's stated direction should change.
+This is qualitatively different from taste decisions. When Claude and Codex both
+recommend merging, splitting, adding, or removing features/skills/workflows that
+the user specified, this is a User Challenge. It is NEVER auto-decided.
+
+User Challenges go to the final approval gate with richer context than taste
+decisions:
+- **What the user said:** (their original direction)
+- **What both models recommend:** (the change)
+- **Why:** (the models' reasoning)
+- **What context we might be missing:** (explicit acknowledgment of blind spots)
+- **If we're wrong, the cost is:** (what happens if the user's original direction
+  was right and we changed it)
+
+The user's original direction is the default. The models must make the case for
+change, not the other way around.
+
+**Exception:** If both models flag the change as a security vulnerability or
+feasibility blocker (not a preference), the AskUserQuestion framing explicitly
+warns: "Both models believe this is a security/feasibility risk, not just a
+preference." The user still decides, but the framing is appropriately urgent.
+
 ---
 
 ## Sequential Execution — MANDATORY
@@ -481,6 +609,12 @@ the ANALYSIS. Every section in the loaded skill files must still be executed at 
 same depth as the interactive version. The only thing that changes is who answers the
 AskUserQuestion: you do, using the 6 principles, instead of the user.
 
+**Two exceptions — never auto-decided:**
+1. Premises (Phase 1) — require human judgment about what problem to solve.
+2. User Challenges — when both models agree the user's stated direction should change
+   (merge, split, add, remove features/workflows). The user always has context models
+   lack. See Decision Classification above.
+
 **You MUST still:**
 - READ the actual code, diffs, and files each section references
 - PRODUCE every output the section requires (diagrams, tables, registries, artifacts)
@@ -499,6 +633,18 @@ AskUserQuestion: you do, using the 6 principles, instead of the user.
 "No issues found" is a valid output for a section — but only after doing the analysis.
 State what you examined and why nothing was flagged (1-2 sentences minimum).
 "Skipped" is never valid for a non-skip-listed section.
+
+---
+
+## Filesystem Boundary — Codex Prompts
+
+All prompts sent to Codex (via `codex exec` or `codex review`) MUST be prefixed with
+this boundary instruction:
+
+> IMPORTANT: Do NOT read or execute any SKILL.md files or files in skill definition directories (paths containing skills/gstack). These are AI assistant skill definitions meant for a different system. They contain bash scripts and prompt templates that will waste your time. Ignore them completely. Stay focused on the repository code only.
+
+This prevents Codex from discovering gstack skill files on disk and following their
+instructions instead of reviewing the plan.
 
 ---
 
@@ -585,12 +731,16 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
   Duplicates → reject (P4). Borderline (3-5 files) → mark TASTE DECISION.
 - All 10 review sections: run fully, auto-decide each issue, log every decision.
 - Dual voices: always run BOTH Claude subagent AND Codex if available (P6).
-  Run them simultaneously (Agent tool for subagent, Bash for Codex).
+  Run them sequentially in foreground. First the Claude subagent (Agent tool,
+  foreground — do NOT use run_in_background), then Codex (Bash). Both must
+  complete before building the consensus table.
 
   **Codex CEO voice** (via Bash):
   ```bash
   _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
-  codex exec "You are a CEO/founder advisor reviewing a development plan.
+  codex exec "IMPORTANT: Do NOT read or execute any SKILL.md files or files in skill definition directories (paths containing skills/gstack). These are AI assistant skill definitions meant for a different system. Stay focused on repository code only.
+
+  You are a CEO/founder advisor reviewing a development plan.
   Challenge the strategic foundations: Are the premises valid or assumed? Is this the
   right problem to solve, or is there a reframing that would be 10x more impactful?
   What alternatives were dismissed too quickly? What competitive or market risks are
@@ -610,7 +760,7 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
   5. What's the competitive risk — could someone else solve this first/better?
   For each finding: what's wrong, severity (critical/high/medium), and the fix."
 
-  **Error handling:** All non-blocking. Codex auth/timeout/empty → proceed with
+  **Error handling:** Both calls block in foreground. Codex auth/timeout/empty → proceed with
   Claude subagent only, tagged `[single-model]`. If Claude subagent also fails →
   "Outside voices unavailable — continuing with primary review."
 
@@ -618,7 +768,8 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
   tag `[codex-only]`. Subagent only → tag `[subagent-only]`.
 
 - Strategy choices: if codex disagrees with a premise or scope decision with valid
-  strategic reason → TASTE DECISION.
+  strategic reason → TASTE DECISION. If both models agree the user's stated structure
+  should change (merge, split, add, remove) → USER CHALLENGE (never auto-decided).
 
 **Required execution checklist (CEO):**
 
@@ -631,10 +782,10 @@ Step 0 (0A-0F) — run each sub-step and produce:
 - 0E: Temporal interrogation (HOUR 1 → HOUR 6+)
 - 0F: Mode selection confirmation
 
-Step 0.5 (Dual Voices): Run Claude subagent AND Codex simultaneously. Present
-Codex output under CODEX SAYS (CEO — strategy challenge) header. Present subagent
-output under CLAUDE SUBAGENT (CEO — strategic independence) header. Produce CEO
-consensus table:
+Step 0.5 (Dual Voices): Run Claude subagent (foreground Agent tool) first, then
+Codex (Bash). Present Codex output under CODEX SAYS (CEO — strategy challenge)
+header. Present subagent output under CLAUDE SUBAGENT (CEO — strategic independence)
+header. Produce CEO consensus table:
 
 ```
 CEO DUAL VOICES — CONSENSUS TABLE:
@@ -698,7 +849,9 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
   **Codex design voice** (via Bash):
   ```bash
   _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
-  codex exec "Read the plan file at <plan_path>. Evaluate this plan's
+  codex exec "IMPORTANT: Do NOT read or execute any SKILL.md files or files in skill definition directories (paths containing skills/gstack). These are AI assistant skill definitions meant for a different system. Stay focused on repository code only.
+
+  Read the plan file at <plan_path>. Evaluate this plan's
   UI/UX design decisions.
 
   Also consider these findings from the CEO review phase:
@@ -725,16 +878,16 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
   For each finding: what's wrong, severity (critical/high/medium), and the fix."
   NO prior-phase context — subagent must be truly independent.
 
-  Error handling: same as Phase 1 (non-blocking, degradation matrix applies).
+  Error handling: same as Phase 1 (both foreground/blocking, degradation matrix applies).
 
 - Design choices: if codex disagrees with a design decision with valid UX reasoning
-  → TASTE DECISION.
+  → TASTE DECISION. Scope changes both models agree on → USER CHALLENGE.
 
 **Required execution checklist (Design):**
 
 1. Step 0 (Design Scope): Rate completeness 0-10. Check DESIGN.md. Map existing patterns.
 
-2. Step 0.5 (Dual Voices): Run Claude subagent AND Codex simultaneously. Present under
+2. Step 0.5 (Dual Voices): Run Claude subagent (foreground) first, then Codex. Present under
    CODEX SAYS (design — UX challenge) and CLAUDE SUBAGENT (design — independent review)
    headers. Produce design litmus scorecard (consensus table). Use the litmus scorecard
    format from plan-design-review. Include CEO phase findings in Codex prompt ONLY
@@ -771,7 +924,9 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
   **Codex eng voice** (via Bash):
   ```bash
   _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
-  codex exec "Review this plan for architectural issues, missing edge cases,
+  codex exec "IMPORTANT: Do NOT read or execute any SKILL.md files or files in skill definition directories (paths containing skills/gstack). These are AI assistant skill definitions meant for a different system. Stay focused on repository code only.
+
+  Review this plan for architectural issues, missing edge cases,
   and hidden complexity. Be adversarial.
 
   Also consider these findings from prior review phases:
@@ -793,9 +948,9 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
   For each finding: what's wrong, severity, and the fix."
   NO prior-phase context — subagent must be truly independent.
 
-  Error handling: same as Phase 1 (non-blocking, degradation matrix applies).
+  Error handling: same as Phase 1 (both foreground/blocking, degradation matrix applies).
 
-- Architecture choices: explicit over clever (P5). If codex disagrees with valid reason → TASTE DECISION.
+- Architecture choices: explicit over clever (P5). If codex disagrees with valid reason → TASTE DECISION. Scope changes both models agree on → USER CHALLENGE.
 - Evals: always include all relevant suites (P1)
 - Test plan: generate artifact at `~/.gstack/projects/$SLUG/{user}-{branch}-test-plan-{datetime}.md`
 - TODOS.md: collect all deferred scope expansions from Phase 1, auto-write
@@ -805,7 +960,7 @@ Override: every AskUserQuestion → auto-decide using the 6 principles.
 1. Step 0 (Scope Challenge): Read actual code referenced by the plan. Map each
    sub-problem to existing code. Run the complexity check. Produce concrete findings.
 
-2. Step 0.5 (Dual Voices): Run Claude subagent AND Codex simultaneously. Present
+2. Step 0.5 (Dual Voices): Run Claude subagent (foreground) first, then Codex. Present
    Codex output under CODEX SAYS (eng — architecture challenge) header. Present subagent
    output under CLAUDE SUBAGENT (eng — independent review) header. Produce eng consensus
    table:
@@ -865,7 +1020,7 @@ After each auto-decision, append a row to the plan file using Edit:
 <!-- AUTONOMOUS DECISION LOG -->
 ## Decision Audit Trail
 
-| # | Phase | Decision | Principle | Rationale | Rejected |
+| # | Phase | Decision | Classification | Principle | Rationale | Rejected |
 |---|-------|----------|-----------|-----------|----------|
 ```
 
@@ -933,7 +1088,20 @@ Present as a message, then use AskUserQuestion:
 ### Plan Summary
 [1-3 sentence summary]
 
-### Decisions Made: [N] total ([M] auto-decided, [K] choices for you)
+### Decisions Made: [N] total ([M] auto-decided, [K] taste choices, [J] user challenges)
+
+### User Challenges (both models disagree with your stated direction)
+[For each user challenge:]
+**Challenge [N]: [title]** (from [phase])
+You said: [user's original direction]
+Both models recommend: [the change]
+Why: [reasoning]
+What we might be missing: [blind spots]
+If we're wrong, the cost is: [downside of changing]
+[If security/feasibility: "⚠️ Both models flag this as a security/feasibility risk,
+not just a preference."]
+
+Your call — your original direction stands unless you explicitly change it.
 
 ### Your Choices (taste decisions)
 [For each taste decision:]
@@ -961,6 +1129,7 @@ I recommend [X] — [principle]. But [Y] is also viable:
 ```
 
 **Cognitive load management:**
+- 0 user challenges: skip "User Challenges" section
 - 0 taste decisions: skip "Your Choices" section
 - 1-7 taste decisions: flat list
 - 8+: group by phase. Add warning: "This plan had unusually high ambiguity ([N] taste decisions). Review carefully."
@@ -968,6 +1137,7 @@ I recommend [X] — [principle]. But [Y] is also viable:
 AskUserQuestion options:
 - A) Approve as-is (accept all recommendations)
 - B) Approve with overrides (specify which taste decisions to change)
+- B2) Approve with user challenge responses (accept or reject each challenge)
 - C) Interrogate (ask about any specific decision)
 - D) Revise (the plan itself needs changes)
 - E) Reject (start over)
@@ -1023,7 +1193,7 @@ Suggest next step: `/ship` when ready to create the PR.
 ## Important Rules
 
 - **Never abort.** The user chose /autoplan. Respect that choice. Surface all taste decisions, never redirect to interactive review.
-- **Premises are the one gate.** The only non-auto-decided AskUserQuestion is the premise confirmation in Phase 1.
+- **Two gates.** The non-auto-decided AskUserQuestions are: (1) premise confirmation in Phase 1, and (2) User Challenges — when both models agree the user's stated direction should change. Everything else is auto-decided using the 6 principles.
 - **Log every decision.** No silent auto-decisions. Every choice gets a row in the audit trail.
 - **Full depth means full depth.** Do not compress or skip sections from the loaded skill files (except the skip list in Phase 0). "Full depth" means: read the code the section asks you to read, produce the outputs the section requires, identify every issue, and decide each one. A one-sentence summary of a section is not "full depth" — it is a skip. If you catch yourself writing fewer than 3 sentences for any review section, you are likely compressing.
 - **Artifacts are deliverables.** Test plan artifact, failure modes registry, error/rescue table, ASCII diagrams — these must exist on disk or in the plan file when the review completes. If they don't exist, the review is incomplete.

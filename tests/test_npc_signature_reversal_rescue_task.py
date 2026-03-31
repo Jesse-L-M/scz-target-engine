@@ -9,6 +9,7 @@ import sys
 from scz_target_engine.rescue.tasks import (
     NPC_SIGNATURE_REVERSAL_TASK_ID,
     NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
+    materialize_npc_signature_reversal_baseline_pack,
     materialize_npc_signature_reversal_run,
 )
 
@@ -63,6 +64,9 @@ def test_materialize_npc_signature_reversal_run_uses_only_frozen_bundle(
     assert "rescue_positive_label" not in prediction_rows[0]
     assert "label_status" not in prediction_rows[0]
     assert "evidence_source_id" not in prediction_rows[0]
+    assert Path(result["comparison_outputs"]["comparison_rows_file"]).exists()
+    assert Path(result["comparison_outputs"]["comparison_summary_file"]).exists()
+    assert len(result["comparison_rows"]) == 20
 
 
 def test_npc_signature_reversal_run_declares_test_supported_primary_scorer(
@@ -143,3 +147,14 @@ def test_npc_signature_reversal_cli_runs_end_to_end(tmp_path: Path) -> None:
     assert Path(payload["outputs"]["predictions_file"]).exists()
     assert Path(payload["outputs"]["summary_file"]).exists()
     assert payload["evaluation"]["principal_split"] == "test"
+
+
+def test_npc_signature_reversal_baseline_pack_alias_runs(
+    tmp_path: Path,
+) -> None:
+    result = materialize_npc_signature_reversal_baseline_pack(
+        output_dir=tmp_path / "npc_pack"
+    )
+
+    assert result["task_id"] == NPC_SIGNATURE_REVERSAL_TASK_ID
+    assert Path(result["comparison_outputs"]["comparison_rows_file"]).exists()

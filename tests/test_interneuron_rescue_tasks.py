@@ -13,6 +13,7 @@ from scz_target_engine.rescue import (
     evaluate_interneuron_axis_predictions,
     load_frozen_rescue_governance_bundle,
     load_interneuron_axis_task_data,
+    materialize_interneuron_rescue_baseline_pack,
     materialize_interneuron_rescue_lane,
 )
 
@@ -195,6 +196,8 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
     for axis_summary in result["axis_runs"]:
         axis_output_dir = tmp_path / axis_summary["axis_id"]
         assert axis_output_dir.exists()
+        assert (axis_output_dir / "baseline_comparison_rows.csv").exists()
+        assert (axis_output_dir / "baseline_comparison_summary.json").exists()
         assert set(axis_summary["baseline_ids"]) == set(DEFAULT_INTERNEURON_BASELINE_IDS)
         assert set(axis_summary) == expected_axis_keys
         for run_summary in axis_summary["runs"]:
@@ -260,6 +263,23 @@ def test_materialize_interneuron_rescue_lane_writes_predictions_and_summaries(
             task_data=load_interneuron_axis_task_data(axis_id),
             output_root=tmp_path,
         )
+
+
+def test_interneuron_baseline_pack_materializes_lane_comparison_outputs(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "baseline_pack"
+    result = materialize_interneuron_rescue_baseline_pack(output_dir=output_dir)
+
+    assert result["axis_ids"] == list(VALID_INTERNEURON_AXIS_IDS)
+    assert set(result["baseline_ids"]) == set(DEFAULT_INTERNEURON_BASELINE_IDS)
+    assert len(result["comparison_rows"]) == (
+        len(VALID_INTERNEURON_AXIS_IDS)
+        * len(DEFAULT_INTERNEURON_BASELINE_IDS)
+        * 3
+    )
+    assert Path(result["comparison_outputs"]["comparison_rows_file"]).exists()
+    assert Path(result["comparison_outputs"]["comparison_summary_file"]).exists()
 
 
 def test_interneuron_run_script_executes_synapse_axis(tmp_path: Path) -> None:

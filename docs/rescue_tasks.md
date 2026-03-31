@@ -313,3 +313,35 @@ That command emits:
 - `evaluation_rows.csv`
 - `evaluation_summary.json`
 - `run_manifest.json`
+
+## Rescue Baseline Packs
+
+`PR-44` adds a shared rescue-baseline comparison layer under
+`scz_target_engine.rescue.baselines` and gives every shipped rescue lane a concrete
+simple-baseline pack:
+
+- glutamatergic convergence now ships a four-baseline pack:
+  `convergence_state_baseline_v1`, `axis_support_baseline_v1`,
+  `source_coverage_baseline_v1`, and `translational_support_baseline_v1`
+- interneuron synapse and arbor keep their existing frozen-only baselines, but now
+  emit separate aggregate comparison files next to the redacted public summaries
+- NPC signature reversal keeps its fixed scorer set and now emits the same aggregate
+  comparison surface
+
+The cross-task comparison entry point is:
+
+```bash
+uv run python -m scz_target_engine.cli \
+  rescue compare baselines \
+  --output-dir .context/rescue-baseline-suite
+```
+
+That command materializes one comparison run over the checked-in rescue tasks and
+writes:
+
+- per-task prediction/evaluation outputs under task-specific directories
+- per-task `baseline_comparison_rows.csv` and `baseline_comparison_summary.json`
+- a suite-level `suite_comparison_rows.csv` and `suite_summary.json`
+
+The comparison reports stay aggregate-only. They never join held-out labels back into
+prediction files, and they do not reopen raw rescue sources at runtime.

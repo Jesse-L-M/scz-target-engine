@@ -8,6 +8,7 @@ from scz_target_engine.atlas.substrate import (
     AtlasSourceBundle,
     build_atlas_feature_specs,
     load_atlas_source_bundles,
+    serialize_manifest_path,
     taxonomy_member_id,
 )
 from scz_target_engine.io import write_csv, write_json
@@ -331,15 +332,23 @@ def materialize_atlas_taxonomy(
         manifest_file,
         {
             "contract_version": ATLAS_TAXONOMY_CONTRACT_VERSION,
-            "ingest_manifest_file": str(resolved_manifest_file),
-            "output_dir": str(resolved_output_dir),
+            "ingest_manifest_file": serialize_manifest_path(
+                manifest_file, resolved_manifest_file
+            ),
+            "output_dir": serialize_manifest_path(manifest_file, resolved_output_dir),
             "dimension_count": len(dimension_rows),
             "member_count": len(member_output_rows),
             "feature_count": len(feature_rows),
             "emitted_artifacts": {
-                "context_dimensions_file": str(dimensions_file),
-                "context_members_file": str(members_file),
-                "feature_taxonomy_file": str(features_file),
+                "context_dimensions_file": serialize_manifest_path(
+                    manifest_file, dimensions_file
+                ),
+                "context_members_file": serialize_manifest_path(
+                    manifest_file, members_file
+                ),
+                "feature_taxonomy_file": serialize_manifest_path(
+                    manifest_file, features_file
+                ),
             },
         },
     )

@@ -13,6 +13,7 @@ from scz_target_engine.atlas.mechanistic_axes import (
     resolved_provenance_bundle_ids,
     resolved_source_row_indices,
 )
+from scz_target_engine.atlas.substrate import serialize_manifest_path
 from scz_target_engine.io import write_csv, write_json
 
 
@@ -417,16 +418,26 @@ def materialize_convergence_hubs(
         manifest_file,
         {
             "contract_version": ATLAS_CONVERGENCE_CONTRACT_VERSION,
-            "tensor_manifest_file": str(tensor_bundle.manifest_file),
-            "evidence_tensor_file": str(tensor_bundle.evidence_tensor_file),
-            "output_dir": str(resolved_output_dir),
+            "tensor_manifest_file": serialize_manifest_path(
+                manifest_file, tensor_bundle.manifest_file
+            ),
+            "evidence_tensor_file": serialize_manifest_path(
+                manifest_file, tensor_bundle.evidence_tensor_file
+            ),
+            "output_dir": serialize_manifest_path(manifest_file, resolved_output_dir),
             "hub_count": len(hubs),
             "hub_axis_member_count": len(hub_axis_memberships),
             "evidence_link_count": len(evidence_links),
             "emitted_artifacts": {
-                "convergence_hubs_file": str(hubs_file),
-                "hub_axis_members_file": str(hub_axis_members_file),
-                "hub_evidence_links_file": str(evidence_links_file),
+                "convergence_hubs_file": serialize_manifest_path(
+                    manifest_file, hubs_file
+                ),
+                "hub_axis_members_file": serialize_manifest_path(
+                    manifest_file, hub_axis_members_file
+                ),
+                "hub_evidence_links_file": serialize_manifest_path(
+                    manifest_file, evidence_links_file
+                ),
             },
         },
     )

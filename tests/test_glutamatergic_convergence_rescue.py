@@ -5,7 +5,7 @@ from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.atlas.convergence import materialize_convergence_hubs
 from scz_target_engine.atlas.mechanistic_axes import load_atlas_tensor_bundle
 from scz_target_engine.atlas.tensor import materialize_atlas_tensor
-from scz_target_engine.io import read_csv_rows
+from scz_target_engine.io import read_csv_rows, read_json
 from scz_target_engine.rescue import (
     GLUTAMATERGIC_CONVERGENCE_ATLAS_FIXTURE_MANIFEST_PATH,
     GLUTAMATERGIC_CONVERGENCE_RAW_SNAPSHOT_MANIFEST_PATH,
@@ -120,6 +120,74 @@ def test_glutamatergic_raw_snapshot_manifest_rebuilds_checked_in_convergence(
             raw_snapshot_bundle.convergence_artifact_files["hub_evidence_links_file"]
         )
     )
+
+
+def test_glutamatergic_fixture_regeneration_emits_portable_provenance_paths(
+    tmp_path: Path,
+) -> None:
+    tensor_result = materialize_atlas_tensor(
+        ingest_manifest_file=GLUTAMATERGIC_CONVERGENCE_ATLAS_FIXTURE_MANIFEST_PATH,
+        output_dir=tmp_path / "tensor",
+    )
+    convergence_result = materialize_convergence_hubs(
+        tensor_manifest_file=Path(tensor_result["manifest_file"]),
+        output_dir=tmp_path / "convergence",
+    )
+
+    tensor_manifest = read_json(Path(tensor_result["manifest_file"]))
+    taxonomy_manifest = read_json(tmp_path / "tensor" / "taxonomy" / "taxonomy_manifest.json")
+    convergence_manifest = read_json(Path(convergence_result["manifest_file"]))
+    provenance_rows = read_csv_rows(Path(tensor_result["provenance_bundles_file"]))
+
+    assert tensor_manifest["ingest_manifest_file"] == (
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json"
+    )
+    assert tensor_manifest["output_dir"] == "."
+    assert tensor_manifest["taxonomy_output_dir"] == "taxonomy"
+    assert tensor_manifest["emitted_artifacts"] == {
+        "entity_alignments_file": "entity_alignments.csv",
+        "evidence_tensor_file": "evidence_tensor.csv",
+        "provenance_bundles_file": "provenance_bundles.csv",
+        "taxonomy_manifest_file": "taxonomy/taxonomy_manifest.json",
+    }
+    assert taxonomy_manifest["ingest_manifest_file"] == (
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_ingest_manifest.json"
+    )
+    assert taxonomy_manifest["output_dir"] == "."
+    assert taxonomy_manifest["emitted_artifacts"] == {
+        "context_dimensions_file": "context_dimensions.csv",
+        "context_members_file": "context_members.csv",
+        "feature_taxonomy_file": "feature_taxonomy.csv",
+    }
+    assert convergence_manifest["tensor_manifest_file"] == "../tensor/tensor_manifest.json"
+    assert convergence_manifest["evidence_tensor_file"] == "../tensor/evidence_tensor.csv"
+    assert convergence_manifest["output_dir"] == "."
+    assert convergence_manifest["emitted_artifacts"] == {
+        "convergence_hubs_file": "convergence_hubs.csv",
+        "hub_axis_members_file": "hub_axis_members.csv",
+        "hub_evidence_links_file": "hub_evidence_links.csv",
+    }
+    assert {
+        row["processed_output_file"]
+        for row in provenance_rows
+    } == {
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_sources/opentargets/glutamatergic_baseline.csv",
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_sources/pgc/glutamatergic_prioritized_genes.csv",
+    }
+    assert {
+        row["processed_metadata_file"]
+        for row in provenance_rows
+    } == {
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_sources/opentargets/glutamatergic_baseline.metadata.json",
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_sources/pgc/glutamatergic_prioritized_genes.metadata.json",
+    }
+    assert {
+        row["raw_manifest_file"]
+        for row in provenance_rows
+    } == {
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_raw/opentargets/manifest.json",
+        "data/curated/atlas/glutamatergic_convergence_fixture/example_raw/pgc/manifest.json",
+    }
 
 
 def test_glutamatergic_ranking_inputs_match_materialized_convergence_fixture(

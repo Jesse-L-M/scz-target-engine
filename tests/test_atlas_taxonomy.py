@@ -48,3 +48,12 @@ def test_materialize_atlas_taxonomy_writes_expected_fixture_surfaces(
 
     atlas_feature = feature_rows["atlas.alignment_entity_id_conflict"]
     assert json.loads(atlas_feature["channels_json"]) == ["conflict", "uncertainty"]
+
+    manifest = json.loads(Path(result["manifest_file"]).read_text(encoding="utf-8"))
+    assert manifest["ingest_manifest_file"] == "data/curated/atlas/example_ingest_manifest.json"
+    assert manifest["output_dir"] == "."
+    assert manifest["emitted_artifacts"] == {
+        "context_dimensions_file": "context_dimensions.csv",
+        "context_members_file": "context_members.csv",
+        "feature_taxonomy_file": "feature_taxonomy.csv",
+    }

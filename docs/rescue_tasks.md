@@ -363,3 +363,23 @@ exported public task package, not a checkout of the repo.
 See [docs/hidden_eval.md](hidden_eval.md) for the canonical
 `hidden-eval-task-package`, `hidden-eval-pack-submission`, and
 `hidden-eval-simulate` workflow.
+
+## Rescue Model Plugins
+
+`PR-45` adds `scz_target_engine.rescue.models` as the admission gate for any
+non-baseline rescue scorer:
+
+- plugins receive only the governed frozen ranking rows plus task metadata needed
+  for ranking; they do not receive evaluation labels or raw rescue sources
+- every plugin declares its required frozen input fields, principal split, and the
+  admission metrics it must clear
+- admission is benchmark-first and baseline-first: a model is admitted only if it
+  beats the best shipped baseline on the task's declared principal split for every
+  declared admission metric
+- candidate models that do not clear that bar stay out of the shipped registry
+
+The first hook-up is the NPC signature-reversal task. Its existing
+`npc_abs_log_fc_priority_v1` scorer now enters through the plugin registry, and the
+run summary records `model_plugins` plus `model_admission` beside the aggregate
+comparison report. No additional advanced rescue model is registered unless it wins
+cleanly against the shipped baselines.

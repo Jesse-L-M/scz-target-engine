@@ -13,6 +13,12 @@ from scz_target_engine.rescue.frozen import (
     FrozenRescueTaskBundle,
     load_frozen_rescue_task_bundle,
 )
+from scz_target_engine.rescue.models import (
+    RescueModelInput,
+    build_rescue_model_admission_summary,
+    list_rescue_model_plugins,
+    resolve_rescue_model_plugin,
+)
 
 
 NPC_SIGNATURE_REVERSAL_TASK_ID = "scz_npc_signature_reversal_rescue_task"
@@ -88,18 +94,7 @@ class NpcSignatureReversalScorerDefinition:
         return payload
 
 
-DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS = (
-    NpcSignatureReversalScorerDefinition(
-        scorer_id=NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
-        scorer_label=NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_LABEL,
-        scorer_role="model",
-        input_fields=("npc_log_fc",),
-        description=(
-            "Ranks genes only by absolute frozen NPC disease log fold-change magnitude. "
-            "This is the strongest shipped scorer on the task's declared principal "
-            "test split, so it is the truthful default model for this task."
-        ),
-    ),
+NPC_SIGNATURE_REVERSAL_BASELINE_SCORERS = (
     NpcSignatureReversalScorerDefinition(
         scorer_id="signature_weight_only",
         scorer_label="Signature weight only",
@@ -176,6 +171,31 @@ def _ensure_expected_columns(
         )
 
 
+def _plugin_to_scorer_definition(
+    plugin,
+) -> NpcSignatureReversalScorerDefinition:
+    definition = plugin.definition
+    return NpcSignatureReversalScorerDefinition(
+        scorer_id=definition.model_id,
+        scorer_label=definition.label,
+        scorer_role="model",
+        input_fields=definition.input_fields,
+        tie_break_input_fields=definition.tie_break_input_fields,
+        description=definition.description,
+    )
+
+
+def _default_npc_signature_reversal_scorers(
+) -> tuple[NpcSignatureReversalScorerDefinition, ...]:
+    return tuple(
+        _plugin_to_scorer_definition(plugin)
+        for plugin in list_rescue_model_plugins(NPC_SIGNATURE_REVERSAL_TASK_ID)
+    ) + NPC_SIGNATURE_REVERSAL_BASELINE_SCORERS
+
+
+DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS = _default_npc_signature_reversal_scorers()
+
+
 def _resolve_default_task_card_path() -> Path:
     from scz_target_engine.rescue.registry import load_rescue_task_registrations
 
@@ -207,19 +227,27 @@ def _build_primary_score_map(
     }
 
 
+def _build_model_input(
+    bundle: FrozenRescueTaskBundle,
+) -> RescueModelInput:
+    return RescueModelInput(
+        task_id=bundle.governance.task_card.task_id,
+        task_label=bundle.governance.contract.task_label,
+        ranking_dataset_id=bundle.ranking_input.card.dataset_id,
+        ranking_rows=bundle.ranking_input.rows,
+        ranking_columns=tuple(bundle.ranking_input.columns),
+        principal_split="test",
+    )
+
+
 def _rank_primary_predictions(
-    ranking_rows: tuple[dict[str, str], ...],
+    ranking_rows_by_gene_id: dict[str, dict[str, str]],
     *,
-    primary_score_map: dict[str, float],
+    ranked_gene_ids: tuple[str, ...],
 ) -> tuple[dict[str, str], ...]:
     return tuple(
-        sorted(
-            ranking_rows,
-            key=lambda row: (
-                -primary_score_map[row["gene_id"]],
-                row["gene_id"],
-            ),
-        )
+        ranking_rows_by_gene_id[gene_id]
+        for gene_id in ranked_gene_ids
     )
 
 
@@ -408,16 +436,20 @@ def _calculate_metrics(
 def _build_ranked_gene_ids_by_scorer(
     ranking_rows: tuple[dict[str, str], ...],
     *,
-    primary_ranked_rows: tuple[dict[str, str], ...],
+    primary_ranked_gene_ids: tuple[str, ...],
+    model_input: RescueModelInput,
     scorers: tuple[NpcSignatureReversalScorerDefinition, ...],
 ) -> dict[str, tuple[str, ...]]:
-    ranked_gene_ids_by_scorer: dict[str, tuple[str, ...]] = {
-        NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID: tuple(
-            row["gene_id"] for row in primary_ranked_rows
-        )
-    }
+    ranked_gene_ids_by_scorer: dict[str, tuple[str, ...]] = {}
     for scorer in scorers:
-        if scorer.scorer_id == NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID:
+        if scorer.scorer_role == "model":
+            if scorer.scorer_id == NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID:
+                ranked_gene_ids_by_scorer[scorer.scorer_id] = primary_ranked_gene_ids
+                continue
+            ranked_gene_ids_by_scorer[scorer.scorer_id] = resolve_rescue_model_plugin(
+                NPC_SIGNATURE_REVERSAL_TASK_ID,
+                scorer.scorer_id,
+            ).rank_entities(model_input)
             continue
         ranked_gene_ids_by_scorer[scorer.scorer_id] = _rank_predictions_for_scorer(
             ranking_rows,
@@ -485,10 +517,15 @@ def _task_summary_payload(
     bundle: FrozenRescueTaskBundle,
     scorers: tuple[NpcSignatureReversalScorerDefinition, ...],
     evaluation_payload: dict[str, object],
+    model_admission_summary: dict[str, object],
+    model_plugins: tuple[object, ...],
 ) -> dict[str, object]:
     baseline_ids = [
         scorer.scorer_id for scorer in scorers if scorer.scorer_role == "baseline"
     ]
+    model_definitions = tuple(
+        plugin.definition for plugin in model_plugins
+    )
     return {
         "task_id": bundle.governance.task_card.task_id,
         "task_label": bundle.governance.contract.task_label,
@@ -526,8 +563,27 @@ def _task_summary_payload(
             "principal_split": "test",
         },
         "model_id": NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
+        "model_plugin_ids": [
+            model_definition.model_id for model_definition in model_definitions
+        ],
         "baseline_ids": baseline_ids,
-        "scorers": [scorer.to_dict() for scorer in scorers],
+        "scorers": [
+            (
+                next(
+                    (
+                        model_definition.to_scorer_definition()
+                        for model_definition in model_definitions
+                        if model_definition.model_id == scorer.scorer_id
+                    ),
+                    scorer.to_dict(),
+                )
+            )
+            for scorer in scorers
+        ],
+        "model_plugins": [
+            model_definition.to_dict() for model_definition in model_definitions
+        ],
+        "model_admission": model_admission_summary,
         "outputs": {
             "output_dir": str(output_dir),
             "predictions_file": str(output_dir / PREDICTIONS_FILE_NAME),
@@ -574,7 +630,10 @@ def _materialize_npc_signature_reversal_result(
     output_dir: Path,
     task_card_path: Path | None = None,
 ) -> tuple[dict[str, object], tuple[RescueComparisonRow, ...]]:
-    scorers = DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS
+    model_plugins = list_rescue_model_plugins(NPC_SIGNATURE_REVERSAL_TASK_ID)
+    scorers = tuple(
+        _plugin_to_scorer_definition(plugin) for plugin in model_plugins
+    ) + NPC_SIGNATURE_REVERSAL_BASELINE_SCORERS
     resolved_output_dir = output_dir.resolve()
     resolved_task_card_path = (
         task_card_path.resolve() if task_card_path else _resolve_default_task_card_path()
@@ -583,10 +642,18 @@ def _materialize_npc_signature_reversal_result(
     _validate_bundle_identity(bundle)
     _ensure_expected_columns(bundle, scorers=scorers)
 
+    model_input = _build_model_input(bundle)
     primary_score_map = _build_primary_score_map(bundle.ranking_input.rows)
+    primary_ranked_gene_ids = resolve_rescue_model_plugin(
+        NPC_SIGNATURE_REVERSAL_TASK_ID,
+        NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
+    ).rank_entities(model_input)
     primary_ranked_rows = _rank_primary_predictions(
-        bundle.ranking_input.rows,
-        primary_score_map=primary_score_map,
+        {
+            row["gene_id"]: row
+            for row in bundle.ranking_input.rows
+        },
+        ranked_gene_ids=primary_ranked_gene_ids,
     )
     prediction_rows = _build_prediction_rows(
         primary_ranked_rows,
@@ -602,7 +669,8 @@ def _materialize_npc_signature_reversal_result(
 
     ranked_gene_ids_by_scorer = _build_ranked_gene_ids_by_scorer(
         bundle.ranking_input.rows,
-        primary_ranked_rows=primary_ranked_rows,
+        primary_ranked_gene_ids=primary_ranked_gene_ids,
+        model_input=model_input,
         scorers=scorers,
     )
     evaluation_payload = _build_evaluation_payload(
@@ -611,21 +679,35 @@ def _materialize_npc_signature_reversal_result(
         scorers=scorers,
         ranked_gene_ids_by_scorer=ranked_gene_ids_by_scorer,
     )
-    summary_payload = _task_summary_payload(
-        output_dir=resolved_output_dir,
-        task_card_path=resolved_task_card_path,
-        bundle=bundle,
-        scorers=scorers,
-        evaluation_payload=evaluation_payload,
-    )
-    summary_file = resolved_output_dir / SUMMARY_FILE_NAME
-    write_json(summary_file, summary_payload)
     comparison_rows = _build_npc_comparison_rows(
         task_id=bundle.governance.task_card.task_id,
         task_label=bundle.governance.contract.task_label,
         evaluation_payload=evaluation_payload,
         scorers=scorers,
     )
+    model_admission_summary = build_rescue_model_admission_summary(
+        comparison_rows=comparison_rows,
+        model_definitions=tuple(
+            plugin.definition for plugin in model_plugins
+        ),
+        principal_split="test",
+        baseline_scorer_ids=tuple(
+            scorer.scorer_id
+            for scorer in scorers
+            if scorer.scorer_role == "baseline"
+        ),
+    )
+    summary_payload = _task_summary_payload(
+        output_dir=resolved_output_dir,
+        task_card_path=resolved_task_card_path,
+        bundle=bundle,
+        scorers=scorers,
+        evaluation_payload=evaluation_payload,
+        model_admission_summary=model_admission_summary,
+        model_plugins=model_plugins,
+    )
+    summary_file = resolved_output_dir / SUMMARY_FILE_NAME
+    write_json(summary_file, summary_payload)
     comparison_outputs = materialize_rescue_comparison_report(
         resolved_output_dir,
         task_id=bundle.governance.task_card.task_id,
@@ -633,16 +715,24 @@ def _materialize_npc_signature_reversal_result(
         principal_split="test",
         comparison_rows=comparison_rows,
         scorer_definitions=tuple(
-            {
-                **scorer.to_dict(),
-                "comparison_id": scorer.scorer_id,
-            }
+            next(
+                (
+                    plugin.definition.to_scorer_definition()
+                    for plugin in model_plugins
+                    if plugin.definition.model_id == scorer.scorer_id
+                ),
+                {
+                    **scorer.to_dict(),
+                    "comparison_id": scorer.scorer_id,
+                },
+            )
             for scorer in scorers
         ),
         notes=(
-            "The NPC baseline report compares the fixed shipped scorer set on the "
-            "frozen rescue bundle. Predictions remain label-free and evaluation stays "
-            "aggregate-only in the comparison outputs."
+            "The NPC rescue report compares shipped model plugins against the fixed "
+            "simple baselines on the frozen rescue bundle. Predictions remain "
+            "label-free and evaluation stays aggregate-only in the comparison "
+            "outputs."
         ),
     )
     return (

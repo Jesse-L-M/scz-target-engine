@@ -36,6 +36,10 @@ def test_materialize_npc_signature_reversal_run_uses_only_frozen_bundle(
         "reversal_drug_count_only",
     ]
     assert result["model_id"] == NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID
+    assert result["model_plugin_ids"] == [NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID]
+    assert result["model_admission"]["admitted_model_ids"] == [
+        NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID
+    ]
     assert result["leakage_boundary"] == {
         "policy_id": "strict_rescue_task_boundary_v1",
         "raw_runtime_ingestion_enabled": False,

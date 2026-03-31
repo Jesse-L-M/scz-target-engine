@@ -500,12 +500,14 @@ def _load_review_rubric_payload(rubric_file: Path) -> dict[str, object]:
     dimensions = _require_list(rubric.get("dimensions"), "review_rubric.dimensions")
     if not dimensions:
         raise ValueError("review_rubric.dimensions must not be empty")
+    dimension_ids: list[str] = []
     for index, item in enumerate(dimensions):
         dimension = _require_mapping(item, f"review_rubric.dimensions[{index}]")
-        _require_text(
+        dimension_id = _require_text(
             dimension.get("dimension_id"),
             f"review_rubric.dimensions[{index}].dimension_id",
         )
+        dimension_ids.append(dimension_id)
         _require_text(dimension.get("label"), f"review_rubric.dimensions[{index}].label")
         _require_text(
             dimension.get("question"),
@@ -526,6 +528,18 @@ def _load_review_rubric_payload(rubric_file: Path) -> dict[str, object]:
         _require_text(
             dimension.get("high_anchor"),
             f"review_rubric.dimensions[{index}].high_anchor",
+        )
+    duplicate_dimension_ids = sorted(
+        {
+            dimension_id
+            for dimension_id in dimension_ids
+            if dimension_ids.count(dimension_id) > 1
+        }
+    )
+    if duplicate_dimension_ids:
+        raise ValueError(
+            "review_rubric.dimensions[].dimension_id must be unique; duplicates: "
+            + ", ".join(duplicate_dimension_ids)
         )
     required_findings = _require_string_list(
         rubric.get("required_findings"),

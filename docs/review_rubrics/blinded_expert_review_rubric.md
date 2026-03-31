@@ -18,6 +18,9 @@ The comparison is not about target identity. It is about packet style:
 
 Score each blinded packet on a 1-5 scale.
 
+Each `dimensions[].dimension_id` becomes a key in the generated `blind_scores`
+schema, so those ids must be unique within a rubric.
+
 ### `decision_readiness`
 
 - `1`: the packet is too vague to support an advance, hold, or kill decision

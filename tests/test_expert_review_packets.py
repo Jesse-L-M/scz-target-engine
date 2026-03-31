@@ -174,6 +174,46 @@ def test_custom_rubric_can_omit_legacy_required_findings(tmp_path: Path) -> None
     assert "generator_revision_requests" not in comparison_template
 
 
+def test_custom_rubric_rejects_duplicate_dimension_ids(tmp_path: Path) -> None:
+    custom_rubric = {
+        "rubric_id": "duplicate_dimension_rubric_v1",
+        "review_goal": "Fail when two dimensions claim the same scoring slot.",
+        "comparison_prompt": "This rubric should fail validation.",
+        "dimensions": [
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity",
+                "question": "Is the packet easy to read?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            },
+            {
+                "dimension_id": "clarity",
+                "label": "Clarity again",
+                "question": "Is the packet still easy to read?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            },
+        ],
+        "required_findings": [
+            "winner_reason",
+        ],
+    }
+    rubric_path = tmp_path / "duplicate_dimension_rubric.json"
+    _write_json(rubric_path, custom_rubric)
+
+    with pytest.raises(ValueError, match=r"dimension_id must be unique; duplicates: clarity"):
+        materialize_blinded_expert_review_packets(
+            Path("examples/v0/output/hypothesis_packets_v1.json"),
+            output_dir=tmp_path / "expert_review",
+            rubric_file=rubric_path,
+        )
+
+
 def test_missing_custom_rubric_file_fails(tmp_path: Path) -> None:
     missing_rubric_path = tmp_path / "missing_rubric.json"
 

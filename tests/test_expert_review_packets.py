@@ -96,6 +96,7 @@ def test_custom_rubric_file_changes_emitted_template_content(tmp_path: Path) -> 
         ],
         "required_findings": [
             "winner_reason",
+            "novel_packet_gap",
             "schema_change_requests",
         ],
     }
@@ -123,6 +124,54 @@ def test_custom_rubric_file_changes_emitted_template_content(tmp_path: Path) -> 
             response_template_payload["comparisons"][0]["available_blind_ids"][0]
         ]
     ) == {"clarity", "challengeability"}
+    comparison_template = response_template_payload["comparisons"][0]
+    assert comparison_template["winner_reason"] == ""
+    assert comparison_template["schema_change_requests"] == []
+    assert "novel_packet_gap" in comparison_template
+    assert comparison_template["novel_packet_gap"] is None
+    assert "loser_reason" not in comparison_template
+    assert "missing_fields" not in comparison_template
+
+
+def test_custom_rubric_can_omit_legacy_required_findings(tmp_path: Path) -> None:
+    custom_rubric = {
+        "rubric_id": "trimmed_expert_review_rubric_v1",
+        "review_goal": "Use a smaller template contract for the blinded packet review.",
+        "comparison_prompt": "Custom prompt: keep only the findings this rubric asks for.",
+        "dimensions": [
+            {
+                "dimension_id": "decision_readiness",
+                "label": "Decision readiness",
+                "question": "Does the packet support a clean decision?",
+                "scale_min": 1,
+                "scale_max": 5,
+                "low_anchor": "No.",
+                "high_anchor": "Yes.",
+            }
+        ],
+        "required_findings": [
+            "winner_reason",
+        ],
+    }
+    rubric_path = tmp_path / "trimmed_rubric.json"
+    _write_json(rubric_path, custom_rubric)
+
+    materialize_blinded_expert_review_packets(
+        Path("examples/v0/output/hypothesis_packets_v1.json"),
+        output_dir=tmp_path / "expert_review",
+        rubric_file=rubric_path,
+    )
+
+    comparison_template = _read_json(tmp_path / "expert_review" / RESPONSE_TEMPLATE_FILENAME)[
+        "comparisons"
+    ][0]
+
+    assert comparison_template["winner_reason"] == ""
+    assert "loser_reason" not in comparison_template
+    assert "missing_fields" not in comparison_template
+    assert "traceability_gaps" not in comparison_template
+    assert "schema_change_requests" not in comparison_template
+    assert "generator_revision_requests" not in comparison_template
 
 
 def test_missing_custom_rubric_file_fails(tmp_path: Path) -> None:

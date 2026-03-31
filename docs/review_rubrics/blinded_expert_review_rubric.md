@@ -65,6 +65,16 @@ Each comparison must record:
 - `schema_change_requests`
 - `generator_revision_requests`
 
+Those fields are not decorative docs. The generated response template derives its
+comparison-level finding fields directly from `required_findings`.
+
+That means:
+
+- adding a new required finding adds that field to every generated comparison entry
+- removing a required finding removes that field from the generated template
+- legacy findings keep their current empty defaults, while unknown finding names
+  are emitted as `null` placeholders
+
 ## Pilot Success Condition
 
 The pilot is only useful if it produces contract pressure, not just style

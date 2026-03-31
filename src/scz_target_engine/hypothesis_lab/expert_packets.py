@@ -86,6 +86,14 @@ REVIEW_KEY_FILENAME = "blinded_expert_review_key_v1.json"
 RESPONSE_TEMPLATE_FILENAME = "blinded_expert_review_response_template_v1.json"
 EXPERT_PACKET_STYLE_ID = "traceable_expert_packet"
 BASELINE_PACKET_STYLE_ID = "simplified_baseline_packet"
+LEGACY_REQUIRED_FINDING_DEFAULTS = {
+    "winner_reason": "",
+    "loser_reason": "",
+    "missing_fields": [],
+    "traceability_gaps": [],
+    "schema_change_requests": [],
+    "generator_revision_requests": [],
+}
 
 
 def build_blinded_expert_review_payloads(
@@ -103,6 +111,10 @@ def build_blinded_expert_review_payloads(
         "review_rubric.comparison_prompt",
     )
     dimensions = _require_list(rubric_payload.get("dimensions"), "review_rubric.dimensions")
+    required_findings = _require_string_list(
+        rubric_payload.get("required_findings"),
+        "review_rubric.required_findings",
+    )
 
     comparisons: list[dict[str, object]] = []
     key_comparisons: list[dict[str, object]] = []
@@ -211,12 +223,7 @@ def build_blinded_expert_review_payloads(
                     }
                     for blind_id in blind_ids
                 },
-                "winner_reason": "",
-                "loser_reason": "",
-                "missing_fields": [],
-                "traceability_gaps": [],
-                "schema_change_requests": [],
-                "generator_revision_requests": [],
+                **_build_required_finding_placeholders(required_findings),
             }
         )
 
@@ -526,7 +533,16 @@ def _load_review_rubric_payload(rubric_file: Path) -> dict[str, object]:
     )
     if not required_findings:
         raise ValueError("review_rubric.required_findings must not be empty")
+    if len(required_findings) != len(set(required_findings)):
+        raise ValueError("review_rubric.required_findings must not repeat fields")
     return rubric
+
+
+def _build_required_finding_placeholders(required_findings: list[str]) -> dict[str, object]:
+    return {
+        finding_name: deepcopy(LEGACY_REQUIRED_FINDING_DEFAULTS.get(finding_name))
+        for finding_name in required_findings
+    }
 
 
 def _build_baseline_review_packet(packet: dict[str, object]) -> dict[str, object]:

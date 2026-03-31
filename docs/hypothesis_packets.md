@@ -113,6 +113,16 @@ It produces:
   the structured response template aligned to the rubric under
   `docs/review_rubrics/blinded_expert_review_rubric.*`
 
+The response-template comparison contract is rubric-driven:
+
+- the fixed comparison scaffolding stays `comparison_id`, `topic`,
+  `available_blind_ids`, `preferred_blind_id`, and `blind_scores`
+- every additional comparison-level finding field is emitted from
+  `review_rubric.required_findings`
+- legacy findings keep ergonomic empty defaults (`\"\"` or `[]`)
+- brand-new required findings are emitted as `null` placeholders until the
+  reviewer fills them in
+
 Run it from an already-built hypothesis packet artifact:
 
 ```bash

@@ -161,6 +161,20 @@ def _validate_governed_source_snapshot_files(
             )
 
 
+def _require_governance_status_match(
+    expected_status: str,
+    observed_status: str,
+    *,
+    artifact_kind: str,
+    artifact_id: str,
+) -> None:
+    if observed_status != expected_status:
+        raise ValueError(
+            f"{artifact_kind} governance_status must match the task card governance_status: "
+            f"{artifact_id}"
+        )
+
+
 def _require_unique(values: tuple[str, ...], field_name: str) -> None:
     if len(values) != len(set(values)):
         raise ValueError(f"{field_name} must not repeat values")
@@ -1137,6 +1151,49 @@ def read_rescue_raw_to_frozen_lineage(path: Path) -> RescueRawToFrozenLineage:
     )
 
 
+def _validate_bundle_governance_status_parity(
+    task_card: RescueTaskCard,
+    *,
+    dataset_cards: tuple[RescueDatasetCard, ...],
+    freeze_manifests: tuple[RescueFreezeManifest, ...],
+    split_manifests: tuple[RescueSplitManifest, ...],
+    lineages: tuple[RescueRawToFrozenLineage, ...],
+) -> None:
+    expected_status = task_card.governance_status
+
+    for dataset in dataset_cards:
+        _require_governance_status_match(
+            expected_status,
+            dataset.governance_status,
+            artifact_kind="dataset card",
+            artifact_id=dataset.dataset_id,
+        )
+
+    for freeze_manifest in freeze_manifests:
+        _require_governance_status_match(
+            expected_status,
+            freeze_manifest.governance_status,
+            artifact_kind="freeze manifest",
+            artifact_id=freeze_manifest.freeze_manifest_id,
+        )
+
+    for split_manifest in split_manifests:
+        _require_governance_status_match(
+            expected_status,
+            split_manifest.governance_status,
+            artifact_kind="split manifest",
+            artifact_id=split_manifest.split_manifest_id,
+        )
+
+    for lineage in lineages:
+        _require_governance_status_match(
+            expected_status,
+            lineage.governance_status,
+            artifact_kind="lineage artifact",
+            artifact_id=lineage.lineage_id,
+        )
+
+
 def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceBundle:
     task_card = read_rescue_task_card(task_card_path.resolve())
     contract = _load_contract(task_card.contract_path)
@@ -1156,6 +1213,13 @@ def validate_rescue_governance_bundle(task_card_path: Path) -> RescueGovernanceB
     lineages = tuple(
         read_rescue_raw_to_frozen_lineage(_resolve_repo_relative_path(path_text))
         for path_text in task_card.lineage_paths
+    )
+    _validate_bundle_governance_status_parity(
+        task_card,
+        dataset_cards=dataset_cards,
+        freeze_manifests=freeze_manifests,
+        split_manifests=split_manifests,
+        lineages=lineages,
     )
 
     dataset_by_id = {dataset.dataset_id: dataset for dataset in dataset_cards}

@@ -127,7 +127,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
 
 def _clone_interneuron_governance_bundle(
     tmp_path: Path,
-) -> tuple[Path, dict[str, Path]]:
+) -> dict[str, object]:
     bundle_root = tmp_path / "interneuron_bundle"
 
     task_card_payload = json.loads(INTERNEURON_TASK_CARD_PATH.read_text(encoding="utf-8"))
@@ -206,7 +206,20 @@ def _clone_interneuron_governance_bundle(
     _write_json(lineage_path, lineage_payload)
     _write_json(task_card_path, task_card_payload)
 
-    return task_card_path, source_paths
+    return {
+        "task_card_path": task_card_path,
+        "source_paths": source_paths,
+        "dataset_card_paths": tuple(dataset_card_paths.values()),
+        "freeze_manifest_paths": (freeze_manifest_path,),
+        "split_manifest_paths": tuple(split_manifest_paths),
+        "lineage_paths": (lineage_path,),
+    }
+
+
+def _set_governance_status(path: Path, governance_status: str) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["governance_status"] = governance_status
+    _write_json(path, payload)
 
 
 def _path_is_ignored_by_git(path: Path | str) -> bool:
@@ -414,10 +427,55 @@ def test_interneuron_rescue_governance_bundle_validates_from_task_card() -> None
     )
 
 
+def test_active_task_card_rejects_downgraded_freeze_and_lineage_artifacts(
+    tmp_path: Path,
+) -> None:
+    bundle = _clone_interneuron_governance_bundle(tmp_path)
+    for path in bundle["freeze_manifest_paths"]:
+        _set_governance_status(path, "example")
+    for path in bundle["lineage_paths"]:
+        _set_governance_status(path, "example")
+
+    with pytest.raises(
+        ValueError,
+        match="freeze manifest governance_status must match the task card governance_status",
+    ):
+        validate_rescue_governance_bundle(bundle["task_card_path"])
+
+
+@pytest.mark.parametrize(
+    ("artifact_group", "match"),
+    [
+        pytest.param(
+            "dataset_card_paths",
+            "dataset card governance_status must match the task card governance_status",
+            id="dataset-cards",
+        ),
+        pytest.param(
+            "split_manifest_paths",
+            "split manifest governance_status must match the task card governance_status",
+            id="split-manifests",
+        ),
+    ],
+)
+def test_active_task_card_rejects_any_downgraded_subartifact_in_bundle(
+    tmp_path: Path,
+    artifact_group: str,
+    match: str,
+) -> None:
+    bundle = _clone_interneuron_governance_bundle(tmp_path)
+    for path in bundle[artifact_group]:
+        _set_governance_status(path, "example")
+
+    with pytest.raises(ValueError, match=match):
+        validate_rescue_governance_bundle(bundle["task_card_path"])
+
+
 def test_active_rescue_bundle_rejects_digest_drift_in_governed_raw_source(
     tmp_path: Path,
 ) -> None:
-    task_card_path, source_paths = _clone_interneuron_governance_bundle(tmp_path)
+    bundle = _clone_interneuron_governance_bundle(tmp_path)
+    source_paths = bundle["source_paths"]
     source_paths["interneuron_synapse_candidate_snapshot"].write_text(
         source_paths["interneuron_synapse_candidate_snapshot"].read_text(encoding="utf-8")
         + "\n# digest drift\n",
@@ -428,20 +486,21 @@ def test_active_rescue_bundle_rejects_digest_drift_in_governed_raw_source(
         ValueError,
         match="governed raw source snapshot sha256 mismatch",
     ):
-        validate_rescue_governance_bundle(task_card_path)
+        validate_rescue_governance_bundle(bundle["task_card_path"])
 
 
 def test_active_rescue_bundle_rejects_missing_governed_raw_source(
     tmp_path: Path,
 ) -> None:
-    task_card_path, source_paths = _clone_interneuron_governance_bundle(tmp_path)
+    bundle = _clone_interneuron_governance_bundle(tmp_path)
+    source_paths = bundle["source_paths"]
     source_paths["interneuron_arbor_candidate_snapshot"].unlink()
 
     with pytest.raises(
         ValueError,
         match="governed raw source snapshot file is missing",
     ):
-        validate_rescue_governance_bundle(task_card_path)
+        validate_rescue_governance_bundle(bundle["task_card_path"])
 
 
 def test_interneuron_frozen_outputs_exist_and_match_governed_bundle() -> None:

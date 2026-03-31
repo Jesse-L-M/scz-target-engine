@@ -102,7 +102,9 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
   only checking string presence; packet policy signals must stay genuinely scored when
   `require_scored_policy_signal` is true, score pointers must resolve inside the same
   entity-scoped policy context, and empty packet artifacts are valid when no target
-  meets the packet-generation criteria
+  meets the packet-generation criteria; packet materialization now validates the
+  generated artifact before write/return so the build path cannot emit self-invalid
+  packet outputs
 - `rescue_task_contract` validates registry-backed rescue task identity, artifact
   interface declarations, and the strict no-leakage rescue boundary
 - `rescue_dataset_card` validates that a governed rescue dataset card resolves back

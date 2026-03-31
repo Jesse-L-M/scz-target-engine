@@ -5,6 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from scz_target_engine.artifacts import load_artifact
+from scz_target_engine.artifacts.validators import (
+    validate_hypothesis_packets_payload,
+    validate_required_scored_policy_signal,
+)
 from scz_target_engine.io import write_json
 
 
@@ -103,7 +107,13 @@ def build_hypothesis_packets_payload(
                     "hypothesis packets encountered unknown policy_id "
                     f"{policy_id!r} for {entity_label}"
                 )
-            if score.get("score") is None:
+            if not _is_packet_eligible_policy_signal(
+                score,
+                field_name=(
+                    "policy_decision_vectors_v2.entities.gene"
+                    f"[{entity_index}].policy_scores[{score_index}]"
+                ),
+            ):
                 continue
             replay_risk = _require_mapping(
                 _require_mapping(
@@ -311,14 +321,23 @@ def materialize_hypothesis_packets(
         if output_file is not None
         else resolved_policy_path.parent
     )
+    artifact_output_path = (
+        output_file.resolve()
+        if output_file is not None
+        else (output_dir / "hypothesis_packets_v1.json").resolve()
+    )
     payload = build_hypothesis_packets_payload(
         dict(policy_artifact.payload),
         dict(ledger_artifact.payload),
         policy_artifact_ref=os.path.relpath(resolved_policy_path, output_dir),
         ledger_artifact_ref=os.path.relpath(resolved_ledger_path, output_dir),
     )
+    validate_hypothesis_packets_payload(
+        payload,
+        artifact_path=artifact_output_path,
+    )
     if output_file is not None:
-        write_json(output_file.resolve(), payload)
+        write_json(artifact_output_path, payload)
     return payload
 
 
@@ -456,6 +475,23 @@ def _collect_replay_event_ids(replay_risk: dict[str, object]) -> list[str]:
             if event_id not in event_ids:
                 event_ids.append(event_id)
     return event_ids
+
+
+def _is_packet_eligible_policy_signal(
+    score: dict[str, object],
+    *,
+    field_name: str,
+) -> bool:
+    if not REQUIRE_SCORED_POLICY_SIGNAL:
+        return score.get("score") is not None
+    try:
+        validate_required_scored_policy_signal(
+            score,
+            field_name=field_name,
+        )
+    except ValueError:
+        return False
+    return True
 
 
 def _require_mapping(value: object, field_name: str) -> dict[str, object]:

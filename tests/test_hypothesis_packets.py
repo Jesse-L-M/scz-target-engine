@@ -71,9 +71,17 @@ def test_hypothesis_packets_materialize_from_shipped_artifacts(tmp_path: Path) -
         "SLC39A8",
         "SLC6A1",
     }
-    assert load_artifact(manual_output_path).artifact_name == "hypothesis_packets_v1"
+    loaded_manual_artifact = load_artifact(
+        manual_output_path,
+        artifact_name="hypothesis_packets_v1",
+    )
+    assert loaded_manual_artifact.artifact_name == "hypothesis_packets_v1"
+    assert loaded_manual_artifact.payload == manual_payload
     assert (
-        load_artifact(Path("examples/v0/output/hypothesis_packets_v1.json")).artifact_name
+        load_artifact(
+            Path("examples/v0/output/hypothesis_packets_v1.json"),
+            artifact_name="hypothesis_packets_v1",
+        ).artifact_name
         == "hypothesis_packets_v1"
     )
 
@@ -230,6 +238,54 @@ def test_build_outputs_allows_scoreless_curated_targets(
         engine_module,
         "build_policy_artifacts",
         build_policy_artifacts_with_scoreless_drd2,
+    )
+
+    build_outputs(
+        config,
+        Path("examples/v0/input").resolve(),
+        tmp_path,
+    )
+
+    payload = json.loads((tmp_path / "hypothesis_packets_v1.json").read_text())
+    assert payload["packet_count"] == 6
+    assert {packet["entity_label"] for packet in payload["packets"]} == {
+        "CHRM4",
+        "SLC39A8",
+        "SLC6A1",
+    }
+    assert load_artifact(tmp_path / "hypothesis_packets_v1.json").artifact_name == (
+        "hypothesis_packets_v1"
+    )
+
+
+def test_build_outputs_skip_partially_scored_policy_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = load_config(Path("config/v0.toml"))
+    original_build_policy_artifacts = engine_module.build_policy_artifacts
+
+    def build_policy_artifacts_with_ineligible_drd2_rows(*args: object, **kwargs: object):
+        policy_payload, pareto_payload = original_build_policy_artifacts(*args, **kwargs)
+        mutated_policy_payload = deepcopy(policy_payload)
+        for entity in mutated_policy_payload["entities"]["gene"]:
+            if entity["entity_label"] != "DRD2":
+                continue
+            for score in entity["policy_scores"]:
+                assert score["score"] is not None
+                score["base_score"] = None
+                score["score_before_clamp"] = None
+                score["status"] = "available"
+            entity["policy_vector"] = {
+                score["policy_id"]: score
+                for score in entity["policy_scores"]
+            }
+        return mutated_policy_payload, pareto_payload
+
+    monkeypatch.setattr(
+        engine_module,
+        "build_policy_artifacts",
+        build_policy_artifacts_with_ineligible_drd2_rows,
     )
 
     build_outputs(

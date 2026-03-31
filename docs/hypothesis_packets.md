@@ -20,7 +20,9 @@ The current generator only emits packets for:
 
 - `gene` entities
 - targets whose ledger directionality status is `curated`
-- policy rows with a concrete scored policy signal
+- policy rows with a fully scored policy signal:
+  non-null `score`, `base_score`, and `score_before_clamp`, plus `status` in
+  `{available, partial}`
 
 That gate is explicit in the artifact under `packet_generation_criteria` so
 consumers can see why uncurated or scoreless targets were excluded.
@@ -90,3 +92,5 @@ PYTHONPATH=src python3 -m scz_target_engine.cli build-hypothesis-packets \
 ```
 
 That path validates the source artifacts before materializing packets.
+It now also validates the generated `hypothesis_packets_v1` payload against the
+repo artifact contract before returning or writing output.

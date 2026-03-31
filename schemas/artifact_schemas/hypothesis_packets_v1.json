@@ -23,7 +23,7 @@
       "name": "packet_generation_criteria",
       "field_type": "object",
       "required": true,
-      "description": "Explicit generation gates and packet-level invariants that prevent vague or scoreless packet stubs and explain valid empty packet artifacts."
+      "description": "Explicit generation gates and packet-level invariants that prevent vague or partially scored packet stubs and explain valid empty packet artifacts."
     },
     {
       "name": "packet_count",

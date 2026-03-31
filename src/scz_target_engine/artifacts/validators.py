@@ -1319,7 +1319,7 @@ def _validate_policy_score_payload(
     )
 
 
-def _validate_required_scored_policy_signal(
+def validate_required_scored_policy_signal(
     payload: Mapping[str, object],
     *,
     field_name: str,
@@ -1593,11 +1593,13 @@ def _validate_policy_pareto_fronts(
     return payload
 
 
-def _validate_hypothesis_packets(
+def _validate_hypothesis_packets_payload_mapping(
+    payload: Mapping[str, object],
+    *,
     path: Path,
     schema: ArtifactSchemaDefinition,
 ) -> dict[str, object]:
-    payload = _load_json_mapping(path)
+    payload = dict(payload)
     _ensure_required_fields(
         schema,
         set(payload),
@@ -1794,7 +1796,7 @@ def _validate_hypothesis_packets(
             valid_domain_slugs=valid_domain_slugs,
         )
         if require_scored_policy_signal:
-            _validate_required_scored_policy_signal(
+            validate_required_scored_policy_signal(
                 policy_signal,
                 field_name=f"hypothesis_packets_v1.packets[{index}].policy_signal",
             )
@@ -2229,6 +2231,34 @@ def _validate_hypothesis_packets(
     if len(packet_ids) != len(set(packet_ids)):
         raise ValueError("hypothesis_packets_v1.packets must not repeat packet_id")
     return payload
+
+
+def _validate_hypothesis_packets(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    return _validate_hypothesis_packets_payload_mapping(
+        _load_json_mapping(path),
+        path=path,
+        schema=schema,
+    )
+
+
+def validate_hypothesis_packets_payload(
+    payload: Mapping[str, object],
+    *,
+    artifact_path: Path,
+    schema_dir: Path | None = None,
+) -> dict[str, object]:
+    schema = get_artifact_schema(
+        "hypothesis_packets_v1",
+        schema_dir=schema_dir,
+    )
+    return _validate_hypothesis_packets_payload_mapping(
+        payload,
+        path=artifact_path.resolve(),
+        schema=schema,
+    )
 
 
 def _validate_domain_head_rankings(

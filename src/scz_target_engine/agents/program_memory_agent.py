@@ -214,12 +214,12 @@ def build_curation_draft(
     # Phase 3: harvest-sourced suggestions (if provided)
     if harvest is not None and request.include_harvest:
         for suggestion_item in _harvest_to_draft_items(
-            harvest, audit, item_counter
+            harvest, audit, item_counter, request
         ):
             item_counter += 1
             items.append(suggestion_item)
 
-    audit_summary = _build_audit_summary(audit)
+    audit_summary = _build_audit_summary(audit, request)
     return CurationDraft(
         schema_version=CURATION_ASSISTANT_SCHEMA_VERSION,
         dataset_dir=dataset_dir,
@@ -419,6 +419,7 @@ def _harvest_to_draft_items(
     harvest: ProgramMemoryHarvestBatch,
     audit: ProgramMemoryCoverageAudit,
     base_counter: int,
+    request: CurationDraftRequest,
 ) -> list[CurationDraftItem]:
     items: list[CurationDraftItem] = []
     for suggestion in harvest.suggestions:
@@ -435,6 +436,11 @@ def _harvest_to_draft_items(
         elif suggestion.directionality_hypothesis is not None:
             scope_value = suggestion.directionality_hypothesis.entity_label.upper()
             dimension = "target"
+
+        if _has_scope_filter(request) and not _harvest_matches_scope(
+            suggestion, request
+        ):
+            continue
 
         items.append(
             CurationDraftItem(
@@ -463,6 +469,46 @@ def _harvest_to_draft_items(
     return items
 
 
+def _harvest_matches_scope(
+    suggestion: object,
+    request: CurationDraftRequest,
+) -> bool:
+    """Check whether a harvest suggestion falls within the requested scope."""
+    from scz_target_engine.program_memory.extract import ProgramMemorySuggestion
+
+    if not isinstance(suggestion, ProgramMemorySuggestion):
+        return False
+
+    target_filter = clean_text(request.target).upper()
+    target_class_filter = clean_text(request.target_class).casefold()
+    domain_filter = clean_text(request.domain).casefold()
+
+    if target_filter:
+        symbols: tuple[str, ...] = ()
+        if suggestion.asset is not None:
+            symbols = suggestion.asset.target_symbols
+        elif suggestion.directionality_hypothesis is not None:
+            symbols = (suggestion.directionality_hypothesis.entity_label.upper(),)
+        if target_filter not in symbols:
+            return False
+
+    if target_class_filter:
+        if suggestion.asset is not None:
+            if suggestion.asset.target_class.casefold() != target_class_filter:
+                return False
+        else:
+            return False
+
+    if domain_filter:
+        if suggestion.event is not None:
+            if suggestion.event.domain.casefold() != domain_filter:
+                return False
+        else:
+            return False
+
+    return True
+
+
 def _harvest_uncertainty_codes(suggestion: object) -> tuple[str, ...]:
     from scz_target_engine.program_memory.extract import ProgramMemorySuggestion
 
@@ -489,22 +535,37 @@ def _find_summary(
 
 def _build_audit_summary(
     audit: ProgramMemoryCoverageAudit,
+    request: CurationDraftRequest,
 ) -> dict[str, object]:
+    scoped = _has_scope_filter(request)
+    gaps = (
+        [g for g in audit.gaps if _matches_scope(g.dimension, g.scope_value, request)]
+        if scoped
+        else list(audit.gaps)
+    )
+    summaries = (
+        [s for s in audit.summaries if _matches_scope(s.dimension, s.scope_value, request)]
+        if scoped
+        else list(audit.summaries)
+    )
     gap_reason_counts: dict[str, int] = {}
-    for gap in audit.gaps:
+    for gap in gaps:
         gap_reason_counts[gap.gap_reason_category] = (
             gap_reason_counts.get(gap.gap_reason_category, 0) + 1
         )
     coverage_band_counts: dict[str, int] = {}
-    for summary in audit.summaries:
+    for summary in summaries:
         coverage_band_counts[summary.coverage_band] = (
             coverage_band_counts.get(summary.coverage_band, 0) + 1
         )
-    return {
+    result: dict[str, object] = {
         "asset_count": audit.asset_count,
         "event_count": audit.event_count,
         "directionality_hypothesis_count": audit.directionality_hypothesis_count,
-        "total_gap_count": len(audit.gaps),
+        "total_gap_count": len(gaps),
         "gap_reason_counts": dict(sorted(gap_reason_counts.items())),
         "coverage_band_counts": dict(sorted(coverage_band_counts.items())),
     }
+    if scoped:
+        result["scoped"] = True
+    return result

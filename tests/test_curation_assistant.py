@@ -243,6 +243,111 @@ class TestBuildCurationDraftWithHarvest:
         assert len(harvest_items) == 0
 
 
+class TestScopedDraftWithHarvest:
+    """Verify that scoped drafts filter harvest items to the requested scope."""
+
+    def test_scoped_draft_excludes_out_of_scope_harvest(self) -> None:
+        """A CHRM4-scoped draft must not include a DRD2 harvest suggestion."""
+        if not CHECKED_IN_V2_DIR.exists():
+            pytest.skip("checked-in v2 data not available")
+
+        drd2_source_doc = {
+            "source_document_id": "drd2-source",
+            "title": "DRD2 update",
+            "source_tier": "company_press_release",
+            "source_url": "https://example.com/drd2",
+            "publisher": "TestCo",
+            "published_at": "2026-03-01",
+            "evidence_excerpt": "DRD2 related evidence.",
+            "notes": "",
+        }
+        drd2_event_suggestion = {
+            "suggestion_id": "drd2-event-suggestion",
+            "suggestion_kind": "event",
+            "source_document_id": "drd2-source",
+            "extractor_name": "test-extractor",
+            "extractor_version": "1",
+            "machine_confidence": "medium",
+            "rationale": "DRD2 event.",
+            "evidence_excerpt": "DRD2 evidence.",
+            "asset": {
+                "asset_id": "test-drd2-asset",
+                "molecule": "test-drd2-molecule",
+                "target": "DRD2",
+                "target_class": "dopaminergic",
+                "mechanism": "D2 antagonism",
+                "modality": "small_molecule",
+            },
+            "event": {
+                "event_id": "test-drd2-event",
+                "asset_id": "test-drd2-asset",
+                "sponsor": "TestCo",
+                "population": "adults with schizophrenia",
+                "domain": "acute_positive_symptoms",
+                "mono_or_adjunct": "monotherapy",
+                "phase": "phase_2",
+                "event_type": "topline_readout",
+                "event_date": "2026-03-01",
+                "primary_outcome_result": "met_primary_endpoint",
+                "failure_reason_taxonomy": "not_applicable_nonfailure",
+                "confidence": "medium",
+                "notes": "",
+                "sort_order": 1,
+            },
+            "provenance": {
+                "event_id": "test-drd2-event",
+                "source_tier": "company_press_release",
+                "source_url": "https://example.com/drd2",
+            },
+        }
+
+        harvest = build_program_memory_harvest_batch(
+            harvest_id="test-scoped-harvest",
+            harvester="test",
+            source_document_payloads=[
+                make_source_document(),
+                drd2_source_doc,
+            ],
+            suggestion_payloads=[
+                make_event_suggestion(),       # targets CHRM4
+                make_directionality_suggestion(),  # targets CHRM4
+                drd2_event_suggestion,         # targets DRD2
+            ],
+        )
+
+        request = CurationDraftRequest(target="CHRM4")
+        draft = build_curation_draft(
+            CHECKED_IN_V2_DIR, request=request, harvest=harvest
+        )
+
+        harvest_items = [
+            item for item in draft.items if item.harvest_suggestion_ids
+        ]
+        # CHRM4 event + CHRM4 directionality should pass; DRD2 should not
+        assert len(harvest_items) == 2
+        for item in harvest_items:
+            assert "drd2" not in item.harvest_suggestion_ids[0].lower()
+
+    def test_scoped_audit_summary_is_scoped(self) -> None:
+        if not CHECKED_IN_V2_DIR.exists():
+            pytest.skip("checked-in v2 data not available")
+
+        request = CurationDraftRequest(target="CHRM4")
+        draft = build_curation_draft(CHECKED_IN_V2_DIR, request=request)
+
+        assert draft.audit_summary.get("scoped") is True
+        # Scoped gap count should be less than full audit
+        full_draft = build_curation_draft(CHECKED_IN_V2_DIR)
+        assert draft.audit_summary["total_gap_count"] < full_draft.audit_summary["total_gap_count"]
+
+    def test_unscoped_audit_summary_is_not_marked_scoped(self) -> None:
+        if not CHECKED_IN_V2_DIR.exists():
+            pytest.skip("checked-in v2 data not available")
+
+        draft = build_curation_draft(CHECKED_IN_V2_DIR)
+        assert "scoped" not in draft.audit_summary
+
+
 class TestCurationDraftProvenanceGrounding:
     def test_gap_items_carry_provenance(self) -> None:
         if not CHECKED_IN_V2_DIR.exists():

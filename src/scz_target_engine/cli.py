@@ -76,11 +76,26 @@ from scz_target_engine.observatory.benchmark_nav import (
     browse_report_cards,
     list_available_leaderboard_slices,
 )
+from scz_target_engine.observatory.packet_nav import (
+    browse_failure_analog,
+    browse_packet,
+    browse_policy_comparison,
+    list_failure_analogs,
+    list_packets,
+    list_rescue_evidence,
+    list_rescue_tasks,
+)
 from scz_target_engine.observatory.shell import (
     build_observatory_index,
+    format_failure_analogs,
     format_leaderboard,
     format_observatory_index,
+    format_packet_detail,
+    format_packet_list,
+    format_policy_comparison,
     format_report_cards,
+    format_rescue_evidence_list,
+    format_rescue_tasks,
 )
 from scz_target_engine.sources.schema import fetch_schema_rare_variant_support
 
@@ -468,6 +483,43 @@ def _configure_observatory_leaderboard_slices_parser(
     parser.add_argument("--generated-dir")
 
 
+def _configure_observatory_packets_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--packets-file", help="Hypothesis packets JSON file.")
+
+
+def _configure_observatory_packet_detail_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("packet_id", help="Packet ID to browse.")
+    parser.add_argument("--packets-file", help="Hypothesis packets JSON file.")
+
+
+def _configure_observatory_failure_analogs_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--packets-file", help="Hypothesis packets JSON file.")
+
+
+def _configure_observatory_policy_comparison_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--packets-file", help="Hypothesis packets JSON file.")
+
+
+def _configure_observatory_rescue_tasks_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    pass
+
+
+def _configure_observatory_rescue_evidence_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--packets-file", help="Rescue-augmented packets JSON file.")
+
+
 COMMAND_ROUTES = (
     CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
     CommandRoute("build", ("engine", "build"), _configure_build_parser),
@@ -670,6 +722,36 @@ COMMAND_ROUTES = (
         "observatory-leaderboard-slices",
         ("observatory", "leaderboard-slices"),
         _configure_observatory_leaderboard_slices_parser,
+    ),
+    CommandRoute(
+        "observatory-packets",
+        ("observatory", "packets"),
+        _configure_observatory_packets_parser,
+    ),
+    CommandRoute(
+        "observatory-packet-detail",
+        ("observatory", "packet-detail"),
+        _configure_observatory_packet_detail_parser,
+    ),
+    CommandRoute(
+        "observatory-failure-analogs",
+        ("observatory", "failure-analogs"),
+        _configure_observatory_failure_analogs_parser,
+    ),
+    CommandRoute(
+        "observatory-policy-comparison",
+        ("observatory", "policy-comparison"),
+        _configure_observatory_policy_comparison_parser,
+    ),
+    CommandRoute(
+        "observatory-rescue-tasks",
+        ("observatory", "rescue-tasks"),
+        _configure_observatory_rescue_tasks_parser,
+    ),
+    CommandRoute(
+        "observatory-rescue-evidence",
+        ("observatory", "rescue-evidence"),
+        _configure_observatory_rescue_evidence_parser,
     ),
 )
 
@@ -1089,6 +1171,57 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         for sl in slices:
             print(f"{sl.entity_type} / {sl.horizon} / {sl.metric_name}")
+        return 0
+
+    if args.command == "observatory-packets":
+        packets_file = (
+            Path(args.packets_file).resolve() if args.packets_file else None
+        )
+        packets = list_packets(packets_file=packets_file)
+        print(format_packet_list(packets))
+        return 0
+
+    if args.command == "observatory-packet-detail":
+        packets_file = (
+            Path(args.packets_file).resolve() if args.packets_file else None
+        )
+        detail = browse_packet(args.packet_id, packets_file=packets_file)
+        if detail is None:
+            print(f"No packet found with id '{args.packet_id}'.")
+            return 1
+        print(format_packet_detail(detail))
+        return 0
+
+    if args.command == "observatory-failure-analogs":
+        packets_file = (
+            Path(args.packets_file).resolve() if args.packets_file else None
+        )
+        analogs = list_failure_analogs(packets_file=packets_file)
+        print(format_failure_analogs(analogs))
+        return 0
+
+    if args.command == "observatory-policy-comparison":
+        packets_file = (
+            Path(args.packets_file).resolve() if args.packets_file else None
+        )
+        comparison = browse_policy_comparison(packets_file=packets_file)
+        if comparison is None:
+            print("No packets available for policy comparison.")
+            return 1
+        print(format_policy_comparison(comparison))
+        return 0
+
+    if args.command == "observatory-rescue-tasks":
+        tasks = list_rescue_tasks()
+        print(format_rescue_tasks(tasks))
+        return 0
+
+    if args.command == "observatory-rescue-evidence":
+        packets_file = (
+            Path(args.packets_file).resolve() if args.packets_file else None
+        )
+        evidence = list_rescue_evidence(packets_file=packets_file)
+        print(format_rescue_evidence_list(evidence))
         return 0
 
     if args.command == "build-hypothesis-packets":

@@ -18,6 +18,14 @@ from scz_target_engine.observatory.loaders import (
     PublicSliceSummary,
     discover_generated_payloads,
 )
+from scz_target_engine.observatory.packet_nav import (
+    FailureAnalogView,
+    PacketDetailView,
+    PacketSummaryView,
+    PolicyComparisonView,
+    RescueEvidenceSummaryView,
+    RescueTaskRegistryEntry,
+)
 
 
 @dataclass(frozen=True)
@@ -158,10 +166,304 @@ def format_report_cards(results: tuple[ReportCardBrowseResult, ...]) -> str:
     return "\n".join(lines)
 
 
+def format_packet_list(packets: tuple[PacketSummaryView, ...]) -> str:
+    lines: list[str] = []
+    lines.append("Hypothesis Packets")
+    lines.append("=" * 70)
+    if not packets:
+        lines.append("  (none)")
+        return "\n".join(lines)
+    lines.append("")
+    lines.append(
+        f"{'Packet ID':<36} {'Entity':<12} {'Policy':<30} "
+        f"{'Score':>7} {'Status':<10}"
+    )
+    lines.append("-" * 70)
+    for pkt in packets:
+        score_str = f"{pkt.policy_score:.3f}" if pkt.policy_score is not None else "N/A"
+        lines.append(
+            f"{pkt.packet_id:<36} {pkt.entity_label:<12} "
+            f"{pkt.policy_label:<30} {score_str:>7} {pkt.policy_status:<10}"
+        )
+    lines.append("")
+    lines.append(f"Total: {len(packets)} packets")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def format_packet_detail(detail: PacketDetailView) -> str:
+    lines: list[str] = []
+    lines.append(f"Packet: {detail.packet_id}")
+    lines.append("=" * 70)
+    lines.append("")
+    lines.append(f"  Entity: {detail.entity_label} ({detail.entity_id})")
+    lines.append(f"  Policy: {detail.policy_label} ({detail.policy_id})")
+    lines.append(f"  Priority domain: {detail.priority_domain}")
+    lines.append("")
+
+    # Decision focus
+    lines.append("Decision Focus")
+    lines.append("-" * 50)
+    df = detail.decision_focus
+    lines.append(f"  Review question: {df.get('review_question', '')}")
+    lines.append(
+        f"  Decision options: {', '.join(df.get('decision_options', []))}"
+    )
+    lines.append(f"  Current readout: {df.get('current_readout', '')}")
+    lines.append("")
+
+    # Hypothesis
+    lines.append("Hypothesis")
+    lines.append("-" * 50)
+    hyp = detail.hypothesis
+    lines.append(f"  Statement: {hyp.get('statement', '')}")
+    lines.append(
+        f"  Direction: {hyp.get('desired_perturbation_direction', '')} "
+        f"via {hyp.get('modality_hypothesis', '')}"
+    )
+    lines.append(f"  Confidence: {hyp.get('confidence', '')}")
+    lines.append("")
+
+    # Policy signal
+    lines.append("Policy Signal")
+    lines.append("-" * 50)
+    ps = detail.policy_signal_summary
+    score = ps.get("score")
+    score_str = f"{score:.3f}" if isinstance(score, (int, float)) else "N/A"
+    base = ps.get("base_score")
+    base_str = f"{base:.3f}" if isinstance(base, (int, float)) else "N/A"
+    lines.append(f"  Score: {score_str} (base: {base_str})")
+    lines.append(f"  Status: {ps.get('status', '')}")
+    lines.append(f"  Description: {ps.get('description', '')}")
+    lines.append("")
+
+    # Evidence anchors
+    lines.append("Evidence Anchors")
+    lines.append("-" * 50)
+    lines.append(f"  Gap status: {detail.evidence_anchor_gap_status}")
+    lines.append(f"  Program history: {detail.program_history_gap_status}")
+    for anchor in detail.evidence_anchors:
+        lines.append(
+            f"  {anchor.get('role', '')}: {anchor.get('event_id', '')} "
+            f"({anchor.get('event_type', '')}, {anchor.get('outcome', '')}) - "
+            f"{anchor.get('why_it_matters', '')}"
+        )
+    lines.append("")
+
+    # Risk digest
+    lines.append("Risk Digest")
+    lines.append("-" * 50)
+    for risk in detail.risk_digest:
+        lines.append(f"  {risk}")
+    lines.append("")
+
+    # Contradiction handling
+    lines.append("Contradiction Handling")
+    lines.append("-" * 50)
+    ch = detail.contradiction_handling
+    lines.append(f"  Status: {ch.get('status', '')}")
+    for cond in ch.get("contradiction_conditions", []):
+        lines.append(f"  Condition: {cond}")
+    lines.append("")
+
+    # Failure memory
+    lines.append("Failure Memory")
+    lines.append("-" * 50)
+    fm = detail.failure_memory_summary
+    lines.append(f"  Replay status: {fm.get('replay_status', '')}")
+    lines.append(f"  Replay summary: {fm.get('replay_summary', '')}")
+    lines.append(
+        f"  Supporting: {fm.get('supporting_reason_count', 0)}, "
+        f"Offsetting: {fm.get('offsetting_reason_count', 0)}, "
+        f"Uncertainty: {fm.get('uncertainty_reason_count', 0)}"
+    )
+    lines.append("")
+
+    # Escape logic
+    lines.append("Failure Escape Logic")
+    lines.append("-" * 50)
+    fe = detail.failure_escape_logic
+    lines.append(f"  Escape status: {fe.get('status', '')}")
+    for route in fe.get("escape_routes", []):
+        if isinstance(route, dict):
+            lines.append(
+                f"  Route: {route.get('event_id', '')} - "
+                f"{route.get('explanation', '')}"
+            )
+    lines.append("")
+
+    # Evidence needed next
+    lines.append("Evidence Needed Next")
+    lines.append("-" * 50)
+    for item in detail.evidence_needed_next:
+        lines.append(f"  {item}")
+    lines.append("")
+
+    # Traceability
+    lines.append("Traceability")
+    lines.append("-" * 50)
+    tr = detail.traceability
+    source_artifacts = tr.get("source_artifacts", {})
+    if isinstance(source_artifacts, dict):
+        for name, ref in source_artifacts.items():
+            lines.append(f"  {name}: {ref}")
+    lines.append(
+        f"  Policy pointer: {tr.get('policy_entity_pointer', '')} -> "
+        f"{tr.get('policy_score_pointer', '')}"
+    )
+    lines.append(f"  Ledger pointer: {tr.get('ledger_target_pointer', '')}")
+    lines.append("")
+
+    # Rescue evidence (if present)
+    if detail.rescue_evidence is not None:
+        lines.append("Rescue Evidence")
+        lines.append("-" * 50)
+        re_ev = detail.rescue_evidence
+        lines.append(f"  Coverage: {re_ev.get('coverage_status', '')}")
+        for task in re_ev.get("matched_tasks", []):
+            if isinstance(task, dict):
+                lines.append(
+                    f"  Task: {task.get('task_label', '')} "
+                    f"(decision: {task.get('entity_rescue_decision', '')})"
+                )
+        for sig in re_ev.get("conflict_signals", []):
+            lines.append(f"  Conflict: {sig}")
+        lines.append("")
+
+    # First assay (if present)
+    if detail.first_assay is not None:
+        lines.append("First Assay Recommendation")
+        lines.append("-" * 50)
+        fa = detail.first_assay
+        lines.append(f"  Class: {fa.get('recommended_assay_class', '')}")
+        lines.append(f"  Rationale: {fa.get('rationale', '')}")
+        for step in fa.get("next_steps", []):
+            lines.append(f"  Next: {step}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def format_failure_analogs(analogs: tuple[FailureAnalogView, ...]) -> str:
+    lines: list[str] = []
+    lines.append("Failure Analog / Replay Comparisons")
+    lines.append("=" * 70)
+    if not analogs:
+        lines.append("  (none)")
+        return "\n".join(lines)
+    for analog in analogs:
+        lines.append("")
+        lines.append(
+            f"  {analog.entity_label} | {analog.policy_label} "
+            f"({analog.packet_id})"
+        )
+        lines.append(f"    Replay status: {analog.replay_status}")
+        lines.append(f"    Replay summary: {analog.replay_summary}")
+        lines.append(f"    Escape status: {analog.escape_status}")
+        lines.append(
+            f"    Supporting reasons: {len(analog.supporting_reasons)}"
+        )
+        lines.append(
+            f"    Offsetting reasons: {len(analog.offsetting_reasons)}"
+        )
+        lines.append(
+            f"    Uncertainty reasons: {len(analog.uncertainty_reasons)}"
+        )
+        if analog.escape_routes:
+            for route in analog.escape_routes:
+                lines.append(
+                    f"    Escape route: {route.get('event_id', '')} - "
+                    f"{route.get('explanation', '')}"
+                )
+        if analog.falsification_conditions:
+            lines.append("    Falsification conditions:")
+            for cond in analog.falsification_conditions:
+                lines.append(f"      {cond}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def format_policy_comparison(view: PolicyComparisonView) -> str:
+    lines: list[str] = []
+    lines.append("Policy Comparison")
+    lines.append("=" * 70)
+    lines.append("")
+    lines.append(
+        f"{'Entity':<12} {'Policy':<30} {'Score':>7} {'Base':>7} "
+        f"{'Contra':<12} {'Replay':<18}"
+    )
+    lines.append("-" * 70)
+    for row in view.rows:
+        score_str = f"{row.score:.3f}" if row.score is not None else "N/A"
+        base_str = f"{row.base_score:.3f}" if row.base_score is not None else "N/A"
+        lines.append(
+            f"{row.entity_label:<12} {row.policy_label:<30} "
+            f"{score_str:>7} {base_str:>7} "
+            f"{row.contradiction_status:<12} {row.replay_status:<18}"
+        )
+    lines.append("")
+    lines.append(
+        f"Entities: {len(view.entity_ids)}, "
+        f"Policies: {len(view.policy_ids)}"
+    )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def format_rescue_tasks(tasks: tuple[RescueTaskRegistryEntry, ...]) -> str:
+    lines: list[str] = []
+    lines.append("Rescue Task Registry")
+    lines.append("=" * 70)
+    if not tasks:
+        lines.append("  (none)")
+        return "\n".join(lines)
+    for task in tasks:
+        lines.append("")
+        lines.append(f"  {task.task_id}")
+        lines.append(f"    label: {task.task_label}")
+        lines.append(f"    type: {task.task_type}")
+        lines.append(f"    disease: {task.disease}")
+        lines.append(f"    entity_type: {task.entity_type}")
+        lines.append(f"    scope: {task.contract_scope}")
+        lines.append(f"    status: {task.registry_status}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def format_rescue_evidence_list(
+    evidence: tuple[RescueEvidenceSummaryView, ...],
+) -> str:
+    lines: list[str] = []
+    lines.append("Rescue Evidence Summary")
+    lines.append("=" * 70)
+    if not evidence:
+        lines.append("  (no rescue evidence in loaded packets)")
+        return "\n".join(lines)
+    for ev in evidence:
+        lines.append("")
+        lines.append(
+            f"  {ev.entity_label} | {ev.policy_label} ({ev.packet_id})"
+        )
+        lines.append(f"    Coverage: {ev.coverage_status}")
+        lines.append(f"    Matched tasks: {ev.matched_task_count}")
+        lines.append(f"    Assay class: {ev.assay_class}")
+        if ev.conflict_signals:
+            for sig in ev.conflict_signals:
+                lines.append(f"    Conflict: {sig}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 __all__ = [
     "ObservatoryIndex",
     "build_observatory_index",
+    "format_failure_analogs",
     "format_leaderboard",
     "format_observatory_index",
+    "format_packet_detail",
+    "format_packet_list",
+    "format_policy_comparison",
     "format_report_cards",
+    "format_rescue_evidence_list",
+    "format_rescue_tasks",
 ]

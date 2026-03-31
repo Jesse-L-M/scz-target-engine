@@ -11,7 +11,7 @@ from scz_target_engine.benchmark_leaderboard import (
     read_benchmark_leaderboard_payload,
     read_benchmark_report_card_payload,
 )
-from scz_target_engine.io import read_json
+from scz_target_engine.io import read_csv_rows, read_json
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -20,6 +20,12 @@ DEFAULT_PUBLIC_SLICES_CATALOG = (
     DEFAULT_DATA_DIR / "benchmark" / "public_slices" / "catalog.json"
 )
 DEFAULT_GENERATED_DIR = DEFAULT_DATA_DIR / "benchmark" / "generated"
+DEFAULT_HYPOTHESIS_PACKETS_FILE = (
+    REPO_ROOT / "examples" / "v0" / "output" / "hypothesis_packets_v1.json"
+)
+DEFAULT_RESCUE_TASK_REGISTRY = (
+    DEFAULT_DATA_DIR / "curated" / "rescue_tasks" / "rescue_task_registry.csv"
+)
 
 
 @dataclass(frozen=True)
@@ -121,15 +127,70 @@ def load_leaderboards(
     )
 
 
+def load_hypothesis_packets(
+    packets_file: Path | None = None,
+) -> dict[str, object] | None:
+    """Load a hypothesis packets payload from a JSON file.
+
+    Falls back to the default checked-in example if no path is given.
+    """
+    resolved = (packets_file or DEFAULT_HYPOTHESIS_PACKETS_FILE).resolve()
+    if not resolved.exists():
+        return None
+    payload = read_json(resolved)
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def load_rescue_augmented_packets(
+    packets_file: Path | None = None,
+) -> dict[str, object] | None:
+    """Load a rescue-augmented hypothesis packets payload.
+
+    Returns None if the file does not exist or does not contain the
+    rescue_augmentation top-level key.  This prevents accidentally
+    treating a plain hypothesis packets file as rescue-augmented.
+    """
+    if packets_file is not None:
+        resolved = packets_file.resolve()
+        if not resolved.exists():
+            return None
+        payload = read_json(resolved)
+        if not isinstance(payload, dict):
+            return None
+        if "rescue_augmentation" not in payload:
+            return None
+        return payload
+    # No default path for rescue-augmented packets; must be explicit.
+    return None
+
+
+def load_rescue_task_registry(
+    registry_path: Path | None = None,
+) -> list[dict[str, str]]:
+    """Load the rescue task registry CSV."""
+    resolved = (registry_path or DEFAULT_RESCUE_TASK_REGISTRY).resolve()
+    if not resolved.exists():
+        return []
+    return read_csv_rows(resolved)
+
+
 __all__ = [
     "DEFAULT_DATA_DIR",
     "DEFAULT_GENERATED_DIR",
+    "DEFAULT_HYPOTHESIS_PACKETS_FILE",
     "DEFAULT_PUBLIC_SLICES_CATALOG",
+    "DEFAULT_RESCUE_TASK_REGISTRY",
     "GeneratedPayloadIndex",
     "PublicSliceCatalog",
     "PublicSliceSummary",
+    "REPO_ROOT",
     "discover_generated_payloads",
+    "load_hypothesis_packets",
     "load_leaderboards",
     "load_public_slice_catalog",
     "load_report_cards",
+    "load_rescue_augmented_packets",
+    "load_rescue_task_registry",
 ]

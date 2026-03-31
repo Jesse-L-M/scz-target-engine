@@ -266,7 +266,7 @@ def _task_package_readme(
             "```",
             "",
             "Simulator outputs:",
-            "- `public_scorecard.json`: safe aggregate metrics to share back",
+            "- `public_scorecard.json`: receipt-only submission acknowledgment safe to share back",
             "- `internal_evaluation_rows.csv`: operator-only per-entity label join",
             "- `simulation_manifest.json`: operator-side provenance and file pointers",
             "",
@@ -301,6 +301,76 @@ def _load_public_ranking_rows(
         )
     fieldnames, rows = read_csv_table(ranking_input_path)
     return tuple(fieldnames), rows, ranking_input_path
+
+
+def _prepare_empty_output_dir(
+    output_dir: Path,
+    *,
+    artifact_label: str,
+) -> None:
+    if output_dir.exists():
+        if not output_dir.is_dir():
+            raise ValueError(
+                f"{artifact_label} output_dir must be a directory: {output_dir}"
+            )
+        existing_entries = sorted(
+            str(entry.relative_to(output_dir))
+            for entry in output_dir.rglob("*")
+        )
+        if existing_entries:
+            preview = ", ".join(existing_entries[:5])
+            suffix = ", ..." if len(existing_entries) > 5 else ""
+            raise ValueError(
+                f"{artifact_label} output_dir must be empty before materialization; "
+                f"found pre-existing entries: {preview}{suffix}"
+            )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _assert_task_package_matches_operator_bundle(
+    *,
+    task_manifest: dict[str, Any],
+    ranking_input_path: Path,
+    bundle: FrozenRescueTaskBundle,
+) -> None:
+    if bundle.governance.task_card.task_id != task_manifest["task_id"]:
+        raise ValueError(
+            "operator bundle task_id does not match the supplied public task package"
+        )
+
+    expected_package_id = _task_package_id(bundle)
+    if task_manifest["package_id"] != expected_package_id:
+        raise ValueError(
+            "task package package_id does not match the operator-governed bundle"
+        )
+
+    public_artifacts = task_manifest["public_artifacts"]
+    operator_primary_key_fields = list(bundle.ranking_input.card.primary_key_fields)
+    if public_artifacts["ranking_dataset_id"] != bundle.ranking_input.card.dataset_id:
+        raise ValueError(
+            "operator bundle ranking dataset id does not match the supplied public task package"
+        )
+    if public_artifacts["primary_key_fields"] != operator_primary_key_fields:
+        raise ValueError(
+            "task package primary_key_fields do not match the operator-governed bundle"
+        )
+    if int(public_artifacts["candidate_count"]) != len(bundle.ranking_input.rows):
+        raise ValueError(
+            "task package candidate_count does not match the operator-governed bundle"
+        )
+
+    operator_ranking_sha256 = _sha256_path(bundle.ranking_input.path)
+    manifest_ranking_sha256 = str(public_artifacts["ranking_dataset_sha256"])
+    if manifest_ranking_sha256 != operator_ranking_sha256:
+        raise ValueError(
+            "task package manifest ranking_input sha256 does not match the operator-governed bundle"
+        )
+
+    package_ranking_sha256 = _sha256_path(ranking_input_path)
+    if package_ranking_sha256 != operator_ranking_sha256:
+        raise ValueError(
+            "public task package ranking_input.csv bytes do not match the operator-governed bundle"
+        )
 
 
 def _normalize_submission_rows(
@@ -424,10 +494,14 @@ def _build_operator_prediction_rows(
     operator_rows: list[dict[str, object]] = []
     for row in normalized_rows:
         ranking_row = ranking_rows_by_gene_id[row["gene_id"]]
-        operator_row: dict[str, object] = dict(row)
+        operator_row: dict[str, object] = {
+            field_name: field_value
+            for field_name, field_value in row.items()
+            if field_name not in {"baseline_id", "gene_symbol", "split_name"}
+        }
         operator_row["baseline_id"] = scorer_id
-        operator_row["gene_symbol"] = row.get("gene_symbol", "") or ranking_row["gene_symbol"]
-        operator_row["split_name"] = row.get("split_name", "") or ranking_row["split_name"]
+        operator_row["gene_symbol"] = ranking_row["gene_symbol"]
+        operator_row["split_name"] = ranking_row["split_name"]
         operator_rows.append(operator_row)
     return operator_rows
 
@@ -436,19 +510,8 @@ def _build_public_scorecard(
     *,
     task_manifest: dict[str, Any],
     submission_manifest: dict[str, Any],
-    evaluation_summary: dict[str, object],
     generated_at: str,
 ) -> dict[str, object]:
-    raw_split_summaries = evaluation_summary["split_summaries"]
-    if not isinstance(raw_split_summaries, dict):
-        raise ValueError("evaluation summary must include split_summaries")
-    public_split_summaries = {
-        split_name: {
-            "candidate_count": int(split_summary["candidate_count"]),
-            "metric_values": split_summary["metric_values"],
-        }
-        for split_name, split_summary in raw_split_summaries.items()
-    }
     return {
         "schema_name": HIDDEN_EVAL_PUBLIC_SCORECARD_SCHEMA_NAME,
         "schema_version": HIDDEN_EVAL_SCHEMA_VERSION,
@@ -458,14 +521,14 @@ def _build_public_scorecard(
         "package_id": task_manifest["package_id"],
         "submission_id": submission_manifest["submission_id"],
         "scorer_id": submission_manifest["scorer_id"],
-        "candidate_count": int(evaluation_summary["candidate_count"]),
-        "split_counts": evaluation_summary["split_counts"],
-        "metric_values": evaluation_summary["metric_values"],
-        "split_summaries": public_split_summaries,
-        "top_ranked_gene_symbols": evaluation_summary["top_ranked_gene_symbols"],
+        "submission_status": "accepted_and_scored",
+        "candidate_count": int(task_manifest["public_artifacts"]["candidate_count"]),
+        "public_report_tier": "receipt_only",
+        "hidden_metrics_withheld": True,
         "notes": (
-            "Aggregate metrics only. The held-out per-entity labels remain in the "
-            "operator-only internal_evaluation_rows.csv output."
+            "Metrics, split summaries, and rank-conditioned display fields are "
+            "withheld from the public scorecard because the shipped rescue task is "
+            "small enough that those values would reveal held-out labels."
         ),
     }
 
@@ -487,7 +550,10 @@ def materialize_rescue_hidden_eval_task_package(
 
     entity_id_field = _resolve_entity_id_field(bundle)
     resolved_output_dir = output_dir.resolve()
-    resolved_output_dir.mkdir(parents=True, exist_ok=True)
+    _prepare_empty_output_dir(
+        resolved_output_dir,
+        artifact_label="hidden-eval task package",
+    )
 
     ranking_input_copy = resolved_output_dir / RANKING_INPUT_FILE_NAME
     shutil.copyfile(bundle.ranking_input.path, ranking_input_copy)
@@ -694,9 +760,16 @@ def materialize_hidden_eval_simulation(
     task_manifest, manifest_path = _load_task_package_manifest_from_dir(
         resolved_task_package_dir
     )
-    _, ranking_rows, _ = _load_public_ranking_rows(
+    _, ranking_rows, ranking_input_path = _load_public_ranking_rows(
         task_package_dir=resolved_task_package_dir,
         task_manifest=task_manifest,
+    )
+    adapter = _resolve_hidden_eval_task_adapter(str(task_manifest["task_id"]))
+    bundle = adapter.load_bundle(None)
+    _assert_task_package_matches_operator_bundle(
+        task_manifest=task_manifest,
+        ranking_input_path=ranking_input_path,
+        bundle=bundle,
     )
 
     with tarfile.open(resolved_submission_file, "r:gz") as archive:
@@ -741,17 +814,6 @@ def materialize_hidden_eval_simulation(
         prediction_rows=prediction_rows,
     )
 
-    adapter = _resolve_hidden_eval_task_adapter(str(task_manifest["task_id"]))
-    bundle = adapter.load_bundle(None)
-    if bundle.governance.task_card.task_id != task_manifest["task_id"]:
-        raise ValueError(
-            "operator bundle task_id does not match the supplied public task package"
-        )
-    if bundle.ranking_input.card.dataset_id != task_manifest["public_artifacts"]["ranking_dataset_id"]:
-        raise ValueError(
-            "operator bundle ranking dataset id does not match the supplied public task package"
-        )
-
     operator_rows = _build_operator_prediction_rows(
         bundle=bundle,
         normalized_rows=normalized_rows,
@@ -776,7 +838,6 @@ def materialize_hidden_eval_simulation(
     public_scorecard = _build_public_scorecard(
         task_manifest=task_manifest,
         submission_manifest=submission_manifest,
-        evaluation_summary=evaluation_summary,
         generated_at=completed_at,
     )
     public_scorecard_file = resolved_output_dir / PUBLIC_SCORECARD_FILE_NAME
@@ -818,7 +879,7 @@ def materialize_hidden_eval_simulation(
         "public_scorecard_file": str(public_scorecard_file),
         "internal_evaluation_rows_file": str(internal_evaluation_rows_file),
         "simulation_manifest_file": str(simulation_manifest_file),
-        "metric_values": public_scorecard["metric_values"],
+        "submission_status": public_scorecard["submission_status"],
     }
 
 

@@ -17,7 +17,7 @@ fixtures.
 - Additive `v1` decision vectors plus per-domain/per-stage ranking artifacts
 - PR7 scoring-neutral target ledgers with failure history, directionality hypotheses, and source primitives
 - PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort labels, runner manifests, metric payloads, and confidence interval payloads
-- A rescue hidden-eval packaging and simulation path for the shipped glutamatergic rescue task, with a public submitter package built from the real governed ranking artifact and an operator-side evaluator that keeps held-out labels out of the public scorecard
+- A rescue hidden-eval packaging and simulation path for the shipped glutamatergic rescue task, with a public submitter package built from the real governed ranking artifact and an operator-side evaluator that returns only a receipt-style public scorecard while keeping held-out labels and metrics inside operator-only artifacts
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
 - A checked-in example scoring fixture path under `examples/v0/`, where `v0` still exists as the reference workflow and `v1` outputs are emitted alongside it when you rerun the build
 - Live fetchers for `Open Targets`, `ChEMBL`, `PGC`, `SCHEMA`, and `PsychENCODE / BrainSCOPE`

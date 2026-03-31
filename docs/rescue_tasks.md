@@ -352,7 +352,9 @@ prediction files, and they do not reopen raw rescue sources at runtime.
 glutamatergic rescue artifacts. The public package copies only the governed
 `ranking_input` CSV plus a blank submission template and explicit protocol metadata.
 The held-out `evaluation_target` CSV remains operator-only and is resolved by the
-hidden-eval simulator from the checked-in governance bundle.
+hidden-eval simulator from the checked-in governance bundle. The public return
+payload is receipt-only so tiny shipped rescue tasks do not leak held-out labels
+through aggregate metrics or rank-conditioned summaries.
 
 Important: because this repository itself still contains the held-out evaluation CSVs,
 genuine hidden eval requires distribution separation. Submitters must receive the

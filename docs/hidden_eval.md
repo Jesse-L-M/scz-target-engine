@@ -29,10 +29,12 @@ Hidden evaluator only:
 - the governed `evaluation_target` CSV
 - per-entity label joins written to `internal_evaluation_rows.csv`
 - operator-side provenance in `simulation_manifest.json`
+- operator-bundle verification that the package `ranking_input.csv` bytes still
+  match the governed rescue bundle
 
 Safe output to share back with submitters:
 
-- `public_scorecard.json`
+- `public_scorecard.json`, which is receipt-only for the shipped rescue tasks
 
 ## Canonical Workflow
 
@@ -49,6 +51,10 @@ uv run scz-target-engine hidden-eval-task-package \
   --task-id glutamatergic_convergence_rescue_task \
   --output-dir .context/glutamatergic_hidden_eval_task
 ```
+
+The package output directory must be nonexistent or empty before materialization.
+The packager refuses to reuse a populated directory so stale operator-only files
+cannot survive into a public package export.
 
 Pack the checked-in example submission:
 
@@ -77,9 +83,16 @@ That simulator writes:
 - `internal_evaluation_rows.csv`
 - `simulation_manifest.json`
 
-`public_scorecard.json` is the shareable return payload. It keeps aggregate metrics
-and split summaries but omits per-entity labels. `internal_evaluation_rows.csv`
-contains the held-out join and stays operator-only.
+`public_scorecard.json` is the shareable return payload. It is intentionally
+receipt-only for the shipped rescue tasks: submission ids, package ids, and status
+are returned, but metrics, split summaries, split counts, and top-ranked symbols are
+withheld because the checked-in rescue task is small enough that those surfaces would
+reveal held-out labels. `internal_evaluation_rows.csv` contains the held-out join and
+stays operator-only.
+
+Before scoring, the simulator also verifies that the supplied public package still
+matches the operator-governed rescue bundle. A package whose `ranking_input.csv`
+bytes were tampered and then re-hashed in its own manifest is rejected.
 
 ## Using Existing Rescue Outputs As A Submission
 

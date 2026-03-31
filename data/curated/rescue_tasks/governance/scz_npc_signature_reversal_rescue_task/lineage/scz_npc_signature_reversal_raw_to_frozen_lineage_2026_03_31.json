@@ -1,0 +1,134 @@
+{
+  "schema_name": "rescue_raw_to_frozen_lineage",
+  "schema_version": "v1",
+  "lineage_id": "scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "scz_npc_signature_reversal_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json",
+  "governance_status": "active",
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/freeze_manifests/scz_npc_signature_reversal_freeze_2026_03_31.json",
+  "raw_sources": [
+    {
+      "source_id": "hoffman_2017_hispc_npc_diffexpr",
+      "source_name": "hoffman_2017_hispc_npc_diffexpr",
+      "snapshot_id": "hoffman-2017-npc-sheet",
+      "captured_at": "2017-12-20",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/npc_signature_reversal/cos_hispc_npc_differential_expression_2017.csv",
+      "sha256": "8df158bb2921eb9713ed9b83d3019cff4abb676f21559e64195791095675f8ac",
+      "description": "Pre-cutoff schizophrenia NPC differential-expression rows extracted from Hoffman et al. 2017 Supplementary Data 8."
+    },
+    {
+      "source_id": "readhead_2018_sz_ipsc_npc_drug_perturbations",
+      "source_name": "readhead_2018_sz_ipsc_npc_drug_perturbations",
+      "snapshot_id": "readhead-2018-sz-ipsc-npc-drug-rows",
+      "captured_at": "2018-10-24",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/npc_signature_reversal/sz_npc_drug_gene_perturbations_2018.csv",
+      "sha256": "50452917f758553c03168965ff15d9abeaaaeb11c163a6005e9f6772d5eef43e",
+      "description": "Pre-cutoff SZ_iPSC_NPC perturbation rows extracted from Readhead et al. 2018 Supplementary Data 2."
+    },
+    {
+      "source_id": "hribkova_2022_clozapine_rescue",
+      "source_name": "hribkova_2022_clozapine_rescue",
+      "snapshot_id": "hribkova-2022-positive-gene-labels",
+      "captured_at": "2022-02-23",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/rescue/npc_signature_reversal/clozapine_rescue_gene_labels_2022.csv",
+      "sha256": "feced8bea407a743a3b61eb6ed2dc8d684c07a743e3f5f8ccd3258f18eee66a9",
+      "description": "Post-cutoff literature-positive rescue genes curated from Hribkova et al. 2022 for evaluation only."
+    }
+  ],
+  "transformation_steps": [
+    {
+      "step_id": "extract_npc_signature_rows",
+      "step_label": "Extract schizophrenia NPC signature rows",
+      "step_kind": "extract",
+      "input_ids": [
+        "hoffman_2017_hispc_npc_diffexpr"
+      ],
+      "output_ids": [
+        "npc_signature_rows"
+      ],
+      "description": "Normalize the 2017 NPC differential-expression supplement into a gene-level raw CSV with stable gene_id and gene_symbol fields."
+    },
+    {
+      "step_id": "extract_sz_npc_perturbation_rows",
+      "step_label": "Extract SZ_iPSC_NPC perturbation rows",
+      "step_kind": "extract",
+      "input_ids": [
+        "readhead_2018_sz_ipsc_npc_drug_perturbations"
+      ],
+      "output_ids": [
+        "sz_npc_perturbation_rows"
+      ],
+      "description": "Filter the 2018 perturbation supplement to the SZ_iPSC_NPC cell type and preserve probe-level perturbation rows in a checked-in raw CSV."
+    },
+    {
+      "step_id": "extract_post_cutoff_positive_labels",
+      "step_label": "Curate post-cutoff rescue-positive labels",
+      "step_kind": "extract",
+      "input_ids": [
+        "hribkova_2022_clozapine_rescue"
+      ],
+      "output_ids": [
+        "post_cutoff_positive_gene_labels"
+      ],
+      "description": "Curate the explicitly named post-cutoff rescue-positive genes into a raw label CSV while preserving the literature-only provenance boundary."
+    },
+    {
+      "step_id": "aggregate_pre_cutoff_reversal_features",
+      "step_label": "Aggregate pre-cutoff reversal features",
+      "step_kind": "join",
+      "input_ids": [
+        "npc_signature_rows",
+        "sz_npc_perturbation_rows"
+      ],
+      "output_ids": [
+        "npc_signature_reversal_feature_rows"
+      ],
+      "description": "Join the NPC disease signature to aggregated SZ_iPSC_NPC perturbation evidence keyed by gene symbol and derive deterministic split assignments without touching post-cutoff labels."
+    },
+    {
+      "step_id": "freeze_candidate_universe",
+      "step_label": "Freeze ranking input universe",
+      "step_kind": "freeze",
+      "input_ids": [
+        "npc_signature_reversal_feature_rows"
+      ],
+      "output_ids": [
+        "scz_npc_signature_reversal_ranking_inputs_2020_12_31"
+      ],
+      "description": "Freeze the pre-cutoff feature table into the governed ranking-input dataset consumed by downstream rescue task code."
+    },
+    {
+      "step_id": "hold_out_post_cutoff_labels",
+      "step_label": "Hold out post-cutoff evaluation labels",
+      "step_kind": "label_holdout",
+      "input_ids": [
+        "post_cutoff_positive_gene_labels",
+        "scz_npc_signature_reversal_ranking_inputs_2020_12_31"
+      ],
+      "output_ids": [
+        "scz_npc_signature_reversal_evaluation_labels_2022_02_23"
+      ],
+      "description": "Align the post-cutoff literature positives to the frozen candidate universe, emit unlabeled background rows for the remaining genes, and keep the resulting evaluation dataset outside ranking feature construction."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "scz_npc_signature_reversal_ranking_inputs_2020_12_31",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_ranking_inputs.json",
+      "availability": "pre_cutoff",
+      "produced_by_step_id": "freeze_candidate_universe"
+    },
+    {
+      "dataset_id": "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_evaluation_labels.json",
+      "availability": "post_cutoff",
+      "produced_by_step_id": "hold_out_post_cutoff_labels"
+    }
+  ],
+  "description": "Active raw-to-frozen lineage for the schizophrenia NPC signature-reversal rescue task.",
+  "notes": "The lineage makes the pre-cutoff feature path and post-cutoff label holdout explicit so downstream code only consumes frozen governed datasets."
+}

@@ -1,0 +1,31 @@
+{
+  "schema_name": "rescue_dataset_card",
+  "schema_version": "v1",
+  "dataset_id": "scz_npc_signature_reversal_ranking_inputs_2020_12_31",
+  "dataset_label": "Schizophrenia NPC signature-reversal ranking inputs",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "scz_npc_signature_reversal_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json",
+  "artifact_contract_id": "candidate_universe",
+  "dataset_role": "ranking_input",
+  "availability": "pre_cutoff",
+  "governance_status": "active",
+  "source_stage": "frozen",
+  "entity_type": "gene",
+  "record_grain": "gene",
+  "primary_key_fields": [
+    "gene_id"
+  ],
+  "contains_post_cutoff_labels": false,
+  "allowed_uses": [
+    "candidate_selection",
+    "feature_construction",
+    "split_assignment"
+  ],
+  "freeze_manifest_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/freeze_manifests/scz_npc_signature_reversal_freeze_2026_03_31.json",
+  "lineage_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/lineage/scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31.json",
+  "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv",
+  "file_format": "csv",
+  "description": "Frozen pre-cutoff ranking inputs that join the 2017 schizophrenia NPC disease signature with 2018 SZ_iPSC_NPC drug-perturbation aggregates and deterministic split assignments.",
+  "notes": "The `split_name` column is emitted inside the frozen ranking CSV so downstream code can consume one checked-in pre-cutoff artifact without recomputing split logic."
+}

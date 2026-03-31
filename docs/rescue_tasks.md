@@ -124,3 +124,43 @@ The normal artifact path now enforces the same bundle checks. A
 `load_artifact(..., artifact_name="rescue_task_card")` call fails if the referenced
 dataset cards, freeze manifests, split manifests, or lineage artifacts are missing or
 broken.
+
+## Active NPC Freeze
+
+`PR-40B` adds the first active rescue-data bundle:
+
+- contract:
+  `data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json`
+- governance:
+  `data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/`
+- raw staged inputs:
+  `data/raw/rescue/npc_signature_reversal/`
+- frozen outputs:
+  `data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/`
+
+This task freezes a schizophrenia NPC gene universe at `2020-12-31` using only
+pre-cutoff sources in the ranking inputs:
+
+- 2017 hiPSC-derived NPC differential expression
+- 2018 SZ_iPSC_NPC perturbation signatures
+
+The evaluation labels come from a post-cutoff 2022 rescue paper and stay in a
+separate governed dataset. The checked-in ranking CSV already includes deterministic
+`split_name` assignments so downstream task code can load one pre-cutoff artifact and
+avoid any raw extraction path.
+
+The preferred load path for downstream rescue work is now:
+
+```python
+from scz_target_engine.rescue import load_frozen_rescue_task_bundle
+
+bundle = load_frozen_rescue_task_bundle(
+    rescue_task_id="scz_npc_signature_reversal_rescue_task"
+)
+assert bundle.ranking_input.path.name == (
+    "scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv"
+)
+assert bundle.evaluation_target.path.name == (
+    "scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv"
+)
+```

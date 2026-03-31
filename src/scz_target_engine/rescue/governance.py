@@ -487,6 +487,8 @@ class RescueFrozenDatasetReference:
     availability: str
     dataset_card_path: str
     expected_output_path: str
+    expected_sha256: str = ""
+    expected_row_count: int | None = None
 
     def __post_init__(self) -> None:
         _require_text(self.dataset_id, "dataset_id")
@@ -495,6 +497,10 @@ class RescueFrozenDatasetReference:
         _require_enum(self.availability, "availability", VALID_DATASET_AVAILABILITIES)
         _require_text(self.dataset_card_path, "dataset_card_path")
         _require_text(self.expected_output_path, "expected_output_path")
+        if self.expected_sha256:
+            _require_sha256(self.expected_sha256, "expected_sha256")
+        if self.expected_row_count is not None and self.expected_row_count < 0:
+            raise ValueError("expected_row_count must be zero or greater")
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> RescueFrozenDatasetReference:
@@ -511,6 +517,18 @@ class RescueFrozenDatasetReference:
                 payload["expected_output_path"],
                 "expected_output_path",
             ),
+            expected_sha256=_require_sha256(
+                payload["expected_sha256"],
+                "expected_sha256",
+            )
+            if "expected_sha256" in payload
+            else "",
+            expected_row_count=_require_int(
+                payload["expected_row_count"],
+                "expected_row_count",
+            )
+            if "expected_row_count" in payload
+            else None,
         )
 
 

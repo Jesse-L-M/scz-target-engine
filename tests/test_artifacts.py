@@ -271,3 +271,86 @@ def test_example_rescue_governance_artifacts_validate_against_registered_schemas
         "example_scz_gene_ranking_inputs_2025_01_15",
         "example_scz_gene_evaluation_labels_2025_06_30",
     }
+
+
+def test_npc_rescue_task_contract_validates_against_registered_schema() -> None:
+    rescue_contract_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/contracts/"
+            "scz_npc_signature_reversal_rescue_task.json"
+        ).resolve()
+    )
+
+    assert rescue_contract_artifact.artifact_name == "rescue_task_contract"
+    assert rescue_contract_artifact.payload.task_id == (
+        "scz_npc_signature_reversal_rescue_task"
+    )
+    assert rescue_contract_artifact.payload.leakage_boundary.policy_id == (
+        "strict_rescue_task_boundary_v1"
+    )
+
+
+def test_npc_rescue_governance_artifacts_validate_against_registered_schemas() -> None:
+    task_card_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "scz_npc_signature_reversal_rescue_task/task_card.json"
+        ).resolve()
+    )
+    ranking_dataset_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "scz_npc_signature_reversal_rescue_task/"
+            "dataset_cards/scz_npc_signature_reversal_ranking_inputs.json"
+        ).resolve()
+    )
+    evaluation_dataset_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "scz_npc_signature_reversal_rescue_task/"
+            "dataset_cards/scz_npc_signature_reversal_evaluation_labels.json"
+        ).resolve()
+    )
+    freeze_manifest_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "scz_npc_signature_reversal_rescue_task/"
+            "freeze_manifests/scz_npc_signature_reversal_freeze_2026_03_31.json"
+        ).resolve()
+    )
+    split_manifest_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "scz_npc_signature_reversal_rescue_task/"
+            "split_manifests/scz_npc_signature_reversal_split_2026_03_31.json"
+        ).resolve()
+    )
+    lineage_artifact = load_artifact(
+        Path(
+            "data/curated/rescue_tasks/governance/"
+            "scz_npc_signature_reversal_rescue_task/"
+            "lineage/scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31.json"
+        ).resolve()
+    )
+
+    assert task_card_artifact.artifact_name == "rescue_task_card"
+    assert task_card_artifact.payload.task_id == "scz_npc_signature_reversal_rescue_task"
+    assert ranking_dataset_artifact.artifact_name == "rescue_dataset_card"
+    assert ranking_dataset_artifact.payload.dataset_role == "ranking_input"
+    assert evaluation_dataset_artifact.artifact_name == "rescue_dataset_card"
+    assert evaluation_dataset_artifact.payload.dataset_role == "evaluation_target"
+    assert freeze_manifest_artifact.artifact_name == "rescue_freeze_manifest"
+    assert freeze_manifest_artifact.payload.freeze_manifest_id == (
+        "scz_npc_signature_reversal_freeze_2026_03_31"
+    )
+    assert split_manifest_artifact.artifact_name == "rescue_split_manifest"
+    assert split_manifest_artifact.payload.source_dataset_id == (
+        "scz_npc_signature_reversal_ranking_inputs_2020_12_31"
+    )
+    assert lineage_artifact.artifact_name == "rescue_raw_to_frozen_lineage"
+    assert {
+        dataset.dataset_id for dataset in lineage_artifact.payload.frozen_datasets
+    } == {
+        "scz_npc_signature_reversal_ranking_inputs_2020_12_31",
+        "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
+    }

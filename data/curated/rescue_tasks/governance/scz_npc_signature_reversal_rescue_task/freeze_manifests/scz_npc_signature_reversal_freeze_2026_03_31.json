@@ -1,0 +1,70 @@
+{
+  "schema_name": "rescue_freeze_manifest",
+  "schema_version": "v1",
+  "freeze_manifest_id": "scz_npc_signature_reversal_freeze_2026_03_31",
+  "suite_id": "scz_rescue_contract_suite",
+  "task_id": "scz_npc_signature_reversal_rescue_task",
+  "contract_path": "data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json",
+  "governance_status": "active",
+  "freeze_scope": "task_bundle",
+  "cutoff_date": "2020-12-31",
+  "frozen_at": "2026-03-31",
+  "leakage_boundary_policy_id": "strict_rescue_task_boundary_v1",
+  "current_head_policy": "reject_unfrozen_current_head_state",
+  "source_snapshots": [
+    {
+      "source_id": "hoffman_2017_hispc_npc_diffexpr",
+      "source_name": "hoffman_2017_hispc_npc_diffexpr",
+      "snapshot_id": "hoffman-2017-npc-sheet",
+      "captured_at": "2017-12-20",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/npc_signature_reversal/cos_hispc_npc_differential_expression_2017.csv",
+      "sha256": "8df158bb2921eb9713ed9b83d3019cff4abb676f21559e64195791095675f8ac",
+      "description": "Pre-cutoff schizophrenia NPC differential-expression rows extracted from Hoffman et al. 2017 Supplementary Data 8."
+    },
+    {
+      "source_id": "readhead_2018_sz_ipsc_npc_drug_perturbations",
+      "source_name": "readhead_2018_sz_ipsc_npc_drug_perturbations",
+      "snapshot_id": "readhead-2018-sz-ipsc-npc-drug-rows",
+      "captured_at": "2018-10-24",
+      "availability": "pre_cutoff",
+      "source_path": "data/raw/rescue/npc_signature_reversal/sz_npc_drug_gene_perturbations_2018.csv",
+      "sha256": "50452917f758553c03168965ff15d9abeaaaeb11c163a6005e9f6772d5eef43e",
+      "description": "Pre-cutoff SZ_iPSC_NPC perturbation rows extracted from Readhead et al. 2018 Supplementary Data 2."
+    },
+    {
+      "source_id": "hribkova_2022_clozapine_rescue",
+      "source_name": "hribkova_2022_clozapine_rescue",
+      "snapshot_id": "hribkova-2022-positive-gene-labels",
+      "captured_at": "2022-02-23",
+      "availability": "post_cutoff",
+      "source_path": "data/raw/rescue/npc_signature_reversal/clozapine_rescue_gene_labels_2022.csv",
+      "sha256": "feced8bea407a743a3b61eb6ed2dc8d684c07a743e3f5f8ccd3258f18eee66a9",
+      "description": "Post-cutoff literature-positive rescue genes curated from Hribkova et al. 2022 for evaluation only."
+    }
+  ],
+  "frozen_datasets": [
+    {
+      "dataset_id": "scz_npc_signature_reversal_ranking_inputs_2020_12_31",
+      "artifact_contract_id": "candidate_universe",
+      "dataset_role": "ranking_input",
+      "availability": "pre_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_ranking_inputs.json",
+      "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv",
+      "expected_sha256": "36adc25f180e04ac62cdcc4fadd65f7d6a25949878307e49513279be36868b3e",
+      "expected_row_count": 15614
+    },
+    {
+      "dataset_id": "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
+      "artifact_contract_id": "evaluation_labels",
+      "dataset_role": "evaluation_target",
+      "availability": "post_cutoff",
+      "dataset_card_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_evaluation_labels.json",
+      "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv",
+      "expected_sha256": "1c46e863abcb72e37aad198bc877354a942bfe9b65939ec73605d73269909ec2",
+      "expected_row_count": 15614
+    }
+  ],
+  "description": "Active freeze manifest that documents the cutoff, checked-in raw source snapshots, and frozen outputs for the schizophrenia NPC signature-reversal rescue task.",
+  "notes": "The pre-cutoff ranking dataset and post-cutoff evaluation dataset are both checked in and governed by the same task-bundle freeze."
+}

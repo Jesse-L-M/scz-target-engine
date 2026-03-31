@@ -9,8 +9,16 @@ data/raw/*
 !data/raw/README.md
 !data/raw/sources/
 !data/raw/sources/README.md
+!data/raw/rescue/
+data/raw/rescue/*
+!data/raw/rescue/npc_signature_reversal/
+!data/raw/rescue/npc_signature_reversal/**
 data/processed/*
 !data/processed/README.md
+!data/processed/rescue/
+data/processed/rescue/*
+!data/processed/rescue/scz_npc_signature_reversal_rescue_task/
+!data/processed/rescue/scz_npc_signature_reversal_rescue_task/**
 data/benchmark/generated/
 
 reports/generated/

@@ -5,7 +5,10 @@ import pytest
 
 from scz_target_engine.artifacts import load_artifact
 from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
-from scz_target_engine.rescue import validate_rescue_governance_bundle
+from scz_target_engine.rescue import (
+    load_frozen_rescue_task_bundle,
+    validate_rescue_governance_bundle,
+)
 from scz_target_engine.rescue.registry import (
     DEFAULT_RESCUE_TASK_REGISTRY_PATH,
     load_rescue_suite_contracts,
@@ -31,6 +34,28 @@ EXAMPLE_SPLIT_MANIFEST_PATH = Path(
 EXAMPLE_LINEAGE_PATH = Path(
     "data/curated/rescue_tasks/governance/example_scz_gene_rescue_task/"
     "lineage/example_scz_gene_raw_to_frozen_lineage_2025_01_16.json"
+)
+NPC_CONTRACT_PATH = Path(
+    "data/curated/rescue_tasks/contracts/scz_npc_signature_reversal_rescue_task.json"
+)
+NPC_TASK_CARD_PATH = Path(
+    "data/curated/rescue_tasks/governance/"
+    "scz_npc_signature_reversal_rescue_task/task_card.json"
+)
+NPC_FREEZE_MANIFEST_PATH = Path(
+    "data/curated/rescue_tasks/governance/"
+    "scz_npc_signature_reversal_rescue_task/"
+    "freeze_manifests/scz_npc_signature_reversal_freeze_2026_03_31.json"
+)
+NPC_SPLIT_MANIFEST_PATH = Path(
+    "data/curated/rescue_tasks/governance/"
+    "scz_npc_signature_reversal_rescue_task/"
+    "split_manifests/scz_npc_signature_reversal_split_2026_03_31.json"
+)
+NPC_LINEAGE_PATH = Path(
+    "data/curated/rescue_tasks/governance/"
+    "scz_npc_signature_reversal_rescue_task/"
+    "lineage/scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31.json"
 )
 
 
@@ -59,12 +84,26 @@ def test_rescue_registry_resolves_example_contract() -> None:
     assert task_contract.leakage_boundary.raw_to_frozen_lineage_required is True
 
 
-def test_rescue_registry_groups_example_task_under_single_suite() -> None:
+def test_rescue_registry_resolves_active_npc_contract() -> None:
+    task_contract = resolve_rescue_task_contract(
+        rescue_task_id="scz_npc_signature_reversal_rescue_task"
+    )
+
+    assert task_contract.suite_id == "scz_rescue_contract_suite"
+    assert task_contract.contract_scope == "rescue_only"
+    assert task_contract.entity_type == "gene"
+    assert task_contract.task_label == "Schizophrenia NPC signature-reversal rescue task"
+
+
+def test_rescue_registry_groups_tasks_under_single_suite() -> None:
     suites = load_rescue_suite_contracts()
 
     assert len(suites) == 1
     assert suites[0].suite_id == "scz_rescue_contract_suite"
-    assert suites[0].tasks[0].task_id == "example_scz_gene_rescue_task"
+    assert {task.task_id for task in suites[0].tasks} == {
+        "example_scz_gene_rescue_task",
+        "scz_npc_signature_reversal_rescue_task",
+    }
     assert DEFAULT_RESCUE_TASK_REGISTRY_PATH.exists()
 
 
@@ -131,6 +170,38 @@ def test_example_rescue_governance_bundle_validates_from_task_card() -> None:
     assert bundle.lineages[0].lineage_id == (
         "example_scz_gene_raw_to_frozen_lineage_2025_01_16"
     )
+
+
+def test_npc_rescue_governance_bundle_validates_from_task_card() -> None:
+    bundle = validate_rescue_governance_bundle(NPC_TASK_CARD_PATH.resolve())
+
+    assert bundle.task_card.task_id == "scz_npc_signature_reversal_rescue_task"
+    assert bundle.contract.task_id == "scz_npc_signature_reversal_rescue_task"
+    assert {dataset.dataset_id for dataset in bundle.dataset_cards} == {
+        "scz_npc_signature_reversal_ranking_inputs_2020_12_31",
+        "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
+    }
+    assert bundle.freeze_manifests[0].freeze_manifest_id == (
+        "scz_npc_signature_reversal_freeze_2026_03_31"
+    )
+    assert bundle.split_manifests[0].source_dataset_id == (
+        "scz_npc_signature_reversal_ranking_inputs_2020_12_31"
+    )
+    assert bundle.lineages[0].lineage_id == (
+        "scz_npc_signature_reversal_raw_to_frozen_lineage_2026_03_31"
+    )
+
+
+def test_npc_frozen_bundle_loads_from_registry_id() -> None:
+    bundle = load_frozen_rescue_task_bundle(
+        rescue_task_id="scz_npc_signature_reversal_rescue_task"
+    )
+
+    assert bundle.governance.task_card.task_id == "scz_npc_signature_reversal_rescue_task"
+    assert bundle.ranking_input.card.dataset_role == "ranking_input"
+    assert bundle.evaluation_target.card.dataset_role == "evaluation_target"
+    assert len(bundle.ranking_input.rows) == 15614
+    assert len(bundle.evaluation_target.rows) == 15614
 
 
 def test_rescue_registry_rejects_registry_contract_identity_mismatch(

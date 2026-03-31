@@ -50,7 +50,9 @@
       "dataset_role": "ranking_input",
       "availability": "pre_cutoff",
       "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_synapse_ranking_inputs.json",
-      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_synapse_ranking_inputs_2023_12_31.csv"
+      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_synapse_ranking_inputs_2023_12_31.csv",
+      "expected_sha256": "0c11798ab9be79fd86024dbcb25fd604f4cceaaa84bf966062990675aa059e2a",
+      "expected_row_count": 5
     },
     {
       "dataset_id": "interneuron_arbor_ranking_inputs_2023_12_31",
@@ -58,7 +60,9 @@
       "dataset_role": "ranking_input",
       "availability": "pre_cutoff",
       "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_arbor_ranking_inputs.json",
-      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_arbor_ranking_inputs_2023_12_31.csv"
+      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_arbor_ranking_inputs_2023_12_31.csv",
+      "expected_sha256": "ba45a8efca73d547550ae14817674ef48a6fb24ee5104742e9a2addbe2e7dec2",
+      "expected_row_count": 4
     },
     {
       "dataset_id": "interneuron_followup_labels_2026_03_31",
@@ -66,7 +70,9 @@
       "dataset_role": "evaluation_target",
       "availability": "post_cutoff",
       "dataset_card_path": "data/curated/rescue_tasks/governance/interneuron_gene_rescue_task/dataset_cards/interneuron_followup_labels.json",
-      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_followup_labels_2026_03_31.csv"
+      "expected_output_path": "data/processed/rescue/interneuron_gene_rescue_task/frozen/interneuron_followup_labels_2026_03_31.csv",
+      "expected_sha256": "6b4bce4308e4a8235c2841e871c28f4ce8941c27438d132d2a5f100113b27497",
+      "expected_row_count": 8
     }
   ],
   "description": "Active freeze manifest for the governed interneuron rescue family, including two pre-cutoff ranking tables and one held-out post-cutoff evaluation table.",

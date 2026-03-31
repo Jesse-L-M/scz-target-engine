@@ -59,6 +59,19 @@ class FrozenRescueTaskBundle:
     evaluation_target: FrozenRescueDataset
 
 
+@dataclass(frozen=True)
+class FrozenRescueGovernedTaskBundle:
+    governance: RescueGovernanceBundle
+    datasets: tuple[FrozenRescueDataset, ...]
+
+    @property
+    def dataset_index(self) -> dict[str, FrozenRescueDataset]:
+        return {
+            dataset.card.dataset_id: dataset
+            for dataset in self.datasets
+        }
+
+
 def _freeze_reference_by_dataset_id(
     bundle: RescueGovernanceBundle,
     *,
@@ -232,27 +245,16 @@ def load_frozen_rescue_task_bundle(
     rescue_task_id: str | None = None,
     task_card_path: Path | None = None,
 ) -> FrozenRescueTaskBundle:
-    resolved_task_card = _resolve_task_card_path(
+    governed_bundle = load_frozen_rescue_governance_bundle(
         rescue_task_id=rescue_task_id,
         task_card_path=task_card_path,
     )
-    governance = validate_rescue_governance_bundle(resolved_task_card)
+    governance = governed_bundle.governance
     ranking_card = _select_dataset(governance, dataset_role="ranking_input")
     evaluation_card = _select_dataset(governance, dataset_role="evaluation_target")
-    ranking_input = _load_dataset(
-        ranking_card,
-        freeze_reference=_freeze_reference_by_dataset_id(
-            governance,
-            card=ranking_card,
-        ),
-    )
-    evaluation_target = _load_dataset(
-        evaluation_card,
-        freeze_reference=_freeze_reference_by_dataset_id(
-            governance,
-            card=evaluation_card,
-        ),
-    )
+    dataset_index = governed_bundle.dataset_index
+    ranking_input = dataset_index[ranking_card.dataset_id]
+    evaluation_target = dataset_index[evaluation_card.dataset_id]
     _require_split_consistency(
         ranking_input=ranking_input,
         evaluation_target=evaluation_target,
@@ -261,4 +263,30 @@ def load_frozen_rescue_task_bundle(
         governance=governance,
         ranking_input=ranking_input,
         evaluation_target=evaluation_target,
+    )
+
+
+def load_frozen_rescue_governance_bundle(
+    *,
+    rescue_task_id: str | None = None,
+    task_card_path: Path | None = None,
+) -> FrozenRescueGovernedTaskBundle:
+    resolved_task_card = _resolve_task_card_path(
+        rescue_task_id=rescue_task_id,
+        task_card_path=task_card_path,
+    )
+    governance = validate_rescue_governance_bundle(resolved_task_card)
+    datasets = tuple(
+        _load_dataset(
+            dataset_card,
+            freeze_reference=_freeze_reference_by_dataset_id(
+                governance,
+                card=dataset_card,
+            ),
+        )
+        for dataset_card in governance.dataset_cards
+    )
+    return FrozenRescueGovernedTaskBundle(
+        governance=governance,
+        datasets=datasets,
     )

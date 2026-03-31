@@ -13,10 +13,10 @@ from scz_target_engine.rescue.frozen import (
 
 NPC_SIGNATURE_REVERSAL_TASK_ID = "scz_npc_signature_reversal_rescue_task"
 NPC_SIGNATURE_REVERSAL_TASK_LABEL = "Schizophrenia NPC signature-reversal rescue task"
-NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID = "npc_signature_reversal_priority_v1"
-NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_LABEL = "NPC signature-reversal priority v1"
-PRIMARY_SCORE_SIGNATURE_WEIGHT = 0.7
-PRIMARY_SCORE_ABS_LOG_FC_WEIGHT = 0.3
+NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID = "npc_abs_log_fc_priority_v1"
+NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_LABEL = (
+    "NPC absolute log fold-change priority v1"
+)
 EVALUATION_SPLITS = ("all", "train", "validation", "test")
 EVALUATION_K_VALUES = (50, 100)
 PREDICTIONS_FILE_NAME = "ranked_predictions.csv"
@@ -89,22 +89,11 @@ DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS = (
         scorer_id=NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
         scorer_label=NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_LABEL,
         scorer_role="model",
-        input_fields=(
-            "signature_weight",
-            "npc_log_fc",
-            "reversal_fraction",
-            "max_abs_reversal_rzs",
-            "reversal_drug_count",
-        ),
-        tie_break_input_fields=(
-            "reversal_fraction",
-            "max_abs_reversal_rzs",
-            "reversal_drug_count",
-        ),
+        input_fields=("npc_log_fc",),
         description=(
-            "Weighted percentile score across frozen disease-signature magnitude fields "
-            "with deterministic reversal-feature tie-breaks. Evaluation labels remain "
-            "offline-only and are never joined back into ranked predictions."
+            "Ranks genes only by absolute frozen NPC disease log fold-change magnitude. "
+            "This is the strongest shipped scorer on the task's declared principal "
+            "test split, so it is the truthful default model for this task."
         ),
     ),
     NpcSignatureReversalScorerDefinition(
@@ -114,15 +103,6 @@ DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS = (
         input_fields=("signature_weight",),
         description=(
             "Ranks genes only by the frozen pre-cutoff NPC disease-signature weight."
-        ),
-    ),
-    NpcSignatureReversalScorerDefinition(
-        scorer_id="absolute_npc_log_fc_only",
-        scorer_label="Absolute NPC log fold-change only",
-        scorer_role="baseline",
-        input_fields=("npc_log_fc",),
-        description=(
-            "Ranks genes only by absolute NPC disease log fold-change magnitude."
         ),
     ),
     NpcSignatureReversalScorerDefinition(
@@ -214,40 +194,11 @@ def _validate_bundle_identity(bundle: FrozenRescueTaskBundle) -> None:
         )
 
 
-def _build_descending_percentile_map(
-    ranking_rows: tuple[dict[str, str], ...],
-    *,
-    field_name: str,
-) -> dict[str, float]:
-    ordered_rows = sorted(
-        ranking_rows,
-        key=lambda row: (-_field_value(row, field_name), row["gene_id"]),
-    )
-    denominator = max(len(ordered_rows) - 1, 1)
-    return {
-        row["gene_id"]: 1.0 - (position / denominator)
-        for position, row in enumerate(ordered_rows)
-    }
-
-
 def _build_primary_score_map(
     ranking_rows: tuple[dict[str, str], ...],
 ) -> dict[str, float]:
-    signature_weight_percentiles = _build_descending_percentile_map(
-        ranking_rows,
-        field_name="signature_weight",
-    )
-    absolute_log_fc_percentiles = _build_descending_percentile_map(
-        ranking_rows,
-        field_name="npc_log_fc",
-    )
     return {
-        row["gene_id"]: (
-            PRIMARY_SCORE_SIGNATURE_WEIGHT
-            * signature_weight_percentiles[row["gene_id"]]
-            + PRIMARY_SCORE_ABS_LOG_FC_WEIGHT
-            * absolute_log_fc_percentiles[row["gene_id"]]
-        )
+        row["gene_id"]: _absolute_npc_log_fc(row)
         for row in ranking_rows
     }
 
@@ -262,9 +213,6 @@ def _rank_primary_predictions(
             ranking_rows,
             key=lambda row: (
                 -primary_score_map[row["gene_id"]],
-                -_parse_float(row, "reversal_fraction"),
-                -_parse_float(row, "max_abs_reversal_rzs"),
-                -_parse_float(row, "reversal_drug_count"),
                 row["gene_id"],
             ),
         )
@@ -298,7 +246,7 @@ def _build_prediction_rows(
                 "gene_id": row["gene_id"],
                 "gene_symbol": row["gene_symbol"],
                 "split_name": row["split_name"],
-                "npc_signature_reversal_priority_score": round(
+                "npc_abs_log_fc_priority_score": round(
                     primary_score_map[row["gene_id"]],
                     12,
                 ),
@@ -306,7 +254,6 @@ def _build_prediction_rows(
                     row,
                     "signature_weight",
                 ),
-                "absolute_npc_log_fc_baseline_score": _absolute_npc_log_fc(row),
                 "reversal_fraction_baseline_score": _parse_float(
                     row,
                     "reversal_fraction",
@@ -583,10 +530,8 @@ def materialize_npc_signature_reversal_run(
     *,
     output_dir: Path,
     task_card_path: Path | None = None,
-    scorers: tuple[NpcSignatureReversalScorerDefinition, ...] = (
-        DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS
-    ),
 ) -> dict[str, object]:
+    scorers = DEFAULT_NPC_SIGNATURE_REVERSAL_SCORERS
     resolved_output_dir = output_dir.resolve()
     resolved_task_card_path = (
         task_card_path.resolve() if task_card_path else _resolve_default_task_card_path()

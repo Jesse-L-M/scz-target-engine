@@ -1,4 +1,5 @@
 import csv
+import inspect
 import json
 import os
 from pathlib import Path
@@ -7,6 +8,7 @@ import sys
 
 from scz_target_engine.rescue.tasks import (
     NPC_SIGNATURE_REVERSAL_TASK_ID,
+    NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID,
     materialize_npc_signature_reversal_run,
 )
 
@@ -28,12 +30,11 @@ def test_materialize_npc_signature_reversal_run_uses_only_frozen_bundle(
     assert result["task_id"] == NPC_SIGNATURE_REVERSAL_TASK_ID
     assert result["baseline_ids"] == [
         "signature_weight_only",
-        "absolute_npc_log_fc_only",
         "reversal_fraction_only",
         "max_abs_reversal_rzs_only",
         "reversal_drug_count_only",
     ]
-    assert result["model_id"] == "npc_signature_reversal_priority_v1"
+    assert result["model_id"] == NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID
     assert result["leakage_boundary"] == {
         "policy_id": "strict_rescue_task_boundary_v1",
         "raw_runtime_ingestion_enabled": False,
@@ -58,39 +59,61 @@ def test_materialize_npc_signature_reversal_run_uses_only_frozen_bundle(
     assert len(prediction_rows) == 15614
     assert prediction_rows[0]["rank"] == "1"
     assert prediction_rows[0]["gene_id"]
-    assert prediction_rows[0]["npc_signature_reversal_priority_score"]
+    assert prediction_rows[0]["npc_abs_log_fc_priority_score"]
     assert "rescue_positive_label" not in prediction_rows[0]
     assert "label_status" not in prediction_rows[0]
     assert "evidence_source_id" not in prediction_rows[0]
 
 
-def test_npc_signature_reversal_run_reports_expected_metrics(
+def test_npc_signature_reversal_run_declares_test_supported_primary_scorer(
     tmp_path: Path,
 ) -> None:
     result = materialize_npc_signature_reversal_run(output_dir=tmp_path / "npc_run")
     all_slice = result["evaluation"]["slices"]["all"]
     test_slice = result["evaluation"]["slices"]["test"]
     all_scorers = all_slice["scorers"]
+    test_scorers = test_slice["scorers"]
 
-    model_metrics = all_scorers["npc_signature_reversal_priority_v1"]["metrics"]
+    model_metrics = all_scorers[NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID]["metrics"]
     signature_metrics = all_scorers["signature_weight_only"]["metrics"]
     reversal_metrics = all_scorers["reversal_fraction_only"]["metrics"]
+    test_model_metrics = test_scorers[NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID]["metrics"]
 
     assert all_slice["entity_count"] == 15614
     assert all_slice["positive_count"] == 14
     assert test_slice["positive_count"] == 2
 
     assert model_metrics == {
-        "average_precision": 0.002812,
-        "mean_reciprocal_rank": 0.020408,
-        "first_positive_rank": 49,
-        "precision_at_50": 0.02,
-        "recall_at_50": 0.071429,
+        "average_precision": 0.00246,
+        "mean_reciprocal_rank": 0.012658,
+        "first_positive_rank": 79,
+        "precision_at_50": 0.0,
+        "recall_at_50": 0.0,
         "precision_at_100": 0.01,
         "recall_at_100": 0.071429,
     }
-    assert model_metrics["average_precision"] > signature_metrics["average_precision"]
+    assert test_model_metrics == {
+        "average_precision": 0.003401,
+        "mean_reciprocal_rank": 0.002695,
+        "first_positive_rank": 371,
+        "precision_at_50": 0.0,
+        "recall_at_50": 0.0,
+        "precision_at_100": 0.0,
+        "recall_at_100": 0.0,
+    }
+    assert test_model_metrics["average_precision"] >= max(
+        scorer_payload["metrics"]["average_precision"]
+        for scorer_id, scorer_payload in test_scorers.items()
+        if scorer_id != NPC_SIGNATURE_REVERSAL_PRIMARY_SCORER_ID
+    )
+    assert model_metrics["average_precision"] < signature_metrics["average_precision"]
     assert signature_metrics["average_precision"] > reversal_metrics["average_precision"]
+
+
+def test_npc_signature_reversal_run_no_longer_exposes_scorers_override() -> None:
+    assert "scorers" not in inspect.signature(
+        materialize_npc_signature_reversal_run
+    ).parameters
 
 
 def test_npc_signature_reversal_cli_runs_end_to_end(tmp_path: Path) -> None:

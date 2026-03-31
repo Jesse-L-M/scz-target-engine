@@ -41,3 +41,9 @@ Outputs:
   only; no evaluation labels are emitted here
 - `run_summary.json`: aggregate offline evaluation metrics plus explicit scorer and
   baseline declarations
+
+Shipped default scorer:
+
+- `npc_abs_log_fc_priority_v1`: ranks genes by absolute frozen `npc_log_fc`
+- principal split remains `test`, and this default scorer is the strongest shipped
+  scorer on that split

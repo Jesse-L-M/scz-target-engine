@@ -196,13 +196,15 @@ task runner:
 
 - loads the governed frozen ranking/evaluation CSVs through
   `load_frozen_rescue_task_bundle(...)`
-- ranks genes with an explicit frozen-input scorer
-  (`npc_signature_reversal_priority_v1`)
+- ranks genes with a truthful frozen-input default scorer
+  (`npc_abs_log_fc_priority_v1`), which orders genes by absolute frozen `npc_log_fc`
+  because that is the strongest shipped scorer on the declared principal `test` split
 - evaluates that ranking offline against the held-out label CSV without joining labels
   back into the emitted predictions file
-- emits explicit single-input baselines for `signature_weight`, absolute
-  `npc_log_fc`, `reversal_fraction`, `max_abs_reversal_rzs`, and
-  `reversal_drug_count`
+- emits explicit single-input baselines for `signature_weight`,
+  `reversal_fraction`, `max_abs_reversal_rzs`, and `reversal_drug_count`
+- keeps the scorer set fixed in code; there is no public scorer-override hook on the
+  task runner
 
 The end-to-end CLI path is:
 

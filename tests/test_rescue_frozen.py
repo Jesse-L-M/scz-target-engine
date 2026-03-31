@@ -1,13 +1,28 @@
+import csv
 import hashlib
 import json
 from collections import Counter
 from pathlib import Path
+
+import pytest
 
 from scz_target_engine.rescue import load_frozen_rescue_task_bundle
 
 
 SOURCE_MANIFEST_PATH = Path(
     "data/raw/rescue/npc_signature_reversal/source_manifest.json"
+)
+TASK_CARD_PATH = Path(
+    "data/curated/rescue_tasks/governance/"
+    "scz_npc_signature_reversal_rescue_task/task_card.json"
+)
+RANKING_OUTPUT_PATH = Path(
+    "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/"
+    "scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv"
+)
+EVALUATION_OUTPUT_PATH = Path(
+    "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/"
+    "scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv"
 )
 
 
@@ -17,6 +32,137 @@ def _sha256_path(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _read_csv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader.fieldnames or []), list(reader)
+
+
+def _write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, str]]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _build_temp_bundle(
+    tmp_path: Path,
+    *,
+    ranking_rows: list[dict[str, str]] | None = None,
+    evaluation_rows: list[dict[str, str]] | None = None,
+    use_materialized_integrity: bool = True,
+) -> Path:
+    task_card_payload = json.loads(TASK_CARD_PATH.read_text(encoding="utf-8"))
+    ranking_card_payload = json.loads(
+        Path(task_card_payload["dataset_card_paths"][0]).read_text(encoding="utf-8")
+    )
+    evaluation_card_payload = json.loads(
+        Path(task_card_payload["dataset_card_paths"][1]).read_text(encoding="utf-8")
+    )
+    freeze_manifest_payload = json.loads(
+        Path(task_card_payload["freeze_manifest_paths"][0]).read_text(encoding="utf-8")
+    )
+    split_manifest_payload = json.loads(
+        Path(task_card_payload["split_manifest_paths"][0]).read_text(encoding="utf-8")
+    )
+    lineage_payload = json.loads(
+        Path(task_card_payload["lineage_paths"][0]).read_text(encoding="utf-8")
+    )
+
+    ranking_fieldnames, original_ranking_rows = _read_csv_rows(RANKING_OUTPUT_PATH)
+    evaluation_fieldnames, original_evaluation_rows = _read_csv_rows(EVALUATION_OUTPUT_PATH)
+    ranking_rows = original_ranking_rows if ranking_rows is None else ranking_rows
+    evaluation_rows = original_evaluation_rows if evaluation_rows is None else evaluation_rows
+
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    ranking_output = bundle_dir / RANKING_OUTPUT_PATH.name
+    evaluation_output = bundle_dir / EVALUATION_OUTPUT_PATH.name
+    _write_csv(ranking_output, ranking_fieldnames, ranking_rows)
+    _write_csv(evaluation_output, evaluation_fieldnames, evaluation_rows)
+
+    expected_ranking_path = ranking_output if use_materialized_integrity else RANKING_OUTPUT_PATH
+    expected_evaluation_path = (
+        evaluation_output if use_materialized_integrity else EVALUATION_OUTPUT_PATH
+    )
+    _, expected_ranking_rows = _read_csv_rows(expected_ranking_path)
+    _, expected_evaluation_rows = _read_csv_rows(expected_evaluation_path)
+
+    ranking_card_path = bundle_dir / "ranking_card.json"
+    evaluation_card_path = bundle_dir / "evaluation_card.json"
+    freeze_manifest_path = bundle_dir / "freeze_manifest.json"
+    split_manifest_path = bundle_dir / "split_manifest.json"
+    lineage_path = bundle_dir / "lineage.json"
+    task_card_path = bundle_dir / "task_card.json"
+
+    ranking_card_payload["freeze_manifest_path"] = str(freeze_manifest_path)
+    ranking_card_payload["lineage_path"] = str(lineage_path)
+    ranking_card_payload["expected_output_path"] = str(ranking_output)
+    evaluation_card_payload["freeze_manifest_path"] = str(freeze_manifest_path)
+    evaluation_card_payload["lineage_path"] = str(lineage_path)
+    evaluation_card_payload["expected_output_path"] = str(evaluation_output)
+
+    freeze_manifest_payload["frozen_datasets"][0]["dataset_card_path"] = str(ranking_card_path)
+    freeze_manifest_payload["frozen_datasets"][0]["expected_output_path"] = str(ranking_output)
+    freeze_manifest_payload["frozen_datasets"][0]["expected_sha256"] = _sha256_path(
+        expected_ranking_path
+    )
+    freeze_manifest_payload["frozen_datasets"][0]["expected_row_count"] = len(
+        expected_ranking_rows
+    )
+    freeze_manifest_payload["frozen_datasets"][1]["dataset_card_path"] = str(
+        evaluation_card_path
+    )
+    freeze_manifest_payload["frozen_datasets"][1]["expected_output_path"] = str(
+        evaluation_output
+    )
+    freeze_manifest_payload["frozen_datasets"][1]["expected_sha256"] = _sha256_path(
+        expected_evaluation_path
+    )
+    freeze_manifest_payload["frozen_datasets"][1]["expected_row_count"] = len(
+        expected_evaluation_rows
+    )
+
+    split_manifest_payload["freeze_manifest_path"] = str(freeze_manifest_path)
+    lineage_payload["freeze_manifest_path"] = str(freeze_manifest_path)
+    lineage_payload["frozen_datasets"][0]["dataset_card_path"] = str(ranking_card_path)
+    lineage_payload["frozen_datasets"][1]["dataset_card_path"] = str(evaluation_card_path)
+
+    task_card_payload["dataset_card_paths"] = [
+        str(ranking_card_path),
+        str(evaluation_card_path),
+    ]
+    task_card_payload["freeze_manifest_paths"] = [str(freeze_manifest_path)]
+    task_card_payload["split_manifest_paths"] = [str(split_manifest_path)]
+    task_card_payload["lineage_paths"] = [str(lineage_path)]
+
+    ranking_card_path.write_text(
+        json.dumps(ranking_card_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    evaluation_card_path.write_text(
+        json.dumps(evaluation_card_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    freeze_manifest_path.write_text(
+        json.dumps(freeze_manifest_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    split_manifest_path.write_text(
+        json.dumps(split_manifest_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    lineage_path.write_text(
+        json.dumps(lineage_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    task_card_path.write_text(
+        json.dumps(task_card_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return task_card_path
 
 
 def test_npc_source_manifest_matches_checked_in_artifacts() -> None:
@@ -74,3 +220,64 @@ def test_npc_frozen_bundle_loads_checked_in_csvs_only() -> None:
         if row["rescue_positive_label"] == "1"
     )
     assert positive_counts == {"train": 9, "validation": 3, "test": 2}
+
+
+def test_frozen_loader_rejects_checksum_drift(tmp_path: Path) -> None:
+    _, ranking_rows = _read_csv_rows(RANKING_OUTPUT_PATH)
+    drifted_ranking_rows = [dict(row) for row in ranking_rows]
+    drifted_ranking_rows[0]["split_name"] = "train"
+    drifted_task_card = _build_temp_bundle(
+        tmp_path,
+        ranking_rows=drifted_ranking_rows,
+        use_materialized_integrity=False,
+    )
+
+    with pytest.raises(ValueError, match="checksum validation"):
+        load_frozen_rescue_task_bundle(task_card_path=drifted_task_card)
+
+
+def test_frozen_loader_rejects_cross_file_split_inconsistency(tmp_path: Path) -> None:
+    _, evaluation_rows = _read_csv_rows(EVALUATION_OUTPUT_PATH)
+    drifted_evaluation_rows = [dict(row) for row in evaluation_rows]
+    target_row = next(row for row in drifted_evaluation_rows if row["gene_id"] == "ENSG00000080493")
+    target_row["split_name"] = "test"
+    drifted_task_card = _build_temp_bundle(
+        tmp_path,
+        evaluation_rows=drifted_evaluation_rows,
+        use_materialized_integrity=True,
+    )
+
+    with pytest.raises(ValueError, match="split_name drift detected"):
+        load_frozen_rescue_task_bundle(task_card_path=drifted_task_card)
+
+
+def test_frozen_loader_accepts_repo_relative_task_card_path_from_non_repo_cwd(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    bundle = load_frozen_rescue_task_bundle(
+        task_card_path=Path(
+            "data/curated/rescue_tasks/governance/"
+            "scz_npc_signature_reversal_rescue_task/task_card.json"
+        )
+    )
+
+    assert bundle.governance.task_card.task_id == "scz_npc_signature_reversal_rescue_task"
+
+
+def test_frozen_loader_rejects_invalid_entry_point_arguments() -> None:
+    with pytest.raises(ValueError, match="provide exactly one"):
+        load_frozen_rescue_task_bundle()
+
+    with pytest.raises(ValueError, match="provide exactly one"):
+        load_frozen_rescue_task_bundle(
+            rescue_task_id="scz_npc_signature_reversal_rescue_task",
+            task_card_path=TASK_CARD_PATH,
+        )
+
+
+def test_frozen_loader_rejects_unknown_rescue_task_id() -> None:
+    with pytest.raises(KeyError, match="unknown rescue_task_id"):
+        load_frozen_rescue_task_bundle(rescue_task_id="missing_rescue_task")

@@ -50,7 +50,9 @@
       "dataset_role": "ranking_input",
       "availability": "pre_cutoff",
       "dataset_card_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_ranking_inputs.json",
-      "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv"
+      "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_ranking_inputs_2020_12_31.csv",
+      "expected_sha256": "36adc25f180e04ac62cdcc4fadd65f7d6a25949878307e49513279be36868b3e",
+      "expected_row_count": 15614
     },
     {
       "dataset_id": "scz_npc_signature_reversal_evaluation_labels_2022_02_23",
@@ -58,7 +60,9 @@
       "dataset_role": "evaluation_target",
       "availability": "post_cutoff",
       "dataset_card_path": "data/curated/rescue_tasks/governance/scz_npc_signature_reversal_rescue_task/dataset_cards/scz_npc_signature_reversal_evaluation_labels.json",
-      "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv"
+      "expected_output_path": "data/processed/rescue/scz_npc_signature_reversal_rescue_task/frozen/scz_npc_signature_reversal_evaluation_labels_2022_02_23.csv",
+      "expected_sha256": "1c46e863abcb72e37aad198bc877354a942bfe9b65939ec73605d73269909ec2",
+      "expected_row_count": 15614
     }
   ],
   "description": "Active freeze manifest that documents the cutoff, checked-in raw source snapshots, and frozen outputs for the schizophrenia NPC signature-reversal rescue task.",

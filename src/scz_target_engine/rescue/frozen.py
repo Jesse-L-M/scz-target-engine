@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from scz_target_engine.io import read_csv_table
 from scz_target_engine.rescue.governance import (
     REPO_ROOT,
     RescueDatasetCard,
+    RescueFrozenDatasetReference,
     RescueGovernanceBundle,
     validate_rescue_governance_bundle,
 )
@@ -34,6 +36,14 @@ def _primary_key_tuple(
     return tuple(row[field] for field in primary_key_fields)
 
 
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 @dataclass(frozen=True)
 class FrozenRescueDataset:
     card: RescueDatasetCard
@@ -49,7 +59,30 @@ class FrozenRescueTaskBundle:
     evaluation_target: FrozenRescueDataset
 
 
-def _load_dataset(card: RescueDatasetCard) -> FrozenRescueDataset:
+def _freeze_reference_by_dataset_id(
+    bundle: RescueGovernanceBundle,
+    *,
+    dataset_id: str,
+) -> RescueFrozenDatasetReference:
+    matches = [
+        dataset
+        for freeze_manifest in bundle.freeze_manifests
+        for dataset in freeze_manifest.frozen_datasets
+        if dataset.dataset_id == dataset_id
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"expected exactly one frozen dataset reference for {dataset_id}, "
+            f"found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _load_dataset(
+    card: RescueDatasetCard,
+    *,
+    freeze_reference: RescueFrozenDatasetReference,
+) -> FrozenRescueDataset:
     if card.file_format != "csv":
         raise ValueError(f"{card.dataset_id} must point to a csv frozen artifact")
 
@@ -57,7 +90,28 @@ def _load_dataset(card: RescueDatasetCard) -> FrozenRescueDataset:
     if not path.exists():
         raise FileNotFoundError(f"frozen dataset does not exist: {path}")
 
+    if not freeze_reference.expected_sha256:
+        raise ValueError(
+            f"{card.dataset_id} is missing expected_sha256 in the governing freeze manifest"
+        )
+    actual_sha256 = _sha256_path(path)
+    if actual_sha256 != freeze_reference.expected_sha256:
+        raise ValueError(
+            f"{card.dataset_id} failed checksum validation for {path}: "
+            "governed frozen artifact drift detected"
+        )
+
     columns, rows = read_csv_table(path)
+    if freeze_reference.expected_row_count is None:
+        raise ValueError(
+            f"{card.dataset_id} is missing expected_row_count in the governing freeze manifest"
+        )
+    if len(rows) != freeze_reference.expected_row_count:
+        raise ValueError(
+            f"{card.dataset_id} row count drift detected for {path}: "
+            f"expected {freeze_reference.expected_row_count}, found {len(rows)}"
+        )
+
     seen_primary_keys: set[tuple[str, ...]] = set()
     for row in rows:
         primary_key = _primary_key_tuple(
@@ -79,6 +133,51 @@ def _load_dataset(card: RescueDatasetCard) -> FrozenRescueDataset:
     )
 
 
+def _require_split_consistency(
+    *,
+    ranking_input: FrozenRescueDataset,
+    evaluation_target: FrozenRescueDataset,
+) -> None:
+    if ranking_input.card.primary_key_fields != evaluation_target.card.primary_key_fields:
+        raise ValueError(
+            "ranking_input and evaluation_target must share primary_key_fields"
+        )
+
+    for dataset in (ranking_input, evaluation_target):
+        if "split_name" not in dataset.columns:
+            raise ValueError(
+                f"{dataset.card.dataset_id} must expose split_name for governed split validation"
+            )
+
+    ranking_splits: dict[tuple[str, ...], str] = {}
+    for row in ranking_input.rows:
+        primary_key = _primary_key_tuple(
+            row,
+            primary_key_fields=ranking_input.card.primary_key_fields,
+            dataset_id=ranking_input.card.dataset_id,
+        )
+        ranking_splits[primary_key] = row["split_name"]
+
+    for row in evaluation_target.rows:
+        primary_key = _primary_key_tuple(
+            row,
+            primary_key_fields=evaluation_target.card.primary_key_fields,
+            dataset_id=evaluation_target.card.dataset_id,
+        )
+        ranking_split = ranking_splits.get(primary_key)
+        if ranking_split is None:
+            raise ValueError(
+                f"{evaluation_target.card.dataset_id} contains an entity not present in "
+                f"{ranking_input.card.dataset_id}: {primary_key}"
+            )
+        evaluation_split = row["split_name"]
+        if evaluation_split != ranking_split:
+            raise ValueError(
+                "split_name drift detected between ranking_input and evaluation_target "
+                f"for {primary_key}: expected {ranking_split}, found {evaluation_split}"
+            )
+
+
 def _resolve_task_card_path(
     *,
     rescue_task_id: str | None,
@@ -88,7 +187,7 @@ def _resolve_task_card_path(
         raise ValueError("provide exactly one of rescue_task_id or task_card_path")
 
     if task_card_path is not None:
-        return task_card_path.resolve()
+        return _resolve_repo_relative_path(str(task_card_path))
 
     from scz_target_engine.rescue.registry import load_rescue_task_registrations
 
@@ -127,8 +226,24 @@ def load_frozen_rescue_task_bundle(
     governance = validate_rescue_governance_bundle(resolved_task_card)
     ranking_card = _select_dataset(governance, dataset_role="ranking_input")
     evaluation_card = _select_dataset(governance, dataset_role="evaluation_target")
-    ranking_input = _load_dataset(ranking_card)
-    evaluation_target = _load_dataset(evaluation_card)
+    ranking_input = _load_dataset(
+        ranking_card,
+        freeze_reference=_freeze_reference_by_dataset_id(
+            governance,
+            dataset_id=ranking_card.dataset_id,
+        ),
+    )
+    evaluation_target = _load_dataset(
+        evaluation_card,
+        freeze_reference=_freeze_reference_by_dataset_id(
+            governance,
+            dataset_id=evaluation_card.dataset_id,
+        ),
+    )
+    _require_split_consistency(
+        ranking_input=ranking_input,
+        evaluation_target=evaluation_target,
+    )
     return FrozenRescueTaskBundle(
         governance=governance,
         ranking_input=ranking_input,

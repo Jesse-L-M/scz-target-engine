@@ -248,6 +248,52 @@ def test_cli_validate_runs() -> None:
             "rescue-compare-baselines",
             ("rescue", "compare", "baselines"),
         ),
+        (
+            [
+                "hidden-eval",
+                "task-package",
+                "--task-id",
+                "glutamatergic_convergence_rescue_task",
+                "--output-dir",
+                "hidden_eval_task",
+            ],
+            "hidden-eval-task-package",
+            ("hidden-eval", "task-package"),
+        ),
+        (
+            [
+                "hidden-eval",
+                "pack-submission",
+                "--task-package-dir",
+                "hidden_eval_task",
+                "--predictions-file",
+                "ranked_predictions.csv",
+                "--output-file",
+                "submission.tar.gz",
+                "--submitter-id",
+                "partner-demo",
+                "--submission-id",
+                "demo-v1",
+                "--scorer-id",
+                "demo-model",
+            ],
+            "hidden-eval-pack-submission",
+            ("hidden-eval", "pack-submission"),
+        ),
+        (
+            [
+                "hidden-eval",
+                "simulate",
+                "--task-package-dir",
+                "hidden_eval_task",
+                "--submission-file",
+                "submission.tar.gz",
+                "--output-dir",
+                "hidden_eval_run",
+            ],
+            "hidden-eval-simulate",
+            ("hidden-eval", "simulate"),
+        ),
     ],
 )
 def test_cli_namespaced_routes_map_to_legacy_commands(
@@ -1068,6 +1114,75 @@ def test_cli_rescue_compare_baselines_parser_accepts_output_dir() -> None:
     assert args.output_dir == "rescue_baselines"
 
 
+def test_cli_hidden_eval_task_package_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "hidden-eval-task-package",
+            "--task-id",
+            "glutamatergic_convergence_rescue_task",
+            "--output-dir",
+            "hidden_eval_task",
+            "--task-card-path",
+            "task_card.json",
+        ]
+    )
+
+    assert args.command == "hidden-eval-task-package"
+    assert args.task_id == "glutamatergic_convergence_rescue_task"
+    assert args.output_dir == "hidden_eval_task"
+    assert args.task_card_path == "task_card.json"
+
+
+def test_cli_hidden_eval_pack_submission_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "hidden-eval-pack-submission",
+            "--task-package-dir",
+            "hidden_eval_task",
+            "--predictions-file",
+            "ranked_predictions.csv",
+            "--output-file",
+            "submission.tar.gz",
+            "--submitter-id",
+            "partner-demo",
+            "--submission-id",
+            "demo-v1",
+            "--scorer-id",
+            "demo-model",
+            "--notes",
+            "fixture submission",
+        ]
+    )
+
+    assert args.command == "hidden-eval-pack-submission"
+    assert args.task_package_dir == "hidden_eval_task"
+    assert args.predictions_file == "ranked_predictions.csv"
+    assert args.output_file == "submission.tar.gz"
+    assert args.submitter_id == "partner-demo"
+    assert args.submission_id == "demo-v1"
+    assert args.scorer_id == "demo-model"
+    assert args.notes == "fixture submission"
+
+
+def test_cli_hidden_eval_simulate_parser_accepts_files() -> None:
+    args = build_parser().parse_args(
+        [
+            "hidden-eval-simulate",
+            "--task-package-dir",
+            "hidden_eval_task",
+            "--submission-file",
+            "submission.tar.gz",
+            "--output-dir",
+            "hidden_eval_run",
+        ]
+    )
+
+    assert args.command == "hidden-eval-simulate"
+    assert args.task_package_dir == "hidden_eval_task"
+    assert args.submission_file == "submission.tar.gz"
+    assert args.output_dir == "hidden_eval_run"
+
+
 def test_cli_backfill_benchmark_public_slices_parser_accepts_optional_paths() -> None:
     args = build_parser().parse_args(
         [
@@ -1229,6 +1344,154 @@ def test_cli_rescue_compare_baselines_runs(
     )
 
     assert exit_code == 0
+    assert calls["output_dir"] == output_dir.resolve()
+
+
+def test_cli_hidden_eval_task_package_runs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "hidden_eval_task"
+    task_card_path = tmp_path / "task_card.json"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_rescue_hidden_eval_task_package(
+        *,
+        task_id: str,
+        output_dir: Path,
+        task_card_path: Path | None,
+    ) -> dict[str, object]:
+        calls["task_id"] = task_id
+        calls["output_dir"] = output_dir
+        calls["task_card_path"] = task_card_path
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_rescue_hidden_eval_task_package",
+        fake_materialize_rescue_hidden_eval_task_package,
+    )
+
+    exit_code = main(
+        [
+            "hidden-eval-task-package",
+            "--task-id",
+            "glutamatergic_convergence_rescue_task",
+            "--output-dir",
+            str(output_dir),
+            "--task-card-path",
+            str(task_card_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["task_id"] == "glutamatergic_convergence_rescue_task"
+    assert calls["output_dir"] == output_dir.resolve()
+    assert calls["task_card_path"] == task_card_path.resolve()
+
+
+def test_cli_hidden_eval_pack_submission_runs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    task_package_dir = tmp_path / "hidden_eval_task"
+    predictions_file = tmp_path / "ranked_predictions.csv"
+    output_file = tmp_path / "submission.tar.gz"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_hidden_eval_submission_archive(
+        *,
+        task_package_dir: Path,
+        predictions_file: Path,
+        output_file: Path,
+        submitter_id: str,
+        submission_id: str,
+        scorer_id: str,
+        notes: str = "",
+    ) -> dict[str, object]:
+        calls["task_package_dir"] = task_package_dir
+        calls["predictions_file"] = predictions_file
+        calls["output_file"] = output_file
+        calls["submitter_id"] = submitter_id
+        calls["submission_id"] = submission_id
+        calls["scorer_id"] = scorer_id
+        calls["notes"] = notes
+        return {"output_file": str(output_file)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_hidden_eval_submission_archive",
+        fake_materialize_hidden_eval_submission_archive,
+    )
+
+    exit_code = main(
+        [
+            "hidden-eval-pack-submission",
+            "--task-package-dir",
+            str(task_package_dir),
+            "--predictions-file",
+            str(predictions_file),
+            "--output-file",
+            str(output_file),
+            "--submitter-id",
+            "partner-demo",
+            "--submission-id",
+            "demo-v1",
+            "--scorer-id",
+            "demo-model",
+            "--notes",
+            "fixture submission",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["task_package_dir"] == task_package_dir.resolve()
+    assert calls["predictions_file"] == predictions_file.resolve()
+    assert calls["output_file"] == output_file.resolve()
+    assert calls["submitter_id"] == "partner-demo"
+    assert calls["submission_id"] == "demo-v1"
+    assert calls["scorer_id"] == "demo-model"
+    assert calls["notes"] == "fixture submission"
+
+
+def test_cli_hidden_eval_simulate_runs(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    task_package_dir = tmp_path / "hidden_eval_task"
+    submission_file = tmp_path / "submission.tar.gz"
+    output_dir = tmp_path / "hidden_eval_run"
+    calls: dict[str, object] = {}
+
+    def fake_materialize_hidden_eval_simulation(
+        *,
+        task_package_dir: Path,
+        submission_file: Path,
+        output_dir: Path,
+    ) -> dict[str, object]:
+        calls["task_package_dir"] = task_package_dir
+        calls["submission_file"] = submission_file
+        calls["output_dir"] = output_dir
+        return {"output_dir": str(output_dir)}
+
+    monkeypatch.setattr(
+        "scz_target_engine.cli.materialize_hidden_eval_simulation",
+        fake_materialize_hidden_eval_simulation,
+    )
+
+    exit_code = main(
+        [
+            "hidden-eval-simulate",
+            "--task-package-dir",
+            str(task_package_dir),
+            "--submission-file",
+            str(submission_file),
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls["task_package_dir"] == task_package_dir.resolve()
+    assert calls["submission_file"] == submission_file.resolve()
     assert calls["output_dir"] == output_dir.resolve()
 
 

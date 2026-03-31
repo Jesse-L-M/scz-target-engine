@@ -26,6 +26,11 @@ from scz_target_engine.benchmark_snapshots import (
 )
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
+from scz_target_engine.hidden_eval import (
+    materialize_hidden_eval_simulation,
+    materialize_hidden_eval_submission_archive,
+    materialize_rescue_hidden_eval_task_package,
+)
 from scz_target_engine.hypothesis_lab import (
     materialize_blinded_expert_review_packets,
     materialize_hypothesis_packets,
@@ -372,6 +377,34 @@ def _configure_rescue_compare_baselines_parser(
     parser.add_argument("--output-dir", required=True)
 
 
+def _configure_hidden_eval_task_package_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--task-id", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--task-card-path")
+
+
+def _configure_hidden_eval_pack_submission_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--task-package-dir", required=True)
+    parser.add_argument("--predictions-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--submitter-id", required=True)
+    parser.add_argument("--submission-id", required=True)
+    parser.add_argument("--scorer-id", required=True)
+    parser.add_argument("--notes")
+
+
+def _configure_hidden_eval_simulate_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--task-package-dir", required=True)
+    parser.add_argument("--submission-file", required=True)
+    parser.add_argument("--output-dir", required=True)
+
+
 COMMAND_ROUTES = (
     CommandRoute("validate", ("engine", "validate"), _configure_validate_parser),
     CommandRoute("build", ("engine", "build"), _configure_build_parser),
@@ -484,6 +517,21 @@ COMMAND_ROUTES = (
         "rescue-compare-baselines",
         ("rescue", "compare", "baselines"),
         _configure_rescue_compare_baselines_parser,
+    ),
+    CommandRoute(
+        "hidden-eval-task-package",
+        ("hidden-eval", "task-package"),
+        _configure_hidden_eval_task_package_parser,
+    ),
+    CommandRoute(
+        "hidden-eval-pack-submission",
+        ("hidden-eval", "pack-submission"),
+        _configure_hidden_eval_pack_submission_parser,
+    ),
+    CommandRoute(
+        "hidden-eval-simulate",
+        ("hidden-eval", "simulate"),
+        _configure_hidden_eval_simulate_parser,
     ),
     CommandRoute(
         "prepare-gene-table",
@@ -772,6 +820,41 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "rescue-compare-baselines":
         result = materialize_rescue_baseline_suite(
+            output_dir=Path(args.output_dir).resolve(),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "hidden-eval-task-package":
+        result = materialize_rescue_hidden_eval_task_package(
+            task_id=args.task_id,
+            output_dir=Path(args.output_dir).resolve(),
+            task_card_path=(
+                Path(args.task_card_path).resolve()
+                if args.task_card_path
+                else None
+            ),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "hidden-eval-pack-submission":
+        result = materialize_hidden_eval_submission_archive(
+            task_package_dir=Path(args.task_package_dir).resolve(),
+            predictions_file=Path(args.predictions_file).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            submitter_id=args.submitter_id,
+            submission_id=args.submission_id,
+            scorer_id=args.scorer_id,
+            notes=args.notes or "",
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "hidden-eval-simulate":
+        result = materialize_hidden_eval_simulation(
+            task_package_dir=Path(args.task_package_dir).resolve(),
+            submission_file=Path(args.submission_file).resolve(),
             output_dir=Path(args.output_dir).resolve(),
         )
         print(json.dumps(result, indent=2, sort_keys=True))

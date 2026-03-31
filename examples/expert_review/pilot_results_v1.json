@@ -1,0 +1,374 @@
+{
+  "comparisons": [
+    {
+      "blind_scores": {
+        "comparison_001_A": {
+          "decision_readiness": 3,
+          "evidence_traceability": 2,
+          "falsifiability": 2,
+          "schema_change_signal": 2
+        },
+        "comparison_001_B": {
+          "decision_readiness": 5,
+          "evidence_traceability": 5,
+          "falsifiability": 5,
+          "schema_change_signal": 4
+        }
+      },
+      "comparison_id": "comparison_001",
+      "generator_revision_requests": [
+        "Emit anchor-role labels from replay-risk reason lists instead of relying on raw supporting_program_ids.",
+        "Keep the top two risks visible before the full open-risk block."
+      ],
+      "loser_reason": "The simpler baseline hid the change-my-mind path and the artifact backpointers, so the reviewer had to infer why the packet was credible or fragile.",
+      "missing_fields": [
+        "decision_focus",
+        "evidence_anchors"
+      ],
+      "preferred_blind_id": "comparison_001_B",
+      "rejected_blind_id": "comparison_001_A",
+      "schema_change_requests": [
+        "Add a top-level decision_focus block with target, policy, domain, and explicit review ask.",
+        "Add first-class evidence_anchors rows with role, event_id, event_type, outcome, and why_it_matters."
+      ],
+      "topic": {
+        "entity_label": "CHRM4",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "traceability_gaps": [
+        "The current packet exposes event ids, but it does not label whether each anchor supports, offsets, or only bounds replay risk."
+      ],
+      "winner_reason": "The preferred packet made the anchor events, falsification path, and source pointers visible in one place."
+    },
+    {
+      "blind_scores": {
+        "comparison_002_A": {
+          "decision_readiness": 5,
+          "evidence_traceability": 5,
+          "falsifiability": 5,
+          "schema_change_signal": 4
+        },
+        "comparison_002_B": {
+          "decision_readiness": 3,
+          "evidence_traceability": 2,
+          "falsifiability": 2,
+          "schema_change_signal": 2
+        }
+      },
+      "comparison_id": "comparison_002",
+      "generator_revision_requests": [
+        "Emit the unresolved replay status directly beside the key anchor events.",
+        "Promote the most important open risks ahead of the longer risk list."
+      ],
+      "loser_reason": "The baseline packet preserved the thesis but hid why replay stayed unresolved and what evidence would actually change the call.",
+      "missing_fields": [
+        "decision_focus",
+        "evidence_anchors"
+      ],
+      "preferred_blind_id": "comparison_002_A",
+      "rejected_blind_id": "comparison_002_B",
+      "schema_change_requests": [
+        "Add a decision_focus block instead of forcing the reviewer to infer the ask from the policy label.",
+        "Add evidence_anchors.role so unresolved evidence is not mixed with supporting evidence."
+      ],
+      "topic": {
+        "entity_label": "CHRM4",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "traceability_gaps": [
+        "The packet still does not distinguish a true supporting anchor from an uncertainty-only anchor in a machine-readable way."
+      ],
+      "winner_reason": "The preferred packet exposed the unresolved replay logic and the next evidence threshold without another lookup."
+    },
+    {
+      "blind_scores": {
+        "comparison_003_A": {
+          "decision_readiness": 5,
+          "evidence_traceability": 4,
+          "falsifiability": 5,
+          "schema_change_signal": 4
+        },
+        "comparison_003_B": {
+          "decision_readiness": 3,
+          "evidence_traceability": 2,
+          "falsifiability": 2,
+          "schema_change_signal": 2
+        }
+      },
+      "comparison_id": "comparison_003",
+      "generator_revision_requests": [
+        "Collapse long pointer strings into a compact traceability_summary while preserving the exact source pointers in the admin key.",
+        "Emit a short risk digest ahead of the detailed contradiction block."
+      ],
+      "loser_reason": "The baseline packet conveyed the familiar DRD2 thesis but not the boundary conditions that would let an expert challenge it.",
+      "missing_fields": [
+        "review_call",
+        "evidence_anchors"
+      ],
+      "preferred_blind_id": "comparison_003_A",
+      "rejected_blind_id": "comparison_003_B",
+      "schema_change_requests": [
+        "Add a review_call or disposition slot so the packet contract can store the reviewer verdict.",
+        "Add evidence_anchors.relation_to_hypothesis so a clozapine anchor can be read as offsetting or bounding rather than generic support."
+      ],
+      "topic": {
+        "entity_label": "DRD2",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "traceability_gaps": [
+        "The packet points back to the source artifact, but it does not summarize why the clozapine anchor matters to the specific review call."
+      ],
+      "winner_reason": "The preferred packet preserved the classic DRD2 signal while making the contradiction and kill conditions explicit."
+    },
+    {
+      "blind_scores": {
+        "comparison_004_A": {
+          "decision_readiness": 3,
+          "evidence_traceability": 2,
+          "falsifiability": 2,
+          "schema_change_signal": 2
+        },
+        "comparison_004_B": {
+          "decision_readiness": 5,
+          "evidence_traceability": 4,
+          "falsifiability": 5,
+          "schema_change_signal": 4
+        }
+      },
+      "comparison_id": "comparison_004",
+      "generator_revision_requests": [
+        "Keep the replay anchor and the replay summary adjacent in the generated packet.",
+        "Emit a compact decision header before the policy prose."
+      ],
+      "loser_reason": "The baseline packet left the reviewer with a summary judgment but not the replay escape logic needed to challenge that judgment.",
+      "missing_fields": [
+        "review_call",
+        "risk_digest"
+      ],
+      "preferred_blind_id": "comparison_004_B",
+      "rejected_blind_id": "comparison_004_A",
+      "schema_change_requests": [
+        "Add a review_call block for the verdict and confidence.",
+        "Add a risk_digest block that elevates the highest-severity risks above the raw risk list."
+      ],
+      "topic": {
+        "entity_label": "DRD2",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "traceability_gaps": [
+        "Replay anchors are present, but the packet still lacks a concise machine-readable statement of how each anchor changes the call."
+      ],
+      "winner_reason": "The preferred packet made the replay escape route and source traceability concrete enough to review."
+    },
+    {
+      "blind_scores": {
+        "comparison_005_A": {
+          "decision_readiness": 2,
+          "evidence_traceability": 1,
+          "falsifiability": 2,
+          "schema_change_signal": 2
+        },
+        "comparison_005_B": {
+          "decision_readiness": 4,
+          "evidence_traceability": 4,
+          "falsifiability": 5,
+          "schema_change_signal": 5
+        }
+      },
+      "comparison_id": "comparison_005",
+      "generator_revision_requests": [
+        "Emit an explicit no-anchor summary near the top of the packet when supporting or replay anchors are absent.",
+        "Surface falsification evidence before the longer policy rationale when history coverage is zero."
+      ],
+      "loser_reason": "The baseline packet looked thin because it did not tell the reviewer whether the thinness reflected low information density or an actual evidence-gap condition.",
+      "missing_fields": [
+        "evidence_anchor_gap_status",
+        "missing_evidence_summary"
+      ],
+      "preferred_blind_id": "comparison_005_B",
+      "rejected_blind_id": "comparison_005_A",
+      "schema_change_requests": [
+        "Add evidence_anchor_gap_status when a packet has no supporting_program_ids or replay_reason_event_ids.",
+        "Add missing_evidence_summary so the reviewer can distinguish no-history packets from weakly summarized packets."
+      ],
+      "topic": {
+        "entity_label": "SLC39A8",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "traceability_gaps": [
+        "Zero-anchor packets currently read as empty instead of explicitly unsupported."
+      ],
+      "winner_reason": "The preferred packet turned the absence of evidence anchors into explicit review information instead of silent emptiness."
+    },
+    {
+      "blind_scores": {
+        "comparison_006_A": {
+          "decision_readiness": 2,
+          "evidence_traceability": 1,
+          "falsifiability": 2,
+          "schema_change_signal": 2
+        },
+        "comparison_006_B": {
+          "decision_readiness": 4,
+          "evidence_traceability": 4,
+          "falsifiability": 5,
+          "schema_change_signal": 5
+        }
+      },
+      "comparison_id": "comparison_006",
+      "generator_revision_requests": [
+        "Carry the history_insufficient state into a visible header field instead of leaving it buried in failure_escape_logic.",
+        "Emit a compact evidence-needed summary for zero-anchor packets."
+      ],
+      "loser_reason": "The baseline packet did not make the no-history state explicit enough to drive a contract change.",
+      "missing_fields": [
+        "evidence_anchor_gap_status",
+        "evidence_needed_next"
+      ],
+      "preferred_blind_id": "comparison_006_B",
+      "rejected_blind_id": "comparison_006_A",
+      "schema_change_requests": [
+        "Add evidence_anchor_gap_status to the packet contract.",
+        "Promote evidence_needed_next as a top-level review field rather than leaving it only inside failure_escape_logic."
+      ],
+      "topic": {
+        "entity_label": "SLC39A8",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "traceability_gaps": [
+        "The packet still relies on the reviewer to infer that history_insufficient means there are no direct anchor events."
+      ],
+      "winner_reason": "The preferred packet made the no-history state and the missing evidence path explicit enough to be reviewable."
+    },
+    {
+      "blind_scores": {
+        "comparison_007_A": {
+          "decision_readiness": 2,
+          "evidence_traceability": 1,
+          "falsifiability": 2,
+          "schema_change_signal": 3
+        },
+        "comparison_007_B": {
+          "decision_readiness": 4,
+          "evidence_traceability": 4,
+          "falsifiability": 5,
+          "schema_change_signal": 5
+        }
+      },
+      "comparison_id": "comparison_007",
+      "generator_revision_requests": [
+        "Emit a direct-program-history-gap field when the repo lacks a schizophrenia event for the target.",
+        "Keep the most important contradiction and falsification text above the policy prose."
+      ],
+      "loser_reason": "The baseline packet obscured that the core issue was a direct program-history gap rather than a weak summary.",
+      "missing_fields": [
+        "program_history_gap_status",
+        "evidence_anchor_gap_status"
+      ],
+      "preferred_blind_id": "comparison_007_B",
+      "rejected_blind_id": "comparison_007_A",
+      "schema_change_requests": [
+        "Add program_history_gap_status when the repo lacks a direct schizophrenia program-history event for the target.",
+        "Add evidence_anchor_gap_status so missing anchors are explicit instead of implied."
+      ],
+      "topic": {
+        "entity_label": "SLC6A1",
+        "policy_label": "Acute translation guardrails",
+        "priority_domain": "acute_positive_symptoms"
+      },
+      "traceability_gaps": [
+        "The packet names the program-history gap in open-risk prose, but it does not elevate that gap to a first-class field."
+      ],
+      "winner_reason": "The preferred packet made the direct history gap and the falsification path explicit enough to challenge."
+    },
+    {
+      "blind_scores": {
+        "comparison_008_A": {
+          "decision_readiness": 4,
+          "evidence_traceability": 4,
+          "falsifiability": 5,
+          "schema_change_signal": 5
+        },
+        "comparison_008_B": {
+          "decision_readiness": 2,
+          "evidence_traceability": 1,
+          "falsifiability": 2,
+          "schema_change_signal": 3
+        }
+      },
+      "comparison_id": "comparison_008",
+      "generator_revision_requests": [
+        "Carry the direct-history-gap signal into the packet header for refractory packets too.",
+        "Emit an evidence-needed summary that distinguishes missing history from replay risk."
+      ],
+      "loser_reason": "The baseline packet did not explain why the packet lacked anchor events or what evidence would change the refractory call.",
+      "missing_fields": [
+        "program_history_gap_status",
+        "evidence_needed_next"
+      ],
+      "preferred_blind_id": "comparison_008_A",
+      "rejected_blind_id": "comparison_008_B",
+      "schema_change_requests": [
+        "Add program_history_gap_status as a first-class field.",
+        "Promote evidence_needed_next to the top-level review packet contract."
+      ],
+      "topic": {
+        "entity_label": "SLC6A1",
+        "policy_label": "Refractory discovery upside",
+        "priority_domain": "treatment_resistant_schizophrenia"
+      },
+      "traceability_gaps": [
+        "The packet still leaves missing direct history buried inside open-risk prose instead of making it a structured gap."
+      ],
+      "winner_reason": "The preferred packet made the absence of direct history reviewable and paired it with explicit change-my-mind evidence."
+    }
+  ],
+  "materials": {
+    "review_key_file": "blinded_expert_review_key_v1.json",
+    "review_packets_file": "blinded_expert_review_packets_v1.json",
+    "review_rubric_file": "../../docs/review_rubrics/blinded_expert_review_rubric.json",
+    "response_template_file": "blinded_expert_review_response_template_v1.json"
+  },
+  "pilot_id": "blinded_expert_review_pilot_2026_03_31",
+  "reviewer": {
+    "completed_at": "2026-03-31",
+    "reviewer_id": "packet-schema-pilot-adjudication",
+    "reviewer_role": "internal_contract_review"
+  },
+  "schema_version": "v1",
+  "summary": {
+    "baseline_packet_count": 0,
+    "comparison_count": 8,
+    "contract_change_themes": [
+      {
+        "evidence_count": 8,
+        "requested_change": "Add a top-level decision_focus or review_call block so the packet states the review ask and stores the reviewer disposition.",
+        "theme_id": "decision_focus"
+      },
+      {
+        "evidence_count": 8,
+        "requested_change": "Add first-class evidence_anchors entries with role, event_id, event_type, outcome, and why_it_matters.",
+        "theme_id": "evidence_anchors"
+      },
+      {
+        "evidence_count": 4,
+        "requested_change": "Add evidence_anchor_gap_status and program_history_gap_status when no direct supporting or replay anchors exist.",
+        "theme_id": "structured_gap_states"
+      },
+      {
+        "evidence_count": 8,
+        "requested_change": "Revise the generator to emit a risk_digest and evidence_needed_next summary ahead of the long-form risk blocks.",
+        "theme_id": "generator_digest_fields"
+      }
+    ],
+    "pr53_status": "unblocked",
+    "preferred_packet_count": 8,
+    "preferred_style_id": "traceable_expert_packet"
+  }
+}

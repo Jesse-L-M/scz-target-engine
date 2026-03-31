@@ -1,0 +1,51 @@
+{
+  "comparison_prompt": "For each target-policy pair, pick the blinded packet that best supports a decision-relevant expert review without breaking traceability.",
+  "dimensions": [
+    {
+      "dimension_id": "decision_readiness",
+      "high_anchor": "Decision path is explicit and reviewable.",
+      "label": "Decision readiness",
+      "low_anchor": "Decision path is too vague or incomplete.",
+      "question": "Could an expert decide advance, hold, or kill from this packet without hunting through upstream artifacts?",
+      "scale_max": 5,
+      "scale_min": 1
+    },
+    {
+      "dimension_id": "evidence_traceability",
+      "high_anchor": "Claims stay attached to specific artifact anchors.",
+      "label": "Evidence traceability",
+      "low_anchor": "Claims require guesswork or extra lookup.",
+      "question": "Can the packet's claims be traced back to shipped packet artifacts or concrete program-history anchors?",
+      "scale_max": 5,
+      "scale_min": 1
+    },
+    {
+      "dimension_id": "falsifiability",
+      "high_anchor": "Kill conditions and missing evidence are explicit.",
+      "label": "Falsifiability",
+      "low_anchor": "No clear kill conditions or reversal path.",
+      "question": "Does the packet make contradiction conditions or change-my-mind evidence explicit enough to challenge the hypothesis?",
+      "scale_max": 5,
+      "scale_min": 1
+    },
+    {
+      "dimension_id": "schema_change_signal",
+      "high_anchor": "Packet clearly exposes contract pressure points.",
+      "label": "Schema-change signal",
+      "low_anchor": "Packet hides what needs to change.",
+      "question": "Does the packet make missing contract fields obvious enough to feed the next schema revision?",
+      "scale_max": 5,
+      "scale_min": 1
+    }
+  ],
+  "required_findings": [
+    "winner_reason",
+    "loser_reason",
+    "missing_fields",
+    "traceability_gaps",
+    "schema_change_requests",
+    "generator_revision_requests"
+  ],
+  "review_goal": "Choose the blinded packet variant you would rather send into an expert packet review, then record the contract changes the comparison exposed.",
+  "rubric_id": "blinded_expert_review_rubric_v1"
+}

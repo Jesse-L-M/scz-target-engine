@@ -94,3 +94,50 @@ PYTHONPATH=src python3 -m scz_target_engine.cli build-hypothesis-packets \
 That path validates the source artifacts before materializing packets.
 It now also validates the generated `hypothesis_packets_v1` payload against the
 repo artifact contract before returning or writing output.
+
+## Blinded Expert Review Pilot
+
+`PR-61` adds a downstream review-materials path that consumes shipped
+`hypothesis_packets_v1.json` artifacts and generates a blinded packet-comparison
+pilot.
+
+The generator intentionally does not mutate the shipped packet artifact.
+It produces:
+
+- `blinded_expert_review_packets_v1.json`:
+  reviewer-facing blinded packet comparisons
+- `blinded_expert_review_key_v1.json`:
+  the internal mapping back to source packet ids, source field paths, and
+  shipped-artifact traceability
+- `blinded_expert_review_response_template_v1.json`:
+  the structured response template aligned to the rubric under
+  `docs/review_rubrics/blinded_expert_review_rubric.*`
+
+The response-template comparison contract is rubric-driven:
+
+- the fixed comparison scaffolding stays `comparison_id`, `topic`,
+  `available_blind_ids`, `preferred_blind_id`, and `blind_scores`
+- every additional comparison-level finding field is emitted from
+  `review_rubric.required_findings`
+- legacy findings keep ergonomic empty defaults (`\"\"` or `[]`)
+- brand-new required findings are emitted as `null` placeholders until the
+  reviewer fills them in
+
+Run it from an already-built hypothesis packet artifact:
+
+```bash
+PYTHONPATH=src python3 -m scz_target_engine.cli build-expert-review-packets \
+  --hypothesis-artifact examples/v0/output/hypothesis_packets_v1.json \
+  --output-dir examples/expert_review
+```
+
+The checked-in pilot preserves two hard boundaries:
+
+- every blinded comparison includes the richer expert packet plus a simpler baseline
+  packet derived from the same shipped source packet
+- the admin key records enough traceability to map every reviewed packet variant
+  back to the shipped packet artifact and the exact source packet fields it used
+
+The completed pilot outputs under `examples/expert_review/` are intended to feed
+the next packet-contract revision rather than to replace the shipped packet
+artifact directly.

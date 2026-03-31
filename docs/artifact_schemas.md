@@ -22,6 +22,8 @@ that future task work can consume without changing current build semantics.
 - `domain_head_rankings_v1`
 - `policy_pareto_fronts_v1`
 - `hypothesis_packets_v1`
+- `prospective_prediction_registration`
+- `prospective_forecast_outcome_log`
 
 The schema files live under `schemas/artifact_schemas/`. Rescue governance schemas
 now live under `schemas/artifact_schemas/rescue/`.
@@ -74,6 +76,8 @@ rescue models:
 - `RescueFreezeManifest`
 - `RescueSplitManifest`
 - `RescueRawToFrozenLineage`
+- `ProspectivePredictionRegistration`
+- `ProspectiveForecastOutcomeLog`
 
 The registry-driven benchmark path keeps those same emitted families. The additive
 contract provenance fields live on the manifest artifacts:
@@ -107,6 +111,17 @@ For current ledger and `v1` artifacts, validation stays additive and non-invasiv
   packet artifacts are valid when no target meets the packet-generation criteria;
   packet materialization now validates the generated artifact before write/return so
   the build path cannot emit self-invalid packet outputs
+- `prospective_prediction_registration` validates immutable forecast registrations
+  anchored to a shipped `hypothesis_packets_v1` artifact, including exact packet-file
+  checksum pinning, packet-pointer dereferencing, full frozen reviewed packet payload
+  equality, and a separately hashed scoreable forecast payload that must preserve the
+  packet decision options, a single highest-probability predicted outcome, explicit
+  outcome-window dates, and rationale text
+- `prospective_forecast_outcome_log` validates append-only realized-outcome logs
+  against previously registered forecasts, including registration-file checksum pinning,
+  observed outcomes constrained to the frozen forecast option set, and evidence-file
+  checksum validation so later reconciliation can mark pending, resolved, or conflicted
+  histories without silently mutating prior records
 - `rescue_task_contract` validates registry-backed rescue task identity, artifact
   interface declarations, and the strict no-leakage rescue boundary
 - `rescue_dataset_card` validates that a governed rescue dataset card resolves back

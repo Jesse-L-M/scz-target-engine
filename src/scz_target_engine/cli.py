@@ -24,6 +24,9 @@ from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
     read_benchmark_snapshot_manifest,
 )
+from scz_target_engine.challenge import (
+    materialize_prospective_prediction_registration,
+)
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs, validate_inputs
 from scz_target_engine.hidden_eval import (
@@ -111,6 +114,28 @@ def _configure_build_expert_review_packets_parser(
     parser.add_argument("--hypothesis-artifact", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--rubric-file")
+
+
+def _configure_register_prospective_prediction_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--hypothesis-artifact", required=True)
+    parser.add_argument("--packet-id", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--registered-at", required=True)
+    parser.add_argument("--registered-by", required=True)
+    parser.add_argument("--predicted-outcome", required=True)
+    parser.add_argument(
+        "--option-probability",
+        action="append",
+        default=[],
+        help="Repeat as OPTION=PROBABILITY for each reviewed packet decision option.",
+    )
+    parser.add_argument("--outcome-window-closes-on", required=True)
+    parser.add_argument("--outcome-window-opens-on")
+    parser.add_argument("--rationale", action="append", default=[])
+    parser.add_argument("--registration-id")
+    parser.add_argument("--notes")
 
 
 def _configure_program_memory_harvest_parser(
@@ -419,6 +444,11 @@ COMMAND_ROUTES = (
         _configure_build_expert_review_packets_parser,
     ),
     CommandRoute(
+        "register-prospective-prediction",
+        ("challenge", "prospective", "register"),
+        _configure_register_prospective_prediction_parser,
+    ),
+    CommandRoute(
         "program-memory-harvest",
         ("program-memory", "harvest"),
         _configure_program_memory_harvest_parser,
@@ -662,6 +692,32 @@ def _load_program_memory_decision_payloads(path: Path) -> tuple[list[dict[str, o
         notes = payload.get("notes")
         return list(decisions), str(notes) if notes is not None else ""
     raise ValueError(f"unsupported program memory decisions payload in {path}")
+
+
+def _parse_option_probability_args(entries: list[str]) -> dict[str, float]:
+    if not entries:
+        raise ValueError(
+            "provide at least one --option-probability OPTION=PROBABILITY entry"
+        )
+    probabilities: dict[str, float] = {}
+    for entry in entries:
+        if "=" not in entry:
+            raise ValueError(
+                f"--option-probability entries must use OPTION=PROBABILITY, found {entry!r}"
+            )
+        option, probability_text = entry.split("=", 1)
+        option = option.strip()
+        probability_text = probability_text.strip()
+        if not option:
+            raise ValueError("option names in --option-probability must be non-empty")
+        try:
+            probability = float(probability_text)
+        except ValueError as exc:
+            raise ValueError(
+                f"--option-probability {entry!r} does not contain a valid number"
+            ) from exc
+        probabilities[option] = probability
+    return probabilities
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -959,6 +1015,39 @@ def main(argv: list[str] | None = None) -> int:
             rubric_file=Path(args.rubric_file).resolve() if args.rubric_file else None,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "register-prospective-prediction":
+        output_file = Path(args.output_file).resolve()
+        payload = materialize_prospective_prediction_registration(
+            Path(args.hypothesis_artifact).resolve(),
+            packet_id=args.packet_id,
+            output_file=output_file,
+            registered_at=args.registered_at,
+            registered_by=args.registered_by,
+            predicted_outcome=args.predicted_outcome,
+            option_probabilities=_parse_option_probability_args(
+                list(args.option_probability or [])
+            ),
+            outcome_window_closes_on=args.outcome_window_closes_on,
+            outcome_window_opens_on=args.outcome_window_opens_on,
+            rationale=list(args.rationale or []),
+            registration_id=args.registration_id,
+            notes=args.notes or "",
+        )
+        print(
+            json.dumps(
+                {
+                    "registration_id": payload["registration_id"],
+                    "packet_id": payload["packet_artifact"]["packet_id"],
+                    "registered_at": payload["registered_at"],
+                    "output_file": str(output_file),
+                    "hypothesis_artifact": str(Path(args.hypothesis_artifact).resolve()),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
 
     if args.command == "fetch-opentargets":

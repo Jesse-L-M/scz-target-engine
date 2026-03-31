@@ -1,0 +1,85 @@
+{
+  "artifact_name": "prospective_prediction_registration",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Immutable prospective forecast registration anchored to a shipped reviewed hypothesis packet, including the full frozen packet payload and the separately hashed scoreable forecast payload.",
+  "key_fields": [
+    "registration_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Prospective prediction registration schema version."
+    },
+    {
+      "name": "registration_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable immutable identifier for the registered forecast."
+    },
+    {
+      "name": "registered_at",
+      "field_type": "string",
+      "required": true,
+      "description": "ISO datetime recording when the forecast was frozen."
+    },
+    {
+      "name": "registered_by",
+      "field_type": "string",
+      "required": true,
+      "description": "Human or process label that registered the forecast."
+    },
+    {
+      "name": "packet_artifact",
+      "field_type": "object",
+      "required": true,
+      "description": "Reference to the exact reviewed hypothesis packet artifact and packet pointer that grounded the forecast."
+    },
+    {
+      "name": "packet_scope",
+      "field_type": "object",
+      "required": true,
+      "description": "Denormalized entity, policy, and domain identifiers copied from the referenced packet."
+    },
+    {
+      "name": "frozen_packet_payload",
+      "field_type": "object",
+      "required": true,
+      "description": "Exact reviewed packet payload copied from the referenced hypothesis packet artifact."
+    },
+    {
+      "name": "frozen_packet_payload_sha256",
+      "field_type": "string",
+      "required": true,
+      "description": "Canonical sha256 hash of the frozen reviewed packet payload."
+    },
+    {
+      "name": "frozen_forecast_payload",
+      "field_type": "object",
+      "required": true,
+      "description": "Explicit scoreable forecast payload with decision options, probabilities, horizon, and rationale."
+    },
+    {
+      "name": "frozen_forecast_payload_sha256",
+      "field_type": "string",
+      "required": true,
+      "description": "Canonical sha256 hash of the frozen scoreable forecast payload."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional notes about the registration context."
+    }
+  ]
+}

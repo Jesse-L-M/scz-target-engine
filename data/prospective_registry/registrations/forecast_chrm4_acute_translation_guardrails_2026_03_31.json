@@ -1,0 +1,533 @@
+{
+  "frozen_forecast_payload": {
+    "forecast_type": "reviewed_packet_disposition",
+    "option_probabilities": {
+      "advance": 0.58,
+      "hold": 0.32,
+      "kill": 0.1
+    },
+    "outcome_options": [
+      "advance",
+      "hold",
+      "kill"
+    ],
+    "outcome_window": {
+      "closes_on": "2027-12-31",
+      "opens_on": "2026-03-31"
+    },
+    "predicted_outcome": "advance",
+    "rationale": [
+      "The packet carries a scoreable available policy signal and explicit nonfailure offsetting evidence.",
+      "Contradiction and replay uncertainty remain live, so the forecast still assigns substantial hold and kill mass."
+    ],
+    "scoring_target": "multiclass_single_label"
+  },
+  "frozen_forecast_payload_sha256": "f18f4c4b805f8eef7b02019343d3ed5fa28b120d99db560314885f07bcb49dad",
+  "frozen_packet_payload": {
+    "contradiction_handling": {
+      "contradiction_conditions": [
+        "Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations."
+      ],
+      "directionality_falsification_conditions": [
+        "A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce."
+      ],
+      "open_risks": [
+        {
+          "risk_kind": "required_layer_group_missing",
+          "severity": "high",
+          "source": "warning_overlay",
+          "text": "Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced."
+        },
+        {
+          "risk_kind": "direction_of_effect",
+          "severity": "medium",
+          "source": "warning_overlay",
+          "text": "Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+        },
+        {
+          "risk_kind": "source_coverage_gap",
+          "severity": "medium",
+          "source": "warning_overlay",
+          "text": "Missing source-backed biological support; matched SCHEMA rare-variant support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support and PsychENCODE biological support."
+        },
+        {
+          "risk_kind": "open_risk",
+          "severity": "medium",
+          "source": "directionality_hypothesis",
+          "text": "Selective CHRM4 may not capture the broader muscarinic signal seen with xanomeline-based combinations."
+        },
+        {
+          "risk_kind": "open_risk",
+          "severity": "medium",
+          "source": "directionality_hypothesis",
+          "text": "Tolerability and engagement windows can still distort target-readout interpretation."
+        }
+      ],
+      "status": "contradicted"
+    },
+    "decision_focus": {
+      "current_readout": "Acute translation guardrails scored 0.244 (available); contradiction status contradicted; replay status replay_not_supported.",
+      "decision_options": [
+        "advance",
+        "hold",
+        "kill"
+      ],
+      "review_question": "Should CHRM4 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?"
+    },
+    "entity_id": "ENSG00000180720",
+    "entity_label": "CHRM4",
+    "entity_type": "gene",
+    "evidence_anchor_gap_status": "evidence_anchors_present",
+    "evidence_anchors": [
+      {
+        "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+        "event_type": "regulatory_approval",
+        "outcome": "approved_for_adults_with_schizophrenia",
+        "role": "supporting_program",
+        "why_it_matters": "Landmark non-dopaminergic approval relevant to later class-baggage reasoning."
+      },
+      {
+        "event_id": "emraclidine-empower-acute-scz-topline-2024",
+        "event_type": "topline_readout",
+        "outcome": "did_not_meet_primary_endpoint",
+        "role": "supporting_program",
+        "why_it_matters": "Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication."
+      },
+      {
+        "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+        "event_type": "regulatory_approval",
+        "outcome": "approved_for_adults_with_schizophrenia",
+        "role": "offsetting_reason",
+        "why_it_matters": "cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample."
+      },
+      {
+        "event_id": "emraclidine-empower-acute-scz-topline-2024",
+        "event_type": "topline_readout",
+        "outcome": "did_not_meet_primary_endpoint",
+        "role": "uncertainty_reason",
+        "why_it_matters": "emraclidine-empower-acute-scz-topline-2024 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope."
+      }
+    ],
+    "evidence_needed_next": [
+      "A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+      "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+    ],
+    "failure_escape_logic": {
+      "escape_routes": [
+        {
+          "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+          "explanation": "cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample.",
+          "failure_scope": "nonfailure",
+          "route_kind": "offsetting_reason"
+        }
+      ],
+      "next_evidence": [
+        "A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+        "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+      ],
+      "status": "escape_evidence_present"
+    },
+    "failure_memory": {
+      "replay_risk": {
+        "falsification_conditions": [
+          "A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+          "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+        ],
+        "offsetting_reason_count": 1,
+        "offsetting_reasons": [
+          {
+            "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+            "explanation": "cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample.",
+            "failure_scope": "nonfailure",
+            "relation": "argues_against_replay"
+          }
+        ],
+        "proposal": {
+          "domain": "acute_positive_symptoms",
+          "entity_id": "ENSG00000180720",
+          "mono_or_adjunct": "monotherapy",
+          "population": "",
+          "target_symbol": "CHRM4"
+        },
+        "status": "replay_not_supported",
+        "summary": "Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
+        "supporting_reason_count": 0,
+        "supporting_reasons": [],
+        "uncertainty_flag_count": 1,
+        "uncertainty_flags": [
+          {
+            "code": "mixed_history",
+            "explanation": "Checked-in history contains both failure and nonfailure analogs."
+          }
+        ],
+        "uncertainty_reason_count": 1,
+        "uncertainty_reasons": [
+          {
+            "event_id": "emraclidine-empower-acute-scz-topline-2024",
+            "explanation": "emraclidine-empower-acute-scz-topline-2024 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope.",
+            "failure_scope": "unresolved",
+            "relation": "raises_uncertainty"
+          }
+        ]
+      },
+      "structural_failure_history": {
+        "event_count_by_scope": {
+          "nonfailure": 1,
+          "unresolved": 1
+        },
+        "events": [
+          {
+            "confidence": "high",
+            "event_date": "2024-09-26",
+            "event_type": "regulatory_approval",
+            "evidence_strength": "strong",
+            "failure_reason_taxonomy": "not_applicable_nonfailure",
+            "failure_scope": "nonfailure",
+            "mechanism": "preferential M1 and M4 muscarinic agonism paired with peripheral antimuscarinic blockade to improve tolerability",
+            "modality": "small_molecule_combination",
+            "molecule": "xanomeline + trospium",
+            "mono_or_adjunct": "monotherapy",
+            "notes": "Landmark non-dopaminergic approval relevant to later class-baggage reasoning.",
+            "phase": "approved",
+            "primary_outcome_result": "approved_for_adults_with_schizophrenia",
+            "program_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+            "source_tier": "regulatory",
+            "source_url": "https://www.fda.gov/news-events/press-announcements/fda-approves-drug-new-mechanism-action-treatment-schizophrenia",
+            "target": "CHRM1 / CHRM4",
+            "target_class": "muscarinic cholinergic modulation",
+            "what_failed": "not_applicable_nonfailure",
+            "where": {
+              "domain": "acute_positive_symptoms",
+              "mono_or_adjunct": "monotherapy",
+              "phase": "approved",
+              "population": "adults with schizophrenia"
+            }
+          },
+          {
+            "confidence": "medium",
+            "event_date": "2024-11-11",
+            "event_type": "topline_readout",
+            "evidence_strength": "moderate",
+            "failure_reason_taxonomy": "unresolved",
+            "failure_scope": "unresolved",
+            "mechanism": "selective M4 muscarinic receptor positive allosteric modulator",
+            "modality": "small_molecule",
+            "molecule": "emraclidine",
+            "mono_or_adjunct": "monotherapy",
+            "notes": "Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication.",
+            "phase": "phase_2",
+            "primary_outcome_result": "did_not_meet_primary_endpoint",
+            "program_id": "emraclidine-empower-acute-scz-topline-2024",
+            "source_tier": "company_press_release",
+            "source_url": "https://www.prnewswire.com/news-releases/abbvie-provides-update-on-phase-2-results-for-emraclidine-in-schizophrenia-302301190.html",
+            "target": "CHRM4",
+            "target_class": "muscarinic cholinergic modulation",
+            "what_failed": "undetermined",
+            "where": {
+              "domain": "acute_positive_symptoms",
+              "mono_or_adjunct": "monotherapy",
+              "phase": "phase_2",
+              "population": "adults with schizophrenia during acute exacerbation of psychotic symptoms"
+            }
+          }
+        ],
+        "failure_event_count": 1,
+        "failure_scopes": [
+          "unresolved"
+        ],
+        "failure_taxonomies": [
+          "unresolved"
+        ],
+        "failure_taxonomy_counts": {
+          "not_applicable_nonfailure": 1,
+          "unresolved": 1
+        },
+        "matched_event_count": 2,
+        "nonfailure_event_count": 1
+      }
+    },
+    "hypothesis": {
+      "ambiguity": "Class-level muscarinic validation exists, but selective CHRM4 execution remains ambiguous after the emraclidine miss.",
+      "confidence": "medium",
+      "desired_perturbation_direction": "increase_activity",
+      "evidence_basis": "xanomeline-based approval supports muscarinic agonism in schizophrenia, while emraclidine keeps selective CHRM4 translation unresolved.",
+      "modality_hypothesis": "muscarinic_agonism_or_positive_allosteric_modulation",
+      "preferred_modalities": [
+        "small_molecule",
+        "positive_allosteric_modulator"
+      ],
+      "statement": "Test increase_activity CHRM4 via muscarinic_agonism_or_positive_allosteric_modulation (small_molecule, positive_allosteric_modulator) in acute_positive_symptoms.",
+      "supporting_program_ids": [
+        "cobenfy-xanomeline-trospium-approval-us-2024",
+        "emraclidine-empower-acute-scz-topline-2024"
+      ]
+    },
+    "packet_id": "ENSG00000180720__acute_translation_guardrails_v1",
+    "policy_id": "acute_translation_guardrails_v1",
+    "policy_label": "Acute translation guardrails",
+    "policy_signal": {
+      "adjustments": [
+        {
+          "adjustment_id": "missing_head_penalty",
+          "delta": -0.03,
+          "evidence": {
+            "missing_head_count": 1
+          },
+          "label": "Missing decision-head penalty"
+        },
+        {
+          "adjustment_id": "partial_head_penalty",
+          "delta": -0.015,
+          "evidence": {
+            "partial_head_count": 1
+          },
+          "label": "Partial decision-head penalty"
+        },
+        {
+          "adjustment_id": "warning_penalty",
+          "delta": -0.06,
+          "evidence": {
+            "warning_count": 3,
+            "warning_severity": "high"
+          },
+          "label": "Warning-count penalty"
+        },
+        {
+          "adjustment_id": "directionality_open_risk_penalty",
+          "delta": -0.02,
+          "evidence": {
+            "directionality_open_risk_count": 2
+          },
+          "label": "Directionality open-risk penalty"
+        },
+        {
+          "adjustment_id": "directionality_contradiction_penalty",
+          "delta": -0.02,
+          "evidence": {
+            "directionality_contradiction_count": 1
+          },
+          "label": "Directionality contradiction penalty"
+        },
+        {
+          "adjustment_id": "directionality_falsification_penalty",
+          "delta": -0.01,
+          "evidence": {
+            "directionality_falsification_count": 1
+          },
+          "label": "Directionality falsification-condition penalty"
+        },
+        {
+          "adjustment_id": "replay_status_adjustment",
+          "delta": 0.04,
+          "evidence": {
+            "replay_status": "replay_not_supported"
+          },
+          "label": "Replay-risk status adjustment"
+        },
+        {
+          "adjustment_id": "replay_offsetting_reason_bonus",
+          "delta": 0.015,
+          "evidence": {
+            "offsetting_reason_count": 1
+          },
+          "label": "Replay offsetting-anchor bonus"
+        },
+        {
+          "adjustment_id": "replay_uncertainty_reason_penalty",
+          "delta": -0.01,
+          "evidence": {
+            "uncertainty_reason_count": 1
+          },
+          "label": "Replay uncertainty-reason penalty"
+        },
+        {
+          "adjustment_id": "replay_uncertainty_flag_penalty",
+          "delta": -0.01,
+          "evidence": {
+            "uncertainty_flag_count": 1
+          },
+          "label": "Replay uncertainty-flag penalty"
+        }
+      ],
+      "base_score": 0.364328,
+      "coverage_weight_fraction": 1.0,
+      "description": "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
+      "domain_contributions": [
+        {
+          "contribution": 0.142416,
+          "domain_coverage_weight_fraction": 0.8,
+          "domain_slug": "acute_positive_symptoms",
+          "label": "Acute positive symptoms",
+          "score": 0.35604,
+          "status": "partial",
+          "weight": 0.4
+        },
+        {
+          "contribution": 0.111381,
+          "domain_coverage_weight_fraction": 0.65,
+          "domain_slug": "relapse_prevention",
+          "label": "Relapse prevention",
+          "score": 0.445526,
+          "status": "partial",
+          "weight": 0.25
+        },
+        {
+          "contribution": 0.038198,
+          "domain_coverage_weight_fraction": 0.8,
+          "domain_slug": "treatment_resistant_schizophrenia",
+          "label": "Treatment-resistant schizophrenia",
+          "score": 0.381977,
+          "status": "partial",
+          "weight": 0.1
+        },
+        {
+          "contribution": 0.013204,
+          "domain_coverage_weight_fraction": 0.55,
+          "domain_slug": "negative_symptoms",
+          "label": "Negative symptoms",
+          "score": 0.264073,
+          "status": "partial",
+          "weight": 0.05
+        },
+        {
+          "contribution": 0.013244,
+          "domain_coverage_weight_fraction": 0.55,
+          "domain_slug": "cognition",
+          "label": "Cognition",
+          "score": 0.26488,
+          "status": "partial",
+          "weight": 0.05
+        },
+        {
+          "contribution": 0.012002,
+          "domain_coverage_weight_fraction": 0.65,
+          "domain_slug": "chr_transition_prevention",
+          "label": "CHR / transition prevention",
+          "score": 0.24004,
+          "status": "partial",
+          "weight": 0.05
+        },
+        {
+          "contribution": 0.033883,
+          "domain_coverage_weight_fraction": 0.65,
+          "domain_slug": "functioning_durable_recovery_relevance",
+          "label": "Functioning / durable recovery relevance",
+          "score": 0.338831,
+          "status": "partial",
+          "weight": 0.1
+        }
+      ],
+      "label": "Acute translation guardrails",
+      "policy_id": "acute_translation_guardrails_v1",
+      "primary_domain_slug": "acute_positive_symptoms",
+      "score": 0.244328,
+      "score_before_clamp": 0.244328,
+      "status": "available",
+      "uncertainty_adjustment_total": -0.12,
+      "uncertainty_context": {
+        "directionality_contradiction_count": 1,
+        "directionality_falsification_count": 1,
+        "directionality_open_risk_count": 2,
+        "missing_head_count": 1,
+        "not_applicable_head_count": 0,
+        "partial_head_count": 1,
+        "replay_risk": {
+          "falsification_conditions": [
+            "A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+            "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
+          ],
+          "offsetting_reason_count": 1,
+          "offsetting_reasons": [
+            {
+              "event_id": "cobenfy-xanomeline-trospium-approval-us-2024",
+              "explanation": "cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample.",
+              "failure_scope": "nonfailure",
+              "relation": "argues_against_replay"
+            }
+          ],
+          "proposal": {
+            "domain": "acute_positive_symptoms",
+            "entity_id": "ENSG00000180720",
+            "mono_or_adjunct": "monotherapy",
+            "population": "",
+            "target_symbol": "CHRM4"
+          },
+          "status": "replay_not_supported",
+          "summary": "Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
+          "supporting_reason_count": 0,
+          "supporting_reasons": [],
+          "uncertainty_flag_count": 1,
+          "uncertainty_flags": [
+            {
+              "code": "mixed_history",
+              "explanation": "Checked-in history contains both failure and nonfailure analogs."
+            }
+          ],
+          "uncertainty_reason_count": 1,
+          "uncertainty_reasons": [
+            {
+              "event_id": "emraclidine-empower-acute-scz-topline-2024",
+              "explanation": "emraclidine-empower-acute-scz-topline-2024 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope.",
+              "failure_scope": "unresolved",
+              "relation": "raises_uncertainty"
+            }
+          ]
+        },
+        "warning_count": 3,
+        "warning_severity": "high"
+      }
+    },
+    "priority_domain": "acute_positive_symptoms",
+    "program_history_gap_status": "program_history_present",
+    "risk_digest": [
+      "Replay: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
+      "Main contradiction: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+      "Risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+      "Risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+    ],
+    "traceability": {
+      "directionality_supporting_program_ids": [
+        "cobenfy-xanomeline-trospium-approval-us-2024",
+        "emraclidine-empower-acute-scz-topline-2024"
+      ],
+      "ledger_target_pointer": "/targets/25",
+      "policy_entity_pointer": "/entities/gene/25",
+      "policy_score_pointer": "/entities/gene/25/policy_scores/0",
+      "replay_reason_event_ids": [
+        "cobenfy-xanomeline-trospium-approval-us-2024",
+        "emraclidine-empower-acute-scz-topline-2024"
+      ],
+      "source_artifacts": {
+        "gene_target_ledgers": "gene_target_ledgers.json",
+        "policy_decision_vectors_v2": "policy_decision_vectors_v2.json"
+      },
+      "structural_failure_program_ids": [
+        "cobenfy-xanomeline-trospium-approval-us-2024",
+        "emraclidine-empower-acute-scz-topline-2024"
+      ]
+    }
+  },
+  "frozen_packet_payload_sha256": "9840d5ab4c748e995589785518a93a717378e225d9aeae8d282c87848790fc9c",
+  "notes": "Checked-in example prospective forecast registered from the shipped hypothesis packet artifact.",
+  "packet_artifact": {
+    "artifact_path": "../../../examples/v0/output/hypothesis_packets_v1.json",
+    "artifact_sha256": "ee33f6cbf7325744cecd955a421eedba22882c17c8cbc1b7bf3465b009641907",
+    "packet_id": "ENSG00000180720__acute_translation_guardrails_v1",
+    "packet_pointer": "/packets/0",
+    "schema_name": "hypothesis_packets_v1",
+    "schema_version": "v1"
+  },
+  "packet_scope": {
+    "entity_id": "ENSG00000180720",
+    "entity_label": "CHRM4",
+    "entity_type": "gene",
+    "policy_id": "acute_translation_guardrails_v1",
+    "policy_label": "Acute translation guardrails",
+    "priority_domain": "acute_positive_symptoms"
+  },
+  "registered_at": "2026-03-31T00:00:00Z",
+  "registered_by": "repo_checked_in_example",
+  "registration_id": "forecast_chrm4_acute_translation_guardrails_2026_03_31",
+  "schema_name": "prospective_prediction_registration",
+  "schema_version": "v1"
+}

@@ -31,14 +31,13 @@ class ObservatoryIndex:
 
 
 def build_observatory_index(
-    data_dir: Path | None = None,
+    generated_dir: Path | None = None,
     task_registry_path: Path | None = None,
 ) -> ObservatoryIndex:
     suites = list_benchmark_suites(task_registry_path=task_registry_path)
     tasks = list_benchmark_tasks(task_registry_path=task_registry_path)
     slices = list_public_slices()
-    gen_dir = (data_dir / "benchmark" / "generated") if data_dir else None
-    gen_index = discover_generated_payloads(generated_dir=gen_dir)
+    gen_index = discover_generated_payloads(generated_dir=generated_dir)
     return ObservatoryIndex(
         suites=suites,
         tasks=tasks,

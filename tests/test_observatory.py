@@ -328,3 +328,73 @@ def test_observatory_leaderboard_slices_cli_empty(tmp_path: Path) -> None:
         "--generated-dir", str(tmp_path),
     ])
     assert result == 0
+
+
+def test_observatory_browse_cli_with_generated_dir(tmp_path: Path) -> None:
+    from scz_target_engine.cli import main
+
+    result = main([
+        "observatory", "browse",
+        "--generated-dir", str(tmp_path),
+    ])
+    assert result == 0
+
+
+# --- regression: no mixed-root data ---
+
+
+def test_custom_generated_dir_does_not_mix_with_repo_defaults(
+    tmp_path: Path,
+) -> None:
+    """A custom generated-dir must only affect generated artifact counts.
+
+    The previous --data-dir flag was half-wired: generated counts came from the
+    custom root but suites/tasks/public-slices still came from repo defaults.
+    After the fix, build_observatory_index accepts only --generated-dir, which
+    truthfully overrides only the generated artifact tree.
+    """
+    fake_report_card_dir = (
+        tmp_path / "report_cards" / "suite" / "task" / "snap"
+    )
+    fake_report_card_dir.mkdir(parents=True)
+    (fake_report_card_dir / "fake.json").write_text("{}")
+
+    index = build_observatory_index(generated_dir=tmp_path)
+
+    # Generated counts come from the custom dir.
+    assert index.generated_report_card_count == 1
+    assert index.generated_leaderboard_count == 0
+    assert index.generated_snapshot_count == 0
+
+    # Structural metadata always comes from the repo.
+    assert len(index.suites) >= 1
+    assert index.suites[0].suite_id == "scz_translational_suite"
+    assert len(index.tasks) >= 1
+    assert index.tasks[0].task_id == "scz_translational_task"
+    assert len(index.public_slices) == 3
+
+
+def test_build_observatory_index_no_data_dir_parameter() -> None:
+    """build_observatory_index must not accept a data_dir parameter.
+
+    Ensures the old half-wired --data-dir override cannot be reintroduced.
+    """
+    import inspect
+
+    sig = inspect.signature(build_observatory_index)
+    assert "data_dir" not in sig.parameters, (
+        "build_observatory_index must not accept data_dir; "
+        "use generated_dir instead"
+    )
+    assert "generated_dir" in sig.parameters
+
+
+def test_empty_generated_dir_shows_zero_counts(tmp_path: Path) -> None:
+    """An empty custom generated-dir yields zero counts, not repo defaults."""
+    index = build_observatory_index(generated_dir=tmp_path)
+    assert index.generated_report_card_count == 0
+    assert index.generated_leaderboard_count == 0
+    assert index.generated_snapshot_count == 0
+    # Structural metadata still present from repo.
+    assert len(index.suites) >= 1
+    assert len(index.public_slices) == 3

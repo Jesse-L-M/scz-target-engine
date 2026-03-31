@@ -1,8 +1,13 @@
-"""Run the observatory shell against the current repo data directory.
+"""Run the observatory shell against the current repo.
+
+Benchmark suites, tasks, and public slices are always read from the repo's
+checked-in contract metadata. Generated benchmark artifacts (report cards,
+leaderboards, snapshot manifests) default to data/benchmark/generated/ but
+can be pointed elsewhere with --generated-dir.
 
 Usage:
     uv run python apps/observatory/main.py
-    uv run python apps/observatory/main.py --data-dir data
+    uv run python apps/observatory/main.py --generated-dir .context/demo/public_payloads
 """
 
 from __future__ import annotations
@@ -25,16 +30,23 @@ from scz_target_engine.observatory.shell import (
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="observatory",
-        description="Observatory shell: browse benchmark suites, tasks, and artifacts.",
+        description=(
+            "Observatory shell: browse benchmark suites, tasks, and artifacts. "
+            "Suites, tasks, and public slices always come from the repo's "
+            "checked-in contract metadata. Use --generated-dir to point at a "
+            "custom directory for generated benchmark artifacts."
+        ),
     )
     parser.add_argument(
-        "--data-dir",
-        help="Override the data directory (default: repo data/)",
+        "--generated-dir",
+        help="Override the generated benchmark output directory.",
     )
     args = parser.parse_args(argv)
 
-    data_dir = Path(args.data_dir).resolve() if args.data_dir else None
-    index = build_observatory_index(data_dir=data_dir)
+    generated_dir = (
+        Path(args.generated_dir).resolve() if args.generated_dir else None
+    )
+    index = build_observatory_index(generated_dir=generated_dir)
     print(format_observatory_index(index))
     return 0
 

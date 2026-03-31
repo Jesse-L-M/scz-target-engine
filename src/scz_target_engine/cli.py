@@ -444,7 +444,7 @@ def _configure_hidden_eval_simulate_parser(
 def _configure_observatory_browse_parser(
     parser: argparse.ArgumentParser,
 ) -> None:
-    parser.add_argument("--data-dir")
+    parser.add_argument("--generated-dir")
 
 
 def _configure_observatory_leaderboard_parser(
@@ -1045,8 +1045,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "observatory-browse":
-        data_dir = Path(args.data_dir).resolve() if args.data_dir else None
-        index = build_observatory_index(data_dir=data_dir)
+        gen_dir = (
+            Path(args.generated_dir).resolve() if args.generated_dir else None
+        )
+        index = build_observatory_index(generated_dir=gen_dir)
         print(format_observatory_index(index))
         return 0
 

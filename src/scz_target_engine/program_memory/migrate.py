@@ -5,6 +5,8 @@ from pathlib import Path
 from scz_target_engine.io import read_csv_rows
 from scz_target_engine.program_memory._helpers import (
     clean_text,
+    default_asset_lineage_id,
+    default_target_class_lineage_id,
     parse_string_list,
     slugify,
     split_target_symbols,
@@ -63,6 +65,10 @@ def migrate_legacy_program_memory(
                     target_class=target_class,
                     mechanism=mechanism,
                     modality=modality,
+                    asset_lineage_id=default_asset_lineage_id(asset_id, molecule),
+                    target_class_lineage_id=default_target_class_lineage_id(
+                        target_class
+                    ),
                 )
             )
 

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from shutil import copytree
 
 import pytest
 
@@ -18,8 +19,13 @@ from scz_target_engine.agents.program_memory_agent import (
     write_curation_draft,
 )
 from scz_target_engine.program_memory import (
+    PROGRAM_MEMORY_ACCEPT_DECISION,
+    apply_program_memory_adjudication,
+    build_program_memory_adjudication_record,
     build_program_memory_harvest_batch,
     load_program_memory_dataset,
+    migrate_legacy_program_memory_files,
+    write_program_memory_adjudication_outputs,
 )
 from tests.program_memory_fixtures import (
     make_directionality_suggestion,
@@ -188,6 +194,146 @@ class TestBuildCurationDraftFromCheckedInData:
 
         assert draft.dataset_dir == "<loaded_dataset>"
         assert len(draft.items) > 0
+
+    def test_proposed_v2_without_program_universe_still_builds_draft(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        harvest = build_program_memory_harvest_batch(
+            harvest_id="harvest-proposed-v2",
+            harvester="llm-assist",
+            created_at="2026-03-30",
+            source_document_payloads=[make_source_document()],
+            suggestion_payloads=[make_event_suggestion()],
+        )
+        adjudication = build_program_memory_adjudication_record(
+            adjudication_id="review-proposed-v2",
+            harvest_id=harvest.harvest_id,
+            reviewer="curator@example.com",
+            reviewed_at="2026-03-30",
+            decision_payloads=[
+                {
+                    "suggestion_id": "emraclidine-event-suggestion",
+                    "decision": PROGRAM_MEMORY_ACCEPT_DECISION,
+                    "rationale": "Accept the event into the proposed v2 slice.",
+                }
+            ],
+        )
+        outcome = apply_program_memory_adjudication(harvest, adjudication)
+        write_program_memory_adjudication_outputs(tmp_path, adjudication, outcome)
+
+        draft = build_curation_draft(tmp_path / "proposed_v2")
+
+        assert draft.dataset_dir.endswith("proposed_v2")
+        assert draft.audit_summary["event_count"] == 1
+
+    def test_checked_in_like_dataset_without_program_universe_fails(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        dataset_dir = tmp_path / "v2"
+        copytree(CHECKED_IN_V2_DIR, dataset_dir)
+        (dataset_dir / "program_universe.csv").unlink()
+
+        with pytest.raises(
+            ValueError,
+            match="program_universe.csv is required for denominator coverage-audit",
+        ):
+            build_curation_draft(dataset_dir)
+
+    def test_loaded_checked_in_like_dataset_without_program_universe_also_fails(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        dataset_dir = tmp_path / "v2"
+        copytree(CHECKED_IN_V2_DIR, dataset_dir)
+        (dataset_dir / "program_universe.csv").unlink()
+
+        with pytest.raises(
+            ValueError,
+            match="program_universe.csv is required for denominator coverage-audit",
+        ):
+            load_program_memory_dataset(dataset_dir)
+
+    def test_renamed_proposal_dataset_keeps_optional_denominator_contract(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        harvest = build_program_memory_harvest_batch(
+            harvest_id="harvest-renamed-proposal",
+            harvester="llm-assist",
+            created_at="2026-03-30",
+            source_document_payloads=[make_source_document()],
+            suggestion_payloads=[make_event_suggestion()],
+        )
+        adjudication = build_program_memory_adjudication_record(
+            adjudication_id="review-renamed-proposal",
+            harvest_id=harvest.harvest_id,
+            reviewer="curator@example.com",
+            reviewed_at="2026-03-30",
+            decision_payloads=[
+                {
+                    "suggestion_id": "emraclidine-event-suggestion",
+                    "decision": PROGRAM_MEMORY_ACCEPT_DECISION,
+                    "rationale": "Accept the event into the proposal slice.",
+                }
+            ],
+        )
+        outcome = apply_program_memory_adjudication(harvest, adjudication)
+        write_program_memory_adjudication_outputs(tmp_path, adjudication, outcome)
+
+        renamed_dir = tmp_path / "review_copy"
+        (tmp_path / "proposed_v2").rename(renamed_dir)
+
+        draft_from_path = build_curation_draft(renamed_dir)
+        draft_from_dataset = build_curation_draft(load_program_memory_dataset(renamed_dir))
+
+        assert draft_from_path.audit_summary["event_count"] == 1
+        assert draft_from_dataset.audit_summary["event_count"] == 1
+
+    def test_migrated_legacy_dataset_still_builds_draft(self) -> None:
+        dataset = migrate_legacy_program_memory_files(
+            Path("data/curated/program_history/programs.csv"),
+            Path("data/curated/program_history/directionality_hypotheses.csv"),
+        )
+
+        draft = build_curation_draft(dataset)
+
+        assert dataset.requires_program_universe is False
+        assert draft.audit_summary["event_count"] > 0
+
+    def test_legacy_scope_only_v2_without_contract_still_builds_draft(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        dataset_dir = tmp_path / "proposed_v2"
+        dataset_dir.mkdir()
+        for name, header in {
+            "assets.csv": (
+                "asset_id,molecule,target,target_symbols_json,target_class,"
+                "mechanism,modality\n"
+            ),
+            "events.csv": (
+                "event_id,asset_id,sponsor,population,domain,mono_or_adjunct,phase,"
+                "event_type,event_date,primary_outcome_result,failure_reason_taxonomy,"
+                "confidence,notes,sort_order\n"
+            ),
+            "event_provenance.csv": "event_id,source_tier,source_url\n",
+            "directionality_hypotheses.csv": (
+                "hypothesis_id,entity_id,entity_label,desired_perturbation_direction,"
+                "modality_hypothesis,preferred_modalities_json,confidence,ambiguity,"
+                "evidence_basis,supporting_event_ids_json,"
+                "contradiction_conditions_json,falsification_conditions_json,"
+                "open_risks_json,sort_order\n"
+            ),
+        }.items():
+            (dataset_dir / name).write_text(header, encoding="utf-8")
+
+        dataset = load_program_memory_dataset(dataset_dir)
+        draft = build_curation_draft(dataset_dir)
+
+        assert dataset.requires_program_universe is False
+        assert draft.audit_summary["event_count"] == 0
 
 
 class TestBuildCurationDraftWithHarvest:

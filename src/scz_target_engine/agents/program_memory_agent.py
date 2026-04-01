@@ -192,7 +192,10 @@ def build_curation_draft(
         request = CurationDraftRequest()
     dataset = _coerce_dataset(dataset_or_path)
     dataset_dir = _resolve_dataset_dir(dataset_or_path)
-    audit = build_program_memory_coverage_audit(dataset)
+    audit = build_program_memory_coverage_audit(
+        dataset,
+        require_program_universe=dataset.requires_program_universe,
+    )
 
     items: list[CurationDraftItem] = []
     item_counter = 0
@@ -262,7 +265,6 @@ def _resolve_dataset_dir(
     if resolved is not None:
         return str(resolved)
     return str(dataset_or_path)
-
 
 def _filter_gaps(
     audit: ProgramMemoryCoverageAudit,

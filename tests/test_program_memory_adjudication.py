@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -8,11 +9,14 @@ from scz_target_engine.program_memory import (
     PROGRAM_MEMORY_ACCEPT_DECISION,
     PROGRAM_MEMORY_EDIT_DECISION,
     PROGRAM_MEMORY_REJECT_DECISION,
+    ProgramMemoryDataset,
     apply_program_memory_adjudication,
     build_program_memory_adjudication_record,
+    build_program_memory_coverage_audit,
     build_program_memory_harvest_batch,
     load_program_memory_dataset,
     materialize_adjudicated_program_memory_dataset,
+    write_adjudicated_program_memory_dataset,
     write_program_memory_adjudication_outputs,
 )
 from tests.program_memory_fixtures import (
@@ -54,6 +58,144 @@ def test_machine_suggestions_do_not_bypass_adjudication() -> None:
     assert dataset.events == ()
     assert dataset.provenances == ()
     assert dataset.directionality_hypotheses == ()
+
+
+def test_program_memory_adjudication_canonicalizes_alias_identity() -> None:
+    adjudication = build_program_memory_adjudication_record(
+        adjudication_id="review-karxt-alias",
+        harvest_id="harvest-karxt",
+        reviewer="curator@example.com",
+        reviewed_at="2026-03-30",
+        decision_payloads=[
+            {
+                "suggestion_id": "karxt-event-edit",
+                "decision": PROGRAM_MEMORY_EDIT_DECISION,
+                "rationale": "Normalize the alias to the checked-in canonical asset identity.",
+                "asset": {
+                    "asset_id": "karxt",
+                    "molecule": "KarXT",
+                    "target": "CHRM1 / CHRM4",
+                    "target_symbols": ["CHRM1", "CHRM4"],
+                    "target_class": "muscarinic receptor modulation",
+                    "mechanism": (
+                        "preferential M1 and M4 muscarinic agonism paired with "
+                        "peripheral antimuscarinic blockade to improve tolerability"
+                    ),
+                    "modality": "small_molecule_combination",
+                },
+                "event": {
+                    "event_id": "karxt-acute-scz-topline-2026-candidate",
+                    "asset_id": "karxt",
+                    "sponsor": "Bristol Myers Squibb",
+                    "population": "adults with schizophrenia",
+                    "domain": "acute_positive_symptoms",
+                    "mono_or_adjunct": "monotherapy",
+                    "phase": "phase_3",
+                    "event_type": "topline_readout",
+                    "event_date": "2026-03-30",
+                    "primary_outcome_result": "did_not_meet_primary_endpoint",
+                    "failure_reason_taxonomy": "unresolved",
+                    "confidence": "medium",
+                    "notes": "Alias-coded draft row.",
+                    "sort_order": 1,
+                },
+                "provenance": {
+                    "event_id": "karxt-acute-scz-topline-2026-candidate",
+                    "source_tier": "company_press_release",
+                    "source_url": "https://example.com/karxt",
+                },
+            }
+        ],
+    )
+
+    decision = adjudication.decisions[0]
+    assert decision.asset is not None
+    assert decision.event is not None
+    assert decision.asset.asset_id == "xanomeline-trospium"
+    assert decision.asset.asset_lineage_id == "asset:xanomeline-trospium"
+    assert decision.asset.target_class == "muscarinic cholinergic modulation"
+    assert decision.event.asset_id == "xanomeline-trospium"
+
+
+def test_write_adjudicated_program_memory_dataset_preserves_program_universe(
+    tmp_path,
+) -> None:
+    dataset = load_program_memory_dataset(Path("data/curated/program_history/v2"))
+
+    output_dir = tmp_path / "v2-copy"
+    write_adjudicated_program_memory_dataset(output_dir, dataset)
+
+    assert (output_dir / "program_universe.csv").exists()
+
+    reloaded = load_program_memory_dataset(output_dir)
+    assert reloaded.program_universe_rows == dataset.program_universe_rows
+
+    audit = build_program_memory_coverage_audit(output_dir)
+    assert audit.coverage_manifest["program_universe_row_count"] == len(
+        dataset.program_universe_rows
+    )
+
+
+def test_write_adjudicated_program_memory_dataset_removes_stale_program_universe(
+    tmp_path,
+) -> None:
+    source_dataset = load_program_memory_dataset(Path("data/curated/program_history/v2"))
+    output_dir = tmp_path / "v2-copy"
+    write_adjudicated_program_memory_dataset(output_dir, source_dataset)
+    assert (output_dir / "program_universe.csv").exists()
+
+    write_adjudicated_program_memory_dataset(
+        output_dir,
+        ProgramMemoryDataset(
+            assets=(),
+            events=(),
+            provenances=(),
+            directionality_hypotheses=(),
+        ),
+    )
+
+    assert not (output_dir / "program_universe.csv").exists()
+
+
+def test_write_adjudicated_program_memory_dataset_preserves_optional_contract(
+    tmp_path,
+) -> None:
+    dataset = ProgramMemoryDataset(
+        assets=(),
+        events=(),
+        provenances=(),
+        directionality_hypotheses=(),
+        requires_program_universe=False,
+    )
+
+    output_dir = tmp_path / "proposal"
+    write_adjudicated_program_memory_dataset(output_dir, dataset)
+
+    reloaded = load_program_memory_dataset(output_dir)
+    assert reloaded.requires_program_universe is False
+
+
+def test_write_adjudicated_program_memory_dataset_rejects_missing_required_denominator(
+    tmp_path,
+) -> None:
+    output_dir = tmp_path / "checked-in-like"
+
+    with pytest.raises(
+        ValueError,
+        match="program_universe.csv is required for denominator coverage-audit",
+    ):
+        write_adjudicated_program_memory_dataset(
+            output_dir,
+            ProgramMemoryDataset(
+                assets=(),
+                events=(),
+                provenances=(),
+                directionality_hypotheses=(),
+                requires_program_universe=True,
+            ),
+        )
+
+    assert not output_dir.exists()
 
 
 def test_program_memory_adjudication_requires_explicit_accept_edit_or_reject(

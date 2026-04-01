@@ -50,3 +50,13 @@ def parse_int(value: str | None, *, default: int) -> int:
 
 def slugify(value: str) -> str:
     return SLUG_PATTERN.sub("-", clean_text(value).lower()).strip("-")
+
+
+def default_asset_lineage_id(asset_id: str, molecule: str = "") -> str:
+    seed = clean_text(asset_id) or clean_text(molecule)
+    return f"asset:{slugify(seed)}" if seed else ""
+
+
+def default_target_class_lineage_id(target_class: str) -> str:
+    cleaned = clean_text(target_class)
+    return f"target-class:{slugify(cleaned)}" if cleaned else ""

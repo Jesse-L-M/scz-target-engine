@@ -1,4 +1,5 @@
 import csv
+import json
 from pathlib import Path
 
 from scz_target_engine.program_memory import (
@@ -92,6 +93,15 @@ def make_v2_dataset(
         dataset_dir / "directionality_hypotheses.csv",
         HYPOTHESIS_FIELDNAMES,
         hypotheses or [],
+    )
+    (dataset_dir / "program_memory_dataset_contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "program-memory-dataset-contract-v1",
+                "requires_program_universe": False,
+            }
+        ),
+        encoding="utf-8",
     )
     return dataset_dir
 

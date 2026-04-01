@@ -11,6 +11,24 @@ shared `v0` numeric outputs stable, adds inspectable `v1` heads without changing
 `v0` scores, and emits benchmark artifacts that can be rerun end to end from checked-in
 fixtures.
 
+## Current Strategy
+
+The shipped code on `main` is still the target-engine / benchmark substrate described
+below. The current strategy is broader than the shipped surface:
+
+- the control plane remains program memory, replay, failure analogs, policy views, and
+  falsification-ready packets
+- the flagship scientific product is now planned as `SCZ-Rescue-1`, a public
+  schizophrenia rescue benchmark in one defined cellular context
+- the atlas is being treated as a variant-to-context feature store for replay and
+  rescue, not as a decorative UI layer
+
+Read [docs/roadmap.md](docs/roadmap.md) first for the short strategy view, then
+[docs/designs/deep-scz-validate-calibrate.md](docs/designs/deep-scz-validate-calibrate.md)
+for the detailed working roadmap. Read [docs/designs/README.md](docs/designs/README.md)
+for the build-spec planning contract and [docs/claim.md](docs/claim.md) for what is
+actually shipped today.
+
 ## What Ships On Main
 
 - A `v0` reference build for schizophrenia gene and module ranking, with sensitivity analysis, markdown/CSV reports, and warning overlays that remain reporting-only
@@ -52,7 +70,8 @@ foundation still does not implement consortium-dump parsing.
 - Calibration work, decision-threshold setting, and broader operating-point evaluation remain future work.
 - Raw-source ingestion from consortium dumps is still future work.
 
-See [docs/claim.md](docs/claim.md) for the current claim boundary,
+See [docs/roadmap.md](docs/roadmap.md) for the current strategy and milestone order,
+[docs/claim.md](docs/claim.md) for the current claim boundary,
 [docs/ontology.md](docs/ontology.md) for the domain/stage vocabulary emitted by `v1`,
 and [docs/program_history.md](docs/program_history.md) for the curated program-history
 substrate. See [docs/ledger_contract.md](docs/ledger_contract.md) for the target-ledger

@@ -1,5 +1,11 @@
 # Claim Boundaries
 
+This file is the shipped-behavior boundary.
+
+Do not read roadmap goals here as shipped facts. For the current strategy and
+sequencing, read `docs/roadmap.md`. For the detailed working plan, read
+`docs/designs/deep-scz-validate-calibrate.md`.
+
 ## What This Repo Currently Is
 
 - `v0` is a public-evidence prioritization scaffold for schizophrenia-oriented targets and biological modules.

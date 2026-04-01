@@ -1,0 +1,811 @@
+{
+  "entity_types": {
+    "gene": [
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 0,
+        "dominates_count": 24,
+        "entity_id": "ENSG00000183454",
+        "entity_label": "GRIN2A",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 1,
+        "heuristic_score_v0": 0.474147,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 1,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.45385,
+          "refractory_discovery_upside_v1": 0.459211
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 0,
+        "dominates_count": 18,
+        "entity_id": "ENSG00000149295",
+        "entity_label": "DRD2",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 5,
+        "heuristic_score_v0": 0.360249,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 1,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.302454,
+          "refractory_discovery_upside_v1": 0.464572
+        },
+        "warning_count": 1,
+        "warning_severity": "high"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 1,
+        "dominates_count": 23,
+        "entity_id": "ENSG00000099381",
+        "entity_label": "SETD1A",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 2,
+        "heuristic_score_v0": 0.423842,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 2,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.419483,
+          "refractory_discovery_upside_v1": 0.448219
+        },
+        "warning_count": 2,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 2,
+        "dominates_count": 22,
+        "entity_id": "ENSG00000117020",
+        "entity_label": "AKT3",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 4,
+        "heuristic_score_v0": 0.366324,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 3,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.368601,
+          "refractory_discovery_upside_v1": 0.388592
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 3,
+        "dominates_count": 20,
+        "entity_id": "ENSG00000140564",
+        "entity_label": "FURIN",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 6,
+        "heuristic_score_v0": 0.354425,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 4,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.349641,
+          "refractory_discovery_upside_v1": 0.385183
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 3,
+        "dominates_count": 20,
+        "entity_id": "ENSG00000198822",
+        "entity_label": "GRM3",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 8,
+        "heuristic_score_v0": 0.326635,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 4,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.354437,
+          "refractory_discovery_upside_v1": 0.377831
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 5,
+        "dominates_count": 19,
+        "entity_id": "ENSG00000065609",
+        "entity_label": "SNAP91",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 12,
+        "heuristic_score_v0": 0.279302,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 5,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.314613,
+          "refractory_discovery_upside_v1": 0.363067
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 6,
+        "dominates_count": 18,
+        "entity_id": "ENSG00000151067",
+        "entity_label": "CACNA1C",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 13,
+        "heuristic_score_v0": 0.270013,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 6,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.308777,
+          "refractory_discovery_upside_v1": 0.348122
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 8,
+        "dominates_count": 16,
+        "entity_id": "ENSG00000170396",
+        "entity_label": "ZNF804A",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 15,
+        "heuristic_score_v0": 0.238457,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 7,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.291422,
+          "refractory_discovery_upside_v1": 0.346799
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 8,
+        "dominates_count": 15,
+        "entity_id": "ENSG00000109572",
+        "entity_label": "CLCN3",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 14,
+        "heuristic_score_v0": 0.262882,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 7,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.295064,
+          "refractory_discovery_upside_v1": 0.334786
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 10,
+        "dominates_count": 13,
+        "entity_id": "ENSG00000164588",
+        "entity_label": "HCN1",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 18,
+        "heuristic_score_v0": 0.220567,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 8,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.276697,
+          "refractory_discovery_upside_v1": 0.328519
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 9,
+        "dominates_count": 12,
+        "entity_id": "ENSG00000157103",
+        "entity_label": "SLC6A1",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 3,
+        "heuristic_score_v0": 0.385576,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 8,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.265573,
+          "refractory_discovery_upside_v1": 0.336812
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 11,
+        "dominates_count": 10,
+        "entity_id": "ENSG00000105866",
+        "entity_label": "SP4",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 16,
+        "heuristic_score_v0": 0.237035,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 9,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.276093,
+          "refractory_discovery_upside_v1": 0.322604
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 11,
+        "dominates_count": 10,
+        "entity_id": "ENSG00000155511",
+        "entity_label": "GRIA1",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 7,
+        "heuristic_score_v0": 0.335059,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 9,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.267247,
+          "refractory_discovery_upside_v1": 0.323373
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 12,
+        "dominates_count": 10,
+        "entity_id": "ENSG00000165995",
+        "entity_label": "CACNB2",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 19,
+        "heuristic_score_v0": 0.218248,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 9,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.259664,
+          "refractory_discovery_upside_v1": 0.327589
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 11,
+        "dominates_count": 10,
+        "entity_id": "ENSG00000138821",
+        "entity_label": "SLC39A8",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 21,
+        "heuristic_score_v0": 0.204129,
+        "heuristic_stable_v0": false,
+        "missing_policy_score_count": 0,
+        "pareto_front": 9,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.25621,
+          "refractory_discovery_upside_v1": 0.330628
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 16,
+        "dominates_count": 8,
+        "entity_id": "ENSG00000183117",
+        "entity_label": "CSMD1",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 23,
+        "heuristic_score_v0": 0.197032,
+        "heuristic_stable_v0": false,
+        "missing_policy_score_count": 0,
+        "pareto_front": 10,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.243033,
+          "refractory_discovery_upside_v1": 0.31407
+        },
+        "warning_count": 1,
+        "warning_severity": "medium"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 16,
+        "dominates_count": 1,
+        "entity_id": "ENSG00000180720",
+        "entity_label": "CHRM4",
+        "entity_type": "gene",
+        "heuristic_rank_v0": null,
+        "heuristic_score_v0": null,
+        "heuristic_stable_v0": false,
+        "missing_policy_score_count": 0,
+        "pareto_front": 10,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.244328,
+          "refractory_discovery_upside_v1": 0.207341
+        },
+        "warning_count": 3,
+        "warning_severity": "high"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 17,
+        "dominates_count": 5,
+        "entity_id": "ENSG00000179915",
+        "entity_label": "NRXN1",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 17,
+        "heuristic_score_v0": 0.221696,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 11,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.225064,
+          "refractory_discovery_upside_v1": 0.308059
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 17,
+        "dominates_count": 5,
+        "entity_id": "ENSG00000145864",
+        "entity_label": "GABRB2",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 11,
+        "heuristic_score_v0": 0.279768,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 11,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.212497,
+          "refractory_discovery_upside_v1": 0.309542
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 17,
+        "dominates_count": 4,
+        "entity_id": "ENSG00000168959",
+        "entity_label": "GRM5",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 9,
+        "heuristic_score_v0": 0.317031,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 11,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.229029,
+          "refractory_discovery_upside_v1": 0.285963
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 19,
+        "dominates_count": 4,
+        "entity_id": "ENSG00000167978",
+        "entity_label": "SRRM2",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 10,
+        "heuristic_score_v0": 0.280036,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 12,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.206327,
+          "refractory_discovery_upside_v1": 0.301281
+        },
+        "warning_count": 2,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 21,
+        "dominates_count": 2,
+        "entity_id": "ENSG00000196628",
+        "entity_label": "TCF4",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 22,
+        "heuristic_score_v0": 0.197845,
+        "heuristic_stable_v0": false,
+        "missing_policy_score_count": 0,
+        "pareto_front": 13,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.201566,
+          "refractory_discovery_upside_v1": 0.272547
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 21,
+        "dominates_count": 2,
+        "entity_id": "ENSG00000189056",
+        "entity_label": "RELN",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 20,
+        "heuristic_score_v0": 0.206138,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 13,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.173642,
+          "refractory_discovery_upside_v1": 0.276106
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 23,
+        "dominates_count": 1,
+        "entity_id": "ENSG00000150672",
+        "entity_label": "DLG2",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 24,
+        "heuristic_score_v0": 0.120093,
+        "heuristic_stable_v0": false,
+        "missing_policy_score_count": 0,
+        "pareto_front": 14,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.116395,
+          "refractory_discovery_upside_v1": 0.216355
+        },
+        "warning_count": 1,
+        "warning_severity": "low"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 25,
+        "dominates_count": 0,
+        "entity_id": "ENSG00000244731",
+        "entity_label": "C4A",
+        "entity_type": "gene",
+        "heuristic_rank_v0": null,
+        "heuristic_score_v0": null,
+        "heuristic_stable_v0": false,
+        "missing_policy_score_count": 0,
+        "pareto_front": 15,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.0,
+          "refractory_discovery_upside_v1": 0.103018
+        },
+        "warning_count": 3,
+        "warning_severity": "high"
+      }
+    ],
+    "module": [
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 0,
+        "dominates_count": 15,
+        "entity_id": "psychencode:l2_3_it",
+        "entity_label": "BrainSCOPE L2.3.IT",
+        "entity_type": "module",
+        "heuristic_rank_v0": 1,
+        "heuristic_score_v0": 0.816286,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 1,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.74862,
+          "refractory_discovery_upside_v1": 0.78896
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 1,
+        "dominates_count": 14,
+        "entity_id": "psychencode:pvalb",
+        "entity_label": "BrainSCOPE Pvalb",
+        "entity_type": "module",
+        "heuristic_rank_v0": 2,
+        "heuristic_score_v0": 0.81159,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 2,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.745219,
+          "refractory_discovery_upside_v1": 0.784994
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 2,
+        "dominates_count": 13,
+        "entity_id": "psychencode:l6_ct",
+        "entity_label": "BrainSCOPE L6.CT",
+        "entity_type": "module",
+        "heuristic_rank_v0": 3,
+        "heuristic_score_v0": 0.810485,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 3,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.744328,
+          "refractory_discovery_upside_v1": 0.784017
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 3,
+        "dominates_count": 12,
+        "entity_id": "psychencode:opc",
+        "entity_label": "BrainSCOPE OPC",
+        "entity_type": "module",
+        "heuristic_rank_v0": 4,
+        "heuristic_score_v0": 0.803263,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 4,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.739023,
+          "refractory_discovery_upside_v1": 0.777881
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 4,
+        "dominates_count": 11,
+        "entity_id": "psychencode:l4_it",
+        "entity_label": "BrainSCOPE L4.IT",
+        "entity_type": "module",
+        "heuristic_rank_v0": 5,
+        "heuristic_score_v0": 0.793762,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 5,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.731961,
+          "refractory_discovery_upside_v1": 0.769771
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 5,
+        "dominates_count": 10,
+        "entity_id": "psychencode:l6_it",
+        "entity_label": "BrainSCOPE L6.IT",
+        "entity_type": "module",
+        "heuristic_rank_v0": 6,
+        "heuristic_score_v0": 0.793124,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 6,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.731506,
+          "refractory_discovery_upside_v1": 0.769235
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 6,
+        "dominates_count": 9,
+        "entity_id": "psychencode:l6b",
+        "entity_label": "BrainSCOPE L6b",
+        "entity_type": "module",
+        "heuristic_rank_v0": 7,
+        "heuristic_score_v0": 0.772996,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 7,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.71657,
+          "refractory_discovery_upside_v1": 0.752065
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 7,
+        "dominates_count": 8,
+        "entity_id": "psychencode:lamp5",
+        "entity_label": "BrainSCOPE Lamp5",
+        "entity_type": "module",
+        "heuristic_rank_v0": 8,
+        "heuristic_score_v0": 0.769624,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 8,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.714133,
+          "refractory_discovery_upside_v1": 0.749218
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 8,
+        "dominates_count": 7,
+        "entity_id": "psychencode:l5_it",
+        "entity_label": "BrainSCOPE L5.IT",
+        "entity_type": "module",
+        "heuristic_rank_v0": 9,
+        "heuristic_score_v0": 0.755653,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 9,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.703769,
+          "refractory_discovery_upside_v1": 0.737301
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 9,
+        "dominates_count": 6,
+        "entity_id": "psychencode:l5_6_np",
+        "entity_label": "BrainSCOPE L5.6.NP",
+        "entity_type": "module",
+        "heuristic_rank_v0": 10,
+        "heuristic_score_v0": 0.745232,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 10,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.696034,
+          "refractory_discovery_upside_v1": 0.728411
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 10,
+        "dominates_count": 5,
+        "entity_id": "psychencode:l6_it_car3",
+        "entity_label": "BrainSCOPE L6.IT.Car3",
+        "entity_type": "module",
+        "heuristic_rank_v0": 11,
+        "heuristic_score_v0": 0.733303,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 11,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.687219,
+          "refractory_discovery_upside_v1": 0.718251
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 11,
+        "dominates_count": 4,
+        "entity_id": "psychencode:lamp5_lhx6",
+        "entity_label": "BrainSCOPE Lamp5.Lhx6",
+        "entity_type": "module",
+        "heuristic_rank_v0": 12,
+        "heuristic_score_v0": 0.723106,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 12,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.679723,
+          "refractory_discovery_upside_v1": 0.709586
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 12,
+        "dominates_count": 3,
+        "entity_id": "psychencode:chandelier",
+        "entity_label": "BrainSCOPE Chandelier",
+        "entity_type": "module",
+        "heuristic_rank_v0": 13,
+        "heuristic_score_v0": 0.710868,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 13,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.670673,
+          "refractory_discovery_upside_v1": 0.69916
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 13,
+        "dominates_count": 2,
+        "entity_id": "psychencode:sst",
+        "entity_label": "BrainSCOPE Sst",
+        "entity_type": "module",
+        "heuristic_rank_v0": 14,
+        "heuristic_score_v0": 0.675669,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 14,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.644614,
+          "refractory_discovery_upside_v1": 0.669162
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 14,
+        "dominates_count": 1,
+        "entity_id": "psychencode:vip",
+        "entity_label": "BrainSCOPE Vip",
+        "entity_type": "module",
+        "heuristic_rank_v0": 15,
+        "heuristic_score_v0": 0.647954,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 15,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.624093,
+          "refractory_discovery_upside_v1": 0.645539
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 15,
+        "dominates_count": 0,
+        "entity_id": "psychencode:sncg",
+        "entity_label": "BrainSCOPE Sncg",
+        "entity_type": "module",
+        "heuristic_rank_v0": 16,
+        "heuristic_score_v0": 0.553842,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 16,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.554435,
+          "refractory_discovery_upside_v1": 0.565338
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      }
+    ]
+  },
+  "policy_ids": [
+    "acute_translation_guardrails_v1",
+    "refractory_discovery_upside_v1"
+  ],
+  "schema_version": "v1"
+}

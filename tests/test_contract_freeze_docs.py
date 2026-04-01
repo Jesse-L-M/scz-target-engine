@@ -8,7 +8,7 @@ def _assert_contains(path: str, snippets: list[str]) -> None:
 
 
 def test_contract_freeze_docs_pin_the_shared_smoke_path() -> None:
-    smoke_snippets = [
+    documented_smoke_commands = [
         "scripts/run_contract_smoke_path.sh",
         "uv run scz-target-engine build --config config/v0.toml --input-dir examples/v0/input --output-dir examples/v0/output",
         "uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/fixtures/scz_small/snapshot_request.json --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json --output-file data/benchmark/generated/scz_small/snapshot_manifest.json --materialized-at 2026-03-28",
@@ -17,9 +17,33 @@ def test_contract_freeze_docs_pin_the_shared_smoke_path() -> None:
         "uv run python -m scz_target_engine.cli rescue compare baselines --output-dir .context/rescue-baseline-suite",
         "pythonpath=src python3 -m scz_target_engine.cli build-hypothesis-packets --policy-artifact examples/v0/output/policy_decision_vectors_v2.json --ledger-artifact examples/v0/output/gene_target_ledgers.json --output-file .context/hypothesis_packets_v1.json",
     ]
-    _assert_contains("README.md", smoke_snippets)
-    _assert_contains("docs/designs/contracts-and-compat-v2.md", smoke_snippets)
-    _assert_contains("scripts/run_contract_smoke_path.sh", smoke_snippets[1:])
+    script_snippets = [
+        "mktemp -d",
+        "examples/v0/output",
+        "git diff --exit-code -- examples/v0/output",
+        "git status --short --untracked-files=all -- examples/v0/output",
+        "policy_decision_vectors_v2.json",
+        "gene_target_ledgers.json",
+    ]
+    _assert_contains("README.md", documented_smoke_commands)
+    _assert_contains(
+        "README.md",
+        [
+            "frozen example outputs",
+            "temporary directory",
+            "drift",
+        ],
+    )
+    _assert_contains("docs/designs/contracts-and-compat-v2.md", documented_smoke_commands)
+    _assert_contains(
+        "docs/designs/contracts-and-compat-v2.md",
+        [
+            "temporary directory",
+            "frozen example outputs",
+            "drift",
+        ],
+    )
+    _assert_contains("scripts/run_contract_smoke_path.sh", script_snippets)
 
 
 def test_contract_freeze_docs_cover_compatibility_and_release_manifest_rules() -> None:
@@ -57,7 +81,8 @@ def test_contract_freeze_docs_cover_compatibility_and_release_manifest_rules() -
 def test_contract_freeze_ci_runs_required_commands() -> None:
     ci_snippets = [
         "uv run --group dev pytest",
-        "uv run --group dev pytest tests/test_artifacts.py",
+        "uv run --group dev pytest tests/test_artifacts.py tests/test_contract_freeze_docs.py",
         "./scripts/run_contract_smoke_path.sh",
+        "git diff --exit-code -- examples/v0/output",
     ]
     _assert_contains(".github/workflows/ci.yml", ci_snippets)

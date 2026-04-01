@@ -67,6 +67,9 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
   `policy_release`, and `hypothesis_release` manifest families.
 - The pinned smoke path lives at `scripts/run_contract_smoke_path.sh` and is the
   same command set executed in `.github/workflows/ci.yml`.
+- That smoke path now rebuilds the frozen example outputs in a temporary
+  directory and fails on drift instead of silently rewriting
+  `examples/v0/output/`.
 
 ## What `v0` Outputs Do Not Justify Claiming
 

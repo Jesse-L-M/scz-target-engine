@@ -329,30 +329,17 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
     )
     assert result["hypothesis_packet_artifact"].endswith("hypothesis_packets_v1.json")
 
-    with Path("examples/v0/output/gene_rankings.csv").open(
-        newline="", encoding="utf-8"
-    ) as handle:
-        fixture_gene_rows = list(csv.DictReader(handle))
-    generated_gene_rows = {row["entity_id"]: row for row in rows}
-    fixture_shared_fields = tuple(
-        field_name
-        for field_name in fixture_gene_rows[0].keys()
-        if field_name in generated_gene_rows[fixture_gene_rows[0]["entity_id"]]
+    fixture_output_dir = Path("examples/v0/output")
+    generated_fixture_files = sorted(path.name for path in tmp_path.iterdir() if path.is_file())
+    checked_in_fixture_files = sorted(
+        path.name for path in fixture_output_dir.iterdir() if path.is_file()
     )
-    assert len(generated_gene_rows) == len(fixture_gene_rows)
-    for fixture_row in fixture_gene_rows:
-        generated_row = generated_gene_rows[fixture_row["entity_id"]]
-        for field_name in fixture_shared_fields:
-            assert generated_row[field_name] == fixture_row[field_name]
-
-    assert (
-        (tmp_path / "module_rankings.csv").read_text(encoding="utf-8")
-        == Path("examples/v0/output/module_rankings.csv").read_text(encoding="utf-8")
-    )
-    assert (
-        (tmp_path / "stability_summary.json").read_text(encoding="utf-8")
-        == Path("examples/v0/output/stability_summary.json").read_text(encoding="utf-8")
-    )
+    assert generated_fixture_files == checked_in_fixture_files
+    for fixture_name in generated_fixture_files:
+        assert (
+            (tmp_path / fixture_name).read_text(encoding="utf-8")
+            == (fixture_output_dir / fixture_name).read_text(encoding="utf-8")
+        )
 
     build_summary = (tmp_path / "build_summary.md").read_text(encoding="utf-8")
     assert "- Gene heuristic-stable entities:" in build_summary

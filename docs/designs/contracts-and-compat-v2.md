@@ -122,8 +122,11 @@ ROADMAP + SHIPPED ARTIFACTS
 - `scz_target_engine.artifacts` now validates those manifest entrypoints against
   required files, SHA256 digests, and nested registered artifact schema
   versions.
-- The shared smoke path lives at `scripts/run_contract_smoke_path.sh` and CI now
-  executes that same script from `.github/workflows/ci.yml`.
+- The shared smoke path lives at `scripts/run_contract_smoke_path.sh`, rebuilds
+  the frozen example outputs into a temporary directory, and fails on drift from
+  `examples/v0/output/`.
+- CI now executes that same script from `.github/workflows/ci.yml` and also
+  asserts that `examples/v0/output/` stays clean afterward.
 - The shared release-manifest choice is logged in
   `docs/decisions/0002-release-manifest-contract.md`.
 
@@ -143,13 +146,15 @@ ROADMAP + SHIPPED ARTIFACTS
   add artifact-registry validation tests for each new release-manifest family in
   `tests/test_artifacts.py`
 - Integration:
-  run the smoke path from a clean worktree and confirm each step writes the
-  expected manifest or output family
+  run the smoke path from a clean worktree, confirm the example build is replayed
+  into a temporary directory, and fail on any drift from the frozen example
+  outputs under `examples/v0/output/`
 - Regression:
   add a test that fails if a release bundle validates without a required file or
   checksum entry
 - E2E, if relevant:
-  one CI job runs the documented smoke path exactly as written in the docs
+  one CI job runs the documented smoke path and fails if
+  `examples/v0/output/` drifts
 
 Required local commands:
 
@@ -171,6 +176,9 @@ uv run --group dev pytest tests/test_artifacts.py
 - Failure mode:
   the docs claim a smoke path that CI does not run; CI must execute the same
   command set listed in the docs
+- Failure mode:
+  smoke verification rewrites checked-in fixtures and hides contract drift; the
+  smoke path must compare a temporary build against the frozen example outputs
 
 ## Rollout / Compatibility
 

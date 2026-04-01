@@ -95,6 +95,9 @@ outputs.
   [docs/decisions/0002-release-manifest-contract.md](docs/decisions/0002-release-manifest-contract.md).
 - The pinned smoke path lives at `scripts/run_contract_smoke_path.sh` and is
   executed in `.github/workflows/ci.yml`.
+- The smoke verifier rebuilds the frozen example outputs into a temporary
+  directory and fails on drift from the checked-in `examples/v0/output/`
+  contract surface.
 
 Run the exact contract-frozen smoke path locally:
 
@@ -165,10 +168,15 @@ The build now also emits:
 Those policy outputs are driven by checked-in TOML under `config/policies/`; they do
 not mutate `v0` or `v1`.
 
-The checked-in `examples/v0/output/` fixtures still capture the legacy shared `v0`
-example outputs. Re-run the build if you want current `gene_target_ledgers.json`,
-`decision_vectors_v1.json`, `policy_decision_vectors_v2.json`,
-`domain_head_rankings_v1.csv`, and `policy_pareto_fronts_v1.json`.
+The checked-in `examples/v0/output/` fixtures now freeze the current example build
+surface, including `gene_target_ledgers.json`, `decision_vectors_v1.json`,
+`policy_decision_vectors_v2.json`, `domain_head_rankings_v1.csv`, and
+`policy_pareto_fronts_v1.json`.
+
+Re-run the build into `examples/v0/output/` only when you intend to refresh those
+frozen example outputs. `scripts/run_contract_smoke_path.sh` rebuilds them in a
+temporary directory and fails on any drift instead of rewriting the checked-in
+fixtures.
 
 Build the registry manually from processed full-universe-capable sources:
 

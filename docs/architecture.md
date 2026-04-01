@@ -3,6 +3,11 @@
 `PR-00` introduces namespaced subpackages without changing the current flat-module
 behavior on `main`.
 
+This file is about package boundaries, not product strategy.
+
+For the current strategy and milestone order, read `docs/roadmap.md`.
+For shipped claim boundaries, read `docs/claim.md`.
+
 ## Boundary
 
 - `scz_target_engine.app`: user-facing entrypoints such as the CLI

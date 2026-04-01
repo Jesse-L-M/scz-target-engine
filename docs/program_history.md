@@ -11,8 +11,9 @@ outputs unchanged.
 - This directory records externally documented program events.
 - It does not itself change shared `v0` numeric ranking.
 - It now feeds target-ledger structure and downstream `v1` gene heads.
-- It does not yet adjudicate a full historical ledger for every target class.
-- Its checked-in historical coverage is still curation-scale rather than exhaustive.
+- It still does not adjudicate a full event ledger for every schizophrenia program.
+- Coverage is now measured explicitly through a checked-in denominator instead of being
+  implied by the event table alone.
 
 ## v2 Source Of Truth
 
@@ -22,18 +23,23 @@ checked-in program memory.
 The normalized tables are:
 
 - `assets.csv`: stable asset-level identity via `asset_id`, `molecule`, `target`,
-  `target_symbols_json`, `target_class`, `mechanism`, and `modality`
+  `target_symbols_json`, `target_class`, `mechanism`, `modality`,
+  `asset_lineage_id`, `asset_aliases_json`, `target_class_lineage_id`, and
+  `target_class_aliases_json`
 - `events.csv`: dated program events via `event_id`, `asset_id`, sponsor and clinical
   context fields, normalized outcome fields, curator confidence, and `sort_order`
 - `event_provenance.csv`: event-level provenance keyed by `event_id`
 - `directionality_hypotheses.csv`: target-level directionality records keyed by
   `hypothesis_id`, with `supporting_event_ids_json` instead of legacy
   `supporting_program_ids_json`
+- `program_universe.csv`: explicit denominator rows at program-opportunity grain with
+  coverage states, reasons, alias handling, and discovery provenance support
 
 The legacy `programs.csv` and `directionality_hypotheses.csv` files remain checked in
 as compatibility views for current ledger consumers. `event_id` in v2 maps directly to
 the legacy `program_id`, so existing rows remain traceable back to the checked-in
-curation and its provenance.
+curation and its provenance. The denominator is additive; it does not replace the
+legacy compatibility view.
 
 ## Row Granularity
 
@@ -53,6 +59,21 @@ In v2, one legacy compatibility row corresponds to:
 - one `assets.csv` row
 - one `events.csv` row
 - one `event_provenance.csv` row
+
+## Denominator Row Granularity
+
+`program_universe.csv` is intentionally not event-granular.
+
+One row equals one program opportunity keyed by:
+
+```text
+asset_lineage_id / target_class_lineage_id / modality / domain / population / regimen / stage_bucket
+```
+
+Multiple event rows can map to one denominator row when they belong to the same
+opportunity path. The checked-in `pimavanserin` negative-symptom row is the current
+example: one denominator row maps to both the earlier phase 2 signal and the later
+pivotal miss.
 
 ## Legacy Compatibility View
 
@@ -141,6 +162,8 @@ This workflow is intentionally non-authoritative:
 - machine suggestions are not loaded by ledger or build paths
 - missing adjudication decisions leave suggestions pending
 - adjudication outputs write proposal tables outside the checked-in source-of-truth
+- proposal tables carry a small dataset-contract marker so curation tooling preserves
+  optional denominator behavior after reload or rename
 - a curator still has to review and manually land any accepted or edited rows
 
 ### Provenance Model
@@ -259,23 +282,45 @@ Current checked-in interpretation:
 
 ## Coverage Audit And Gap Reports
 
-`src/scz_target_engine/program_memory/coverage.py` materializes an explicit coverage
-audit over the checked-in v2 substrate.
+`src/scz_target_engine/program_memory/coverage.py` now runs two additive audits over
+the checked-in v2 substrate:
 
-It writes three machine-readable artifact surfaces:
+- denominator accounting driven by `program_universe.csv`
+- scope summaries driven by the checked-in included-event and directionality tables
 
-- `coverage_audit.json`: grouped summaries plus explicit gap and evidence payloads
-- `coverage_summary.csv`: one summary row per target, target class, domain, and
-  failure-reason scope
-- `coverage_gaps.csv` and `coverage_evidence.csv`: first-class gaps plus raw
-  provenance-grounded evidence rows
+It writes these machine-readable artifact surfaces:
 
-Gap rows distinguish why coverage is missing or thin:
+- `coverage_manifest.json`: deterministic denominator metadata, state counts, reason
+  counts, and source-cut rules
+- `coverage_summary.csv` and `coverage_gaps.csv`: legacy scope-level summaries and
+  gaps kept stable for curation tooling and other existing consumers
+- `coverage_denominator_summary.csv`: denominator summaries aggregated by
+  `stage_bucket`, `modality`, `domain`, `coverage_state`, and `coverage_reason`
+- `coverage_denominator_gaps.csv`: only non-included denominator rows that still need
+  action or explicit explanation
+- `coverage_audit.json`: combined JSON payload containing both denominator outputs and
+  the preserved scope-level audit
+- `coverage_scope_summary.csv`, `coverage_scope_gaps.csv`, and `coverage_evidence.csv`:
+  the earlier target / target-class / domain / failure-scope surfaces, kept for
+  curation tooling and focused review
 
-- `history_sparse`: the repository lacks enough checked-in clinical history for the
-  requested scope
-- `curation_incomplete`: relevant history exists, but the current checked-in curation
-  still leaves a directionality or failure-scope judgment unresolved
+For dataset loading:
+
+- denominator-aware checked-in-style v2 datasets require `program_universe.csv`
+- proposal slices can opt out with `program_memory_dataset_contract.json`
+- legacy pre-contract 4-file v2 proposal slices still load as scope-only by schema
+  fallback for backward compatibility
+
+Denominator states distinguish:
+
+- `included`: mapped to checked-in `event_id` rows
+- `unresolved`: tracked in the denominator but not yet adjudicated into checked-in
+  event history
+- `excluded`: explicit candidate that should not count as a core program-opportunity
+  row
+- `duplicate`: explicit alias or registry duplicate of a canonical denominator row
+- `out_of_scope`: explicit non-schizophrenia or non-molecular row discovered during
+  denominator support work
 
 Example focused audit path for the current `CHRM4` slice:
 
@@ -294,6 +339,8 @@ That focused output should currently show:
 - an explicit `unresolved_failure_scope` gap from
   `emraclidine-empower-acute-scz-topline-2024`
 - no silent promotion of the selective CHRM4 miss into a stronger failure claim
+- a separate denominator manifest where included rows, unresolved candidates, explicit
+  duplicates, and out-of-scope CT.gov discoveries are counted independently
 
 ## PR7 Structural Consumption
 

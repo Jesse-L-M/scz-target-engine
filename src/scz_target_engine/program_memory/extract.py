@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Mapping
 
+from scz_target_engine.io import read_csv_rows
 from scz_target_engine.program_memory._helpers import (
     clean_text,
+    default_asset_lineage_id,
+    default_target_class_lineage_id,
     parse_int,
     parse_string_list,
+    slugify,
     split_target_symbols,
 )
 from scz_target_engine.program_memory.models import (
@@ -23,6 +29,37 @@ PROGRAM_MEMORY_SUGGESTION_KINDS = {
     PROGRAM_MEMORY_EVENT_SUGGESTION,
     PROGRAM_MEMORY_DIRECTIONALITY_SUGGESTION,
 }
+CHECKED_IN_PROGRAM_MEMORY_ASSETS_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "data"
+    / "curated"
+    / "program_history"
+    / "v2"
+    / "assets.csv"
+)
+CHECKED_IN_PROGRAM_MEMORY_UNIVERSE_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "data"
+    / "curated"
+    / "program_history"
+    / "v2"
+    / "program_universe.csv"
+)
+
+
+@dataclass(frozen=True)
+class _CanonicalProgramMemoryAsset:
+    asset_id: str
+    molecule: str
+    target: str
+    target_symbols: tuple[str, ...]
+    target_class: str
+    mechanism: str
+    modality: str
+    asset_lineage_id: str
+    asset_aliases: tuple[str, ...]
+    target_class_lineage_id: str
+    target_class_aliases: tuple[str, ...]
 
 
 def _clean_value(value: Any) -> str:
@@ -55,12 +92,325 @@ def _parse_sort_order(value: Any, *, default: int) -> int:
     return parse_int(_clean_value(value), default=default)
 
 
+def _normalize_identity_key(value: str) -> str:
+    return slugify(value)
+
+
+def _merge_alias_values(*values: object) -> tuple[str, ...]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if isinstance(value, str):
+            candidates = (value,)
+        elif isinstance(value, (list, tuple)):
+            candidates = tuple(str(item) for item in value)
+        else:
+            continue
+        for candidate in candidates:
+            cleaned = clean_text(candidate)
+            if not cleaned:
+                continue
+            normalized = _normalize_identity_key(cleaned)
+            if normalized in seen:
+                continue
+            merged.append(cleaned)
+            seen.add(normalized)
+    return tuple(merged)
+
+
+def _filter_alias_values(
+    aliases: tuple[str, ...],
+    *,
+    canonical_values: tuple[str, ...],
+) -> tuple[str, ...]:
+    canonical_keys = {
+        _normalize_identity_key(value)
+        for value in canonical_values
+        if _normalize_identity_key(value)
+    }
+    return tuple(
+        alias
+        for alias in aliases
+        if _normalize_identity_key(alias) not in canonical_keys
+    )
+
+
+def _catalog_source_revision(path: Path) -> tuple[str, int, int]:
+    try:
+        stats = path.stat()
+    except FileNotFoundError:
+        return (path.as_posix(), -1, -1)
+    return (path.as_posix(), stats.st_mtime_ns, stats.st_size)
+
+
+def _checked_in_program_memory_identity_catalog_revision() -> tuple[
+    tuple[str, int, int],
+    tuple[str, int, int],
+]:
+    return (
+        _catalog_source_revision(CHECKED_IN_PROGRAM_MEMORY_ASSETS_PATH),
+        _catalog_source_revision(CHECKED_IN_PROGRAM_MEMORY_UNIVERSE_PATH),
+    )
+
+
+@lru_cache(maxsize=4)
+def _load_checked_in_program_memory_identity_catalog(
+    _revision: tuple[tuple[str, int, int], tuple[str, int, int]],
+) -> tuple[
+    dict[str, _CanonicalProgramMemoryAsset],
+    dict[str, _CanonicalProgramMemoryAsset],
+]:
+    asset_index: dict[str, _CanonicalProgramMemoryAsset] = {}
+    target_class_index: dict[str, _CanonicalProgramMemoryAsset] = {}
+    if CHECKED_IN_PROGRAM_MEMORY_ASSETS_PATH.exists():
+        for row in read_csv_rows(CHECKED_IN_PROGRAM_MEMORY_ASSETS_PATH):
+            _register_canonical_program_memory_asset_identity(
+                asset_index,
+                target_class_index,
+                _build_canonical_program_memory_asset(
+                    asset_id=clean_text(row.get("asset_id")),
+                    molecule=clean_text(row.get("molecule")),
+                    target=clean_text(row.get("target")),
+                    target_symbols=parse_string_list(row.get("target_symbols_json")),
+                    target_class=clean_text(row.get("target_class")),
+                    mechanism=clean_text(row.get("mechanism")),
+                    modality=clean_text(row.get("modality")),
+                    asset_lineage_id=clean_text(row.get("asset_lineage_id")),
+                    asset_aliases=parse_string_list(row.get("asset_aliases_json")),
+                    target_class_lineage_id=clean_text(
+                        row.get("target_class_lineage_id")
+                    ),
+                    target_class_aliases=parse_string_list(
+                        row.get("target_class_aliases_json")
+                    ),
+                ),
+            )
+
+    if CHECKED_IN_PROGRAM_MEMORY_UNIVERSE_PATH.exists():
+        universe_rows = read_csv_rows(CHECKED_IN_PROGRAM_MEMORY_UNIVERSE_PATH)
+        universe_rows_by_id = {
+            clean_text(row.get("program_universe_id")): row for row in universe_rows
+        }
+        for row in universe_rows:
+            canonical_row = row
+            duplicate_of_program_universe_id = clean_text(
+                row.get("duplicate_of_program_universe_id")
+            )
+            if duplicate_of_program_universe_id:
+                canonical_row = universe_rows_by_id.get(
+                    duplicate_of_program_universe_id,
+                    row,
+                )
+            _register_canonical_program_memory_asset_identity(
+                asset_index,
+                target_class_index,
+                _build_canonical_program_memory_asset(
+                    asset_id=clean_text(canonical_row.get("asset_id")),
+                    molecule=clean_text(canonical_row.get("asset_name")),
+                    target=clean_text(canonical_row.get("target")),
+                    target_symbols=parse_string_list(
+                        canonical_row.get("target_symbols_json")
+                    ),
+                    target_class=clean_text(canonical_row.get("target_class")),
+                    mechanism=clean_text(canonical_row.get("mechanism")),
+                    modality=clean_text(canonical_row.get("modality")),
+                    asset_lineage_id=clean_text(canonical_row.get("asset_lineage_id")),
+                    asset_aliases=_merge_alias_values(
+                        parse_string_list(canonical_row.get("asset_aliases_json")),
+                        clean_text(row.get("asset_id")),
+                        clean_text(row.get("asset_name")),
+                        parse_string_list(row.get("asset_aliases_json")),
+                    ),
+                    target_class_lineage_id=clean_text(
+                        canonical_row.get("target_class_lineage_id")
+                    ),
+                    target_class_aliases=_merge_alias_values(
+                        parse_string_list(
+                            canonical_row.get("target_class_aliases_json")
+                        ),
+                        parse_string_list(row.get("target_class_aliases_json")),
+                    ),
+                ),
+            )
+    return asset_index, target_class_index
+
+
+def _get_checked_in_program_memory_identity_catalog() -> tuple[
+    dict[str, _CanonicalProgramMemoryAsset],
+    dict[str, _CanonicalProgramMemoryAsset],
+]:
+    return _load_checked_in_program_memory_identity_catalog(
+        _checked_in_program_memory_identity_catalog_revision()
+    )
+
+
+def _build_canonical_program_memory_asset(
+    *,
+    asset_id: str,
+    molecule: str,
+    target: str,
+    target_symbols: tuple[str, ...],
+    target_class: str,
+    mechanism: str,
+    modality: str,
+    asset_lineage_id: str,
+    asset_aliases: tuple[str, ...],
+    target_class_lineage_id: str,
+    target_class_aliases: tuple[str, ...],
+) -> _CanonicalProgramMemoryAsset:
+    cleaned_target = clean_text(target)
+    cleaned_asset_id = clean_text(asset_id)
+    cleaned_molecule = clean_text(molecule)
+    cleaned_target_class = clean_text(target_class)
+    return _CanonicalProgramMemoryAsset(
+        asset_id=cleaned_asset_id,
+        molecule=cleaned_molecule or cleaned_asset_id,
+        target=cleaned_target,
+        target_symbols=target_symbols or split_target_symbols(cleaned_target),
+        target_class=cleaned_target_class,
+        mechanism=clean_text(mechanism),
+        modality=clean_text(modality),
+        asset_lineage_id=clean_text(asset_lineage_id)
+        or default_asset_lineage_id(cleaned_asset_id, cleaned_molecule),
+        asset_aliases=asset_aliases,
+        target_class_lineage_id=clean_text(target_class_lineage_id)
+        or default_target_class_lineage_id(cleaned_target_class),
+        target_class_aliases=target_class_aliases,
+    )
+
+
+def _register_canonical_program_memory_asset_identity(
+    asset_index: dict[str, _CanonicalProgramMemoryAsset],
+    target_class_index: dict[str, _CanonicalProgramMemoryAsset],
+    asset: _CanonicalProgramMemoryAsset,
+) -> None:
+    for candidate in (
+        asset.asset_id,
+        asset.molecule,
+        asset.asset_lineage_id,
+        *asset.asset_aliases,
+    ):
+        key = _normalize_identity_key(candidate)
+        if key:
+            asset_index.setdefault(key, asset)
+    for candidate in (
+        asset.target_class,
+        asset.target_class_lineage_id,
+        *asset.target_class_aliases,
+    ):
+        key = _normalize_identity_key(candidate)
+        if key:
+            target_class_index.setdefault(key, asset)
+
+
+def canonicalize_program_memory_asset_identity(
+    asset: ProgramMemoryAsset,
+) -> ProgramMemoryAsset:
+    asset_index, target_class_index = _get_checked_in_program_memory_identity_catalog()
+    asset_match: _CanonicalProgramMemoryAsset | None = None
+    for candidate in (
+        asset.asset_lineage_id,
+        asset.asset_id,
+        asset.molecule,
+        *asset.asset_aliases,
+    ):
+        key = _normalize_identity_key(candidate)
+        if not key:
+            continue
+        asset_match = asset_index.get(key)
+        if asset_match is not None:
+            break
+
+    if asset_match is not None:
+        asset_aliases = _filter_alias_values(
+            _merge_alias_values(
+                asset_match.asset_aliases,
+                asset.asset_aliases,
+                asset.asset_id,
+                asset.molecule,
+            ),
+            canonical_values=(
+                asset_match.asset_id,
+                asset_match.molecule,
+                asset_match.asset_lineage_id,
+            ),
+        )
+        target_class_aliases = _filter_alias_values(
+            _merge_alias_values(
+                asset_match.target_class_aliases,
+                asset.target_class_aliases,
+                asset.target_class,
+            ),
+            canonical_values=(
+                asset_match.target_class,
+                asset_match.target_class_lineage_id,
+            ),
+        )
+        return ProgramMemoryAsset(
+            asset_id=asset_match.asset_id,
+            molecule=asset_match.molecule,
+            target=asset_match.target,
+            target_symbols=asset_match.target_symbols,
+            target_class=asset_match.target_class,
+            mechanism=asset_match.mechanism,
+            modality=asset_match.modality,
+            asset_lineage_id=asset_match.asset_lineage_id,
+            asset_aliases=asset_aliases,
+            target_class_lineage_id=asset_match.target_class_lineage_id,
+            target_class_aliases=target_class_aliases,
+        )
+
+    target_class_match: _CanonicalProgramMemoryAsset | None = None
+    for candidate in (
+        asset.target_class_lineage_id,
+        asset.target_class,
+        *asset.target_class_aliases,
+    ):
+        key = _normalize_identity_key(candidate)
+        if not key:
+            continue
+        target_class_match = target_class_index.get(key)
+        if target_class_match is not None:
+            break
+
+    if target_class_match is None:
+        return asset
+
+    target_class_aliases = _filter_alias_values(
+        _merge_alias_values(
+            target_class_match.target_class_aliases,
+            asset.target_class_aliases,
+            asset.target_class,
+        ),
+        canonical_values=(
+            target_class_match.target_class,
+            target_class_match.target_class_lineage_id,
+        ),
+    )
+    return replace(
+        asset,
+        target_class=target_class_match.target_class,
+        target_class_lineage_id=target_class_match.target_class_lineage_id,
+        target_class_aliases=target_class_aliases,
+    )
+
+
+def canonicalize_program_memory_event_identity(
+    asset: ProgramMemoryAsset,
+    event: ProgramMemoryEvent,
+) -> tuple[ProgramMemoryAsset, ProgramMemoryEvent]:
+    canonical_asset = canonicalize_program_memory_asset_identity(asset)
+    if event.asset_id == canonical_asset.asset_id:
+        return canonical_asset, event
+    return canonical_asset, replace(event, asset_id=canonical_asset.asset_id)
+
+
 def parse_program_memory_asset(payload: Mapping[str, Any]) -> ProgramMemoryAsset:
     target = _require_text(payload, "target", context="program memory asset")
     target_symbols = _parse_string_tuple(
         payload.get("target_symbols", payload.get("target_symbols_json"))
     ) or split_target_symbols(target)
-    return ProgramMemoryAsset(
+    asset = ProgramMemoryAsset(
         asset_id=_require_text(payload, "asset_id", context="program memory asset"),
         molecule=_require_text(payload, "molecule", context="program memory asset"),
         target=target,
@@ -72,7 +422,26 @@ def parse_program_memory_asset(payload: Mapping[str, Any]) -> ProgramMemoryAsset
         ),
         mechanism=_require_text(payload, "mechanism", context="program memory asset"),
         modality=_require_text(payload, "modality", context="program memory asset"),
+        asset_lineage_id=_clean_value(payload.get("asset_lineage_id"))
+        or default_asset_lineage_id(
+            _clean_value(payload.get("asset_id")),
+            _clean_value(payload.get("molecule")),
+        ),
+        asset_aliases=_parse_string_tuple(
+            payload.get("asset_aliases", payload.get("asset_aliases_json"))
+        ),
+        target_class_lineage_id=_clean_value(payload.get("target_class_lineage_id"))
+        or default_target_class_lineage_id(
+            _clean_value(payload.get("target_class"))
+        ),
+        target_class_aliases=_parse_string_tuple(
+            payload.get(
+                "target_class_aliases",
+                payload.get("target_class_aliases_json"),
+            )
+        ),
     )
+    return canonicalize_program_memory_asset_identity(asset)
 
 
 def parse_program_memory_event(payload: Mapping[str, Any]) -> ProgramMemoryEvent:
@@ -196,6 +565,10 @@ def _asset_to_dict(asset: ProgramMemoryAsset) -> dict[str, object]:
         "target_class": asset.target_class,
         "mechanism": asset.mechanism,
         "modality": asset.modality,
+        "asset_lineage_id": asset.asset_lineage_id,
+        "asset_aliases": list(asset.asset_aliases),
+        "target_class_lineage_id": asset.target_class_lineage_id,
+        "target_class_aliases": list(asset.target_class_aliases),
     }
 
 
@@ -385,6 +758,7 @@ class ProgramMemorySuggestion:
                     context="event suggestion",
                 )
             )
+            asset, event = canonicalize_program_memory_event_identity(asset, event)
         elif suggestion_kind == PROGRAM_MEMORY_DIRECTIONALITY_SUGGESTION:
             directionality_hypothesis = parse_program_memory_directionality_hypothesis(
                 _require_mapping(

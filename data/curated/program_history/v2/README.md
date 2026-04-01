@@ -10,6 +10,8 @@ Tables:
 - `event_provenance.csv`: source tier and URL records keyed by `event_id`
 - `directionality_hypotheses.csv`: target-level directionality hypotheses keyed by
   `hypothesis_id`
+- `program_universe.csv`: explicit denominator rows at program-opportunity grain with
+  coverage state, reason, lineage IDs, alias handling, and discovery provenance
 
 The legacy `../programs.csv` and `../directionality_hypotheses.csv` files remain
 checked in as compatibility views for current ledger consumers.

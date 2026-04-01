@@ -980,14 +980,34 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(
                 {
                     "dataset_dir": audit.dataset_dir,
+                    "coverage_manifest_row_count": audit.coverage_manifest[
+                        "program_universe_row_count"
+                    ],
                     "summary_count": len(audit.summaries),
                     "gap_count": len(audit.gaps),
+                    "denominator_summary_count": len(audit.denominator_summary_rows),
+                    "denominator_gap_count": len(audit.denominator_gap_rows),
+                    "scope_summary_count": len(audit.summaries),
+                    "scope_gap_count": len(audit.gaps),
                     "evidence_row_count": len(audit.evidence_rows),
                     "focus_request": dict(focus_report.request),
                     "output_dir": str(output_dir),
                     "coverage_audit_file": str(output_dir / "coverage_audit.json"),
+                    "coverage_manifest_file": str(output_dir / "coverage_manifest.json"),
                     "coverage_summary_file": str(output_dir / "coverage_summary.csv"),
                     "coverage_gaps_file": str(output_dir / "coverage_gaps.csv"),
+                    "coverage_denominator_summary_file": str(
+                        output_dir / "coverage_denominator_summary.csv"
+                    ),
+                    "coverage_denominator_gaps_file": str(
+                        output_dir / "coverage_denominator_gaps.csv"
+                    ),
+                    "coverage_scope_summary_file": str(
+                        output_dir / "coverage_scope_summary.csv"
+                    ),
+                    "coverage_scope_gaps_file": str(
+                        output_dir / "coverage_scope_gaps.csv"
+                    ),
                     "coverage_evidence_file": str(output_dir / "coverage_evidence.csv"),
                     "coverage_focus_file": (
                         str(output_dir / "coverage_focus.json")

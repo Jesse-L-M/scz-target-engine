@@ -10,6 +10,7 @@ from scz_target_engine.program_memory.extract import (
     PROGRAM_MEMORY_DIRECTIONALITY_SUGGESTION,
     PROGRAM_MEMORY_EVENT_SUGGESTION,
     ProgramMemorySuggestion,
+    canonicalize_program_memory_event_identity,
     parse_program_memory_asset,
     parse_program_memory_directionality_hypothesis,
     parse_program_memory_event,
@@ -22,6 +23,7 @@ from scz_target_engine.program_memory.models import (
     ProgramMemoryDirectionalityHypothesis,
     ProgramMemoryEvent,
     ProgramMemoryProvenance,
+    ProgramMemoryUniverseRow,
 )
 
 
@@ -43,6 +45,10 @@ PROGRAM_MEMORY_V2_ASSET_FIELDNAMES = [
     "target_class",
     "mechanism",
     "modality",
+    "asset_lineage_id",
+    "asset_aliases_json",
+    "target_class_lineage_id",
+    "target_class_aliases_json",
 ]
 PROGRAM_MEMORY_V2_EVENT_FIELDNAMES = [
     "event_id",
@@ -80,6 +86,33 @@ PROGRAM_MEMORY_V2_DIRECTIONALITY_FIELDNAMES = [
     "falsification_conditions_json",
     "open_risks_json",
     "sort_order",
+]
+PROGRAM_MEMORY_V2_PROGRAM_UNIVERSE_FIELDNAMES = [
+    "program_universe_id",
+    "asset_id",
+    "asset_name",
+    "asset_lineage_id",
+    "asset_aliases_json",
+    "target",
+    "target_symbols_json",
+    "target_class",
+    "target_class_lineage_id",
+    "target_class_aliases_json",
+    "mechanism",
+    "modality",
+    "domain",
+    "population",
+    "regimen",
+    "stage_bucket",
+    "coverage_state",
+    "coverage_reason",
+    "coverage_confidence",
+    "mapped_event_ids_json",
+    "duplicate_of_program_universe_id",
+    "discovery_source_type",
+    "discovery_source_id",
+    "source_candidate_url",
+    "notes",
 ]
 
 
@@ -172,6 +205,10 @@ class ProgramMemoryAdjudicationDecision:
         event_payload = _read_mapping(payload, "event")
         provenance_payload = _read_mapping(payload, "provenance")
         hypothesis_payload = _read_mapping(payload, "directionality_hypothesis")
+        asset = parse_program_memory_asset(asset_payload) if asset_payload is not None else None
+        event = parse_program_memory_event(event_payload) if event_payload is not None else None
+        if asset is not None and event is not None:
+            asset, event = canonicalize_program_memory_event_identity(asset, event)
         return cls(
             suggestion_id=_require_text(
                 payload,
@@ -184,16 +221,8 @@ class ProgramMemoryAdjudicationDecision:
                 context="program memory adjudication decision",
             ).lower(),
             rationale=clean_text(str(payload.get("rationale") or "")),
-            asset=(
-                parse_program_memory_asset(asset_payload)
-                if asset_payload is not None
-                else None
-            ),
-            event=(
-                parse_program_memory_event(event_payload)
-                if event_payload is not None
-                else None
-            ),
+            asset=asset,
+            event=event,
             provenance=(
                 parse_program_memory_provenance(provenance_payload)
                 if provenance_payload is not None
@@ -221,6 +250,10 @@ class ProgramMemoryAdjudicationDecision:
                 "target_class": self.asset.target_class,
                 "mechanism": self.asset.mechanism,
                 "modality": self.asset.modality,
+                "asset_lineage_id": self.asset.asset_lineage_id,
+                "asset_aliases": list(self.asset.asset_aliases),
+                "target_class_lineage_id": self.asset.target_class_lineage_id,
+                "target_class_aliases": list(self.asset.target_class_aliases),
             }
         if self.event is not None:
             payload["event"] = {
@@ -585,6 +618,7 @@ def materialize_adjudicated_program_memory_dataset(
         events=ordered_events,
         provenances=ordered_provenances,
         directionality_hypotheses=ordered_hypotheses,
+        requires_program_universe=False,
     )
 
 
@@ -631,7 +665,22 @@ def write_adjudicated_program_memory_dataset(
     output_dir: Path,
     dataset: ProgramMemoryDataset,
 ) -> None:
+    from scz_target_engine.program_memory.loaders import (
+        PROGRAM_MEMORY_DATASET_CONTRACT_FILENAME,
+        PROGRAM_MEMORY_DATASET_CONTRACT_SCHEMA_VERSION,
+    )
+    from scz_target_engine.program_memory.coverage import (
+        build_program_memory_coverage_audit,
+    )
+
+    if dataset.program_universe_rows or dataset.requires_program_universe:
+        build_program_memory_coverage_audit(
+            dataset,
+            require_program_universe=dataset.requires_program_universe,
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
+    program_universe_path = output_dir / "program_universe.csv"
+    contract_path = output_dir / PROGRAM_MEMORY_DATASET_CONTRACT_FILENAME
     write_csv(
         output_dir / "assets.csv",
         [_asset_row(asset) for asset in dataset.assets],
@@ -655,6 +704,28 @@ def write_adjudicated_program_memory_dataset(
         ],
         PROGRAM_MEMORY_V2_DIRECTIONALITY_FIELDNAMES,
     )
+    if dataset.program_universe_rows:
+        write_csv(
+            program_universe_path,
+            [
+                _program_universe_row(program_universe_row)
+                for program_universe_row in dataset.program_universe_rows
+            ],
+            PROGRAM_MEMORY_V2_PROGRAM_UNIVERSE_FIELDNAMES,
+        )
+    elif program_universe_path.exists():
+        program_universe_path.unlink()
+    if dataset.requires_program_universe:
+        if contract_path.exists():
+            contract_path.unlink()
+    else:
+        write_json(
+            contract_path,
+            {
+                "schema_version": PROGRAM_MEMORY_DATASET_CONTRACT_SCHEMA_VERSION,
+                "requires_program_universe": False,
+            },
+        )
 
 
 def _asset_row(asset: ProgramMemoryAsset) -> dict[str, object]:
@@ -666,6 +737,10 @@ def _asset_row(asset: ProgramMemoryAsset) -> dict[str, object]:
         "target_class": asset.target_class,
         "mechanism": asset.mechanism,
         "modality": asset.modality,
+        "asset_lineage_id": asset.asset_lineage_id,
+        "asset_aliases_json": encode_string_list(asset.asset_aliases),
+        "target_class_lineage_id": asset.target_class_lineage_id,
+        "target_class_aliases_json": encode_string_list(asset.target_class_aliases),
     }
 
 
@@ -718,6 +793,44 @@ def _directionality_hypothesis_row(
         ),
         "open_risks_json": encode_string_list(hypothesis.open_risks),
         "sort_order": hypothesis.sort_order,
+    }
+
+
+def _program_universe_row(
+    program_universe_row: ProgramMemoryUniverseRow,
+) -> dict[str, object]:
+    return {
+        "program_universe_id": program_universe_row.program_universe_id,
+        "asset_id": program_universe_row.asset_id,
+        "asset_name": program_universe_row.asset_name,
+        "asset_lineage_id": program_universe_row.asset_lineage_id,
+        "asset_aliases_json": encode_string_list(program_universe_row.asset_aliases),
+        "target": program_universe_row.target,
+        "target_symbols_json": encode_string_list(program_universe_row.target_symbols),
+        "target_class": program_universe_row.target_class,
+        "target_class_lineage_id": program_universe_row.target_class_lineage_id,
+        "target_class_aliases_json": encode_string_list(
+            program_universe_row.target_class_aliases
+        ),
+        "mechanism": program_universe_row.mechanism,
+        "modality": program_universe_row.modality,
+        "domain": program_universe_row.domain,
+        "population": program_universe_row.population,
+        "regimen": program_universe_row.regimen,
+        "stage_bucket": program_universe_row.stage_bucket,
+        "coverage_state": program_universe_row.coverage_state,
+        "coverage_reason": program_universe_row.coverage_reason,
+        "coverage_confidence": program_universe_row.coverage_confidence,
+        "mapped_event_ids_json": encode_string_list(
+            program_universe_row.mapped_event_ids
+        ),
+        "duplicate_of_program_universe_id": (
+            program_universe_row.duplicate_of_program_universe_id
+        ),
+        "discovery_source_type": program_universe_row.discovery_source_type,
+        "discovery_source_id": program_universe_row.discovery_source_id,
+        "source_candidate_url": program_universe_row.source_candidate_url,
+        "notes": program_universe_row.notes,
     }
 
 

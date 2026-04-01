@@ -4,7 +4,9 @@ This directory holds curated, checked-in landmark schizophrenia program events.
 
 Files:
 
-- `v2/`: normalized source-of-truth tables for assets, events, provenance, and target-level directionality hypotheses
+- `v2/`: normalized source-of-truth tables for assets, events, provenance,
+  target-level directionality hypotheses, and the checked-in denominator
+  `program_universe.csv`
 - `programs.csv`: compatibility event view used by current ledger consumers
 - `failure_taxonomy.md`: maintained definitions for the shared failure vocabulary
 - `directionality_hypotheses.csv`: compatibility target-level directionality view used by current ledgers

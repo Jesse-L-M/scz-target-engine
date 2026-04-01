@@ -353,6 +353,8 @@ program_memory_release/
   coverage_manifest.json
   coverage_summary.csv
   coverage_gaps.csv
+  coverage_denominator_summary.csv
+  coverage_denominator_gaps.csv
   source_archive_index.json
   release_manifest.json
 ```

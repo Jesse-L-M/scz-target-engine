@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from scz_target_engine.io import read_json
 
 DEFAULT_SCHEMA_DIR = (
     Path(__file__).resolve().parents[3] / "schemas" / "artifact_schemas"
-)
+).resolve()
 
 
 def load_artifact_schema(path: Path) -> ArtifactSchemaDefinition:
@@ -22,16 +23,20 @@ def load_artifact_schema(path: Path) -> ArtifactSchemaDefinition:
 def _load_artifact_schemas_from_dir(
     schema_dir: Path,
 ) -> dict[str, ArtifactSchemaDefinition]:
-    if not schema_dir.exists():
-        raise FileNotFoundError(f"artifact schema directory does not exist: {schema_dir}")
+    resolved_dir = schema_dir.resolve()
+    if not resolved_dir.exists():
+        raise FileNotFoundError(f"artifact schema directory does not exist: {resolved_dir}")
 
-    schema_files = sorted(schema_dir.rglob("*.json"))
+    schema_files = sorted(resolved_dir.rglob("*.json"))
     if not schema_files:
-        raise ValueError(f"no artifact schema files found in {schema_dir}")
+        raise ValueError(f"no artifact schema files found in {resolved_dir}")
 
     schemas: dict[str, ArtifactSchemaDefinition] = {}
     for schema_file in schema_files:
-        schema = load_artifact_schema(schema_file)
+        schema = replace(
+            load_artifact_schema(schema_file),
+            schema_dir=resolved_dir,
+        )
         if schema.artifact_name in schemas:
             raise ValueError(
                 "artifact schema directory must not repeat artifact_name "

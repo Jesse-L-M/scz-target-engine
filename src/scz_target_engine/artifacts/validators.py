@@ -3,11 +3,13 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Mapping
 import csv
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from scz_target_engine.artifacts.models import (
     ArtifactSchemaDefinition,
+    ReleaseManifest,
     ValidatedArtifact,
 )
 from scz_target_engine.artifacts.registry import (
@@ -153,6 +155,14 @@ def _parse_csv_bool(value: str, field_name: str) -> bool:
     raise ValueError(f"{field_name} must be True or False")
 
 
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _ensure_required_fields(
     schema: ArtifactSchemaDefinition,
     present_fields: set[str],
@@ -166,6 +176,38 @@ def _ensure_required_fields(
     ]
     if missing:
         raise ValueError(f"{context} is missing required fields: {', '.join(missing)}")
+
+
+_MISSING_SCHEMA_FIELD = object()
+
+
+def _payload_schema_field(payload: object, field_name: str) -> object:
+    if isinstance(payload, Mapping):
+        return payload.get(field_name, _MISSING_SCHEMA_FIELD)
+    if hasattr(payload, field_name):
+        return getattr(payload, field_name)
+    return _MISSING_SCHEMA_FIELD
+
+
+def _ensure_payload_matches_schema(
+    payload: object,
+    schema: ArtifactSchemaDefinition,
+) -> None:
+    required_field_names = set(schema.required_field_names)
+
+    schema_name = _payload_schema_field(payload, "schema_name")
+    if "schema_name" in required_field_names or schema_name is not _MISSING_SCHEMA_FIELD:
+        if schema_name != schema.artifact_name:
+            raise ValueError(
+                f"{schema.artifact_name} schema_name must be {schema.artifact_name}"
+            )
+
+    schema_version = _payload_schema_field(payload, "schema_version")
+    if "schema_version" in required_field_names or schema_version is not _MISSING_SCHEMA_FIELD:
+        if schema_version != schema.schema_version:
+            raise ValueError(
+                f"{schema.artifact_name} schema_version must be {schema.schema_version}"
+            )
 
 
 def _validate_benchmark_snapshot_manifest(
@@ -311,6 +353,76 @@ def _validate_rescue_raw_to_frozen_lineage(
         context=f"{schema.artifact_name} artifact {path}",
     )
     return read_rescue_raw_to_frozen_lineage(path)
+
+
+def _resolve_release_manifest_entry_path(
+    manifest_path: Path,
+    relative_path: str,
+) -> Path:
+    bundle_root = manifest_path.parent.resolve()
+    resolved_path = (bundle_root / relative_path).resolve()
+    try:
+        resolved_path.relative_to(bundle_root)
+    except ValueError as exc:
+        raise ValueError(
+            f"release manifest entry path must stay within {bundle_root}: {relative_path}"
+        ) from exc
+    return resolved_path
+
+
+def _validate_release_manifest(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> ReleaseManifest:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    manifest = ReleaseManifest.from_dict(payload)
+    if manifest.schema_name != schema.artifact_name:
+        raise ValueError(
+            f"{schema.artifact_name} schema_name must be {schema.artifact_name}"
+        )
+    if manifest.release_family != schema.artifact_name:
+        raise ValueError(
+            f"{schema.artifact_name} release_family must be {schema.artifact_name}"
+        )
+    if manifest.schema_version != schema.schema_version:
+        raise ValueError(
+            f"{schema.artifact_name} schema_version must be {schema.schema_version}"
+        )
+
+    for entry in manifest.files:
+        entry_path = _resolve_release_manifest_entry_path(path, entry.path)
+        if not entry_path.exists():
+            raise ValueError(
+                f"{schema.artifact_name} is missing required file {entry.path}"
+            )
+        if not entry_path.is_file():
+            raise ValueError(
+                f"{schema.artifact_name} entry must point to a file: {entry.path}"
+            )
+        actual_sha256 = _file_sha256(entry_path)
+        if actual_sha256 != entry.sha256:
+            raise ValueError(
+                f"{schema.artifact_name} checksum mismatch for {entry.path}: "
+                f"expected {entry.sha256}, found {actual_sha256}"
+            )
+        if entry.artifact_name:
+            nested_artifact = load_artifact(
+                entry_path,
+                artifact_name=entry.artifact_name,
+                schema_dir=schema.schema_dir,
+            )
+            if nested_artifact.schema_version != entry.expected_schema_version:
+                raise ValueError(
+                    f"{schema.artifact_name} schema version mismatch for {entry.path}: "
+                    f"expected {entry.expected_schema_version}, "
+                    f"found {nested_artifact.schema_version}"
+                )
+    return manifest
 
 
 def _validate_structural_failure_history(
@@ -2736,6 +2848,12 @@ _ARTIFACT_VALIDATORS = {
     "benchmark_model_run_manifest": _validate_benchmark_model_run_manifest,
     "benchmark_metric_output_payload": _validate_benchmark_metric_output_payload,
     "benchmark_confidence_interval_payload": _validate_benchmark_confidence_interval_payload,
+    "program_memory_release": _validate_release_manifest,
+    "benchmark_release": _validate_release_manifest,
+    "rescue_release": _validate_release_manifest,
+    "variant_context_release": _validate_release_manifest,
+    "policy_release": _validate_release_manifest,
+    "hypothesis_release": _validate_release_manifest,
     "rescue_dataset_card": _validate_rescue_dataset_card,
     "rescue_freeze_manifest": _validate_rescue_freeze_manifest,
     "rescue_raw_to_frozen_lineage": _validate_rescue_raw_to_frozen_lineage,
@@ -2772,6 +2890,7 @@ def load_artifact(
     if validator is None:
         raise ValueError(f"no validator registered for {resolved_artifact_name}")
     payload = validator(resolved_path, schema)
+    _ensure_payload_matches_schema(payload, schema)
     return ValidatedArtifact(
         artifact_name=resolved_artifact_name,
         schema=schema,

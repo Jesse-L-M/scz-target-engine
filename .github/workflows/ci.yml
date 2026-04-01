@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - Jesse-L-M/**
+
+permissions:
+  contents: read
+
+jobs:
+  tests-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run full test suite
+        run: uv run --group dev pytest
+
+      - name: Run contract registry and docs tests
+        run: uv run --group dev pytest tests/test_artifacts.py tests/test_contract_freeze_docs.py
+
+      - name: Run contract-frozen smoke path
+        run: ./scripts/run_contract_smoke_path.sh
+
+      - name: Verify frozen example outputs stay clean
+        run: |
+          git diff --exit-code -- examples/v0/output
+          status_output="$(git status --short --untracked-files=all -- examples/v0/output)"
+          if [[ -n "${status_output}" ]]; then
+            printf '%s\n' "${status_output}"
+            exit 1
+          fi

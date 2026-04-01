@@ -22,6 +22,10 @@ below. The current strategy is broader than the shipped surface:
   schizophrenia rescue benchmark in one defined cellular context
 - the atlas is being treated as a variant-to-context feature store for replay and
   rescue, not as a decorative UI layer
+- Milestone 0 now freezes the dual-write compatibility surface through
+  [docs/intervention_object_compatibility.md](docs/intervention_object_compatibility.md),
+  six registered top-level release-manifest families, and one shared smoke-path
+  script at `scripts/run_contract_smoke_path.sh`
 
 Read [docs/roadmap.md](docs/roadmap.md) first for the short strategy view, then
 [docs/designs/deep-scz-validate-calibrate.md](docs/designs/deep-scz-validate-calibrate.md)
@@ -36,6 +40,9 @@ actually shipped today.
 - PR7 scoring-neutral target ledgers with failure history, directionality hypotheses, and source primitives
 - PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort labels, runner manifests, metric payloads, and confidence interval payloads
 - A rescue hidden-eval packaging and simulation path for the shipped glutamatergic rescue task, with a public submitter package built from the real governed ranking artifact and an operator-side evaluator that returns only a receipt-style public scorecard while keeping held-out labels and metrics inside operator-only artifacts
+- Milestone 0 contract freezing for `program_memory_release`, `benchmark_release`,
+  `rescue_release`, `variant_context_release`, `policy_release`, and
+  `hypothesis_release`, all validated through `scz_target_engine.artifacts`
 - A non-seed candidate registry built from `Open Targets` baseline pulls plus optional `PGC` support
 - A checked-in example scoring fixture path under `examples/v0/`, where `v0` still exists as the reference workflow and `v1` outputs are emitted alongside it when you rerun the build
 - Live fetchers for `Open Targets`, `ChEMBL`, `PGC`, `SCHEMA`, and `PsychENCODE / BrainSCOPE`
@@ -69,6 +76,41 @@ foundation still does not implement consortium-dump parsing.
 - Benchmark outputs are diagnostic artifacts. They are not proof of calibration, threshold quality, or deployment readiness.
 - Calibration work, decision-threshold setting, and broader operating-point evaluation remain future work.
 - Raw-source ingestion from consortium dumps is still future work.
+
+## Contract-Frozen Compatibility Surface
+
+The current dual-write compatibility contract is frozen before replay, rescue,
+atlas, policy, or credibility expansion moves to intervention-object-native
+outputs.
+
+- Current shipped consumer surfaces remain `gene_target_ledgers`,
+  `decision_vectors_v1`, `domain_head_rankings_v1`,
+  `policy_decision_vectors_v2`, `policy_pareto_fronts_v1`, and
+  `hypothesis_packets_v1`.
+- Future intervention-object-native work must project back through the checked-in
+  matrix in [docs/intervention_object_compatibility.md](docs/intervention_object_compatibility.md).
+- The six registered release-manifest families are documented in
+  [docs/artifact_schemas.md](docs/artifact_schemas.md), and the shared manifest
+  rule is logged in
+  [docs/decisions/0002-release-manifest-contract.md](docs/decisions/0002-release-manifest-contract.md).
+- The pinned smoke path lives at `scripts/run_contract_smoke_path.sh` and is
+  executed in `.github/workflows/ci.yml`.
+- The smoke verifier rebuilds the frozen example outputs into a temporary
+  directory and fails on drift from the checked-in `examples/v0/output/`
+  contract surface.
+
+Run the exact contract-frozen smoke path locally:
+
+```bash
+./scripts/run_contract_smoke_path.sh
+
+uv run scz-target-engine build --config config/v0.toml --input-dir examples/v0/input --output-dir examples/v0/output
+uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/fixtures/scz_small/snapshot_request.json --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json --output-file data/benchmark/generated/scz_small/snapshot_manifest.json --materialized-at 2026-03-28
+uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv --output-file data/benchmark/generated/scz_small/cohort_labels.csv
+uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json --output-dir data/benchmark/generated/scz_small/runner_outputs --config config/v0.toml --deterministic-test-mode
+uv run python -m scz_target_engine.cli rescue compare baselines --output-dir .context/rescue-baseline-suite
+PYTHONPATH=src python3 -m scz_target_engine.cli build-hypothesis-packets --policy-artifact examples/v0/output/policy_decision_vectors_v2.json --ledger-artifact examples/v0/output/gene_target_ledgers.json --output-file .context/hypothesis_packets_v1.json
+```
 
 See [docs/roadmap.md](docs/roadmap.md) for the current strategy and milestone order,
 [docs/claim.md](docs/claim.md) for the current claim boundary,
@@ -126,10 +168,15 @@ The build now also emits:
 Those policy outputs are driven by checked-in TOML under `config/policies/`; they do
 not mutate `v0` or `v1`.
 
-The checked-in `examples/v0/output/` fixtures still capture the legacy shared `v0`
-example outputs. Re-run the build if you want current `gene_target_ledgers.json`,
-`decision_vectors_v1.json`, `policy_decision_vectors_v2.json`,
-`domain_head_rankings_v1.csv`, and `policy_pareto_fronts_v1.json`.
+The checked-in `examples/v0/output/` fixtures now freeze the current example build
+surface, including `gene_target_ledgers.json`, `decision_vectors_v1.json`,
+`policy_decision_vectors_v2.json`, `domain_head_rankings_v1.csv`, and
+`policy_pareto_fronts_v1.json`.
+
+Re-run the build into `examples/v0/output/` only when you intend to refresh those
+frozen example outputs. `scripts/run_contract_smoke_path.sh` rebuilds them in a
+temporary directory and fails on any drift instead of rewriting the checked-in
+fixtures.
 
 Build the registry manually from processed full-universe-capable sources:
 

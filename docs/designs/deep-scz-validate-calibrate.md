@@ -1,7 +1,7 @@
 # SCZ Digital Biology Observatory -- Roadmap
 
 Generated: 2026-04-01
-Branch: Jesse-L-M/calibrate-review
+Branch: Jesse-L-M/contract-freeze
 
 This is the detailed working roadmap.
 
@@ -156,6 +156,9 @@ Ship:
   baseline suite -> hypothesis packet generation
 - GitHub Actions CI for smoke path + existing test surface
 - documented GitHub Releases distribution path for frozen release artifacts
+- concrete checked-in contract anchors:
+  `docs/intervention_object_compatibility.md`,
+  `scripts/run_contract_smoke_path.sh`, and `.github/workflows/ci.yml`
 
 Hard gate: a fresh user can reproduce the core stack from documented commands and no
 current gene/module consumer silently breaks.
@@ -333,6 +336,10 @@ Hard gate: one external credibility track is live and can be shown without hand-
 ## Release Artifact Contracts
 
 All new feature work must target one of these registered release families.
+
+These top-level release manifest families are now registered in
+`scz_target_engine.artifacts` and validate required files, SHA256 digests, and
+nested registered artifact schema versions from the manifest entrypoint.
 
 ### 1. Program-Memory Release
 

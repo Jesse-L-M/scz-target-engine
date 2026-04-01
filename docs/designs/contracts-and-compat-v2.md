@@ -1,7 +1,7 @@
 # contracts-and-compat-v2
 
-Status: draft
-Owner branch: Jesse-L-M/calibrate-review
+Status: implemented
+Owner branch: Jesse-L-M/contract-freeze
 Depends on: -
 Blocked by: -
 Supersedes: -
@@ -86,6 +86,9 @@ observatory.
   `docs/intervention_object_compatibility.md` or equivalent compatibility doc
   that maps:
   `intervention_object_id` -> gene/module/policy/packet consumers
+- New or changed artifact:
+  `scripts/run_contract_smoke_path.sh` and `.github/workflows/ci.yml` pin the
+  same smoke-path command set
 - Backward-compatibility rule:
   existing artifact names, current CLI commands, and current generated example
   outputs stay valid during the dual-write period
@@ -108,6 +111,25 @@ ROADMAP + SHIPPED ARTIFACTS
 - The release-manifest schemas freeze what a public release bundle must contain.
 - The smoke path proves those contracts still compose in one fresh run.
 
+## Implementation Reality
+
+- The compatibility matrix is now checked in at
+  `docs/intervention_object_compatibility.md`.
+- The six top-level release families are registered in
+  `schemas/artifact_schemas/` as:
+  `program_memory_release`, `benchmark_release`, `rescue_release`,
+  `variant_context_release`, `policy_release`, and `hypothesis_release`.
+- `scz_target_engine.artifacts` now validates those manifest entrypoints against
+  required files, SHA256 digests, and nested registered artifact schema
+  versions.
+- The shared smoke path lives at `scripts/run_contract_smoke_path.sh`, rebuilds
+  the frozen example outputs into a temporary directory, and fails on drift from
+  `examples/v0/output/`.
+- CI now executes that same script from `.github/workflows/ci.yml` and also
+  asserts that `examples/v0/output/` stays clean afterward.
+- The shared release-manifest choice is logged in
+  `docs/decisions/0002-release-manifest-contract.md`.
+
 ## Implementation Plan
 
 1. Write the intervention-object compatibility matrix and dual-write policy.
@@ -124,13 +146,23 @@ ROADMAP + SHIPPED ARTIFACTS
   add artifact-registry validation tests for each new release-manifest family in
   `tests/test_artifacts.py`
 - Integration:
-  run the smoke path from a clean worktree and confirm each step writes the
-  expected manifest or output family
+  run the smoke path from a clean worktree, confirm the example build is replayed
+  into a temporary directory, and fail on any drift from the frozen example
+  outputs under `examples/v0/output/`
 - Regression:
   add a test that fails if a release bundle validates without a required file or
   checksum entry
 - E2E, if relevant:
-  one CI job runs the documented smoke path exactly as written in the docs
+  one CI job runs the documented smoke path and fails if
+  `examples/v0/output/` drifts
+
+Required local commands:
+
+```bash
+uv run --group dev pytest
+uv run --group dev pytest tests/test_artifacts.py
+./scripts/run_contract_smoke_path.sh
+```
 
 ## Failure Modes
 
@@ -144,6 +176,9 @@ ROADMAP + SHIPPED ARTIFACTS
 - Failure mode:
   the docs claim a smoke path that CI does not run; CI must execute the same
   command set listed in the docs
+- Failure mode:
+  smoke verification rewrites checked-in fixtures and hides contract drift; the
+  smoke path must compare a temporary build against the frozen example outputs
 
 ## Rollout / Compatibility
 
@@ -156,18 +191,24 @@ ROADMAP + SHIPPED ARTIFACTS
 
 ## Open Questions
 
-- Should the compatibility matrix live as a prose doc only, or also as a checked-in
-  machine-readable mapping artifact?
-- Should release-manifest validation verify exact file names only, or also minimum
-  semantic content counts such as non-empty cohort or packet sets?
+- The compatibility matrix is checked in as prose for Milestone 0.
+  A machine-readable mapping artifact is deferred until replay or rescue work
+  needs to materialize intervention-object-native dual-write bundles.
+- Release-manifest validation now verifies exact required file paths, SHA256
+  digests, and nested registered artifact schema versions.
+  Minimum semantic content counts stay deferred to the owning milestone.
 
 ## Decision Log Links
 
 - `docs/decisions/0001-planning-contract.md`
+- `docs/decisions/0002-release-manifest-contract.md`
 
 ## Commands
 
 ```bash
+./scripts/run_contract_smoke_path.sh
+uv run --group dev pytest
+uv run --group dev pytest tests/test_artifacts.py
 uv run scz-target-engine build --config config/v0.toml --input-dir examples/v0/input --output-dir examples/v0/output
 uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/fixtures/scz_small/snapshot_request.json --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json --output-file data/benchmark/generated/scz_small/snapshot_manifest.json --materialized-at 2026-03-28
 uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv --output-file data/benchmark/generated/scz_small/cohort_labels.csv

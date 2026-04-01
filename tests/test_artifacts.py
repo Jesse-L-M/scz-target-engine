@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -27,10 +28,52 @@ def _schema_signature(schema: object) -> tuple[object, ...]:
     )
 
 
+def _sha256_path(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_release_manifest(
+    path: Path,
+    *,
+    artifact_name: str,
+    files: list[dict[str, object]],
+) -> None:
+    payload = {
+        "schema_name": artifact_name,
+        "schema_version": "v1",
+        "release_id": f"{artifact_name}_2026_04_01",
+        "release_family": artifact_name,
+        "release_version": "2026.04.01",
+        "materialized_at": "2026-04-01",
+        "compatibility_phase": "dual_write",
+        "files": files,
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_schema_file(
+    path: Path,
+    *,
+    artifact_name: str,
+    schema_version: str | None = None,
+) -> None:
+    schema_path = Path("schemas/artifact_schemas") / f"{artifact_name}.json"
+    payload = json.loads(schema_path.read_text(encoding="utf-8"))
+    if schema_version is not None:
+        payload["schema_version"] = schema_version
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def test_artifact_registry_covers_current_output_and_contract_families() -> None:
     schemas = list_artifact_schemas()
 
     assert {schema.artifact_name for schema in schemas} == {
+        "program_memory_release",
+        "benchmark_release",
+        "rescue_release",
+        "variant_context_release",
+        "policy_release",
+        "hypothesis_release",
         "benchmark_snapshot_manifest",
         "benchmark_cohort_labels",
         "benchmark_model_run_manifest",
@@ -54,10 +97,13 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
 
 
 def test_benchmark_schema_registrations_match_frozen_protocol_contract() -> None:
+    benchmark_artifact_names = {
+        schema.artifact_name for schema in BENCHMARK_ARTIFACT_SCHEMAS_V1
+    }
     registered = {
         schema.artifact_name: schema
         for schema in list_artifact_schemas()
-        if schema.artifact_name.startswith("benchmark_")
+        if schema.artifact_name in benchmark_artifact_names
     }
     frozen = {
         schema.artifact_name: schema
@@ -298,6 +344,293 @@ def test_example_rescue_governance_artifacts_validate_against_registered_schemas
         "example_scz_gene_ranking_inputs_2025_01_15",
         "example_scz_gene_evaluation_labels_2025_06_30",
     }
+
+
+@pytest.mark.parametrize(
+    "artifact_name, manifest_filename",
+    [
+        ("program_memory_release", "release_manifest.json"),
+        ("benchmark_release", "benchmark_release_manifest.json"),
+        ("rescue_release", "rescue_release_manifest.json"),
+        ("variant_context_release", "atlas_release_manifest.json"),
+        ("policy_release", "policy_manifest.json"),
+        ("hypothesis_release", "release_manifest.json"),
+    ],
+)
+def test_release_manifest_families_validate_top_level_entrypoints(
+    tmp_path: Path,
+    artifact_name: str,
+    manifest_filename: str,
+) -> None:
+    bundle_dir = tmp_path / artifact_name
+    bundle_dir.mkdir()
+    readme_path = bundle_dir / "README.txt"
+    readme_path.write_text(f"{artifact_name} bundle\n", encoding="utf-8")
+    manifest_path = bundle_dir / manifest_filename
+    _write_release_manifest(
+        manifest_path,
+        artifact_name=artifact_name,
+        files=[
+            {
+                "artifact_id": "bundle_notes",
+                "path": readme_path.name,
+                "sha256": _sha256_path(readme_path),
+            }
+        ],
+    )
+
+    artifact = load_artifact(manifest_path)
+
+    assert artifact.artifact_name == artifact_name
+    assert artifact.payload.release_family == artifact_name
+    assert artifact.payload.compatibility_phase == "dual_write"
+    assert artifact.payload.files[0].artifact_id == "bundle_notes"
+
+
+def test_release_manifest_validates_nested_registered_artifacts(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = tmp_path / "benchmark_release"
+    bundle_dir.mkdir()
+    snapshot_path = bundle_dir / "benchmark_snapshot_manifest.json"
+    materialize_benchmark_snapshot_manifest(
+        request_file=Path(
+            "data/benchmark/fixtures/scz_small/snapshot_request.json"
+        ).resolve(),
+        archive_index_file=Path(
+            "data/benchmark/fixtures/scz_small/source_archives.json"
+        ).resolve(),
+        output_file=snapshot_path,
+        materialized_at="2026-03-28",
+    )
+    summary_path = bundle_dir / "summary.md"
+    summary_path.write_text("benchmark release summary\n", encoding="utf-8")
+    manifest_path = bundle_dir / "benchmark_release_manifest.json"
+    _write_release_manifest(
+        manifest_path,
+        artifact_name="benchmark_release",
+        files=[
+            {
+                "artifact_id": "snapshot_manifest",
+                "path": snapshot_path.name,
+                "sha256": _sha256_path(snapshot_path),
+                "artifact_name": "benchmark_snapshot_manifest",
+                "expected_schema_version": "v1",
+            },
+            {
+                "artifact_id": "summary",
+                "path": summary_path.name,
+                "sha256": _sha256_path(summary_path),
+            },
+        ],
+    )
+
+    artifact = load_artifact(manifest_path)
+
+    assert artifact.artifact_name == "benchmark_release"
+    assert {entry.artifact_id for entry in artifact.payload.files} == {
+        "snapshot_manifest",
+        "summary",
+    }
+
+
+def test_release_manifest_rejects_missing_required_files(tmp_path: Path) -> None:
+    bundle_dir = tmp_path / "program_memory_release"
+    bundle_dir.mkdir()
+    manifest_path = bundle_dir / "release_manifest.json"
+    _write_release_manifest(
+        manifest_path,
+        artifact_name="program_memory_release",
+        files=[
+            {
+                "artifact_id": "coverage_manifest",
+                "path": "coverage_manifest.json",
+                "sha256": "0" * 64,
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="missing required file"):
+        load_artifact(manifest_path)
+
+
+def test_release_manifest_rejects_checksum_drift(tmp_path: Path) -> None:
+    bundle_dir = tmp_path / "policy_release"
+    bundle_dir.mkdir()
+    summary_path = bundle_dir / "policy_notes.md"
+    summary_path.write_text("policy bundle\n", encoding="utf-8")
+    manifest_path = bundle_dir / "policy_manifest.json"
+    _write_release_manifest(
+        manifest_path,
+        artifact_name="policy_release",
+        files=[
+            {
+                "artifact_id": "policy_notes",
+                "path": summary_path.name,
+                "sha256": _sha256_path(summary_path),
+            }
+        ],
+    )
+    summary_path.write_text("policy bundle changed\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        load_artifact(manifest_path)
+
+
+def test_benchmark_snapshot_manifest_rejects_declared_schema_version_drift(
+    tmp_path: Path,
+) -> None:
+    snapshot_path = tmp_path / "benchmark_snapshot_manifest.json"
+    materialize_benchmark_snapshot_manifest(
+        request_file=Path(
+            "data/benchmark/fixtures/scz_small/snapshot_request.json"
+        ).resolve(),
+        archive_index_file=Path(
+            "data/benchmark/fixtures/scz_small/source_archives.json"
+        ).resolve(),
+        output_file=snapshot_path,
+        materialized_at="2026-03-28",
+    )
+    payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    payload["schema_version"] = "v99"
+    snapshot_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="benchmark_snapshot_manifest schema_version must be v1"):
+        load_artifact(snapshot_path)
+
+
+def test_release_manifest_rejects_expected_nested_schema_version_mismatch(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = tmp_path / "benchmark_release"
+    bundle_dir.mkdir()
+    snapshot_path = bundle_dir / "benchmark_snapshot_manifest.json"
+    materialize_benchmark_snapshot_manifest(
+        request_file=Path(
+            "data/benchmark/fixtures/scz_small/snapshot_request.json"
+        ).resolve(),
+        archive_index_file=Path(
+            "data/benchmark/fixtures/scz_small/source_archives.json"
+        ).resolve(),
+        output_file=snapshot_path,
+        materialized_at="2026-03-28",
+    )
+    manifest_path = bundle_dir / "benchmark_release_manifest.json"
+    _write_release_manifest(
+        manifest_path,
+        artifact_name="benchmark_release",
+        files=[
+            {
+                "artifact_id": "snapshot_manifest",
+                "path": snapshot_path.name,
+                "sha256": _sha256_path(snapshot_path),
+                "artifact_name": "benchmark_snapshot_manifest",
+                "expected_schema_version": "v99",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="schema version mismatch"):
+        load_artifact(manifest_path)
+
+
+def test_release_manifest_rejects_nested_declared_schema_version_drift(
+    tmp_path: Path,
+) -> None:
+    bundle_dir = tmp_path / "benchmark_release"
+    bundle_dir.mkdir()
+    snapshot_path = bundle_dir / "benchmark_snapshot_manifest.json"
+    materialize_benchmark_snapshot_manifest(
+        request_file=Path(
+            "data/benchmark/fixtures/scz_small/snapshot_request.json"
+        ).resolve(),
+        archive_index_file=Path(
+            "data/benchmark/fixtures/scz_small/source_archives.json"
+        ).resolve(),
+        output_file=snapshot_path,
+        materialized_at="2026-03-28",
+    )
+    snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    snapshot_payload["schema_version"] = "v99"
+    snapshot_path.write_text(
+        json.dumps(snapshot_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = bundle_dir / "benchmark_release_manifest.json"
+    _write_release_manifest(
+        manifest_path,
+        artifact_name="benchmark_release",
+        files=[
+            {
+                "artifact_id": "snapshot_manifest",
+                "path": snapshot_path.name,
+                "sha256": _sha256_path(snapshot_path),
+                "artifact_name": "benchmark_snapshot_manifest",
+                "expected_schema_version": "v1",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="benchmark_snapshot_manifest schema_version must be v1"):
+        load_artifact(manifest_path)
+
+
+def test_release_manifest_validates_nested_artifacts_with_custom_schema_dir(
+    tmp_path: Path,
+) -> None:
+    schema_dir = tmp_path / "custom_schemas"
+    schema_dir.mkdir()
+    _write_schema_file(
+        schema_dir / "benchmark_release.json",
+        artifact_name="benchmark_release",
+    )
+    _write_schema_file(
+        schema_dir / "benchmark_snapshot_manifest.json",
+        artifact_name="benchmark_snapshot_manifest",
+        schema_version="v99",
+    )
+
+    bundle_dir = tmp_path / "benchmark_release"
+    bundle_dir.mkdir()
+    snapshot_path = bundle_dir / "benchmark_snapshot_manifest.json"
+    materialize_benchmark_snapshot_manifest(
+        request_file=Path(
+            "data/benchmark/fixtures/scz_small/snapshot_request.json"
+        ).resolve(),
+        archive_index_file=Path(
+            "data/benchmark/fixtures/scz_small/source_archives.json"
+        ).resolve(),
+        output_file=snapshot_path,
+        materialized_at="2026-03-28",
+    )
+    snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    snapshot_payload["schema_version"] = "v99"
+    snapshot_path.write_text(
+        json.dumps(snapshot_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = bundle_dir / "benchmark_release_manifest.json"
+    _write_release_manifest(
+        manifest_path,
+        artifact_name="benchmark_release",
+        files=[
+            {
+                "artifact_id": "snapshot_manifest",
+                "path": snapshot_path.name,
+                "sha256": _sha256_path(snapshot_path),
+                "artifact_name": "benchmark_snapshot_manifest",
+                "expected_schema_version": "v99",
+            }
+        ],
+    )
+
+    artifact = load_artifact(manifest_path, schema_dir=schema_dir)
+
+    assert artifact.artifact_name == "benchmark_release"
+    assert artifact.schema.schema_dir == schema_dir.resolve()
 
 
 def test_example_prospective_registration_validates_against_registered_schema() -> None:

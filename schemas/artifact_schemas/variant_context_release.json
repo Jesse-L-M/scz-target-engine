@@ -1,0 +1,67 @@
+{
+  "artifact_name": "variant_context_release",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Top-level release manifest entrypoint for a frozen variant-context bundle.",
+  "key_fields": [
+    "release_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Release manifest schema version."
+    },
+    {
+      "name": "release_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable release identifier."
+    },
+    {
+      "name": "release_family",
+      "field_type": "string",
+      "required": true,
+      "description": "Registered release family name."
+    },
+    {
+      "name": "release_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable release version tag."
+    },
+    {
+      "name": "materialized_at",
+      "field_type": "string",
+      "required": true,
+      "description": "Materialization timestamp or date for the bundle."
+    },
+    {
+      "name": "compatibility_phase",
+      "field_type": "string",
+      "required": true,
+      "description": "Compatibility posture for the bundle, such as dual_write."
+    },
+    {
+      "name": "files",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Required bundle files with relative paths, SHA256 digests, and optional nested artifact schema pins."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional release notes."
+    }
+  ]
+}

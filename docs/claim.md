@@ -13,6 +13,9 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - `heuristic_stable` means an entity was rank-eligible and survived at least the configured share of `v0` sensitivity runs.
 - `v1` is an additive multi-head decision-vector layer that exposes separate domain/stage profiles without changing the underlying `v0` numbers.
 - the benchmark path is now runnable end to end from frozen snapshot, cohort, and runner artifacts
+- the Milestone 0 compatibility surface is now frozen through
+  `docs/intervention_object_compatibility.md`, six registered release-manifest
+  families, and the shared smoke path at `scripts/run_contract_smoke_path.sh`
 
 ## What This Repo Currently Is Not
 
@@ -23,6 +26,8 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - atlas raw-source staging now exists for selected adapter-backed pulls, but it is still not raw consortium-dump ingestion and it does not replace the current scoring inputs
 - the benchmark path is not a production-scale historical replay system
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
+- `intervention_object_id` is not yet the shipped replacement key for the current
+  gene, module, policy, or packet artifacts during the dual-write period
 
 ## What `v0` Outputs Mean
 
@@ -45,6 +50,26 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - historical benchmark archives are fixture-scale and currently checked in only for `data/benchmark/fixtures/scz_small/`
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
+
+## Contract-Frozen Surface
+
+- Current shipped compatibility consumers remain `gene_target_ledgers`,
+  `decision_vectors_v1`, `domain_head_rankings_v1`,
+  `policy_decision_vectors_v2`, `policy_pareto_fronts_v1`, and
+  `hypothesis_packets_v1`.
+- Future intervention-object-native work must dual-write back through the checked-in
+  compatibility rules in `docs/intervention_object_compatibility.md`.
+- Projection multiplicity must be explicit, and silent legacy-consumer collisions
+  are forbidden during the dual-write period.
+- Release bundles now freeze file membership, SHA256 digests, and nested schema
+  versions through the registered `program_memory_release`,
+  `benchmark_release`, `rescue_release`, `variant_context_release`,
+  `policy_release`, and `hypothesis_release` manifest families.
+- The pinned smoke path lives at `scripts/run_contract_smoke_path.sh` and is the
+  same command set executed in `.github/workflows/ci.yml`.
+- That smoke path now rebuilds the frozen example outputs in a temporary
+  directory and fails on drift instead of silently rewriting
+  `examples/v0/output/`.
 
 ## What `v0` Outputs Do Not Justify Claiming
 

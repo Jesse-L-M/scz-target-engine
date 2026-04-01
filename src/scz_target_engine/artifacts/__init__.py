@@ -3,6 +3,8 @@
 from scz_target_engine.artifacts.models import (
     ArtifactFieldDefinition,
     ArtifactSchemaDefinition,
+    ReleaseManifest,
+    ReleaseManifestFileEntry,
     ValidatedArtifact,
 )
 from scz_target_engine.artifacts.registry import (
@@ -20,6 +22,8 @@ __all__ = [
     "ArtifactFieldDefinition",
     "ArtifactSchemaDefinition",
     "DEFAULT_SCHEMA_DIR",
+    "ReleaseManifest",
+    "ReleaseManifestFileEntry",
     "ValidatedArtifact",
     "get_artifact_schema",
     "infer_artifact_name",

@@ -5,6 +5,12 @@ that future task work can consume without changing current build semantics.
 
 ## Registered Families
 
+- `program_memory_release`
+- `benchmark_release`
+- `rescue_release`
+- `variant_context_release`
+- `policy_release`
+- `hypothesis_release`
 - `benchmark_snapshot_manifest`
 - `benchmark_cohort_labels`
 - `benchmark_model_run_manifest`
@@ -27,6 +33,37 @@ that future task work can consume without changing current build semantics.
 
 The schema files live under `schemas/artifact_schemas/`. Rescue governance schemas
 now live under `schemas/artifact_schemas/rescue/`.
+
+## Release Manifest Entry Points
+
+Milestone 0 freezes six top-level release-manifest families inside the existing
+artifact registry:
+
+- `program_memory_release`
+- `benchmark_release`
+- `rescue_release`
+- `variant_context_release`
+- `policy_release`
+- `hypothesis_release`
+
+Each of those artifacts is a top-level manifest JSON entrypoint for one release
+bundle, not a directory name masquerading as a contract.
+
+The shared release-manifest contract now pins:
+
+- required files using paths relative to the manifest location
+- a SHA256 digest for every required file
+- `artifact_name` plus `expected_schema_version` whenever a required file is
+  itself a registered artifact
+
+Validation fails on:
+
+- missing required files
+- checksum drift
+- nested registered artifact schema-version drift
+
+The cross-cutting decision for that shared contract lives in
+`docs/decisions/0002-release-manifest-contract.md`.
 
 ## Runtime Validation
 
@@ -57,6 +94,19 @@ manifest_artifact = load_artifact(
 )
 ```
 
+Release manifests use the same loader surface:
+
+```python
+from pathlib import Path
+
+from scz_target_engine.artifacts import load_artifact
+
+release_artifact = load_artifact(
+    Path("dist/benchmark_release/benchmark_release_manifest.json"),
+)
+assert release_artifact.artifact_name == "benchmark_release"
+```
+
 `load_artifact` validates structure and returns a `ValidatedArtifact`.
 For benchmark artifacts, the payload is the existing typed model already used by the
 benchmark code:
@@ -78,6 +128,7 @@ rescue models:
 - `RescueRawToFrozenLineage`
 - `ProspectivePredictionRegistration`
 - `ProspectiveForecastOutcomeLog`
+- `ReleaseManifest`
 
 The registry-driven benchmark path keeps those same emitted families. The additive
 contract provenance fields live on the manifest artifacts:

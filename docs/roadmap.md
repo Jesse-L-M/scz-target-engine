@@ -81,6 +81,10 @@ uplift worth translating.
   `docs/designs/*.md`
 - Cross-cutting decisions:
   `docs/decisions/*.md`
+- Milestone 0 compatibility surface:
+  `docs/intervention_object_compatibility.md`,
+  `docs/artifact_schemas.md`,
+  `scripts/run_contract_smoke_path.sh`, and `.github/workflows/ci.yml`
 - New build-specs should start from:
   `docs/templates/milestone-spec-template.md`
 

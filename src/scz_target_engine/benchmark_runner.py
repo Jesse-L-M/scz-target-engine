@@ -13,6 +13,14 @@ from scz_target_engine.benchmark_labels import (
     BenchmarkCohortLabel,
     read_benchmark_cohort_labels,
 )
+from scz_target_engine.benchmark_intervention_objects import (
+    INTERVENTION_OBJECT_ENTITY_TYPE,
+    build_intervention_object_projection_payload,
+    intervention_object_bundle_path_for_manifest_file,
+    intervention_object_projection_path,
+    read_intervention_object_feature_bundle,
+    write_intervention_object_projection_payload,
+)
 from scz_target_engine.benchmark_metrics import (
     BOOTSTRAP_INTERVAL_METHOD,
     BOOTSTRAP_RESAMPLE_UNIT,
@@ -265,6 +273,8 @@ class BenchmarkExecutionContext:
     included_source_refs: dict[str, InputArtifactReference]
     v0_ranked_rows: dict[str, list[dict[str, object]]]
     ranked_entities: dict[str, list[Any]]
+    intervention_object_bundle_rows: list[dict[str, object]]
+    intervention_object_bundle_ref: InputArtifactReference | None = None
 
 
 def write_benchmark_model_run_manifest(
@@ -554,20 +564,140 @@ def _assemble_snapshot_records(
     return gene_records, module_records, cohort_entities, included_source_refs
 
 
+def _cohort_entities_from_labels(
+    cohort_labels: tuple[BenchmarkCohortLabel, ...],
+) -> dict[str, tuple[tuple[str, str], ...]]:
+    grouped: dict[str, list[tuple[str, str]]] = {}
+    seen: set[tuple[str, str]] = set()
+    for label in sorted(
+        cohort_labels,
+        key=lambda item: (item.entity_type, item.entity_label.lower(), item.entity_id),
+    ):
+        key = (label.entity_type, label.entity_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        grouped.setdefault(label.entity_type, []).append(
+            (label.entity_id, label.entity_label)
+        )
+    return {
+        entity_type: tuple(rows)
+        for entity_type, rows in grouped.items()
+    }
+
+
+def _assemble_projection_records(
+    manifest: BenchmarkSnapshotManifest,
+    archive_descriptors: tuple[SourceArchiveDescriptor, ...],
+    config: EngineConfig,
+) -> tuple[
+    list[EntityRecord],
+    list[EntityRecord],
+    dict[str, InputArtifactReference],
+]:
+    included_descriptors = _resolve_included_source_descriptors(
+        manifest,
+        archive_descriptors,
+    )
+    included_source_refs = {
+        source_name: _build_artifact_reference(
+            artifact_name="source_archive",
+            path=Path(descriptor.archive_file),
+            source_name=descriptor.source_name,
+            source_version=descriptor.source_version,
+            notes=descriptor.notes,
+        )
+        for source_name, descriptor in included_descriptors.items()
+    }
+    states: dict[tuple[str, str], dict[str, object]] = {}
+    for descriptor in included_descriptors.values():
+        for row in _load_archive_rows(descriptor):
+            entity_type = str(row.get("entity_type", "")).strip()
+            entity_id = str(row.get("entity_id", "")).strip()
+            entity_label = str(row.get("entity_label", "")).strip()
+            if entity_type not in {GENE_ENTITY_TYPE, MODULE_ENTITY_TYPE}:
+                continue
+            if not entity_id or not entity_label:
+                continue
+            if (entity_type, entity_id) not in states:
+                layer_names = (
+                    tuple(config.gene_layers)
+                    if entity_type == GENE_ENTITY_TYPE
+                    else tuple(config.module_layers)
+                )
+                states[(entity_type, entity_id)] = {
+                    "entity_type": entity_type,
+                    "entity_id": entity_id,
+                    "entity_label": entity_label,
+                    "layer_values": {layer_name: None for layer_name in layer_names},
+                    "metadata": {},
+                }
+            _apply_archive_row(states, row)
+
+    gene_records: list[EntityRecord] = []
+    module_records: list[EntityRecord] = []
+    for (entity_type, entity_id), state in sorted(
+        states.items(),
+        key=lambda item: (item[0][0], str(item[1]["entity_label"]).lower(), item[0][1]),
+    ):
+        record = EntityRecord(
+            entity_type=str(state["entity_type"]),
+            entity_id=str(state["entity_id"]),
+            entity_label=str(state["entity_label"]),
+            layer_values=dict(state["layer_values"]),
+            metadata={
+                key: _score_to_string(value)
+                for key, value in dict(state["metadata"]).items()
+            },
+        )
+        if entity_type == GENE_ENTITY_TYPE:
+            gene_records.append(record)
+        else:
+            module_records.append(record)
+    return gene_records, module_records, included_source_refs
+
+
 def _build_context(
     manifest: BenchmarkSnapshotManifest,
     cohort_labels: tuple[BenchmarkCohortLabel, ...],
     archive_descriptors: tuple[SourceArchiveDescriptor, ...],
     config: EngineConfig,
+    *,
+    manifest_file: Path,
 ) -> BenchmarkExecutionContext:
-    gene_records, module_records, cohort_entities, included_source_refs = (
-        _assemble_snapshot_records(
+    intervention_object_bundle_rows: list[dict[str, object]] = []
+    intervention_object_bundle_ref: InputArtifactReference | None = None
+    if INTERVENTION_OBJECT_ENTITY_TYPE in manifest.entity_types:
+        gene_records, module_records, included_source_refs = _assemble_projection_records(
             manifest,
-            cohort_labels,
             archive_descriptors,
             config,
         )
-    )
+        cohort_entities = _cohort_entities_from_labels(cohort_labels)
+        bundle_path = intervention_object_bundle_path_for_manifest_file(manifest_file)
+        if not bundle_path.exists():
+            raise ValueError(
+                "intervention-object snapshot requires a materialized feature bundle: "
+                f"{bundle_path}"
+            )
+        intervention_object_bundle_rows = read_intervention_object_feature_bundle(
+            bundle_path
+        )
+        intervention_object_bundle_ref = _build_artifact_reference(
+            artifact_name="intervention_object_feature_bundle",
+            path=bundle_path,
+            schema_name="intervention_object_feature_bundle",
+            notes="Snapshot-side intervention-object feature bundle materialized from archived inputs only",
+        )
+    else:
+        gene_records, module_records, cohort_entities, included_source_refs = (
+            _assemble_snapshot_records(
+                manifest,
+                cohort_labels,
+                archive_descriptors,
+                config,
+            )
+        )
     gene_ranked_rows = rank_records(
         gene_records,
         layer_weights=config.gene_layers,
@@ -623,6 +753,8 @@ def _build_context(
             MODULE_ENTITY_TYPE: module_ranked_rows,
         },
         ranked_entities=ranked_entities,
+        intervention_object_bundle_rows=intervention_object_bundle_rows,
+        intervention_object_bundle_ref=intervention_object_bundle_ref,
     )
 
 
@@ -758,14 +890,44 @@ def _execute_random_with_coverage(
     return _sort_prediction_candidates(candidates)
 
 
+def _prediction_rows_from_projection_payload(
+    payload: dict[str, object],
+) -> tuple[PredictionRow, ...]:
+    rows = payload.get("rows", [])
+    if not isinstance(rows, list):
+        raise ValueError("projection payload rows must be a list")
+    candidates: list[tuple[str, str, float]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if not bool(row.get("covered")):
+            continue
+        score = row.get("projected_score")
+        if score in {None, ""}:
+            continue
+        candidates.append(
+            (
+                str(row["entity_id"]),
+                str(row["entity_label"]),
+                float(score),
+            )
+        )
+    return _sort_prediction_candidates(candidates)
+
+
 def _execute_baseline_predictions(
     context: BenchmarkExecutionContext,
     baseline: BaselineDefinition,
     *,
     random_seed: int,
-) -> tuple[dict[str, tuple[PredictionRow, ...]], list[str]]:
+) -> tuple[
+    dict[str, tuple[PredictionRow, ...]],
+    list[str],
+    dict[str, dict[str, object]],
+]:
     notes: list[str] = []
     predictions_by_type: dict[str, tuple[PredictionRow, ...]] = {}
+    projection_payloads: dict[str, dict[str, object]] = {}
     if baseline.baseline_id == "pgc_only":
         predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
             GENE_ENTITY_TYPE,
@@ -799,23 +961,51 @@ def _execute_baseline_predictions(
             ),
         )
     elif baseline.baseline_id == "v0_current":
-        predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
+        gene_predictions = _with_entity_type(
             GENE_ENTITY_TYPE,
             _execute_v0_current(context.v0_ranked_rows[GENE_ENTITY_TYPE]),
         )
-        predictions_by_type[MODULE_ENTITY_TYPE] = _with_entity_type(
+        module_predictions = _with_entity_type(
             MODULE_ENTITY_TYPE,
             _execute_v0_current(context.v0_ranked_rows[MODULE_ENTITY_TYPE]),
         )
+        predictions_by_type[GENE_ENTITY_TYPE] = gene_predictions
+        predictions_by_type[MODULE_ENTITY_TYPE] = module_predictions
+        if context.intervention_object_bundle_rows:
+            projection_payload = build_intervention_object_projection_payload(
+                baseline_id=baseline.baseline_id,
+                bundle_rows=context.intervention_object_bundle_rows,
+                gene_predictions=gene_predictions,
+                module_predictions=module_predictions,
+            )
+            projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE] = projection_payload
+            predictions_by_type[INTERVENTION_OBJECT_ENTITY_TYPE] = _with_entity_type(
+                INTERVENTION_OBJECT_ENTITY_TYPE,
+                _prediction_rows_from_projection_payload(projection_payload),
+            )
     elif baseline.baseline_id == "v1_current":
-        predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
+        gene_predictions = _with_entity_type(
             GENE_ENTITY_TYPE,
             _execute_v1_current(context.ranked_entities[GENE_ENTITY_TYPE]),
         )
-        predictions_by_type[MODULE_ENTITY_TYPE] = _with_entity_type(
+        module_predictions = _with_entity_type(
             MODULE_ENTITY_TYPE,
             _execute_v1_current(context.ranked_entities[MODULE_ENTITY_TYPE]),
         )
+        predictions_by_type[GENE_ENTITY_TYPE] = gene_predictions
+        predictions_by_type[MODULE_ENTITY_TYPE] = module_predictions
+        if context.intervention_object_bundle_rows:
+            projection_payload = build_intervention_object_projection_payload(
+                baseline_id=baseline.baseline_id,
+                bundle_rows=context.intervention_object_bundle_rows,
+                gene_predictions=gene_predictions,
+                module_predictions=module_predictions,
+            )
+            projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE] = projection_payload
+            predictions_by_type[INTERVENTION_OBJECT_ENTITY_TYPE] = _with_entity_type(
+                INTERVENTION_OBJECT_ENTITY_TYPE,
+                _prediction_rows_from_projection_payload(projection_payload),
+            )
         notes.append(
             "v1_current benchmark score resolves current additive v1 output via "
             f"{V1_RESOLUTION_METHOD}"
@@ -824,7 +1014,7 @@ def _execute_baseline_predictions(
         predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
             GENE_ENTITY_TYPE,
             _execute_random_with_coverage(
-                cohort_entities=context.cohort_entities[GENE_ENTITY_TYPE],
+                cohort_entities=context.cohort_entities.get(GENE_ENTITY_TYPE, ()),
                 snapshot_id=context.manifest.snapshot_id,
                 entity_type=GENE_ENTITY_TYPE,
                 seed=random_seed,
@@ -833,12 +1023,25 @@ def _execute_baseline_predictions(
         predictions_by_type[MODULE_ENTITY_TYPE] = _with_entity_type(
             MODULE_ENTITY_TYPE,
             _execute_random_with_coverage(
-                cohort_entities=context.cohort_entities[MODULE_ENTITY_TYPE],
+                cohort_entities=context.cohort_entities.get(MODULE_ENTITY_TYPE, ()),
                 snapshot_id=context.manifest.snapshot_id,
                 entity_type=MODULE_ENTITY_TYPE,
                 seed=random_seed,
             ),
         )
+        if INTERVENTION_OBJECT_ENTITY_TYPE in baseline.entity_types:
+            predictions_by_type[INTERVENTION_OBJECT_ENTITY_TYPE] = _with_entity_type(
+                INTERVENTION_OBJECT_ENTITY_TYPE,
+                _execute_random_with_coverage(
+                    cohort_entities=context.cohort_entities.get(
+                        INTERVENTION_OBJECT_ENTITY_TYPE,
+                        (),
+                    ),
+                    snapshot_id=context.manifest.snapshot_id,
+                    entity_type=INTERVENTION_OBJECT_ENTITY_TYPE,
+                    seed=random_seed,
+                ),
+            )
     else:
         raise ValueError(f"unsupported benchmark baseline execution: {baseline.baseline_id}")
 
@@ -847,7 +1050,7 @@ def _execute_baseline_predictions(
             continue
         if not predictions:
             notes.append(f"{entity_type} slice had no eligible coverage")
-    return predictions_by_type, notes
+    return predictions_by_type, notes, projection_payloads
 
 
 def _build_run_manifest_path(output_dir: Path, run_id: str) -> Path:
@@ -915,6 +1118,7 @@ def _baseline_input_artifacts(
     archive_index_ref: InputArtifactReference,
     config_ref: InputArtifactReference,
     source_refs: dict[str, InputArtifactReference],
+    additional_refs: tuple[InputArtifactReference, ...] = (),
 ) -> tuple[InputArtifactReference, ...]:
     refs = [manifest_ref, cohort_ref, archive_index_ref]
     if baseline_id in {"v0_current", "v1_current"}:
@@ -923,6 +1127,7 @@ def _baseline_input_artifacts(
         source_ref = source_refs.get(source_name)
         if source_ref is not None:
             refs.append(source_ref)
+    refs.extend(additional_refs)
     refs.sort(
         key=lambda reference: (
             reference.artifact_name,
@@ -989,6 +1194,7 @@ def run_benchmark(
         cohort_labels,
         archive_descriptors,
         config,
+        manifest_file=manifest_file,
     )
     manifest_ref = _build_artifact_reference(
         artifact_name="benchmark_snapshot_manifest",
@@ -1046,11 +1252,40 @@ def run_benchmark(
 
     for baseline_id in requested_available_now_baselines:
         baseline = baseline_index[baseline_id]
-        predictions_by_type, baseline_notes = _execute_baseline_predictions(
+        predictions_by_type, baseline_notes, projection_payloads = (
+            _execute_baseline_predictions(
             context,
             baseline,
             random_seed=random_seed,
         )
+        )
+        additional_input_refs: list[InputArtifactReference] = []
+        if context.intervention_object_bundle_ref is not None:
+            additional_input_refs.append(context.intervention_object_bundle_ref)
+        if (
+            INTERVENTION_OBJECT_ENTITY_TYPE in projection_payloads
+            and INTERVENTION_OBJECT_ENTITY_TYPE in baseline.entity_types
+        ):
+            projection_path = intervention_object_projection_path(
+                output_dir=output_dir,
+                baseline_id=baseline_id,
+            )
+            write_intervention_object_projection_payload(
+                projection_path,
+                projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE],
+            )
+            additional_input_refs.append(
+                _build_artifact_reference(
+                    artifact_name="benchmark_intervention_object_baseline_projection",
+                    path=projection_path,
+                    schema_name="benchmark_intervention_object_baseline_projection",
+                    notes=(
+                        "Explicit intervention-object projection artifact built from "
+                        "archived current gene/module baseline outputs via the "
+                        "checked-in compatibility contract"
+                    ),
+                )
+            )
         parameterization: dict[str, object] = {
             "benchmark_question_id": manifest.benchmark_question_id,
             "bootstrap_confidence_level": bootstrap_confidence_level,
@@ -1062,6 +1297,15 @@ def run_benchmark(
             "v1_resolution_method": V1_RESOLUTION_METHOD,
             "config_sha256": config_ref.sha256,
         }
+        if INTERVENTION_OBJECT_ENTITY_TYPE in projection_payloads:
+            parameterization["intervention_object_projection_aggregation_rule"] = (
+                projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE]["aggregation_rule"]
+            )
+            parameterization["intervention_object_projection_contract"] = (
+                projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE][
+                    "compatibility_projection_contract"
+                ]
+            )
         run_id = _build_run_id(
             snapshot_id=manifest.snapshot_id,
             baseline_id=baseline_id,
@@ -1197,6 +1441,7 @@ def run_benchmark(
                 archive_index_ref=archive_index_ref,
                 config_ref=config_ref,
                 source_refs=context.included_source_refs,
+                additional_refs=tuple(additional_input_refs),
             ),
             started_at=started_at,
             completed_at=completed_at,

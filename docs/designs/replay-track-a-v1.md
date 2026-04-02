@@ -1,11 +1,11 @@
 # replay-track-a-v1
 
-Status: draft
-Owner branch: Jesse-L-M/calibrate-review
+Status: implemented
+Owner branch: Jesse-L-M/replay-track-a
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Objective
 
@@ -74,14 +74,19 @@ It does not cover Track B failure-memory reasoning yet.
 
 - New or changed artifact:
   `intervention_object_feature_bundle.parquet`
-  with all pre-cutoff features used for one snapshot
+  with all pre-cutoff intervention-object features used for one snapshot.
+  It is materialized beside the generated `benchmark_snapshot_manifest.json`.
 - New or changed artifact:
   benchmark snapshot manifests that can declare `entity_type =
   intervention_object`
 - New or changed artifact:
   benchmark cohort labels at intervention-object grain
 - New or changed artifact:
-  leaderboards and error-analysis outputs for Track A
+  explicit `benchmark_intervention_object_baseline_projection` sidecars for
+  `v0_current` and `v1_current` under `runner_outputs/baseline_projections/`
+- New or changed artifact:
+  leaderboards and error-analysis outputs for Track A under
+  `public_payloads/leaderboards/` and `public_payloads/error_analysis/`
 - Backward-compatibility rule:
   current gene/module benchmark tasks and the `scz_small` fixture remain valid and
   runnable
@@ -118,6 +123,35 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
 - Reporting generates leaderboard and error-analysis outputs without rerunning
   scoring logic.
 
+## Implementation Reality
+
+- `scz_small` remains the canonical gene/module fixture path and still runs
+  unchanged.
+- Track A reuses the existing registry-backed
+  `scz_translational_suite` / `scz_translational_task` row instead of creating a
+  parallel benchmark task id.
+- Checked-in public slices now switch to `entity_type = intervention_object`
+  and derive admissible cohort rows plus future outcomes from the checked-in
+  denominator and `program_history/v2/events.csv`.
+- The implemented Track A intervention-object key is the canonical
+  `program_universe_id` at program-opportunity grain:
+  `asset_lineage_id / target_class_lineage_id / modality / domain / population / regimen / stage_bucket`.
+- Snapshot materialization writes
+  `intervention_object_feature_bundle.parquet` beside the generated manifest
+  using only archived benchmark inputs plus checked-in denominator/program-history
+  tables.
+- `v0_current` and `v1_current` are no longer implicit joins for
+  intervention-object replay:
+  the runner first materializes explicit projection sidecars from archived
+  current gene/module outputs through the checked-in compatibility contract, then
+  scores those sidecars.
+- Reporting now emits one markdown error-analysis file per intervention-object run
+  at the principal `3y` horizon.
+- As of April 2, 2026, the checked-in `scz_translational_task` public-slice catalog
+  ships honest replayable slices at `2024-06-15`, `2024-06-18`, and `2024-06-20`,
+  but none are evaluable on the principal `3y` horizon because strict honest replay
+  filtering leaves zero positive intervention-object outcomes for each cutoff.
+
 ## Implementation Plan
 
 1. Define intervention-object cohort grain and label semantics.
@@ -141,6 +175,17 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
   snapshot -> cohort -> run -> reporting for one public slice with only archived
   inputs and explicit source exclusions
 
+Implemented acceptance coverage in this PR:
+
+- `tests/test_benchmark_snapshots.py`
+- `tests/test_benchmark_labels.py`
+- `tests/test_benchmark_runner.py`
+- `tests/test_benchmark_leaderboard.py`
+- `tests/test_benchmark_backfill.py`
+- `tests/test_benchmark_protocol.py`
+- `tests/test_docs_benchmark_workflow.py`
+- `./scripts/run_contract_smoke_path.sh`
+
 ## Failure Modes
 
 - Failure mode:
@@ -159,11 +204,14 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
 - new intervention-object replay runs are additive and versioned separately
 - a breaking change is any replay implementation that repurposes current benchmark
   artifacts without a new entity-type or manifest-level distinction
+- public slices now exercise Track A intervention-object replay, while the
+  frozen `scz_small` fixture remains the canonical regression path for the
+  original gene/module workflow
+- missing pre-cutoff archives still exclude the source and are surfaced in the
+  generated public-slice catalog and snapshot manifest; no live fallback is added
 
 ## Open Questions
 
-- Should intervention-object cohorts be benchmarked against one unified task id or
-  a new suite/task row that lives alongside the current `scz_translational_task`?
 - Should the principal metric stay average precision on the 3y horizon, or should
   it be a top-K enrichment metric if cohort sizes remain small?
 
@@ -174,8 +222,8 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
 ## Commands
 
 ```bash
-uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/public_slices/scz_translational_2024_06_20/snapshot_request.json --archive-index-file data/benchmark/public_slices/scz_translational_2024_06_20/source_archives.json --output-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --materialized-at 2026-03-30
-uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --cohort-members-file data/benchmark/public_slices/scz_translational_2024_06_20/cohort_members.csv --future-outcomes-file data/benchmark/public_slices/scz_translational_2024_06_20/future_outcomes.csv --output-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv
-uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv --archive-index-file data/benchmark/public_slices/scz_translational_2024_06_20/source_archives.json --output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/runner_outputs --config config/v0.toml --deterministic-test-mode
-uv run scz-target-engine build-benchmark-reporting --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv --runner-output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/runner_outputs --output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/public_payloads
+uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/public_slices/<slice_id>/snapshot_request.json --archive-index-file data/benchmark/public_slices/<slice_id>/source_archives.json --output-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --materialized-at 2026-04-02
+uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --cohort-members-file data/benchmark/public_slices/<slice_id>/cohort_members.csv --future-outcomes-file data/benchmark/public_slices/<slice_id>/future_outcomes.csv --output-file data/benchmark/generated/public_slices/<slice_id>/cohort_labels.csv
+uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/<slice_id>/cohort_labels.csv --archive-index-file data/benchmark/public_slices/<slice_id>/source_archives.json --output-dir data/benchmark/generated/public_slices/<slice_id>/runner_outputs --config config/v0.toml --deterministic-test-mode
+uv run scz-target-engine build-benchmark-reporting --manifest-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/<slice_id>/cohort_labels.csv --runner-output-dir data/benchmark/generated/public_slices/<slice_id>/runner_outputs --output-dir data/benchmark/generated/public_slices/<slice_id>/public_payloads
 ```

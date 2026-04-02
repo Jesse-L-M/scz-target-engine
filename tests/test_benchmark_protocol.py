@@ -5,6 +5,7 @@ from scz_target_engine.benchmark_protocol import (
     FROZEN_BASELINE_IDS,
     FROZEN_BASELINE_MATRIX,
     FROZEN_BENCHMARK_PROTOCOL,
+    INTERVENTION_OBJECT_ENTITY_TYPE,
     LeakageControls,
     RECORD_TIMESTAMP_CUTOFF,
     REJECT_SNAPSHOT_POLICY,
@@ -116,6 +117,20 @@ def test_snapshot_manifest_round_trips_cleanly() -> None:
 
     assert restored == manifest
     assert payload["baseline_ids"] == ["pgc_only", "v0_current", "random_with_coverage"]
+
+
+def test_frozen_protocol_declares_intervention_object_track_a_support() -> None:
+    assert INTERVENTION_OBJECT_ENTITY_TYPE in FROZEN_BENCHMARK_PROTOCOL.question.entity_types
+    available_now_baselines = {
+        baseline.baseline_id: baseline
+        for baseline in FROZEN_BASELINE_MATRIX
+    }
+    assert INTERVENTION_OBJECT_ENTITY_TYPE in available_now_baselines["v0_current"].entity_types
+    assert INTERVENTION_OBJECT_ENTITY_TYPE in available_now_baselines["v1_current"].entity_types
+    assert (
+        INTERVENTION_OBJECT_ENTITY_TYPE
+        in available_now_baselines["random_with_coverage"].entity_types
+    )
 
 
 def test_invalid_cutoff_definition_fails_clearly() -> None:

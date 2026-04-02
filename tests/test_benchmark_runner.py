@@ -10,6 +10,7 @@ from scz_target_engine.benchmark_labels import (
     build_benchmark_cohort_labels,
     load_cohort_members,
     load_future_outcomes,
+    materialize_benchmark_cohort_labels,
     write_benchmark_cohort_labels,
 )
 from scz_target_engine.benchmark_metrics import (
@@ -30,8 +31,10 @@ from scz_target_engine.benchmark_snapshots import (
     load_snapshot_build_request,
     load_source_archive_descriptors,
     materialize_benchmark_snapshot_manifest,
+    read_benchmark_snapshot_manifest,
     write_benchmark_snapshot_manifest,
 )
+from tests.benchmark_test_support import write_intervention_object_slice_fixture
 
 
 FIXTURE_DIR = (
@@ -41,7 +44,6 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
-
 AVAILABLE_NOW_GENE_BASELINES = [
     "pgc_only",
     "schema_only",
@@ -152,6 +154,68 @@ def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifact
     assert interval_payload.schema_name == "benchmark_confidence_interval_payload"
     assert interval_payload.point_estimate == metric_payload.metric_value
     assert interval_payload.notes.startswith("method=percentile_bootstrap;")
+
+
+def test_materialize_benchmark_run_projects_current_baselines_onto_intervention_objects(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    manifest = load_snapshot_build_request(public_slice.snapshot_request_file)
+    assert manifest.entity_types == ("intervention_object",)
+    assert (tmp_path / "intervention_object_feature_bundle.parquet").exists()
+
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+    result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-02T00:00:00Z",
+    )
+
+    assert result["executed_baselines"] == [
+        "v0_current",
+        "v1_current",
+        "random_with_coverage",
+    ]
+    v0_manifest = read_benchmark_model_run_manifest(
+        next(
+            Path(path)
+            for path in result["run_manifest_files"]
+            if "v0_current" in path
+        )
+    )
+    assert {
+        artifact.artifact_name for artifact in v0_manifest.input_artifacts
+    } >= {
+        "intervention_object_feature_bundle",
+        "benchmark_intervention_object_baseline_projection",
+    }
+    metric_payload_index = _load_metric_payload_index(result["metric_payload_files"])
+    assert (
+        "v0_current",
+        "intervention_object",
+        "3y",
+        "average_precision_any_positive_outcome",
+    ) in metric_payload_index
 
 
 def test_materialize_benchmark_run_supports_all_available_now_gene_baselines(

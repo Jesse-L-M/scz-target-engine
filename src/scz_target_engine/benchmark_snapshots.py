@@ -6,6 +6,13 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from scz_target_engine.benchmark_intervention_objects import (
+    INTERVENTION_OBJECT_BUNDLE_FILE_NAME,
+    INTERVENTION_OBJECT_ENTITY_TYPE,
+    PROGRAM_HISTORY_EVENTS_PATH,
+    PROGRAM_UNIVERSE_PATH,
+    materialize_intervention_object_feature_bundle,
+)
 from scz_target_engine.benchmark_protocol import (
     BENCHMARK_QUESTION_V1,
     BenchmarkSnapshotManifest,
@@ -34,6 +41,22 @@ def _require_text(value: str, field_name: str) -> str:
     return value
 
 
+def _resolve_optional_path(
+    value: str | None,
+    *,
+    base_dir: Path | None = None,
+) -> str:
+    if value in {None, ""}:
+        return ""
+    path = Path(str(value))
+    if not path.is_absolute():
+        if base_dir is None:
+            path = path.resolve()
+        else:
+            path = (base_dir / path).resolve()
+    return str(path)
+
+
 def _file_sha256(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as handle:
@@ -55,6 +78,8 @@ class SnapshotBuildRequest:
     benchmark_suite_id: str = ""
     benchmark_task_id: str = ""
     task_registry_path: str = ""
+    program_universe_file: str = ""
+    program_history_events_file: str = ""
 
     def __post_init__(self) -> None:
         _require_text(self.snapshot_id, "snapshot_id")
@@ -112,6 +137,18 @@ class SnapshotBuildRequest:
                 "baseline_ids must be supported by the benchmark task contract: "
                 + ", ".join(unsupported_baselines)
             )
+        if bool(self.program_universe_file) != bool(self.program_history_events_file):
+            raise ValueError(
+                "program_universe_file and program_history_events_file must be provided together"
+            )
+        if (
+            INTERVENTION_OBJECT_ENTITY_TYPE in self.entity_types
+            and not self.program_universe_file
+        ):
+            raise ValueError(
+                "intervention_object snapshot requests must provide "
+                "program_universe_file and program_history_events_file"
+            )
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -130,6 +167,10 @@ class SnapshotBuildRequest:
             payload["benchmark_task_id"] = self.benchmark_task_id
         if self.task_registry_path:
             payload["task_registry_path"] = self.task_registry_path
+        if self.program_universe_file:
+            payload["program_universe_file"] = self.program_universe_file
+        if self.program_history_events_file:
+            payload["program_history_events_file"] = self.program_history_events_file
         return payload
 
     @classmethod
@@ -138,6 +179,7 @@ class SnapshotBuildRequest:
         payload: dict[str, Any],
         *,
         task_registry_path: Path | None = None,
+        base_dir: Path | None = None,
     ) -> SnapshotBuildRequest:
         return cls(
             snapshot_id=str(payload["snapshot_id"]),
@@ -153,7 +195,18 @@ class SnapshotBuildRequest:
             task_registry_path=(
                 str(task_registry_path.resolve())
                 if task_registry_path is not None
-                else str(payload.get("task_registry_path", ""))
+                else _resolve_optional_path(
+                    payload.get("task_registry_path"),
+                    base_dir=base_dir,
+                )
+            ),
+            program_universe_file=_resolve_optional_path(
+                payload.get("program_universe_file"),
+                base_dir=base_dir,
+            ),
+            program_history_events_file=_resolve_optional_path(
+                payload.get("program_history_events_file"),
+                base_dir=base_dir,
             ),
         )
 
@@ -226,6 +279,7 @@ def load_snapshot_build_request(
     return SnapshotBuildRequest.from_dict(
         payload,
         task_registry_path=task_registry_path,
+        base_dir=path.parent,
     )
 
 
@@ -474,16 +528,37 @@ def materialize_benchmark_snapshot_manifest(
     materialized_at: str,
     task_registry_path: Path | None = None,
 ) -> dict[str, object]:
+    request = load_snapshot_build_request(
+        request_file,
+        task_registry_path=task_registry_path,
+    )
+    archive_descriptors = load_source_archive_descriptors(archive_index_file)
     manifest = build_benchmark_snapshot_manifest(
-        load_snapshot_build_request(
-            request_file,
-            task_registry_path=task_registry_path,
-        ),
-        load_source_archive_descriptors(archive_index_file),
+        request,
+        archive_descriptors,
         materialized_at=materialized_at,
         task_registry_path=task_registry_path,
     )
     write_benchmark_snapshot_manifest(output_file, manifest)
+    bundle_output_file: Path | None = None
+    if INTERVENTION_OBJECT_ENTITY_TYPE in request.entity_types:
+        bundle_output_file = output_file.parent / INTERVENTION_OBJECT_BUNDLE_FILE_NAME
+        materialize_intervention_object_feature_bundle(
+            output_file=bundle_output_file,
+            as_of_date=request.as_of_date,
+            source_snapshots=manifest.source_snapshots,
+            archive_descriptors=archive_descriptors,
+            program_universe_path=(
+                Path(request.program_universe_file).resolve()
+                if request.program_universe_file
+                else PROGRAM_UNIVERSE_PATH
+            ),
+            events_path=(
+                Path(request.program_history_events_file).resolve()
+                if request.program_history_events_file
+                else PROGRAM_HISTORY_EVENTS_PATH
+            ),
+        )
     included_sources = [
         source_snapshot.source_name
         for source_snapshot in manifest.source_snapshots
@@ -504,6 +579,9 @@ def materialize_benchmark_snapshot_manifest(
         "snapshot_id": manifest.snapshot_id,
         "cohort_id": manifest.cohort_id,
         "output_file": str(output_file),
+        "intervention_object_feature_bundle": (
+            str(bundle_output_file) if bundle_output_file is not None else ""
+        ),
         "included_sources": included_sources,
         "excluded_sources": excluded_sources,
     }

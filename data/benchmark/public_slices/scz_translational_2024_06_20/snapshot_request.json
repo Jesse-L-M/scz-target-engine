@@ -1,8 +1,6 @@
 {
   "as_of_date": "2024-06-20",
   "baseline_ids": [
-    "pgc_only",
-    "opentargets_only",
     "v0_current",
     "v1_current",
     "random_with_coverage"
@@ -12,10 +10,11 @@
   "benchmark_task_id": "scz_translational_task",
   "cohort_id": "scz_translational_2024_06_20_cohort",
   "entity_types": [
-    "gene",
-    "module"
+    "intervention_object"
   ],
-  "notes": "Public historical benchmark slice derived from scz_translational_task with cutoff 2024-06-20. Frozen benchmark question, leakage rules, and baseline ids remain unchanged.",
+  "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-06-20. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
   "outcome_observation_closed_at": "2029-06-30",
+  "program_history_events_file": "events.csv",
+  "program_universe_file": "program_universe.csv",
   "snapshot_id": "scz_translational_2024_06_20"
 }

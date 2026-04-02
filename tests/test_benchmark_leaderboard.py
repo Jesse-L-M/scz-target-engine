@@ -18,6 +18,7 @@ from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
     read_benchmark_snapshot_manifest,
 )
+from tests.benchmark_test_support import write_intervention_object_slice_fixture
 
 
 FIXTURE_DIR = (
@@ -27,8 +28,6 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
-
-
 def _materialize_fixture_runner_outputs(
     tmp_path: Path,
 ) -> tuple[Path, Path, Path, dict[str, object]]:
@@ -185,6 +184,132 @@ def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderbo
         Path(entry.report_card_path).exists()
         for entry in leaderboard_payload.entries
     )
+
+
+def test_materialize_benchmark_reporting_emits_intervention_object_error_analysis(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+    reporting_output_dir = tmp_path / "public_payloads"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+    materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-02T00:00:00Z",
+    )
+
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-04-02T12:00:00Z",
+    )
+
+    assert reporting_result["error_analysis_files"]
+    error_analysis_path = next(
+        Path(path) for path in reporting_result["error_analysis_files"]
+        if "v0_current" in path
+    )
+    error_analysis_text = error_analysis_path.read_text(encoding="utf-8")
+    assert "Track A Error Analysis" in error_analysis_text
+    assert "principal horizon: `3y`" in error_analysis_text
+    intervention_leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if "/intervention_object/3y/average_precision_any_positive_outcome.json" in path
+    )
+    leaderboard_payload = read_benchmark_leaderboard_payload(
+        intervention_leaderboard_path
+    )
+    assert leaderboard_payload.entity_type == "intervention_object"
+
+
+def test_materialize_benchmark_reporting_prunes_stale_snapshot_outputs(
+    tmp_path: Path,
+) -> None:
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_fixture_runner_outputs(tmp_path)
+    reporting_output_dir = tmp_path / "public_payloads"
+
+    materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-03-28T12:00:00Z",
+    )
+
+    stale_report_card = (
+        reporting_output_dir
+        / "report_cards"
+        / "scz_translational_suite"
+        / "scz_translational_task"
+        / "scz_fixture_2024_06_30"
+        / "stale.json"
+    )
+    stale_leaderboard = (
+        reporting_output_dir
+        / "leaderboards"
+        / "scz_translational_suite"
+        / "scz_translational_task"
+        / "scz_fixture_2024_06_30"
+        / "gene"
+        / "3y"
+        / "stale_metric.json"
+    )
+    stale_error_analysis = (
+        reporting_output_dir
+        / "error_analysis"
+        / "scz_translational_suite"
+        / "scz_translational_task"
+        / "scz_fixture_2024_06_30"
+        / "stale.md"
+    )
+    stale_report_card.parent.mkdir(parents=True, exist_ok=True)
+    stale_leaderboard.parent.mkdir(parents=True, exist_ok=True)
+    stale_error_analysis.parent.mkdir(parents=True, exist_ok=True)
+    stale_report_card.write_text("{}\n", encoding="utf-8")
+    stale_leaderboard.write_text("{}\n", encoding="utf-8")
+    stale_error_analysis.write_text("stale\n", encoding="utf-8")
+
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-03-28T12:05:00Z",
+    )
+
+    assert not stale_report_card.exists()
+    assert not stale_leaderboard.exists()
+    assert not stale_error_analysis.exists()
+    assert reporting_result["report_card_files"]
+    assert reporting_result["leaderboard_payload_files"]
 
 
 def test_materialize_benchmark_reporting_fails_for_missing_metric_payload(

@@ -6,7 +6,7 @@
       "archive_format": "csv",
       "evidence_frozen_at": "2024-06-15",
       "notes": "Fixture PGC archived release used for deterministic snapshot tests.",
-      "sha256": "6f471ddec2b00b0ce76c3a5b547c022f4c5ae39b77be6ff437d5b2b1c26d9403",
+      "sha256": "44592ca4a94b2e4a65b98b1cb1621928ac3384525a51dcdab7ca0fa332ca3f63",
       "source_name": "PGC",
       "source_version": "scz2022_fixture"
     },
@@ -16,7 +16,7 @@
       "archive_format": "csv",
       "evidence_frozen_at": "2024-06-20",
       "notes": "Fixture Open Targets archived pull used for deterministic snapshot tests.",
-      "sha256": "08bd5918a2a573f86d6d7cc8cf804d97ab1e47f1153f8027f5cd0fc66436e815",
+      "sha256": "7773c1c1fd7e73840f8e6b18cf9203828112d662d5d420c7f8860a2b788b410d",
       "source_name": "Open Targets",
       "source_version": "24.03_fixture"
     },
@@ -26,7 +26,7 @@
       "archive_format": "json",
       "evidence_frozen_at": "2024-06-18",
       "notes": "Fixture PsychENCODE archived support extract used for deterministic snapshot tests.",
-      "sha256": "f030adfdb6aa996d9aa7de873528ab052cd512c696e622fd878a18d62f7ebe2d",
+      "sha256": "e341506ad8ff9edd57b4d3ba33df40a9b92ec0a0ac1820547ca88016bad8fa00",
       "source_name": "PsychENCODE",
       "source_version": "brainscope_fixture"
     },

@@ -1,11 +1,11 @@
 # program-memory-denominator-v1
 
 Status: implemented
-Owner branch: Jesse-L-M/pr2-review-pass
+Owner branch: Jesse-L-M/fix-pm-denominator
 Depends on: docs/designs/contracts-and-compat-v2.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Objective
 
@@ -121,11 +121,16 @@ Allowed `coverage_reason` values by state:
 Validation rules:
 
 - included rows must map to checked-in `event_id` values
+- included rows must preserve the checked-in asset and target identity surface:
+  `asset_id`, `asset_name`, `target`, `target_symbols_json`, `target_class`, and
+  the existing lineage/grain fields must still match the mapped checked-in events
 - duplicate rows must point to one canonical `duplicate_of_program_universe_id`
 - non-duplicate rows may not silently collide on the implemented program-opportunity
   grain
-- ClinicalTrials.gov-backed rows must use canonical `https://clinicaltrials.gov/study/NCT...`
-  URLs
+- `discovery_source_type` fails closed to the implemented source vocabulary instead of
+  bypassing registry validation on typos
+- ClinicalTrials.gov-backed rows must use canonical `NCT...` identifiers plus canonical
+  `https://clinicaltrials.gov/study/NCT...` URLs
 
 ### Coverage Audit Outputs
 
@@ -133,7 +138,7 @@ Validation rules:
 
 - `coverage_manifest.json`:
   deterministic denominator metadata, state counts, reason counts, source-cut rules,
-  allowed vocabularies, repo-relative dataset surface, and the core in-scope program
+  allowed vocabularies, absolute-path `dataset_dir` compatibility surface, and the core in-scope program
   count excluding duplicates, excluded follow-ons, and out-of-scope rows
 - `coverage_summary.csv`:
   legacy scope summaries aggregated by `target`, `target_class`, `domain`, and
@@ -169,6 +174,9 @@ the adjudicated included-event tables.
 
 ## Implementation Reality
 
+- the checked-in denominator now points the unresolved brilaroxazine schizophrenia row
+  at `NCT05184335` and the out-of-scope KarXT Alzheimer agitation row at
+  `NCT07011732`, matching the official ClinicalTrials.gov records
 - `assets.csv` now carries `asset_lineage_id`, `asset_aliases_json`,
   `target_class_lineage_id`, and `target_class_aliases_json`
 - `coverage_evidence.csv` now carries lineage IDs for included-event evidence rows
@@ -186,6 +194,8 @@ the adjudicated included-event tables.
   `program_universe.csv` is missing
 - the current checked-in denominator includes included, unresolved, excluded,
   duplicate, and out-of-scope examples so the state machine is exercised in-repo
+- machine-readable coverage-audit outputs keep the pre-hotfix absolute-path
+  `dataset_dir` contract instead of silently switching existing fields to repo-relative
 
 ## Acceptance Tests
 
@@ -210,6 +220,8 @@ uv run scz-target-engine program-memory coverage-audit --output-dir .context/pro
 - additive only: `program_history/v2` stays authoritative for included events
 - compatibility views under `data/curated/program_history/` remain materializable
 - the PR1 frozen smoke path must stay green
+- preserve machine-readable `dataset_dir` compatibility so downstream replay work does
+  not build on a silently changed path surface
 - if replay or rescue later want to reuse the implemented domain-in-grain rule as a
   shared identity contract, promote that choice into a dedicated decision record
 

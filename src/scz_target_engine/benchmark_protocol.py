@@ -8,7 +8,12 @@ from typing import Any
 
 GENE_ENTITY_TYPE = "gene"
 MODULE_ENTITY_TYPE = "module"
-VALID_ENTITY_TYPES = (GENE_ENTITY_TYPE, MODULE_ENTITY_TYPE)
+INTERVENTION_OBJECT_ENTITY_TYPE = "intervention_object"
+VALID_ENTITY_TYPES = (
+    GENE_ENTITY_TYPE,
+    MODULE_ENTITY_TYPE,
+    INTERVENTION_OBJECT_ENTITY_TYPE,
+)
 
 STRICT_NO_LEAKAGE_MODE = "strict_no_leakage"
 RECORD_TIMESTAMP_CUTOFF = "record_timestamp_lte_as_of"
@@ -759,11 +764,16 @@ BENCHMARK_QUESTION_V1 = BenchmarkQuestion(
     question_id="scz_translational_ranking_v1",
     disease="schizophrenia",
     benchmark_universe=(
-        "Rank schizophrenia-relevant gene and module entities using only evidence "
-        "observable at the snapshot as-of date, then compare those ranks against "
-        "later translational outcomes collected on a separate label channel."
+        "Rank schizophrenia-relevant gene, module, or intervention-object entities "
+        "using only evidence observable at the snapshot as-of date, then compare "
+        "those ranks against later translational outcomes collected on a separate "
+        "label channel."
     ),
-    entity_types=(GENE_ENTITY_TYPE, MODULE_ENTITY_TYPE),
+    entity_types=(
+        GENE_ENTITY_TYPE,
+        MODULE_ENTITY_TYPE,
+        INTERVENTION_OBJECT_ENTITY_TYPE,
+    ),
     translational_outcome_labels=(
         "future_schizophrenia_program_started",
         "future_schizophrenia_program_advanced",
@@ -912,7 +922,11 @@ FROZEN_BASELINE_MATRIX = (
         baseline_id="v0_current",
         label="Current v0",
         family="engine_output",
-        entity_types=(GENE_ENTITY_TYPE, MODULE_ENTITY_TYPE),
+        entity_types=(
+            GENE_ENTITY_TYPE,
+            MODULE_ENTITY_TYPE,
+            INTERVENTION_OBJECT_ENTITY_TYPE,
+        ),
         required_inputs=("v0_ranked_outputs",),
         coverage_rule=(
             "Evaluate the currently shipped v0 composite ranking on the admissible snapshot cohort."
@@ -924,7 +938,11 @@ FROZEN_BASELINE_MATRIX = (
         baseline_id="v1_current",
         label="Current v1",
         family="engine_output",
-        entity_types=(GENE_ENTITY_TYPE, MODULE_ENTITY_TYPE),
+        entity_types=(
+            GENE_ENTITY_TYPE,
+            MODULE_ENTITY_TYPE,
+            INTERVENTION_OBJECT_ENTITY_TYPE,
+        ),
         required_inputs=("decision_vectors_v1",),
         coverage_rule=(
             "Evaluate the currently shipped additive v1 output without mutating v0 semantics."
@@ -976,7 +994,11 @@ FROZEN_BASELINE_MATRIX = (
         baseline_id="random_with_coverage",
         label="Random with coverage",
         family="random",
-        entity_types=(GENE_ENTITY_TYPE, MODULE_ENTITY_TYPE),
+        entity_types=(
+            GENE_ENTITY_TYPE,
+            MODULE_ENTITY_TYPE,
+            INTERVENTION_OBJECT_ENTITY_TYPE,
+        ),
         required_inputs=(),
         coverage_rule=(
             "Draw random rankings within entity type across the full admissible cohort and evaluate them with the benchmark's primary full-cohort semantics."
@@ -1477,6 +1499,7 @@ __all__ = [
     "FROZEN_BASELINE_MATRIX",
     "FROZEN_BENCHMARK_PROTOCOL",
     "GENE_ENTITY_TYPE",
+    "INTERVENTION_OBJECT_ENTITY_TYPE",
     "LeakageControls",
     "MATERIALIZED_SNAPSHOT_CUTOFF",
     "MODULE_ENTITY_TYPE",

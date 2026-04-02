@@ -14,6 +14,7 @@ from scz_target_engine.benchmark_snapshots import (
     load_snapshot_build_request,
     load_source_archive_descriptors,
 )
+from tests.benchmark_test_support import write_intervention_object_slice_fixture
 
 
 FIXTURE_DIR = (
@@ -23,8 +24,6 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
-
-
 def build_fixture_manifest():
     return build_benchmark_snapshot_manifest(
         load_snapshot_build_request(FIXTURE_DIR / "snapshot_request.json"),
@@ -148,3 +147,36 @@ def test_build_benchmark_cohort_labels_rejects_post_observation_outcomes() -> No
         assert "exceeds outcome_observation_closed_at" in str(exc)
     else:
         raise AssertionError("expected post-observation future outcome to be rejected")
+
+
+def test_build_benchmark_cohort_labels_supports_intervention_object_public_slice(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    manifest = build_benchmark_snapshot_manifest(
+        load_snapshot_build_request(public_slice.snapshot_request_file),
+        load_source_archive_descriptors(public_slice.source_archives_file),
+        materialized_at="2026-04-02",
+    )
+    labels = build_benchmark_cohort_labels(
+        manifest,
+        load_cohort_members(public_slice.cohort_members_file),
+        load_future_outcomes(public_slice.future_outcomes_file),
+    )
+
+    assert len(labels) == 30
+    assert {label.entity_id for label in labels} == {
+        "pimavanserin-negative-symptoms-adjunct-phase-3-or-registration",
+        "ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration",
+    }
+    row_map = {
+        (label.entity_id, label.horizon, label.label_name): label
+        for label in labels
+    }
+    assert row_map[
+        (
+            "ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration",
+            "1y",
+            "future_schizophrenia_positive_signal",
+        )
+    ].label_value == OBSERVED_LABEL_VALUE

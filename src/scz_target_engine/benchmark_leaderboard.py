@@ -5,10 +5,16 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 import re
+import shutil
 from typing import Any
 
 from scz_target_engine.benchmark_labels import (
     read_benchmark_cohort_labels,
+)
+from scz_target_engine.benchmark_intervention_objects import (
+    INTERVENTION_OBJECT_ENTITY_TYPE,
+    read_intervention_object_feature_bundle,
+    read_intervention_object_projection_payload,
 )
 from scz_target_engine.benchmark_metrics import (
     BenchmarkConfidenceIntervalPayload,
@@ -108,6 +114,13 @@ def _require_json_mapping(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a single JSON object")
     return payload
+
+
+def _task_registry_path_from_manifest(manifest: object) -> Path | None:
+    task_registry_path = getattr(manifest, "task_registry_path", "")
+    if not task_registry_path:
+        return None
+    return Path(str(task_registry_path)).resolve()
 
 
 def _discover_runner_artifact_files(
@@ -256,6 +269,149 @@ def _build_leaderboard_path(
         / _normalize_component(horizon)
         / f"{_normalize_component(metric_name)}.json"
     )
+
+
+def _build_error_analysis_path(
+    output_dir: Path,
+    *,
+    benchmark_suite_id: str,
+    benchmark_task_id: str,
+    snapshot_id: str,
+    run_id: str,
+) -> Path:
+    return (
+        output_dir
+        / "error_analysis"
+        / _normalize_component(benchmark_suite_id)
+        / _normalize_component(benchmark_task_id)
+        / _normalize_component(snapshot_id)
+        / f"{run_id}.md"
+    )
+
+
+def _clear_reporting_snapshot_outputs(
+    output_dir: Path,
+    *,
+    benchmark_suite_id: str,
+    benchmark_task_id: str,
+    snapshot_id: str,
+) -> None:
+    snapshot_dirs = (
+        output_dir
+        / "report_cards"
+        / _normalize_component(benchmark_suite_id)
+        / _normalize_component(benchmark_task_id)
+        / _normalize_component(snapshot_id),
+        output_dir
+        / "leaderboards"
+        / _normalize_component(benchmark_suite_id)
+        / _normalize_component(benchmark_task_id)
+        / _normalize_component(snapshot_id),
+        output_dir
+        / "error_analysis"
+        / _normalize_component(benchmark_suite_id)
+        / _normalize_component(benchmark_task_id)
+        / _normalize_component(snapshot_id),
+    )
+    for snapshot_dir in snapshot_dirs:
+        if snapshot_dir.exists():
+            shutil.rmtree(snapshot_dir)
+
+
+def _artifact_path_for_name(
+    artifacts: tuple[InputArtifactReference, ...],
+    artifact_name: str,
+) -> Path | None:
+    for artifact in artifacts:
+        if artifact.artifact_name == artifact_name:
+            return Path(artifact.artifact_path).resolve()
+    return None
+
+
+def _render_intervention_object_error_analysis(
+    *,
+    run_manifest: BenchmarkModelRunManifest,
+    bundle_path: Path,
+    projection_path: Path,
+    cohort_labels: tuple[object, ...],
+) -> str:
+    bundle_rows = read_intervention_object_feature_bundle(bundle_path)
+    bundle_index = {
+        str(row["entity_id"]): row
+        for row in bundle_rows
+    }
+    projection_payload = read_intervention_object_projection_payload(projection_path)
+    projection_rows = projection_payload.get("rows", [])
+    if not isinstance(projection_rows, list):
+        raise ValueError("projection payload rows must be a list")
+    relevance_index = build_positive_relevance_index(
+        cohort_labels,
+        entity_type=INTERVENTION_OBJECT_ENTITY_TYPE,
+        horizon="3y",
+    )
+    positives = {
+        entity_id for entity_id, relevant in relevance_index.items() if relevant
+    }
+    ranked_rows = [
+        row
+        for row in projection_rows
+        if isinstance(row, dict) and bool(row.get("covered"))
+    ]
+    ranked_rows.sort(
+        key=lambda row: (
+            int(row.get("rank") or 999999),
+            str(row.get("entity_label", "")).lower(),
+            str(row.get("entity_id", "")),
+        )
+    )
+    false_positives = [
+        row for row in ranked_rows[:5] if str(row.get("entity_id")) not in positives
+    ]
+    true_positives = [
+        row for row in ranked_rows[:5] if str(row.get("entity_id")) in positives
+    ]
+    false_negatives = [
+        row
+        for row in projection_rows
+        if isinstance(row, dict)
+        and str(row.get("entity_id")) in positives
+        and not bool(row.get("covered"))
+    ]
+
+    def render_row(row: dict[str, object]) -> str:
+        bundle_row = bundle_index.get(str(row.get("entity_id")), {})
+        return (
+            f"- rank={row.get('rank', '-')}, score={row.get('projected_score', '-')}, "
+            f"{row.get('entity_label', row.get('entity_id'))} "
+            f"[domain={bundle_row.get('domain', '')}; "
+            f"stage={bundle_row.get('stage_bucket', '')}; "
+            f"target={bundle_row.get('target', '')}]"
+        )
+
+    lines = [
+        f"# Track A Error Analysis: {run_manifest.run_id}",
+        "",
+        f"- baseline: `{run_manifest.baseline_id}`",
+        "- principal horizon: `3y`",
+        "- entity type: `intervention_object`",
+        "- projection source: explicit archived gene/module baseline projection",
+        "",
+        "## Top True Positives",
+    ]
+    lines.extend(
+        render_row(row) for row in true_positives
+    )
+    if not true_positives:
+        lines.append("- none in top 5")
+    lines.extend(["", "## Top False Positives"])
+    lines.extend(render_row(row) for row in false_positives)
+    if not false_positives:
+        lines.append("- none in top 5")
+    lines.extend(["", "## Missed Positives"])
+    lines.extend(render_row(row) for row in false_negatives[:5])
+    if not false_negatives:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
 
 
 @dataclass(frozen=True)
@@ -777,10 +933,12 @@ def materialize_benchmark_reporting(
     resolved_runner_output_dir = runner_output_dir.resolve()
     resolved_output_dir = output_dir.resolve()
     resolved_generated_at = generated_at or _utc_now()
+    task_registry_path = _task_registry_path_from_manifest(manifest)
     task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=manifest.benchmark_task_id or None,
         benchmark_question_id=manifest.benchmark_question_id,
         benchmark_suite_id=manifest.benchmark_suite_id or None,
+        task_registry_path=task_registry_path,
     )
     benchmark_suite_id = manifest.benchmark_suite_id or task_contract.suite_id
     benchmark_task_id = manifest.benchmark_task_id or task_contract.task_id
@@ -907,9 +1065,16 @@ def materialize_benchmark_reporting(
         metrics_by_run_slice=metrics_by_run_slice,
         interval_index=interval_index,
     )
+    _clear_reporting_snapshot_outputs(
+        resolved_output_dir,
+        benchmark_suite_id=benchmark_suite_id,
+        benchmark_task_id=benchmark_task_id,
+        snapshot_id=manifest.snapshot_id,
+    )
 
     report_card_records: list[tuple[BenchmarkReportCardPayload, Path]] = []
     report_card_files: list[str] = []
+    error_analysis_files: list[str] = []
 
     for run_id, (
         run_manifest_path,
@@ -1085,6 +1250,37 @@ def materialize_benchmark_reporting(
         write_benchmark_report_card_payload(report_card_path, report_card)
         report_card_records.append((report_card, report_card_path))
         report_card_files.append(str(report_card_path))
+        if any(
+            slice_report.entity_type == INTERVENTION_OBJECT_ENTITY_TYPE
+            for slice_report in report_card.slices
+        ):
+            bundle_path = _artifact_path_for_name(
+                run_manifest.input_artifacts,
+                "intervention_object_feature_bundle",
+            )
+            projection_path = _artifact_path_for_name(
+                run_manifest.input_artifacts,
+                "benchmark_intervention_object_baseline_projection",
+            )
+            if bundle_path is not None and projection_path is not None:
+                error_analysis_path = _build_error_analysis_path(
+                    resolved_output_dir,
+                    benchmark_suite_id=benchmark_suite_id,
+                    benchmark_task_id=benchmark_task_id,
+                    snapshot_id=manifest.snapshot_id,
+                    run_id=run_id,
+                )
+                error_analysis_path.parent.mkdir(parents=True, exist_ok=True)
+                error_analysis_path.write_text(
+                    _render_intervention_object_error_analysis(
+                        run_manifest=run_manifest,
+                        bundle_path=bundle_path,
+                        projection_path=projection_path,
+                        cohort_labels=cohort_labels,
+                    ),
+                    encoding="utf-8",
+                )
+                error_analysis_files.append(str(error_analysis_path))
 
     leaderboard_groups: dict[
         tuple[str, str, str],
@@ -1249,6 +1445,7 @@ def materialize_benchmark_reporting(
         "output_dir": str(resolved_output_dir),
         "report_card_files": sorted(report_card_files),
         "leaderboard_payload_files": sorted(leaderboard_payload_files),
+        "error_analysis_files": sorted(error_analysis_files),
         "discovered_run_manifest_files": [str(path) for path in run_manifest_files],
         "discovered_metric_payload_files": [str(path) for path in metric_payload_files],
         "discovered_confidence_interval_files": [

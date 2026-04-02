@@ -381,19 +381,21 @@ without rerunning scoring logic.
 Artifact layout:
 
 - `data/benchmark/fixtures/scz_small/`: checked-in fixture request, archive index, archived source extracts, cohort membership, and future outcomes
-- `data/benchmark/public_slices/catalog.json`: checked-in catalog of honest public cutoffs derived from the registry-backed `scz_small` fixture
-- `data/benchmark/public_slices/scz_translational_2024_06_15/`, `data/benchmark/public_slices/scz_translational_2024_06_18/`, `data/benchmark/public_slices/scz_translational_2024_06_20/`: checked-in public historical slice inputs with explicit cutoff semantics and copied archived source extracts
+- `data/benchmark/public_slices/catalog.json`: checked-in catalog of honest public cutoffs derived from the registry-backed benchmark task and replayed at intervention-object grain
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract for the current schizophrenia benchmark
 - `data/curated/rescue_tasks/rescue_task_registry.csv`: dedicated registry for rescue task identity and contract lookup
 - `data/curated/rescue_tasks/contracts/*.json`: validated rescue task contract artifacts
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
+- `data/benchmark/generated/public_slices/<slice_id>/intervention_object_feature_bundle.parquet`: generated snapshot-side intervention-object replay bundle when requested by the slice manifest
+- `data/benchmark/generated/public_slices/<slice_id>/runner_outputs/baseline_projections/<baseline_id>__intervention_object.json`: explicit intervention-object projection payloads for projected baselines
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_metric_output_payload` files
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_confidence_interval_payload` files
 - `data/benchmark/generated/public_slices/<slice_id>/`: generated replay outputs for any checked-in public slice; these are local outputs, not checked-in fixtures
 - `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: derived public report card payload, one per executed run
 - `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: derived public leaderboard payload for one metric slice
+- `data/benchmark/generated/public_slices/<slice_id>/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/<snapshot_id>/<run_id>.md`: derived markdown error analysis for intervention-object replay runs
 
 Operator notes:
 
@@ -403,7 +405,10 @@ Operator notes:
 - Re-running `build-benchmark-reporting` rewrites the derived public payloads from the current runner outputs. It never reruns scoring.
 - The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
 - Public slice backfill is registry-driven: `uv run scz-target-engine backfill-benchmark-public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` and `uv run scz-target-engine benchmark backfill public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` regenerate the checked-in slice catalog without weakening leakage rules and do not fall back to live source data.
-- One replayable public slice beyond the original fixture path is `data/benchmark/public_slices/scz_translational_2024_06_20/`; write its local outputs under `data/benchmark/generated/public_slices/scz_translational_2024_06_20/`.
+- The canonical `scz_small` path remains a gene/module regression fixture. The checked-in public slices are the shipped Track A intervention-object replay path and currently execute `v0_current`, `v1_current`, and `random_with_coverage`.
+- As of April 2, 2026, the checked-in Track A catalog contains honest replayable slices at `2024-06-15`, `2024-06-18`, and `2024-06-20`, but none are evaluable on the principal `3y` horizon because each has zero positive intervention-object outcomes after strict replay filtering.
+- Track A public slices pin their program-history replay inputs locally via `program_universe.csv` and `events.csv` inside each slice directory, so replay does not depend on repo-global denominator files at execution time.
+- Write local replay outputs under `data/benchmark/generated/public_slices/scz_translational_2024_06_20/` or another checked-in slice id from `catalog.json`.
 - Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs under `data/benchmark/fixtures/` and `data/benchmark/public_slices/`, not the generated benchmark outputs.
 
 ## Artifact Schemas

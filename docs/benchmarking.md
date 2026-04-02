@@ -22,13 +22,14 @@ It is not yet a production-scale historical replay system.
 The benchmark asks:
 
 - given a schizophrenia evidence snapshot as of date `T`
-- rank admissible gene and module entities using only evidence observable at or before `T`
+- rank admissible gene, module, or intervention-object entities using only evidence observable at or before `T`
 - compare those ranks against later translational outcomes recorded on a separate label channel
 
 Entity types:
 
 - `gene`
 - `module`
+- `intervention_object`
 
 Accepted translational outcome labels:
 
@@ -49,6 +50,7 @@ In-scope evidence for the ranking side:
 - pre-cutoff schizophrenia genetics
 - pre-cutoff schizophrenia transcriptomics and regulatory context
 - pre-cutoff tractability and generic platform context
+- pre-cutoff program-history denominator state and intervention-object lineage context when the replay slice is at intervention-object grain
 - pre-cutoff scoring-neutral failure and directionality ledgers only when those artifacts were themselves archived before the snapshot
 
 Not valid as benchmark labels:
@@ -133,7 +135,8 @@ Notes:
 - `v1_current` is the current additive `v1` output evaluated as shipped
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` stay frozen as protocol comparison labels across the PR8.1 transition
 - `chembl_only` applies only where tractability context exists and is not a module baseline
-- `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines
+- `v0_current` and `v1_current` now also apply to `intervention_object` slices by writing explicit projection sidecars from archived gene/module baseline outputs through the checked-in compatibility contract
+- `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines, including intervention-object public slices
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest
 
 ## Registry-Driven Task Contract
@@ -221,6 +224,7 @@ Supporting operator inputs:
 - `source_archives.json`: archived source descriptors with archive paths and SHA256 digests
 - `cohort_members.csv`: admissible ranking cohort membership
 - `future_outcomes.csv`: post-cutoff label adjudication input
+- `data/curated/program_history/v2/program_universe.csv` and `data/curated/program_history/v2/events.csv`: checked-in denominator inputs used to derive intervention-object public-slice cohorts and future outcomes
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract source of truth
 - `data/benchmark/public_slices/catalog.json`: checked-in catalog of derived public historical slice fixtures
 - `data/curated/rescue_tasks/rescue_task_registry.csv`: rescue-task identity and contract index kept separate from the shipped benchmark registry
@@ -239,6 +243,7 @@ Cohort materialization behavior:
 - `no_qualifying_future_outcome` is computed by the builder, not supplied in the raw future-outcomes file
 - `outcome_date` must be strictly after `as_of_date`
 - `outcome_date` must be `<= outcome_observation_closed_at`
+- intervention-object public slices derive `cohort_members.csv` and `future_outcomes.csv` from checked-in program-history tables rather than reusing the canonical `scz_small` gene/module fixture rows
 
 ## Artifact Families And Layout
 
@@ -265,50 +270,61 @@ Canonical generated locations:
 
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: `benchmark_cohort_labels`
+- `data/benchmark/generated/scz_small/intervention_object_feature_bundle.parquet`: generated only when the snapshot request includes `intervention_object`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: `benchmark_model_run_manifest`
+- `data/benchmark/generated/scz_small/runner_outputs/baseline_projections/<baseline_id>__intervention_object.json`: explicit intervention-object projection payload for projected baselines
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_metric_output_payload`
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_confidence_interval_payload`
 - `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
 - `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
 - `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
-- `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
-- `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
-- `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
+- `data/benchmark/generated/scz_small/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.md`: markdown error analysis emitted for intervention-object runs when the required bundle and projection artifacts are present
 
 What each generated artifact means:
 
 - snapshot manifests freeze the suite/task contract identity, evidence boundary, leakage controls, requested baselines, and per-source inclusion or exclusion accounting
 - cohort label artifacts freeze admissible benchmark membership and future translational outcome labels
+- intervention-object feature bundles freeze the replay-side program lineage, evidence availability, and compatibility inputs used to score one intervention-object snapshot
 - run manifests record executed baseline, suite/task contract provenance, code version, parameterization, and input digests
+- intervention-object baseline projection payloads freeze the explicit bridge from archived gene/module baseline outputs to intervention-object replay scores for one baseline and snapshot
 - metric payloads record point estimates for one `(run_id, entity_type, horizon, metric_name)` slice
 - confidence interval payloads record percentile-bootstrap intervals, bootstrap count, resample unit, and random seed for the same slice
 - report cards join suite/task/snapshot provenance, source inclusion accounting, run-manifest inputs, and per-slice metric summaries into one public payload per run
 - leaderboard payloads rank the report-card slices by metric while preserving run-level provenance
+- error-analysis markdown files explain misses and false positives on intervention-object replay slices using the frozen bundle metadata and explicit projection payloads
 
 ## Public Historical Slices
 
 Public slices are checked-in fixture bundles under `data/benchmark/public_slices/`.
-They are derived from the registry-backed `scz_translational_task` and keep the frozen
-benchmark question, leakage controls, and baseline ids unchanged.
+They are derived from the registry-backed `scz_translational_task`. They keep the frozen
+benchmark question and leakage controls, but the shipped Track A replay path now
+materializes them at `entity_type = intervention_object` with the executable baseline
+subset `v0_current`, `v1_current`, and `random_with_coverage`.
 
 Current honest public slices from the checked-in archive catalog:
 
-- `scz_translational_2024_06_15`: includes `PGC`; excludes `SCHEMA`, `PsychENCODE`, `Open Targets`, and `ChEMBL`
-- `scz_translational_2024_06_18`: includes `PGC` and `PsychENCODE`; excludes `SCHEMA`, `Open Targets`, and `ChEMBL`
-- `scz_translational_2024_06_20`: includes `PGC`, `PsychENCODE`, and `Open Targets`; excludes `SCHEMA` and `ChEMBL`
+- `scz_translational_2024_06_15`
+- `scz_translational_2024_06_18`
+- `scz_translational_2024_06_20`
+- As of April 2, 2026, none are evaluable on the principal `3y` horizon because each checked-in slice yields zero positive intervention-object outcomes after strict pre-cutoff denominator filtering.
 
 Each slice directory contains:
 
 - `snapshot_request.json`: slice-specific cutoff, snapshot id, and suite/task provenance
 - `source_archives.json`: copied archived source descriptor index with SHA256 digests
 - `archives/`: copied archived source extracts referenced by the slice index
-- `cohort_members.csv` and `future_outcomes.csv`: checked-in cohort and label inputs shared with the canonical fixture
+- `program_universe.csv` and `events.csv`: pinned program-history replay inputs used for intervention-object cohort and bundle regeneration
+- `cohort_members.csv` and `future_outcomes.csv`: checked-in intervention-object cohort and label inputs derived from the denominator plus program-history event ledger
+
+The canonical `scz_small` fixture remains the regression path for gene/module
+benchmarking. Public slices now exercise the Track A intervention-object replay path
+without changing that `scz_small` workflow.
 
 The slice catalog at `data/benchmark/public_slices/catalog.json` records the exact
 included and excluded sources for each cutoff. Missing historical archives stay explicit
 exclusions; the backfill path does not fall back to live source data.
 
-Replay example on a non-`scz_small` public slice:
+Replay example on a checked-in public slice such as `scz_translational_2024_06_20`:
 
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
@@ -330,7 +346,18 @@ uv run scz-target-engine run-benchmark \
   --output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/runner_outputs \
   --config config/v0.toml \
   --deterministic-test-mode
+
+uv run scz-target-engine build-benchmark-reporting \
+  --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv \
+  --runner-output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/runner_outputs \
+  --output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/public_payloads
 ```
+
+That replay writes the intervention-object feature bundle beside the generated
+snapshot manifest, explicit projected baseline payloads under
+`runner_outputs/baseline_projections/`, and intervention-object leaderboard plus
+error-analysis outputs under `public_payloads/`.
 
 ## Current Runner Coverage
 
@@ -368,6 +395,16 @@ The checked-in deterministic fixture intentionally executes only:
 
 That fixture includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while
 `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
+
+The checked-in public slices intentionally execute only:
+
+- `v0_current`
+- `v1_current`
+- `random_with_coverage`
+
+Those slices are intervention-object replay tasks, so `pgc_only`, `schema_only`,
+`opentargets_only`, and `chembl_only` stay outside the current Track A public replay
+surface.
 
 ## Metric Bundle And Interval Method
 

@@ -65,7 +65,7 @@ uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/
 uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv --output-file data/benchmark/generated/scz_small/cohort_labels.csv
 uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json --output-dir data/benchmark/generated/scz_small/runner_outputs --config config/v0.toml --deterministic-test-mode
 uv run python -m scz_target_engine.cli rescue compare baselines --output-dir .context/rescue-baseline-suite
-PYTHONPATH=src python3 -m scz_target_engine.cli build-hypothesis-packets --policy-artifact "${SMOKE_BUILD_OUTPUT_DIR}/policy_decision_vectors_v2.json" --ledger-artifact "${SMOKE_BUILD_OUTPUT_DIR}/gene_target_ledgers.json" --output-file .context/hypothesis_packets_v1.json
+uv run python -m scz_target_engine.cli build-hypothesis-packets --policy-artifact "${SMOKE_BUILD_OUTPUT_DIR}/policy_decision_vectors_v2.json" --ledger-artifact "${SMOKE_BUILD_OUTPUT_DIR}/gene_target_ledgers.json" --output-file .context/hypothesis_packets_v1.json
 
 git diff --exit-code -- examples/v0/output
 

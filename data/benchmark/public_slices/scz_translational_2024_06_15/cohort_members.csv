@@ -1,4 +1,3 @@
 entity_type,entity_id,entity_label
-gene,ENSG00000162946,DISC1
-gene,ENSG00000151067,CACNA1C
-module,MOD_DLPFC_GRN,Deep Layer Cortical GRN
+intervention_object,pimavanserin-negative-symptoms-adjunct-phase-3-or-registration,pimavanserin | negative symptoms | phase_3_or_registration
+intervention_object,ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration,ulotaront | acute positive symptoms | phase_3_or_registration

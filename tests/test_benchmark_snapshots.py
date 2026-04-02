@@ -2,6 +2,11 @@ from pathlib import Path
 
 import pytest
 
+from scz_target_engine.benchmark_intervention_objects import (
+    build_intervention_object_bundle_rows,
+    build_intervention_object_public_slice_rows,
+    read_intervention_object_feature_bundle,
+)
 from scz_target_engine.benchmark_snapshots import (
     SourceArchiveDescriptor,
     SnapshotBuildRequest,
@@ -11,6 +16,7 @@ from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
     read_benchmark_snapshot_manifest,
 )
+from tests.benchmark_test_support import write_intervention_object_slice_fixture
 
 
 FIXTURE_DIR = (
@@ -20,8 +26,6 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
-
-
 def test_build_benchmark_snapshot_manifest_materializes_fixture_sources(
     tmp_path: Path,
 ) -> None:
@@ -145,3 +149,255 @@ def test_snapshot_builder_rejects_ambiguous_same_date_descriptors() -> None:
             ),
             materialized_at="2026-03-28",
         )
+
+
+def test_intervention_object_snapshot_request_requires_pinned_program_history() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "intervention_object snapshot requests must provide "
+            "program_universe_file and program_history_events_file"
+        ),
+    ):
+        SnapshotBuildRequest(
+            snapshot_id="scz_fixture_2024_06_20",
+            cohort_id="scz_fixture_intervention_object",
+            benchmark_question_id="scz_translational_ranking_v1",
+            benchmark_suite_id="scz_translational_suite",
+            benchmark_task_id="scz_translational_task",
+            as_of_date="2024-06-20",
+            outcome_observation_closed_at="2025-06-30",
+            entity_types=("intervention_object",),
+            baseline_ids=("v0_current",),
+        )
+
+
+def test_materialize_benchmark_snapshot_manifest_emits_intervention_object_bundle(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    output_file = tmp_path / "snapshot_manifest.json"
+    result = materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=output_file,
+        materialized_at="2026-04-02",
+    )
+
+    assert output_file.exists()
+    assert result["intervention_object_feature_bundle"].endswith(
+        "intervention_object_feature_bundle.parquet"
+    )
+    bundle_path = tmp_path / "intervention_object_feature_bundle.parquet"
+    assert bundle_path.exists()
+
+    bundle_rows = read_intervention_object_feature_bundle(bundle_path)
+    bundle_entity_ids = {str(row["entity_id"]) for row in bundle_rows}
+    assert bundle_entity_ids == {
+        "pimavanserin-negative-symptoms-adjunct-phase-3-or-registration",
+        "ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration",
+    }
+
+
+def test_intervention_object_replay_rewinds_future_stage_only_when_supported(
+    tmp_path: Path,
+) -> None:
+    program_universe_path = tmp_path / "program_universe.csv"
+    events_path = tmp_path / "events.csv"
+    program_universe_path.write_text(
+        (
+            "program_universe_id,asset_id,asset_name,asset_lineage_id,asset_aliases_json,"
+            "target,target_symbols_json,target_class,target_class_lineage_id,"
+            "target_class_aliases_json,mechanism,modality,domain,population,regimen,"
+            "stage_bucket,coverage_state,coverage_reason,coverage_confidence,"
+            "mapped_event_ids_json,duplicate_of_program_universe_id,discovery_source_type,"
+            "discovery_source_id,source_candidate_url,notes\n"
+            'example-phase-progression-phase-3-or-registration,example-asset,Example Asset,asset:example-asset,[],'
+            'GENE1,"[""GENE1""]",example class,target-class:example-class,[],'
+            "example mechanism,small_molecule,acute_positive_symptoms,adults with schizophrenia,"
+            'monotherapy,phase_3_or_registration,included,checked_in_event_history,high,'
+            '"[""example-phase-2-2024"", ""example-phase-3-2024""]",,clinicaltrials_gov,'
+            "NCT00000000,https://example.test/study,Example progression row.\n"
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            "event_id,asset_id,sponsor,population,domain,mono_or_adjunct,phase,event_type,"
+            "event_date,primary_outcome_result,failure_reason_taxonomy,confidence,notes,sort_order\n"
+            "example-phase-2-2024,example-asset,Example Sponsor,adults with schizophrenia,"
+            "acute_positive_symptoms,monotherapy,phase_2,topline_readout,2024-01-15,"
+            "met_primary_endpoint,not_applicable_nonfailure,high,Phase 2 signal,1\n"
+            "example-phase-3-2024,example-asset,Example Sponsor,adults with schizophrenia,"
+            "acute_positive_symptoms,monotherapy,phase_3,topline_readout,2024-10-01,"
+            "did_not_meet_primary_endpoint,unresolved,medium,Phase 3 miss,2\n"
+        ),
+        encoding="utf-8",
+    )
+
+    cohort_rows, future_outcome_rows = build_intervention_object_public_slice_rows(
+        as_of_date="2024-06-20",
+        outcome_observation_closed_at="2025-06-30",
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    assert cohort_rows == [
+        {
+            "entity_type": "intervention_object",
+            "entity_id": "example-phase-progression-phase-2",
+            "entity_label": "Example Asset | acute positive symptoms | phase_2",
+        }
+    ]
+    assert future_outcome_rows == [
+        {
+            "entity_type": "intervention_object",
+            "entity_id": "example-phase-progression-phase-2",
+            "outcome_label": "future_schizophrenia_negative_signal",
+            "outcome_date": "2024-10-01",
+            "label_source": "program_history_v2",
+            "label_notes": "event_id=example-phase-3-2024; result=did_not_meet_primary_endpoint",
+        },
+        {
+            "entity_type": "intervention_object",
+            "entity_id": "example-phase-progression-phase-2",
+            "outcome_label": "future_schizophrenia_program_advanced",
+            "outcome_date": "2024-10-01",
+            "label_source": "program_history_v2",
+            "label_notes": "event_id=example-phase-3-2024; stage_bucket=phase_3_or_registration",
+        },
+    ]
+
+    bundle_rows = build_intervention_object_bundle_rows(
+        as_of_date="2024-06-20",
+        source_snapshots=(),
+        archive_descriptors=(),
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    assert bundle_rows[0]["entity_id"] == "example-phase-progression-phase-2"
+    assert bundle_rows[0]["stage_bucket"] == "phase_2"
+
+
+def test_intervention_object_replay_rewinds_domain_population_and_regimen(
+    tmp_path: Path,
+) -> None:
+    program_universe_path = tmp_path / "program_universe.csv"
+    events_path = tmp_path / "events.csv"
+    program_universe_path.write_text(
+        (
+            "program_universe_id,asset_id,asset_name,asset_lineage_id,asset_aliases_json,"
+            "target,target_symbols_json,target_class,target_class_lineage_id,"
+            "target_class_aliases_json,mechanism,modality,domain,population,regimen,"
+            "stage_bucket,coverage_state,coverage_reason,coverage_confidence,"
+            "mapped_event_ids_json,duplicate_of_program_universe_id,discovery_source_type,"
+            "discovery_source_id,source_candidate_url,notes\n"
+            'example-cognition-adjunct-phase-3-or-registration,example-asset,Example Asset,asset:example-asset,[],'
+            'GENE1,"[""GENE1""]",example class,target-class:example-class,[],'
+            "example mechanism,small_molecule,cognition,adults with cognitive impairment on stable antipsychotics,"
+            'adjunct,phase_3_or_registration,included,checked_in_event_history,high,'
+            '"[""example-phase-2-2024"", ""example-phase-3-2024""]",,clinicaltrials_gov,'
+            "NCT00000000,https://example.test/study,Example identity-drift row.\n"
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            "event_id,asset_id,sponsor,population,domain,mono_or_adjunct,phase,event_type,"
+            "event_date,primary_outcome_result,failure_reason_taxonomy,confidence,notes,sort_order\n"
+            "example-phase-2-2024,example-asset,Example Sponsor,acutely psychotic adults with schizophrenia,"
+            "acute_positive_symptoms,monotherapy,phase_2,topline_readout,2024-01-15,"
+            "met_primary_endpoint,not_applicable_nonfailure,high,Phase 2 signal,1\n"
+            "example-phase-3-2024,example-asset,Example Sponsor,adults with cognitive impairment on stable antipsychotics,"
+            "cognition,adjunct,phase_3,topline_readout,2024-10-01,"
+            "did_not_meet_primary_endpoint,unresolved,medium,Phase 3 miss,2\n"
+        ),
+        encoding="utf-8",
+    )
+
+    cohort_rows, future_outcome_rows = build_intervention_object_public_slice_rows(
+        as_of_date="2024-06-20",
+        outcome_observation_closed_at="2025-06-30",
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+
+    assert cohort_rows == [
+        {
+            "entity_type": "intervention_object",
+            "entity_id": "example-asset-acute-positive-symptoms-monotherapy-phase-2",
+            "entity_label": "Example Asset | acute positive symptoms | phase_2",
+        }
+    ]
+    assert {row["entity_id"] for row in future_outcome_rows} == {
+        "example-asset-acute-positive-symptoms-monotherapy-phase-2"
+    }
+
+    bundle_rows = build_intervention_object_bundle_rows(
+        as_of_date="2024-06-20",
+        source_snapshots=(),
+        archive_descriptors=(),
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    assert bundle_rows[0]["entity_id"] == (
+        "example-asset-acute-positive-symptoms-monotherapy-phase-2"
+    )
+    assert bundle_rows[0]["domain"] == "acute_positive_symptoms"
+    assert (
+        bundle_rows[0]["population"]
+        == "acutely psychotic adults with schizophrenia"
+    )
+    assert bundle_rows[0]["regimen"] == "monotherapy"
+
+
+def test_intervention_object_replay_excludes_future_only_program_rows(
+    tmp_path: Path,
+) -> None:
+    program_universe_path = tmp_path / "program_universe.csv"
+    events_path = tmp_path / "events.csv"
+    program_universe_path.write_text(
+        (
+            "program_universe_id,asset_id,asset_name,asset_lineage_id,asset_aliases_json,"
+            "target,target_symbols_json,target_class,target_class_lineage_id,"
+            "target_class_aliases_json,mechanism,modality,domain,population,regimen,"
+            "stage_bucket,coverage_state,coverage_reason,coverage_confidence,"
+            "mapped_event_ids_json,duplicate_of_program_universe_id,discovery_source_type,"
+            "discovery_source_id,source_candidate_url,notes\n"
+            'example-future-only-approved,example-asset,Example Asset,asset:example-asset,[],'
+            'GENE1,"[""GENE1""]",example class,target-class:example-class,[],'
+            "example mechanism,small_molecule,acute_positive_symptoms,adults with schizophrenia,"
+            'monotherapy,approved,included,checked_in_event_history,high,'
+            '"[""example-approval-2024""]",,clinicaltrials_gov,'
+            "NCT00000000,https://example.test/study,Future-only row.\n"
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            "event_id,asset_id,sponsor,population,domain,mono_or_adjunct,phase,event_type,"
+            "event_date,primary_outcome_result,failure_reason_taxonomy,confidence,notes,sort_order\n"
+            "example-approval-2024,example-asset,Example Sponsor,adults with schizophrenia,"
+            "acute_positive_symptoms,monotherapy,approved,regulatory_approval,2024-10-01,"
+            "approved_for_adults_with_schizophrenia,not_applicable_nonfailure,high,"
+            "Future approval only,1\n"
+        ),
+        encoding="utf-8",
+    )
+
+    cohort_rows, future_outcome_rows = build_intervention_object_public_slice_rows(
+        as_of_date="2024-06-20",
+        outcome_observation_closed_at="2025-06-30",
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    assert cohort_rows == []
+    assert future_outcome_rows == []
+
+    bundle_rows = build_intervention_object_bundle_rows(
+        as_of_date="2024-06-20",
+        source_snapshots=(),
+        archive_descriptors=(),
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    assert bundle_rows == []

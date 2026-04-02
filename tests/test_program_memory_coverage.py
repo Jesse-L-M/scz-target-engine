@@ -81,6 +81,39 @@ def test_build_program_memory_coverage_audit_distinguishes_sparse_and_incomplete
     )
 
 
+def test_program_memory_coverage_audit_restores_absolute_dataset_dir_contract() -> None:
+    audit = build_program_memory_coverage_audit(
+        Path("data/curated/program_history/v2")
+    )
+
+    assert audit.dataset_dir == Path("data/curated/program_history/v2").resolve().as_posix()
+
+
+def test_checked_in_program_universe_uses_correct_ctgov_studies() -> None:
+    dataset = load_program_memory_dataset(Path("data/curated/program_history/v2"))
+    rows_by_id = {
+        row.program_universe_id: row for row in dataset.program_universe_rows
+    }
+
+    brilaroxazine = rows_by_id[
+        "brilaroxazine-acute-positive-symptoms-monotherapy-phase-3-or-registration"
+    ]
+    assert brilaroxazine.discovery_source_id == "NCT05184335"
+    assert (
+        brilaroxazine.source_candidate_url
+        == "https://clinicaltrials.gov/study/NCT05184335"
+    )
+
+    karxt_ad_agitation = rows_by_id[
+        "xanomeline-trospium-alzheimers-agitation-monotherapy-phase-3"
+    ]
+    assert karxt_ad_agitation.discovery_source_id == "NCT07011732"
+    assert (
+        karxt_ad_agitation.source_candidate_url
+        == "https://clinicaltrials.gov/study/NCT07011732"
+    )
+
+
 def test_program_memory_coverage_focus_report_keeps_chrm4_provenance() -> None:
     audit = build_program_memory_coverage_audit(
         Path("data/curated/program_history/v2")
@@ -295,7 +328,10 @@ def test_program_memory_cli_coverage_audit_path(tmp_path) -> None:
     )
 
     audit_payload = read_json(output_dir / "coverage_audit.json")
-    assert audit_payload["dataset_dir"] == "data/curated/program_history/v2"
+    assert (
+        audit_payload["dataset_dir"]
+        == Path("data/curated/program_history/v2").resolve().as_posix()
+    )
     assert audit_payload["gap_reason_counts"]["curation_incomplete"] >= 1
     assert audit_payload["gap_reason_counts"]["history_sparse"] >= 1
     assert audit_payload["coverage_manifest"]["program_universe_row_count"] == 14
@@ -323,7 +359,10 @@ def test_program_memory_cli_coverage_audit_path(tmp_path) -> None:
     )
 
     manifest_payload = read_json(output_dir / "coverage_manifest.json")
-    assert manifest_payload["dataset_dir"] == "data/curated/program_history/v2"
+    assert (
+        manifest_payload["dataset_dir"]
+        == Path("data/curated/program_history/v2").resolve().as_posix()
+    )
     assert manifest_payload["coverage_state_counts"]["included"] == 6
     assert manifest_payload["coverage_reason_counts"]["asset_alias_duplicate"] == 4
     assert manifest_payload["unique_in_scope_program_count"] == 8
@@ -426,7 +465,10 @@ def test_program_memory_cli_coverage_audit_removes_stale_focus_artifact(
     assert first_stdout["denominator_gap_count"] == 8
     assert first_stdout["scope_summary_count"] == 26
     assert first_stdout["scope_gap_count"] == 45
-    assert first_stdout["dataset_dir"] == "data/curated/program_history/v2"
+    assert (
+        first_stdout["dataset_dir"]
+        == Path("data/curated/program_history/v2").resolve().as_posix()
+    )
     assert first_stdout["coverage_manifest_file"] == str(
         output_dir / "coverage_manifest.json"
     )
@@ -560,6 +602,48 @@ def test_program_memory_coverage_audit_rejects_mismatched_mapped_event_identity(
         build_program_memory_coverage_audit(dataset_dir)
 
 
+@pytest.mark.parametrize(
+    ("field_name", "value", "match"),
+    (
+        ("asset_id", "wrong-asset", "do not match the canonical program-opportunity grain"),
+        ("asset_name", "wrong asset", "do not match the canonical program-opportunity grain"),
+        ("asset_name", "", "missing required fields \\['asset_name'\\]"),
+        ("target", "CHRM4", "do not match the canonical program-opportunity grain"),
+        ("target_symbols_json", json.dumps(["CHRM4"]), "do not match the canonical program-opportunity grain"),
+        ("target_symbols_json", "", "do not match the canonical program-opportunity grain"),
+    ),
+)
+def test_program_memory_coverage_audit_rejects_included_display_identity_drift(
+    tmp_path,
+    field_name,
+    value,
+    match,
+) -> None:
+    source_dir = Path("data/curated/program_history/v2")
+    dataset_dir = tmp_path / "v2"
+    copytree(source_dir, dataset_dir)
+
+    universe_path = dataset_dir / "program_universe.csv"
+    rows = read_csv_rows(universe_path)
+    for row in rows:
+        if (
+            row["program_universe_id"]
+            == "xanomeline-trospium-acute-positive-symptoms-monotherapy-approved"
+        ):
+            row[field_name] = value
+
+    with universe_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(
+        ValueError,
+        match=match,
+    ):
+        build_program_memory_coverage_audit(dataset_dir)
+
+
 def test_program_memory_coverage_audit_rejects_duplicate_mapped_event_ids(
     tmp_path,
 ) -> None:
@@ -593,8 +677,8 @@ def test_program_memory_coverage_audit_rejects_unsupported_stage_bucket(
     universe_path = dataset_dir / "program_universe.csv"
     universe_text = universe_path.read_text(encoding="utf-8")
     broken_text = universe_text.replace(
-        "phase_3_or_registration,unresolved,ctgov_candidate_pending_adjudication,medium,[],,clinicaltrials_gov,NCT02970292",
-        "phase_3_or_registrtion,unresolved,ctgov_candidate_pending_adjudication,medium,[],,clinicaltrials_gov,NCT02970292",
+        "phase_3_or_registration,unresolved,ctgov_candidate_pending_adjudication,medium,[],,clinicaltrials_gov,NCT05184335",
+        "phase_3_or_registrtion,unresolved,ctgov_candidate_pending_adjudication,medium,[],,clinicaltrials_gov,NCT05184335",
         1,
     )
     universe_path.write_text(broken_text, encoding="utf-8")
@@ -626,6 +710,68 @@ def test_program_memory_coverage_audit_reports_invalid_coverage_state_cleanly(
         ValueError,
         match="unsupported program universe coverage_state 'includeed'",
     ):
+        build_program_memory_coverage_audit(dataset_dir)
+
+
+def test_program_memory_coverage_audit_rejects_unsupported_discovery_source_type(
+    tmp_path,
+) -> None:
+    source_dir = Path("data/curated/program_history/v2")
+    dataset_dir = tmp_path / "v2"
+    copytree(source_dir, dataset_dir)
+
+    universe_path = dataset_dir / "program_universe.csv"
+    universe_text = universe_path.read_text(encoding="utf-8")
+    broken_text = universe_text.replace(
+        "clinicaltrials_gov,NCT05184335",
+        "clinicaltrialsgov,NCT05184335",
+        1,
+    )
+    universe_path.write_text(broken_text, encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported program universe discovery_source_type",
+    ):
+        build_program_memory_coverage_audit(dataset_dir)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value", "match"),
+    (
+        ("discovery_source_id", "nct05184335", "canonical NCT IDs"),
+        (
+            "source_candidate_url",
+            "https://clinicaltrials.gov/api/v2/studies/NCT05184335",
+            "canonical study URL",
+        ),
+    ),
+)
+def test_program_memory_coverage_audit_rejects_noncanonical_ctgov_provenance(
+    tmp_path,
+    field_name,
+    value,
+    match,
+) -> None:
+    source_dir = Path("data/curated/program_history/v2")
+    dataset_dir = tmp_path / "v2"
+    copytree(source_dir, dataset_dir)
+
+    universe_path = dataset_dir / "program_universe.csv"
+    rows = read_csv_rows(universe_path)
+    for row in rows:
+        if (
+            row["program_universe_id"]
+            == "brilaroxazine-acute-positive-symptoms-monotherapy-phase-3-or-registration"
+        ):
+            row[field_name] = value
+
+    with universe_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match=match):
         build_program_memory_coverage_audit(dataset_dir)
 
 

@@ -25,9 +25,6 @@ from scz_target_engine.sources.clinicaltrials import (
     normalize_nct_id,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
-
 DIMENSION_ORDER = ("target", "target_class", "domain", "failure_scope")
 FAILURE_SCOPE_ORDER = (
     "nonfailure",
@@ -173,6 +170,13 @@ PROGRAM_MEMORY_COVERAGE_REASONS = {
     ),
 }
 PROGRAM_MEMORY_COVERAGE_CONFIDENCE_LEVELS = ("high", "medium", "low")
+PROGRAM_MEMORY_ALLOWED_DISCOVERY_SOURCE_TYPES = (
+    "clinicaltrials_gov",
+    "company_press_release",
+    "peer_reviewed_primary_results",
+    "regulatory",
+    "secondary_summary_last_resort",
+)
 PROGRAM_MEMORY_EVENT_STAGE_BUCKETS = {
     "phase_2": "phase_2",
     "phase_3": "phase_3_or_registration",
@@ -917,8 +921,10 @@ def _validate_program_universe_row(
         )
     required_fields = {
         "program_universe_id": row.program_universe_id,
+        "asset_id": row.asset_id,
         "asset_name": row.asset_name,
         "asset_lineage_id": row.asset_lineage_id,
+        "target": row.target,
         "target_class": row.target_class,
         "target_class_lineage_id": row.target_class_lineage_id,
         "modality": row.modality,
@@ -934,8 +940,19 @@ def _validate_program_universe_row(
             f"program universe row {row.program_universe_id!r} is missing required fields {missing}"
         )
 
+    if row.discovery_source_type not in PROGRAM_MEMORY_ALLOWED_DISCOVERY_SOURCE_TYPES:
+        raise ValueError(
+            "unsupported program universe discovery_source_type "
+            f"{row.discovery_source_type!r} for {row.program_universe_id!r}"
+        )
+
     if row.discovery_source_type == "clinicaltrials_gov":
         study_id = normalize_nct_id(row.discovery_source_id)
+        if row.discovery_source_id != study_id:
+            raise ValueError(
+                "ClinicalTrials.gov program universe rows must use canonical NCT IDs: "
+                f"{row.program_universe_id!r}"
+            )
         expected_url = build_clinicaltrials_study_url(study_id)
         if row.source_candidate_url != expected_url:
             raise ValueError(
@@ -1029,6 +1046,22 @@ def _program_universe_mismatch_reasons(
     context: _EventContext,
 ) -> list[str]:
     mismatch_reasons: list[str] = []
+    display_fields = (
+        ("asset_id", row.asset_id, context.asset.asset_id),
+        ("asset_name", row.asset_name, context.asset.molecule),
+        ("target", row.target, context.asset.target),
+        ("target_class", row.target_class, context.asset.target_class),
+    )
+    for field_name, row_value, event_value in display_fields:
+        if _normalize_program_memory_text(row_value) != _normalize_program_memory_text(
+            event_value
+        ):
+            mismatch_reasons.append(field_name)
+    if _normalize_program_memory_text_tuple(
+        row.target_symbols
+    ) != _normalize_program_memory_text_tuple(context.asset.target_symbols):
+        mismatch_reasons.append("target_symbols")
+
     comparable_fields = (
         ("asset_lineage_id", row.asset_lineage_id, context.asset.asset_lineage_id),
         (
@@ -1055,6 +1088,10 @@ def _program_universe_mismatch_reasons(
 
 def _normalize_program_memory_text(value: str) -> str:
     return clean_text(value).casefold()
+
+
+def _normalize_program_memory_text_tuple(values: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(_normalize_program_memory_text(value) for value in values)
 
 
 def _event_stage_bucket(phase: str) -> str:
@@ -1242,16 +1279,8 @@ def _resolve_dataset_dir(dataset_or_path: ProgramMemoryDataset | Path) -> str:
         return ""
     resolved = resolve_program_memory_v2_dir(Path(dataset_or_path))
     if resolved is None:
-        return _normalize_dataset_dir(Path(dataset_or_path))
-    return _normalize_dataset_dir(resolved)
-
-
-def _normalize_dataset_dir(path: Path) -> str:
-    resolved = path.resolve()
-    try:
-        return resolved.relative_to(REPO_ROOT).as_posix()
-    except ValueError:
-        return resolved.as_posix()
+        return Path(dataset_or_path).resolve().as_posix()
+    return resolved.resolve().as_posix()
 
 
 def _build_summary_for_scope(

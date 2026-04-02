@@ -303,6 +303,8 @@ It writes these machine-readable artifact surfaces:
 - `coverage_scope_summary.csv`, `coverage_scope_gaps.csv`, and `coverage_evidence.csv`:
   the earlier target / target-class / domain / failure-scope surfaces, kept for
   curation tooling and focused review
+- machine-readable `dataset_dir` fields in coverage-audit JSON, manifest, and CLI
+  stdout remain absolute paths for compatibility with downstream consumers
 
 For dataset loading:
 
@@ -321,6 +323,14 @@ Denominator states distinguish:
 - `duplicate`: explicit alias or registry duplicate of a canonical denominator row
 - `out_of_scope`: explicit non-schizophrenia or non-molecular row discovered during
   denominator support work
+
+Denominator validation also fails closed on discovery provenance:
+
+- included rows must preserve checked-in asset and target display fields, not just
+  lineage/grain identity
+- `discovery_source_type` must stay inside the implemented source vocabulary
+- ClinicalTrials.gov-backed rows must use canonical `NCT...` identifiers and canonical
+  `https://clinicaltrials.gov/study/NCT...` URLs
 
 Example focused audit path for the current `CHRM4` slice:
 

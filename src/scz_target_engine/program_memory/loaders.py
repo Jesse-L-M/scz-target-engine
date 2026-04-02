@@ -457,7 +457,7 @@ def load_program_memory_dataset(
 
         for program_universe_id, row in raw_rows_by_id.items():
             asset_id = clean_text(row.get("asset_id"))
-            asset_name = clean_text(row.get("asset_name")) or asset_id
+            asset_name = clean_text(row.get("asset_name"))
             target = clean_text(row.get("target"))
             target_class = clean_text(row.get("target_class"))
             program_universe_rows.append(
@@ -468,8 +468,7 @@ def load_program_memory_dataset(
                     asset_lineage_id=resolve_asset_lineage_id(program_universe_id),
                     asset_aliases=parse_string_list(row.get("asset_aliases_json")),
                     target=target,
-                    target_symbols=parse_string_list(row.get("target_symbols_json"))
-                    or split_target_symbols(target),
+                    target_symbols=parse_string_list(row.get("target_symbols_json")),
                     target_class=target_class,
                     target_class_lineage_id=resolve_target_class_lineage_id(
                         program_universe_id

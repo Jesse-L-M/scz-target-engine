@@ -4,13 +4,25 @@ from hashlib import sha256
 import json
 from pathlib import Path
 
+import pytest
+from pyarrow import Table
+from pyarrow import parquet as pq
+
 from scz_target_engine.benchmark_labels import (
+    BenchmarkCohortLabel,
+    build_benchmark_cohort_manifest,
+    benchmark_cohort_manifest_path_for_labels_file,
+    benchmark_cohort_members_path_for_labels_file,
+    benchmark_source_cohort_members_path_for_labels_file,
+    benchmark_source_future_outcomes_path_for_labels_file,
     CohortMember,
     FutureOutcomeRecord,
     build_benchmark_cohort_labels,
     load_cohort_members,
     load_future_outcomes,
     materialize_benchmark_cohort_labels,
+    write_benchmark_cohort_manifest,
+    write_benchmark_cohort_members,
     write_benchmark_cohort_labels,
 )
 from scz_target_engine.benchmark_metrics import (
@@ -34,6 +46,7 @@ from scz_target_engine.benchmark_snapshots import (
     read_benchmark_snapshot_manifest,
     write_benchmark_snapshot_manifest,
 )
+from scz_target_engine.io import write_csv
 from tests.benchmark_test_support import write_intervention_object_slice_fixture
 
 
@@ -72,6 +85,99 @@ def _load_metric_payload_index(
     return payloads
 
 
+def _write_materialized_cohort_artifacts(
+    *,
+    manifest: object,
+    manifest_file: Path,
+    cohort_members: tuple[CohortMember, ...],
+    cohort_labels: tuple[BenchmarkCohortLabel, ...],
+    source_cohort_members_file: Path,
+    source_future_outcomes_file: Path,
+    cohort_labels_file: Path,
+) -> None:
+    write_benchmark_cohort_labels(cohort_labels_file, cohort_labels)
+    cohort_members_path = benchmark_cohort_members_path_for_labels_file(cohort_labels_file)
+    write_benchmark_cohort_members(cohort_members_path, cohort_members)
+    source_cohort_members_bundle_path = benchmark_source_cohort_members_path_for_labels_file(
+        cohort_labels_file
+    )
+    source_future_outcomes_bundle_path = (
+        benchmark_source_future_outcomes_path_for_labels_file(cohort_labels_file)
+    )
+    if source_cohort_members_file.resolve() != source_cohort_members_bundle_path.resolve():
+        source_cohort_members_bundle_path.write_bytes(
+            source_cohort_members_file.read_bytes()
+        )
+    if (
+        source_future_outcomes_file.resolve()
+        != source_future_outcomes_bundle_path.resolve()
+    ):
+        source_future_outcomes_bundle_path.write_bytes(
+            source_future_outcomes_file.read_bytes()
+        )
+    cohort_manifest_path = benchmark_cohort_manifest_path_for_labels_file(
+        cohort_labels_file
+    )
+    cohort_manifest = build_benchmark_cohort_manifest(
+        snapshot_manifest=manifest,
+        snapshot_manifest_file=manifest_file,
+        cohort_members=cohort_members,
+        cohort_labels=cohort_labels,
+        cohort_manifest_artifact_file=cohort_manifest_path,
+        cohort_members_artifact_file=cohort_members_path,
+        cohort_labels_artifact_file=cohort_labels_file,
+        source_cohort_members_file=source_cohort_members_bundle_path,
+        source_future_outcomes_file=source_future_outcomes_bundle_path,
+    )
+    write_benchmark_cohort_manifest(
+        cohort_manifest_path,
+        cohort_manifest,
+    )
+
+
+def _write_source_cohort_inputs(
+    *,
+    cohort_members: tuple[CohortMember, ...],
+    future_outcomes: tuple[FutureOutcomeRecord, ...],
+    cohort_members_file: Path,
+    future_outcomes_file: Path,
+) -> None:
+    write_csv(
+        cohort_members_file,
+        [
+            {
+                "entity_type": member.entity_type,
+                "entity_id": member.entity_id,
+                "entity_label": member.entity_label,
+            }
+            for member in cohort_members
+        ],
+        ["entity_type", "entity_id", "entity_label"],
+    )
+    write_csv(
+        future_outcomes_file,
+        [
+            {
+                "entity_type": outcome.entity_type,
+                "entity_id": outcome.entity_id,
+                "outcome_label": outcome.outcome_label,
+                "outcome_date": outcome.outcome_date,
+                "label_source": outcome.label_source,
+                "label_notes": outcome.label_notes,
+            }
+            for outcome in future_outcomes
+        ],
+        [
+            "entity_type",
+            "entity_id",
+            "outcome_label",
+            "outcome_date",
+            "label_source",
+            "label_notes",
+        ],
+    )
+
+
 def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -82,19 +188,13 @@ def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifact
         output_file=snapshot_manifest_file,
         materialized_at="2026-03-28",
     )
-    manifest = build_benchmark_snapshot_manifest(
-        load_snapshot_build_request(FIXTURE_DIR / "snapshot_request.json"),
-        load_source_archive_descriptors(FIXTURE_DIR / "source_archives.json"),
-        materialized_at="2026-03-28",
-    )
     cohort_labels_file = tmp_path / "cohort_labels.csv"
-    write_benchmark_cohort_labels(
-        cohort_labels_file,
-        build_benchmark_cohort_labels(
-            manifest,
-            load_cohort_members(FIXTURE_DIR / "cohort_members.csv"),
-            load_future_outcomes(FIXTURE_DIR / "future_outcomes.csv"),
-        ),
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
     )
 
     result = materialize_benchmark_run(
@@ -139,6 +239,10 @@ def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifact
         artifact.artifact_name for artifact in v1_manifest.input_artifacts
     } >= {
         "benchmark_snapshot_manifest",
+        "benchmark_cohort_manifest",
+        "benchmark_cohort_members",
+        "benchmark_source_cohort_members",
+        "benchmark_source_future_outcomes",
         "benchmark_cohort_labels",
         "source_archive_index",
         "engine_config",
@@ -176,6 +280,7 @@ def test_materialize_benchmark_run_projects_current_baselines_onto_intervention_
 
     materialize_benchmark_cohort_labels(
         manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
         cohort_members_file=public_slice.cohort_members_file,
         future_outcomes_file=public_slice.future_outcomes_file,
         output_file=cohort_labels_file,
@@ -206,6 +311,10 @@ def test_materialize_benchmark_run_projects_current_baselines_onto_intervention_
     assert {
         artifact.artifact_name for artifact in v0_manifest.input_artifacts
     } >= {
+        "benchmark_cohort_manifest",
+        "benchmark_cohort_members",
+        "benchmark_source_cohort_members",
+        "benchmark_source_future_outcomes",
         "intervention_object_feature_bundle",
         "benchmark_intervention_object_baseline_projection",
     }
@@ -216,6 +325,415 @@ def test_materialize_benchmark_run_projects_current_baselines_onto_intervention_
         "3y",
         "average_precision_any_positive_outcome",
     ) in metric_payload_index
+
+
+def test_materialize_benchmark_run_rejects_mixed_entity_type_labels_for_intervention_objects(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+    labels = list(
+        build_benchmark_cohort_labels(
+            manifest,
+            load_cohort_members(public_slice.cohort_members_file),
+            load_future_outcomes(public_slice.future_outcomes_file),
+        )
+    )
+    labels.append(
+        BenchmarkCohortLabel(
+            cohort_id=manifest.cohort_id,
+            snapshot_id=manifest.snapshot_id,
+            entity_type="gene",
+            entity_id="ENSG00000162946",
+            entity_label="DISC1",
+            label_name="no_qualifying_future_outcome",
+            label_value="true",
+            horizon="1y",
+            outcome_date="",
+            label_source="stale_gene_fixture",
+        )
+    )
+    _write_materialized_cohort_artifacts(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members=load_cohort_members(public_slice.cohort_members_file),
+        cohort_labels=tuple(labels),
+        source_cohort_members_file=public_slice.cohort_members_file,
+        source_future_outcomes_file=public_slice.future_outcomes_file,
+        cohort_labels_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark cohort labels contain an entity outside the benchmark cohort members artifact",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=public_slice.source_archives_file,
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
+
+
+def test_materialize_benchmark_run_rejects_incomplete_label_matrix_for_intervention_objects(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+    labels = tuple(
+        label
+        for label in build_benchmark_cohort_labels(
+            manifest,
+            load_cohort_members(public_slice.cohort_members_file),
+            load_future_outcomes(public_slice.future_outcomes_file),
+        )
+        if not (
+            label.entity_label.startswith("ulotaront | ")
+            and label.horizon == "3y"
+        )
+    )
+    _write_materialized_cohort_artifacts(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members=load_cohort_members(public_slice.cohort_members_file),
+        cohort_labels=labels,
+        source_cohort_members_file=public_slice.cohort_members_file,
+        source_future_outcomes_file=public_slice.future_outcomes_file,
+        cohort_labels_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="full protocol label matrix",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=public_slice.source_archives_file,
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
+
+
+def test_materialize_benchmark_run_rejects_missing_cohort_entity_labels(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+    cohort_members = load_cohort_members(FIXTURE_DIR / "cohort_members.csv")
+    labels = tuple(
+        label
+        for label in build_benchmark_cohort_labels(
+            manifest,
+            cohort_members,
+            load_future_outcomes(FIXTURE_DIR / "future_outcomes.csv"),
+        )
+        if label.entity_id != "ENSG00000162946"
+    )
+    _write_materialized_cohort_artifacts(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members=cohort_members,
+        cohort_labels=labels,
+        source_cohort_members_file=FIXTURE_DIR / "cohort_members.csv",
+        source_future_outcomes_file=FIXTURE_DIR / "future_outcomes.csv",
+        cohort_labels_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark_cohort_members artifact",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=FIXTURE_DIR / "source_archives.json",
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
+
+
+def test_materialize_benchmark_run_requires_source_bundle_provenance_fields(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+    cohort_manifest_file = benchmark_cohort_manifest_path_for_labels_file(
+        cohort_labels_file
+    )
+    cohort_manifest_payload = json.loads(cohort_manifest_file.read_text())
+    for field_name in (
+        "source_cohort_members_path",
+        "source_cohort_members_sha256",
+        "source_future_outcomes_path",
+        "source_future_outcomes_sha256",
+    ):
+        cohort_manifest_payload.pop(field_name)
+    cohort_manifest_file.write_text(
+        json.dumps(cohort_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark cohort manifest is missing required field: source_cohort_members_path",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=FIXTURE_DIR / "source_archives.json",
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
+
+
+def test_materialize_benchmark_run_rejects_stale_intervention_object_bundle_date(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    bundle_path = tmp_path / "intervention_object_feature_bundle.parquet"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    table = pq.read_table(bundle_path)
+    bad_metadata = dict(table.schema.metadata or {})
+    bad_metadata[b"as_of_date"] = b"2024-06-19"
+    pq.write_table(
+        table.replace_schema_metadata(bad_metadata),
+        bundle_path,
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="feature bundle as_of_date does not match the snapshot manifest",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=public_slice.source_archives_file,
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
+
+
+def test_materialize_benchmark_run_rejects_stale_intervention_object_bundle_provenance(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    pgc_archive_path = (
+        public_slice.source_archives_file.parent
+        / "archives"
+        / "pgc"
+        / "scz2022_fixture.csv"
+    )
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+
+    pgc_archive_lines = pgc_archive_path.read_text(encoding="utf-8").splitlines()
+    pgc_archive_lines[1] = "ENSG00000162946,DISC1,0.11"
+    pgc_archive_path.write_text("\n".join(pgc_archive_lines) + "\n", encoding="utf-8")
+    archive_index_payload = json.loads(
+        public_slice.source_archives_file.read_text(encoding="utf-8")
+    )
+    for archive_payload in archive_index_payload["archives"]:
+        if archive_payload["source_name"] != "PGC":
+            continue
+        archive_payload["sha256"] = sha256(pgc_archive_path.read_bytes()).hexdigest()
+        break
+    public_slice.source_archives_file.write_text(
+        json.dumps(archive_index_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="source snapshot provenance does not match",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=public_slice.source_archives_file,
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
+
+
+def test_materialize_benchmark_run_rejects_malformed_intervention_object_bundle(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    bundle_path = tmp_path / "intervention_object_feature_bundle.parquet"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    table = pq.read_table(bundle_path)
+    bundle_rows = table.to_pylist()
+    for row in bundle_rows:
+        row.pop("matched_module_entity_ids_json", None)
+    pq.write_table(
+        Table.from_pylist(bundle_rows).replace_schema_metadata(table.schema.metadata),
+        bundle_path,
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="feature bundle is missing required columns",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=public_slice.source_archives_file,
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
+
+
+def test_materialize_benchmark_run_rejects_bundle_cohort_misalignment(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    bundle_path = tmp_path / "intervention_object_feature_bundle.parquet"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    table = pq.read_table(bundle_path)
+    bundle_rows = table.to_pylist()
+    bundle_rows[0]["entity_id"] = "stale-bundle-entity"
+    bundle_rows[0]["intervention_object_id"] = "stale-bundle-entity"
+    pq.write_table(
+        Table.from_pylist(bundle_rows).replace_schema_metadata(table.schema.metadata),
+        bundle_path,
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="feature bundle does not align with the replay cohort",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=public_slice.source_archives_file,
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-02T00:00:00Z",
+        )
 
 
 def test_materialize_benchmark_run_supports_all_available_now_gene_baselines(
@@ -369,24 +887,42 @@ def test_materialize_benchmark_run_supports_all_available_now_gene_baselines(
     manifest_path = tmp_path / "snapshot_manifest.json"
     write_benchmark_snapshot_manifest(manifest_path, manifest)
 
-    cohort_labels = build_benchmark_cohort_labels(
-        manifest,
-        (
-            CohortMember("gene", "GENE_A", "Gene A"),
-            CohortMember("gene", "GENE_B", "Gene B"),
-        ),
-        (
-            FutureOutcomeRecord(
-                entity_type="gene",
-                entity_id="GENE_A",
-                outcome_label="future_schizophrenia_program_started",
-                outcome_date="2024-12-01",
-                label_source="synthetic_history",
-            ),
+    cohort_members = (
+        CohortMember("gene", "GENE_A", "Gene A"),
+        CohortMember("gene", "GENE_B", "Gene B"),
+    )
+    future_outcomes = (
+        FutureOutcomeRecord(
+            entity_type="gene",
+            entity_id="GENE_A",
+            outcome_label="future_schizophrenia_program_started",
+            outcome_date="2024-12-01",
+            label_source="synthetic_history",
         ),
     )
+    cohort_labels = build_benchmark_cohort_labels(
+        manifest,
+        cohort_members,
+        future_outcomes,
+    )
     cohort_labels_path = tmp_path / "cohort_labels.csv"
-    write_benchmark_cohort_labels(cohort_labels_path, cohort_labels)
+    source_cohort_members_file = tmp_path / "source_cohort_members.csv"
+    source_future_outcomes_file = tmp_path / "source_future_outcomes.csv"
+    _write_source_cohort_inputs(
+        cohort_members=cohort_members,
+        future_outcomes=future_outcomes,
+        cohort_members_file=source_cohort_members_file,
+        future_outcomes_file=source_future_outcomes_file,
+    )
+    _write_materialized_cohort_artifacts(
+        manifest=manifest,
+        manifest_file=manifest_path,
+        cohort_members=cohort_members,
+        cohort_labels=cohort_labels,
+        source_cohort_members_file=source_cohort_members_file,
+        source_future_outcomes_file=source_future_outcomes_file,
+        cohort_labels_file=cohort_labels_path,
+    )
 
     result = materialize_benchmark_run(
         manifest_file=manifest_path,
@@ -488,7 +1024,7 @@ def test_materialize_benchmark_run_scores_full_admissible_cohort_and_aligns_rand
     cohort_labels = build_benchmark_cohort_labels(
         manifest,
         cohort_members,
-        (
+        future_outcomes := (
             FutureOutcomeRecord(
                 entity_type="gene",
                 entity_id="GENE_A",
@@ -506,7 +1042,23 @@ def test_materialize_benchmark_run_scores_full_admissible_cohort_and_aligns_rand
         ),
     )
     cohort_labels_path = tmp_path / "cohort_labels.csv"
-    write_benchmark_cohort_labels(cohort_labels_path, cohort_labels)
+    source_cohort_members_file = tmp_path / "source_cohort_members.csv"
+    source_future_outcomes_file = tmp_path / "source_future_outcomes.csv"
+    _write_source_cohort_inputs(
+        cohort_members=cohort_members,
+        future_outcomes=future_outcomes,
+        cohort_members_file=source_cohort_members_file,
+        future_outcomes_file=source_future_outcomes_file,
+    )
+    _write_materialized_cohort_artifacts(
+        manifest=manifest,
+        manifest_file=manifest_path,
+        cohort_members=cohort_members,
+        cohort_labels=cohort_labels,
+        source_cohort_members_file=source_cohort_members_file,
+        source_future_outcomes_file=source_future_outcomes_file,
+        cohort_labels_file=cohort_labels_path,
+    )
 
     result = materialize_benchmark_run(
         manifest_file=manifest_path,

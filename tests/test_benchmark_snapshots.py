@@ -1,8 +1,10 @@
 from pathlib import Path
 
 import pytest
+from pyarrow import parquet as pq
 
 from scz_target_engine.benchmark_intervention_objects import (
+    INTERVENTION_OBJECT_BUNDLE_SCHEMA_VERSION,
     build_intervention_object_bundle_rows,
     build_intervention_object_public_slice_rows,
     read_intervention_object_feature_bundle,
@@ -190,13 +192,20 @@ def test_materialize_benchmark_snapshot_manifest_emits_intervention_object_bundl
     )
     bundle_path = tmp_path / "intervention_object_feature_bundle.parquet"
     assert bundle_path.exists()
+    bundle_table = pq.read_table(bundle_path)
+    assert (
+        bundle_table.schema.metadata[b"schema_version"].decode("utf-8")
+        == INTERVENTION_OBJECT_BUNDLE_SCHEMA_VERSION
+    )
 
     bundle_rows = read_intervention_object_feature_bundle(bundle_path)
     bundle_entity_ids = {str(row["entity_id"]) for row in bundle_rows}
-    assert bundle_entity_ids == {
-        "pimavanserin-negative-symptoms-adjunct-phase-3-or-registration",
-        "ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration",
+    expected_entity_ids = {
+        line.split(",")[1]
+        for line in public_slice.cohort_members_file.read_text(encoding="utf-8").splitlines()[1:]
+        if line
     }
+    assert bundle_entity_ids == expected_entity_ids
 
 
 def test_intervention_object_replay_rewinds_future_stage_only_when_supported(
@@ -244,14 +253,20 @@ def test_intervention_object_replay_rewinds_future_stage_only_when_supported(
     assert cohort_rows == [
         {
             "entity_type": "intervention_object",
-            "entity_id": "example-phase-progression-phase-2",
+            "entity_id": (
+                "asset-example-asset-target-class-example-class-small-molecule-"
+                "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-phase-2"
+            ),
             "entity_label": "Example Asset | acute positive symptoms | phase_2",
         }
     ]
     assert future_outcome_rows == [
         {
             "entity_type": "intervention_object",
-            "entity_id": "example-phase-progression-phase-2",
+            "entity_id": (
+                "asset-example-asset-target-class-example-class-small-molecule-"
+                "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-phase-2"
+            ),
             "outcome_label": "future_schizophrenia_negative_signal",
             "outcome_date": "2024-10-01",
             "label_source": "program_history_v2",
@@ -259,7 +274,10 @@ def test_intervention_object_replay_rewinds_future_stage_only_when_supported(
         },
         {
             "entity_type": "intervention_object",
-            "entity_id": "example-phase-progression-phase-2",
+            "entity_id": (
+                "asset-example-asset-target-class-example-class-small-molecule-"
+                "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-phase-2"
+            ),
             "outcome_label": "future_schizophrenia_program_advanced",
             "outcome_date": "2024-10-01",
             "label_source": "program_history_v2",
@@ -274,7 +292,10 @@ def test_intervention_object_replay_rewinds_future_stage_only_when_supported(
         program_universe_path=program_universe_path,
         events_path=events_path,
     )
-    assert bundle_rows[0]["entity_id"] == "example-phase-progression-phase-2"
+    assert bundle_rows[0]["entity_id"] == (
+        "asset-example-asset-target-class-example-class-small-molecule-"
+        "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-phase-2"
+    )
     assert bundle_rows[0]["stage_bucket"] == "phase_2"
 
 
@@ -324,12 +345,20 @@ def test_intervention_object_replay_rewinds_domain_population_and_regimen(
     assert cohort_rows == [
         {
             "entity_type": "intervention_object",
-            "entity_id": "example-asset-acute-positive-symptoms-monotherapy-phase-2",
+            "entity_id": (
+                "asset-example-asset-target-class-example-class-small-molecule-"
+                "acute-positive-symptoms-acutely-psychotic-adults-with-schizophrenia-"
+                "monotherapy-phase-2"
+            ),
             "entity_label": "Example Asset | acute positive symptoms | phase_2",
         }
     ]
     assert {row["entity_id"] for row in future_outcome_rows} == {
-        "example-asset-acute-positive-symptoms-monotherapy-phase-2"
+        (
+            "asset-example-asset-target-class-example-class-small-molecule-"
+            "acute-positive-symptoms-acutely-psychotic-adults-with-schizophrenia-"
+            "monotherapy-phase-2"
+        )
     }
 
     bundle_rows = build_intervention_object_bundle_rows(
@@ -340,7 +369,9 @@ def test_intervention_object_replay_rewinds_domain_population_and_regimen(
         events_path=events_path,
     )
     assert bundle_rows[0]["entity_id"] == (
-        "example-asset-acute-positive-symptoms-monotherapy-phase-2"
+        "asset-example-asset-target-class-example-class-small-molecule-"
+        "acute-positive-symptoms-acutely-psychotic-adults-with-schizophrenia-"
+        "monotherapy-phase-2"
     )
     assert bundle_rows[0]["domain"] == "acute_positive_symptoms"
     assert (
@@ -401,3 +432,61 @@ def test_intervention_object_replay_excludes_future_only_program_rows(
         events_path=events_path,
     )
     assert bundle_rows == []
+
+
+def test_intervention_object_replay_rejects_duplicate_replay_entity_ids(
+    tmp_path: Path,
+) -> None:
+    program_universe_path = tmp_path / "program_universe.csv"
+    events_path = tmp_path / "events.csv"
+    program_universe_path.write_text(
+        (
+            "program_universe_id,asset_id,asset_name,asset_lineage_id,asset_aliases_json,"
+            "target,target_symbols_json,target_class,target_class_lineage_id,"
+            "target_class_aliases_json,mechanism,modality,domain,population,regimen,"
+            "stage_bucket,coverage_state,coverage_reason,coverage_confidence,"
+            "mapped_event_ids_json,duplicate_of_program_universe_id,discovery_source_type,"
+            "discovery_source_id,source_candidate_url,notes\n"
+            'duplicate-a,example-asset,Example Asset,asset:example-asset,[],'
+            'GENE1,"[""GENE1""]",example class,target-class:example-class,[],'
+            "example mechanism,small_molecule,acute_positive_symptoms,adults with schizophrenia,"
+            'monotherapy,phase_2,included,checked_in_event_history,high,"[""event-a""]",,'
+            "clinicaltrials_gov,NCT00000000,https://example.test/a,First replay row.\n"
+            'duplicate-b,example-asset-v2,Example Asset v2,asset:example-asset,[],'
+            'GENE1,"[""GENE1""]",example class,target-class:example-class,[],'
+            "example mechanism,small_molecule,acute_positive_symptoms,adults with schizophrenia,"
+            'monotherapy,phase_2,included,checked_in_event_history,high,"[""event-b""]",,'
+            "clinicaltrials_gov,NCT00000001,https://example.test/b,Second replay row.\n"
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            "event_id,asset_id,sponsor,population,domain,mono_or_adjunct,phase,event_type,"
+            "event_date,primary_outcome_result,failure_reason_taxonomy,confidence,notes,sort_order\n"
+            "event-a,example-asset,Example Sponsor,adults with schizophrenia,"
+            "acute_positive_symptoms,monotherapy,phase_2,topline_readout,2024-01-15,"
+            "met_primary_endpoint,not_applicable_nonfailure,high,First row,1\n"
+            "event-b,example-asset-v2,Example Sponsor,adults with schizophrenia,"
+            "acute_positive_symptoms,monotherapy,phase_2,topline_readout,2024-01-16,"
+            "met_primary_endpoint,not_applicable_nonfailure,high,Second row,2\n"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicate replay entity_id"):
+        build_intervention_object_public_slice_rows(
+            as_of_date="2024-06-20",
+            outcome_observation_closed_at="2025-06-30",
+            program_universe_path=program_universe_path,
+            events_path=events_path,
+        )
+
+    with pytest.raises(ValueError, match="duplicate replay entity_id"):
+        build_intervention_object_bundle_rows(
+            as_of_date="2024-06-20",
+            source_snapshots=(),
+            archive_descriptors=(),
+            program_universe_path=program_universe_path,
+            events_path=events_path,
+        )

@@ -1112,6 +1112,285 @@ BENCHMARK_ARTIFACT_SCHEMAS_V1 = (
         ),
     ),
     ArtifactSchema(
+        artifact_name="benchmark_cohort_members",
+        schema_version="v1",
+        file_format="csv",
+        description=(
+            "Canonical materialized benchmark cohort denominator consumed by later "
+            "label and scoring validation."
+        ),
+        key_fields=("entity_type", "entity_id"),
+        fields=(
+            ArtifactField(
+                name="entity_type",
+                field_type="string",
+                required=True,
+                description="Entity type under evaluation.",
+            ),
+            ArtifactField(
+                name="entity_id",
+                field_type="string",
+                required=True,
+                description="Stable entity identifier.",
+            ),
+            ArtifactField(
+                name="entity_label",
+                field_type="string",
+                required=True,
+                description="Human-readable entity label used in reports.",
+            ),
+        ),
+    ),
+    ArtifactSchema(
+        artifact_name="benchmark_source_cohort_members",
+        schema_version="v1",
+        file_format="csv",
+        description=(
+            "Canonical in-bundle copy of the operator-supplied cohort members input "
+            "used to materialize benchmark labels."
+        ),
+        key_fields=("entity_type", "entity_id"),
+        fields=(
+            ArtifactField(
+                name="entity_type",
+                field_type="string",
+                required=True,
+                description="Entity type under evaluation.",
+            ),
+            ArtifactField(
+                name="entity_id",
+                field_type="string",
+                required=True,
+                description="Stable entity identifier from the source cohort input.",
+            ),
+            ArtifactField(
+                name="entity_label",
+                field_type="string",
+                required=True,
+                description="Human-readable entity label from the source cohort input.",
+            ),
+        ),
+    ),
+    ArtifactSchema(
+        artifact_name="benchmark_source_future_outcomes",
+        schema_version="v1",
+        file_format="csv",
+        description=(
+            "Canonical in-bundle copy of the operator-supplied future outcomes input "
+            "used to materialize benchmark labels."
+        ),
+        key_fields=("entity_type", "entity_id", "outcome_label", "outcome_date"),
+        fields=(
+            ArtifactField(
+                name="entity_type",
+                field_type="string",
+                required=True,
+                description="Entity type under evaluation.",
+            ),
+            ArtifactField(
+                name="entity_id",
+                field_type="string",
+                required=True,
+                description="Stable entity identifier from the source outcomes input.",
+            ),
+            ArtifactField(
+                name="outcome_label",
+                field_type="string",
+                required=True,
+                description="Observed translational outcome label.",
+            ),
+            ArtifactField(
+                name="outcome_date",
+                field_type="date",
+                required=True,
+                description="Observed outcome date in the source outcomes input.",
+            ),
+            ArtifactField(
+                name="label_source",
+                field_type="string",
+                required=True,
+                description="Source system or process that supplied the outcome label.",
+            ),
+            ArtifactField(
+                name="label_notes",
+                field_type="string",
+                required=False,
+                description="Optional notes attached to the source outcome row.",
+            ),
+        ),
+    ),
+    ArtifactSchema(
+        artifact_name="benchmark_cohort_manifest",
+        schema_version="v3",
+        file_format="json",
+        description=(
+            "Manifest that binds materialized benchmark cohort members and labels "
+            "back to the frozen snapshot manifest and source inputs."
+        ),
+        key_fields=("snapshot_id", "cohort_id"),
+        fields=(
+            ArtifactField(
+                name="schema_name",
+                field_type="string",
+                required=True,
+                description="Artifact schema identifier.",
+            ),
+            ArtifactField(
+                name="schema_version",
+                field_type="string",
+                required=True,
+                description="Version of the cohort manifest schema.",
+            ),
+            ArtifactField(
+                name="snapshot_id",
+                field_type="string",
+                required=True,
+                description="Snapshot identifier used to produce the cohort.",
+            ),
+            ArtifactField(
+                name="cohort_id",
+                field_type="string",
+                required=True,
+                description="Benchmark cohort identifier matching the snapshot manifest.",
+            ),
+            ArtifactField(
+                name="benchmark_suite_id",
+                field_type="string",
+                required=False,
+                description="Optional benchmark suite contract identifier.",
+            ),
+            ArtifactField(
+                name="benchmark_task_id",
+                field_type="string",
+                required=False,
+                description="Optional benchmark task contract identifier.",
+            ),
+            ArtifactField(
+                name="benchmark_question_id",
+                field_type="string",
+                required=True,
+                description="Frozen benchmark question identifier.",
+            ),
+            ArtifactField(
+                name="as_of_date",
+                field_type="date",
+                required=True,
+                description="Latest allowed evidence date inherited from the snapshot.",
+            ),
+            ArtifactField(
+                name="outcome_observation_closed_at",
+                field_type="date",
+                required=True,
+                description="Last date used to adjudicate future labels.",
+            ),
+            ArtifactField(
+                name="entity_types",
+                field_type="string[]",
+                required=True,
+                description="Entity types covered by this materialized cohort.",
+            ),
+            ArtifactField(
+                name="snapshot_manifest_artifact_path",
+                field_type="string",
+                required=True,
+                description=(
+                    "Portable path reference from the cohort manifest to the "
+                    "snapshot manifest used to build the cohort."
+                ),
+            ),
+            ArtifactField(
+                name="snapshot_manifest_artifact_sha256",
+                field_type="string",
+                required=True,
+                description="SHA256 digest for the snapshot manifest used to build the cohort.",
+            ),
+            ArtifactField(
+                name="cohort_members_artifact_path",
+                field_type="string",
+                required=True,
+                description=(
+                    "Portable path reference from the cohort manifest to the "
+                    "canonical materialized benchmark cohort members artifact."
+                ),
+            ),
+            ArtifactField(
+                name="cohort_members_artifact_sha256",
+                field_type="string",
+                required=True,
+                description="SHA256 digest for the materialized benchmark cohort members artifact.",
+            ),
+            ArtifactField(
+                name="cohort_labels_artifact_path",
+                field_type="string",
+                required=True,
+                description=(
+                    "Portable path reference from the cohort manifest to the "
+                    "materialized benchmark cohort labels artifact."
+                ),
+            ),
+            ArtifactField(
+                name="cohort_labels_artifact_sha256",
+                field_type="string",
+                required=True,
+                description="SHA256 digest for the materialized benchmark cohort labels artifact.",
+            ),
+            ArtifactField(
+                name="source_cohort_members_path",
+                field_type="string",
+                required=True,
+                description=(
+                    "Portable path reference from the cohort manifest to the "
+                    "canonical in-bundle benchmark_source_cohort_members artifact."
+                ),
+            ),
+            ArtifactField(
+                name="source_cohort_members_sha256",
+                field_type="string",
+                required=True,
+                description="SHA256 digest for the benchmark_source_cohort_members artifact.",
+            ),
+            ArtifactField(
+                name="source_future_outcomes_path",
+                field_type="string",
+                required=True,
+                description=(
+                    "Portable path reference from the cohort manifest to the "
+                    "canonical in-bundle benchmark_source_future_outcomes artifact."
+                ),
+            ),
+            ArtifactField(
+                name="source_future_outcomes_sha256",
+                field_type="string",
+                required=True,
+                description="SHA256 digest for the benchmark_source_future_outcomes artifact.",
+            ),
+            ArtifactField(
+                name="entity_count",
+                field_type="integer",
+                required=True,
+                description="Number of entities in the canonical benchmark cohort denominator.",
+            ),
+            ArtifactField(
+                name="label_row_count",
+                field_type="integer",
+                required=True,
+                description="Number of rows in the materialized benchmark cohort labels artifact.",
+            ),
+            ArtifactField(
+                name="observed_label_row_count",
+                field_type="integer",
+                required=True,
+                description="Number of observed=true rows in the materialized benchmark cohort labels artifact.",
+            ),
+            ArtifactField(
+                name="notes",
+                field_type="string",
+                required=False,
+                description="Optional provenance notes for the materialized cohort.",
+            ),
+        ),
+    ),
+    ArtifactSchema(
         artifact_name="benchmark_cohort_labels",
         schema_version="v1",
         file_format="csv",

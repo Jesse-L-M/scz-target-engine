@@ -9,10 +9,11 @@ import shutil
 from typing import Any
 
 from scz_target_engine.benchmark_labels import (
-    read_benchmark_cohort_labels,
+    load_materialized_benchmark_cohort_artifacts,
 )
 from scz_target_engine.benchmark_intervention_objects import (
     INTERVENTION_OBJECT_ENTITY_TYPE,
+    build_intervention_object_bundle_source_snapshot_provenance,
     read_intervention_object_feature_bundle,
     read_intervention_object_projection_payload,
 )
@@ -33,7 +34,10 @@ from scz_target_engine.benchmark_runner import (
     InputArtifactReference,
     read_benchmark_model_run_manifest,
 )
-from scz_target_engine.benchmark_snapshots import read_benchmark_snapshot_manifest
+from scz_target_engine.benchmark_snapshots import (
+    load_source_archive_descriptors,
+    read_benchmark_snapshot_manifest,
+)
 from scz_target_engine.io import read_json, write_json
 
 
@@ -42,6 +46,7 @@ REPORT_CARD_SCHEMA_VERSION = "v1"
 LEADERBOARD_SCHEMA_NAME = "benchmark_leaderboard_payload"
 LEADERBOARD_SCHEMA_VERSION = "v1"
 RANKING_ORDER_DESCENDING = "descending"
+INTERVENTION_OBJECT_ERROR_ANALYSIS_HORIZON = "3y"
 
 _SLICE_NOTES_PATTERN = re.compile(
     r"relevance=any_positive_outcome;"
@@ -328,14 +333,80 @@ def _artifact_path_for_name(
     return None
 
 
+def _cohort_entity_labels(
+    cohort_labels: tuple[object, ...],
+    *,
+    entity_type: str,
+) -> dict[str, str]:
+    entity_labels: dict[str, str] = {}
+    for label in cohort_labels:
+        if getattr(label, "entity_type", "") != entity_type:
+            continue
+        entity_id = str(getattr(label, "entity_id", ""))
+        entity_label = str(getattr(label, "entity_label", ""))
+        if entity_id not in entity_labels:
+            entity_labels[entity_id] = entity_label
+            continue
+        if entity_labels[entity_id] != entity_label:
+            raise ValueError(
+                "cohort labels must keep a stable entity_label per entity_type/entity_id: "
+                f"{entity_type}/{entity_id}"
+            )
+    return entity_labels
+
+
 def _render_intervention_object_error_analysis(
     *,
+    manifest: object,
     run_manifest: BenchmarkModelRunManifest,
     bundle_path: Path,
     projection_path: Path,
     cohort_labels: tuple[object, ...],
+    horizon: str,
 ) -> str:
-    bundle_rows = read_intervention_object_feature_bundle(bundle_path)
+    source_archive_index_path = _artifact_path_for_name(
+        run_manifest.input_artifacts,
+        "source_archive_index",
+    )
+    if source_archive_index_path is None:
+        raise ValueError(
+            "run manifest is missing source_archive_index required for "
+            "intervention-object error analysis validation"
+        )
+    archive_descriptors = load_source_archive_descriptors(source_archive_index_path)
+    expected_source_snapshot_provenance_json = (
+        build_intervention_object_bundle_source_snapshot_provenance(
+            getattr(manifest, "source_snapshots"),
+            archive_descriptors,
+        )
+    )
+    expected_included_sources = tuple(
+        sorted(
+            source_snapshot.source_name
+            for source_snapshot in getattr(manifest, "source_snapshots")
+            if source_snapshot.included
+        )
+    )
+    expected_excluded_sources = tuple(
+        sorted(
+            source_snapshot.source_name
+            for source_snapshot in getattr(manifest, "source_snapshots")
+            if not source_snapshot.included
+        )
+    )
+    bundle_rows = read_intervention_object_feature_bundle(
+        bundle_path,
+        expected_as_of_date=str(getattr(manifest, "as_of_date")),
+        expected_entities=_cohort_entity_labels(
+            cohort_labels,
+            entity_type=INTERVENTION_OBJECT_ENTITY_TYPE,
+        ),
+        expected_included_sources=expected_included_sources,
+        expected_excluded_sources=expected_excluded_sources,
+        expected_source_snapshot_provenance_json=(
+            expected_source_snapshot_provenance_json
+        ),
+    )
     bundle_index = {
         str(row["entity_id"]): row
         for row in bundle_rows
@@ -347,7 +418,7 @@ def _render_intervention_object_error_analysis(
     relevance_index = build_positive_relevance_index(
         cohort_labels,
         entity_type=INTERVENTION_OBJECT_ENTITY_TYPE,
-        horizon="3y",
+        horizon=horizon,
     )
     positives = {
         entity_id for entity_id, relevant in relevance_index.items() if relevant
@@ -392,7 +463,7 @@ def _render_intervention_object_error_analysis(
         f"# Track A Error Analysis: {run_manifest.run_id}",
         "",
         f"- baseline: `{run_manifest.baseline_id}`",
-        "- principal horizon: `3y`",
+        f"- principal horizon: `{horizon}`",
         "- entity type: `intervention_object`",
         "- projection source: explicit archived gene/module baseline projection",
         "",
@@ -929,7 +1000,12 @@ def materialize_benchmark_reporting(
     generated_at: str | None = None,
 ) -> dict[str, object]:
     manifest = read_benchmark_snapshot_manifest(manifest_file.resolve())
-    cohort_labels = read_benchmark_cohort_labels(cohort_labels_file.resolve())
+    materialized_cohort = load_materialized_benchmark_cohort_artifacts(
+        snapshot_manifest=manifest,
+        snapshot_manifest_file=manifest_file.resolve(),
+        cohort_labels_file=cohort_labels_file.resolve(),
+    )
+    cohort_labels = materialized_cohort.cohort_labels
     resolved_runner_output_dir = runner_output_dir.resolve()
     resolved_output_dir = output_dir.resolve()
     resolved_generated_at = generated_at or _utc_now()
@@ -1250,9 +1326,18 @@ def materialize_benchmark_reporting(
         write_benchmark_report_card_payload(report_card_path, report_card)
         report_card_records.append((report_card, report_card_path))
         report_card_files.append(str(report_card_path))
-        if any(
-            slice_report.entity_type == INTERVENTION_OBJECT_ENTITY_TYPE
-            for slice_report in report_card.slices
+        principal_intervention_slice = next(
+            (
+                slice_report
+                for slice_report in report_card.slices
+                if slice_report.entity_type == INTERVENTION_OBJECT_ENTITY_TYPE
+                and slice_report.horizon == INTERVENTION_OBJECT_ERROR_ANALYSIS_HORIZON
+            ),
+            None,
+        )
+        if (
+            principal_intervention_slice is not None
+            and principal_intervention_slice.positive_entity_count > 0
         ):
             bundle_path = _artifact_path_for_name(
                 run_manifest.input_artifacts,
@@ -1273,10 +1358,12 @@ def materialize_benchmark_reporting(
                 error_analysis_path.parent.mkdir(parents=True, exist_ok=True)
                 error_analysis_path.write_text(
                     _render_intervention_object_error_analysis(
+                        manifest=manifest,
                         run_manifest=run_manifest,
                         bundle_path=bundle_path,
                         projection_path=projection_path,
                         cohort_labels=cohort_labels,
+                        horizon=principal_intervention_slice.horizon,
                     ),
                     encoding="utf-8",
                 )

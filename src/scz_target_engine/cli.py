@@ -1087,8 +1087,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "build-benchmark-cohort":
+        resolved_manifest_file = Path(args.manifest_file).resolve()
         result = materialize_benchmark_cohort_labels(
-            manifest=read_benchmark_snapshot_manifest(Path(args.manifest_file).resolve()),
+            manifest=read_benchmark_snapshot_manifest(resolved_manifest_file),
+            manifest_file=resolved_manifest_file,
             cohort_members_file=Path(args.cohort_members_file).resolve(),
             future_outcomes_file=Path(args.future_outcomes_file).resolve(),
             output_file=Path(args.output_file).resolve(),

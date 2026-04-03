@@ -120,8 +120,11 @@ def _write_sparse_custom_registry_fixture(
             "scz_translational_suite,Schizophrenia Translational Benchmark Suite,"
             f"{task_id},Sparse fixture task,frozen_benchmark_protocol_v1,"
             f"scz_translational_ranking_v1,{entity_types},{supported_baseline_ids},"
-            "benchmark_snapshot_manifest|benchmark_cohort_labels|benchmark_model_run_manifest|"
-            "benchmark_metric_output_payload|benchmark_confidence_interval_payload,"
+            "benchmark_snapshot_manifest|benchmark_cohort_members|"
+            "benchmark_source_cohort_members|benchmark_source_future_outcomes|"
+            "benchmark_cohort_manifest|benchmark_cohort_labels|"
+            "benchmark_model_run_manifest|benchmark_metric_output_payload|"
+            "benchmark_confidence_interval_payload,"
             f"{fixture_dir / 'snapshot_request.json'},"
             f"{fixture_dir / 'cohort_members.csv'},"
             f"{fixture_dir / 'future_outcomes.csv'},"
@@ -158,8 +161,11 @@ def _write_custom_intervention_object_registry_fixture(
             f"{task_id},Fixture intervention-object task,frozen_benchmark_protocol_v1,"
             "scz_translational_ranking_v1,intervention_object,"
             "v0_current|v1_current|random_with_coverage,"
-            "benchmark_snapshot_manifest|benchmark_cohort_labels|benchmark_model_run_manifest|"
-            "benchmark_metric_output_payload|benchmark_confidence_interval_payload,"
+            "benchmark_snapshot_manifest|benchmark_cohort_members|"
+            "benchmark_source_cohort_members|benchmark_source_future_outcomes|"
+            "benchmark_cohort_manifest|benchmark_cohort_labels|"
+            "benchmark_model_run_manifest|benchmark_metric_output_payload|"
+            "benchmark_confidence_interval_payload,"
             f"{fixture.snapshot_request_file},"
             f"{fixture.cohort_members_file},"
             f"{fixture.future_outcomes_file},"
@@ -193,6 +199,10 @@ def _default_track_a_contract(fixture_dir: Path) -> BenchmarkTaskContract:
         ),
         emitted_artifact_names=(
             "benchmark_snapshot_manifest",
+            "benchmark_cohort_members",
+            "benchmark_source_cohort_members",
+            "benchmark_source_future_outcomes",
+            "benchmark_cohort_manifest",
             "benchmark_cohort_labels",
             "benchmark_model_run_manifest",
             "benchmark_metric_output_payload",
@@ -773,6 +783,7 @@ def test_custom_registry_slice_round_trips_through_emitted_slice_artifacts(
 
     materialize_benchmark_cohort_labels(
         manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
         cohort_members_file=slice_dir / "cohort_members.csv",
         future_outcomes_file=slice_dir / "future_outcomes.csv",
         output_file=cohort_labels_file,

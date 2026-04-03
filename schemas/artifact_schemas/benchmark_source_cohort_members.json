@@ -1,0 +1,31 @@
+{
+  "artifact_name": "benchmark_source_cohort_members",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Canonical in-bundle copy of the operator-supplied cohort members input used to materialize benchmark labels.",
+  "key_fields": [
+    "entity_type",
+    "entity_id"
+  ],
+  "required_fields": [
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type under evaluation."
+    },
+    {
+      "name": "entity_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable entity identifier from the source cohort input."
+    },
+    {
+      "name": "entity_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable entity label from the source cohort input."
+    }
+  ],
+  "optional_fields": []
+}

@@ -386,6 +386,8 @@ Artifact layout:
 - `data/curated/rescue_tasks/rescue_task_registry.csv`: dedicated registry for rescue task identity and contract lookup
 - `data/curated/rescue_tasks/contracts/*.json`: validated rescue task contract artifacts
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
+- `data/benchmark/generated/scz_small/benchmark_cohort_members.csv`: generated `benchmark_cohort_members`
+- `data/benchmark/generated/scz_small/benchmark_cohort_manifest.json`: generated `benchmark_cohort_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
 - `data/benchmark/generated/public_slices/<slice_id>/intervention_object_feature_bundle.parquet`: generated snapshot-side intervention-object replay bundle when requested by the slice manifest
@@ -400,9 +402,10 @@ Artifact layout:
 Operator notes:
 
 - Re-run the four commands in order whenever the snapshot request, archive descriptors, future-outcome labels, code version, or benchmark parameters change.
-- Re-running the snapshot or cohort commands overwrites the manifest and label files at the same paths.
+- Re-running the snapshot or cohort commands overwrites the manifest and cohort-stage artifact files at the same paths.
 - Re-running `run-benchmark` writes run-id keyed payload directories. Changing code version or parameters changes the run id. Identical inputs overwrite the same run-id files.
 - Re-running `build-benchmark-reporting` rewrites the derived public payloads from the current runner outputs. It never reruns scoring.
+- `build-benchmark-cohort` now emits a canonical denominator plus cohort manifest beside `cohort_labels.csv`, and runner/reporting fail closed if those digests drift.
 - The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
 - Public slice backfill is registry-driven: `uv run scz-target-engine backfill-benchmark-public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` and `uv run scz-target-engine benchmark backfill public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` regenerate the checked-in slice catalog without weakening leakage rules and do not fall back to live source data.
 - The canonical `scz_small` path remains a gene/module regression fixture. The checked-in public slices are the shipped Track A intervention-object replay path and currently execute `v0_current`, `v1_current`, and `random_with_coverage`.
@@ -420,6 +423,8 @@ The runtime loader and validator surface lives under `scz_target_engine.artifact
 It can load and validate:
 
 - `benchmark_snapshot_manifest`
+- `benchmark_cohort_members`
+- `benchmark_cohort_manifest`
 - `benchmark_cohort_labels`
 - `benchmark_model_run_manifest`
 - `benchmark_metric_output_payload`

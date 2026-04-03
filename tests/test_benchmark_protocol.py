@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from scz_target_engine.benchmark_protocol import (
@@ -131,6 +134,82 @@ def test_frozen_protocol_declares_intervention_object_track_a_support() -> None:
         INTERVENTION_OBJECT_ENTITY_TYPE
         in available_now_baselines["random_with_coverage"].entity_types
     )
+
+
+def test_scz_small_fixture_remains_minimal_gene_module_regression_surface() -> None:
+    fixture_dir = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "benchmark"
+        / "fixtures"
+        / "scz_small"
+    )
+    source_archives = json.loads(
+        (fixture_dir / "source_archives.json").read_text(encoding="utf-8")
+    )
+    archive_index = {
+        archive["source_name"]: archive["sha256"]
+        for archive in source_archives["archives"]
+    }
+    assert archive_index["PGC"] == (
+        "6f471ddec2b00b0ce76c3a5b547c022f4c5ae39b77be6ff437d5b2b1c26d9403"
+    )
+    assert archive_index["Open Targets"] == (
+        "08bd5918a2a573f86d6d7cc8cf804d97ab1e47f1153f8027f5cd0fc66436e815"
+    )
+    assert archive_index["PsychENCODE"] == (
+        "f030adfdb6aa996d9aa7de873528ab052cd512c696e622fd878a18d62f7ebe2d"
+    )
+
+    assert (
+        (fixture_dir / "archives" / "pgc" / "scz2022_fixture.csv")
+        .read_text(encoding="utf-8")
+        .strip()
+        .splitlines()
+    ) == [
+        "entity_id,entity_label,common_variant_support",
+        "ENSG00000162946,DISC1,0.92",
+        "ENSG00000151067,CACNA1C,0.81",
+    ]
+    assert (
+        (fixture_dir / "archives" / "opentargets" / "24_03_fixture.csv")
+        .read_text(encoding="utf-8")
+        .strip()
+        .splitlines()
+    ) == [
+        "entity_id,entity_label,generic_platform_baseline",
+        "ENSG00000162946,DISC1,0.74",
+        "ENSG00000151067,CACNA1C,0.88",
+    ]
+    psychencode_fixture = json.loads(
+        (
+            fixture_dir
+            / "archives"
+            / "psychencode"
+            / "brainscope_fixture.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert psychencode_fixture == {
+        "genes": [
+            {
+                "cell_state_support": 0.77,
+                "entity_id": "ENSG00000162946",
+                "entity_label": "DISC1",
+            },
+            {
+                "cell_state_support": 0.69,
+                "entity_id": "ENSG00000151067",
+                "entity_label": "CACNA1C",
+            },
+        ],
+        "modules": [
+            {
+                "developmental_regulatory_relevance": 0.83,
+                "entity_id": "MOD_DLPFC_GRN",
+                "entity_label": "Deep Layer Cortical GRN",
+            }
+        ],
+    }
 
 
 def test_invalid_cutoff_definition_fails_clearly() -> None:

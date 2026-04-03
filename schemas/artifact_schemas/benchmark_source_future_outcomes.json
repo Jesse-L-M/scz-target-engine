@@ -1,0 +1,52 @@
+{
+  "artifact_name": "benchmark_source_future_outcomes",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Canonical in-bundle copy of the operator-supplied future outcomes input used to materialize benchmark labels.",
+  "key_fields": [
+    "entity_type",
+    "entity_id",
+    "outcome_label",
+    "outcome_date"
+  ],
+  "required_fields": [
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type under evaluation."
+    },
+    {
+      "name": "entity_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable entity identifier from the source outcomes input."
+    },
+    {
+      "name": "outcome_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Observed translational outcome label."
+    },
+    {
+      "name": "outcome_date",
+      "field_type": "date",
+      "required": true,
+      "description": "Observed outcome date in the source outcomes input."
+    },
+    {
+      "name": "label_source",
+      "field_type": "string",
+      "required": true,
+      "description": "Source system or process that supplied the outcome label."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "label_notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional notes attached to the source outcome row."
+    }
+  ]
+}

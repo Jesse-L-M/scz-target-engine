@@ -18,6 +18,10 @@ def test_registry_resolves_current_scz_fixture_task_contract() -> None:
     assert task_contract.supported_baseline_ids == FROZEN_BASELINE_IDS
     assert task_contract.emitted_artifact_names == (
         "benchmark_snapshot_manifest",
+        "benchmark_cohort_members",
+        "benchmark_source_cohort_members",
+        "benchmark_source_future_outcomes",
+        "benchmark_cohort_manifest",
         "benchmark_cohort_labels",
         "benchmark_model_run_manifest",
         "benchmark_metric_output_payload",

@@ -1,7 +1,7 @@
 # replay-track-a-v1
 
 Status: implemented
-Owner branch: Jesse-L-M/replay-track-a
+Owner branch: Jesse-L-M/track-a-replay-fix
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md
 Blocked by: -
 Supersedes: -
@@ -53,7 +53,8 @@ It does not cover Track B failure-memory reasoning yet.
 - current benchmark artifact schemas:
   keep `benchmark_snapshot_manifest`, `benchmark_cohort_labels`,
   `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and
-  `benchmark_confidence_interval_payload`
+  `benchmark_confidence_interval_payload`, while adding cohort-stage denominator
+  artifacts that pin those labels back to the frozen snapshot
 - current source-archive and leakage rules:
   keep the strict no-fallback archive behavior
 - intervention-object compatibility matrix from `contracts-and-compat-v2`:
@@ -79,6 +80,13 @@ It does not cover Track B failure-memory reasoning yet.
 - New or changed artifact:
   benchmark snapshot manifests that can declare `entity_type =
   intervention_object`
+- New or changed artifact:
+  `benchmark_cohort_members.csv`
+  with the canonical cohort denominator consumed by runner and reporting.
+- New or changed artifact:
+  `benchmark_cohort_manifest.json`
+  with SHA256-pinned links from the snapshot manifest plus raw cohort inputs to
+  `benchmark_cohort_members.csv` and `benchmark_cohort_labels.csv`.
 - New or changed artifact:
   benchmark cohort labels at intervention-object grain
 - New or changed artifact:
@@ -126,31 +134,43 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
 ## Implementation Reality
 
 - `scz_small` remains the canonical gene/module fixture path and still runs
-  unchanged.
+  unchanged. The checked-in archive contents were restored to the minimal
+  pre-Track-A two-gene/one-module regression surface so replay work does not
+  silently widen the legacy fixture contract.
 - Track A reuses the existing registry-backed
   `scz_translational_suite` / `scz_translational_task` row instead of creating a
   parallel benchmark task id.
 - Checked-in public slices now switch to `entity_type = intervention_object`
   and derive admissible cohort rows plus future outcomes from the checked-in
   denominator and `program_history/v2/events.csv`.
-- The implemented Track A intervention-object key is the canonical
-  `program_universe_id` at program-opportunity grain:
-  `asset_lineage_id / target_class_lineage_id / modality / domain / population / regimen / stage_bucket`.
+- Replay no longer trusts the human-readable checked-in `program_universe_id`
+  slug as the replay `entity_id`. It derives the replay key from
+  `asset_lineage_id / target_class_lineage_id / modality / domain / population /
+  regimen / stage_bucket`, and public-slice plus bundle materialization now fail
+  closed if two rows still collapse to the same replay `entity_id`.
 - Snapshot materialization writes
   `intervention_object_feature_bundle.parquet` beside the generated manifest
   using only archived benchmark inputs plus checked-in denominator/program-history
   tables.
+- Before the runner consumes that sidecar bundle, it validates the bundle
+  schema name/version, `as_of_date`, included/excluded source set, and exact
+  intervention-object cohort alignment. The runner also rejects mixed-entity or
+  stale cohort-label files whose `entity_types` do not exactly match the
+  snapshot manifest. Runner and reporting no longer trust `cohort_labels.csv`
+  on its own; they require the materialized `benchmark_cohort_members.csv` and
+  `benchmark_cohort_manifest.json` artifacts emitted by `build-benchmark-cohort`.
 - `v0_current` and `v1_current` are no longer implicit joins for
   intervention-object replay:
   the runner first materializes explicit projection sidecars from archived
   current gene/module outputs through the checked-in compatibility contract, then
   scores those sidecars.
 - Reporting now emits one markdown error-analysis file per intervention-object run
-  at the principal `3y` horizon.
+  only when the principal `3y` intervention-object slice is actually evaluable.
 - As of April 2, 2026, the checked-in `scz_translational_task` public-slice catalog
   ships honest replayable slices at `2024-06-15`, `2024-06-18`, and `2024-06-20`,
   but none are evaluable on the principal `3y` horizon because strict honest replay
-  filtering leaves zero positive intervention-object outcomes for each cutoff.
+  filtering leaves zero positive intervention-object outcomes for each cutoff, so
+  the shipped reporting flow now skips error-analysis markdown for those slices.
 
 ## Implementation Plan
 
@@ -186,6 +206,17 @@ Implemented acceptance coverage in this PR:
 - `tests/test_docs_benchmark_workflow.py`
 - `./scripts/run_contract_smoke_path.sh`
 
+Hotfix coverage added on top of the shipped Track A path:
+
+- duplicate replay `entity_id` rejection in public-slice and feature-bundle
+  materialization
+- runner rejection for stale, malformed, or mismatched
+  `intervention_object_feature_bundle.parquet` sidecars
+- runner and reporting rejection for mixed-entity cohort-label files
+- principal-horizon evaluability guard for intervention-object error-analysis
+  markdown
+- explicit `scz_small` fixture-contract regression coverage
+
 ## Failure Modes
 
 - Failure mode:
@@ -207,6 +238,9 @@ Implemented acceptance coverage in this PR:
 - public slices now exercise Track A intervention-object replay, while the
   frozen `scz_small` fixture remains the canonical regression path for the
   original gene/module workflow
+- public-slice `cohort_members.csv` rows now carry the full replay-grain
+  intervention-object ids that the bundle and runner validate, rather than the
+  shorter checked-in denominator slugs
 - missing pre-cutoff archives still exclude the source and are surfaced in the
   generated public-slice catalog and snapshot manifest; no live fallback is added
 

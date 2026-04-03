@@ -75,6 +75,10 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
         "policy_release",
         "hypothesis_release",
         "benchmark_snapshot_manifest",
+        "benchmark_cohort_members",
+        "benchmark_source_cohort_members",
+        "benchmark_source_future_outcomes",
+        "benchmark_cohort_manifest",
         "benchmark_cohort_labels",
         "benchmark_model_run_manifest",
         "benchmark_metric_output_payload",
@@ -207,6 +211,7 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
 
     materialize_benchmark_cohort_labels(
         manifest=snapshot_artifact.payload,
+        manifest_file=snapshot_path,
         cohort_members_file=Path(
             "data/benchmark/fixtures/scz_small/cohort_members.csv"
         ).resolve(),
@@ -215,6 +220,32 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
         ).resolve(),
         output_file=cohort_labels_path,
     )
+    cohort_members_artifact = load_artifact(
+        tmp_path / "benchmark_cohort_members.csv"
+    )
+    assert cohort_members_artifact.artifact_name == "benchmark_cohort_members"
+    assert len(cohort_members_artifact.payload) == 3
+    source_cohort_members_artifact = load_artifact(
+        tmp_path / "source_cohort_members.csv"
+    )
+    assert (
+        source_cohort_members_artifact.artifact_name
+        == "benchmark_source_cohort_members"
+    )
+    assert len(source_cohort_members_artifact.payload) == 3
+    source_future_outcomes_artifact = load_artifact(
+        tmp_path / "source_future_outcomes.csv"
+    )
+    assert (
+        source_future_outcomes_artifact.artifact_name
+        == "benchmark_source_future_outcomes"
+    )
+    assert len(source_future_outcomes_artifact.payload) > 0
+    cohort_manifest_artifact = load_artifact(
+        tmp_path / "benchmark_cohort_manifest.json"
+    )
+    assert cohort_manifest_artifact.artifact_name == "benchmark_cohort_manifest"
+    assert cohort_manifest_artifact.payload.cohort_id == snapshot_artifact.payload.cohort_id
     cohort_artifact = load_artifact(cohort_labels_path)
     assert cohort_artifact.artifact_name == "benchmark_cohort_labels"
     assert len(cohort_artifact.payload) > 0

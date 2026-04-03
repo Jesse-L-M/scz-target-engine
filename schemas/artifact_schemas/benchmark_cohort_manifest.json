@@ -1,0 +1,158 @@
+{
+  "artifact_name": "benchmark_cohort_manifest",
+  "schema_version": "v3",
+  "file_format": "json",
+  "description": "Manifest that binds materialized benchmark cohort members and labels back to the frozen snapshot manifest and source inputs.",
+  "key_fields": [
+    "snapshot_id",
+    "cohort_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Version of the cohort manifest schema."
+    },
+    {
+      "name": "snapshot_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Snapshot identifier used to produce the cohort."
+    },
+    {
+      "name": "cohort_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Benchmark cohort identifier matching the snapshot manifest."
+    },
+    {
+      "name": "benchmark_question_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Frozen benchmark question identifier."
+    },
+    {
+      "name": "as_of_date",
+      "field_type": "date",
+      "required": true,
+      "description": "Latest allowed evidence date inherited from the snapshot."
+    },
+    {
+      "name": "outcome_observation_closed_at",
+      "field_type": "date",
+      "required": true,
+      "description": "Last date used to adjudicate future labels."
+    },
+    {
+      "name": "entity_types",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Entity types covered by this materialized cohort."
+    },
+    {
+      "name": "snapshot_manifest_artifact_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Portable path reference from the cohort manifest to the snapshot manifest used to build the cohort."
+    },
+    {
+      "name": "snapshot_manifest_artifact_sha256",
+      "field_type": "string",
+      "required": true,
+      "description": "SHA256 digest for the snapshot manifest used to build the cohort."
+    },
+    {
+      "name": "cohort_members_artifact_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Portable path reference from the cohort manifest to the canonical materialized benchmark cohort members artifact."
+    },
+    {
+      "name": "cohort_members_artifact_sha256",
+      "field_type": "string",
+      "required": true,
+      "description": "SHA256 digest for the materialized benchmark cohort members artifact."
+    },
+    {
+      "name": "cohort_labels_artifact_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Portable path reference from the cohort manifest to the materialized benchmark cohort labels artifact."
+    },
+    {
+      "name": "cohort_labels_artifact_sha256",
+      "field_type": "string",
+      "required": true,
+      "description": "SHA256 digest for the materialized benchmark cohort labels artifact."
+    },
+    {
+      "name": "source_cohort_members_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Portable path reference from the cohort manifest to the canonical in-bundle benchmark_source_cohort_members artifact."
+    },
+    {
+      "name": "source_cohort_members_sha256",
+      "field_type": "string",
+      "required": true,
+      "description": "SHA256 digest for the benchmark_source_cohort_members artifact."
+    },
+    {
+      "name": "source_future_outcomes_path",
+      "field_type": "string",
+      "required": true,
+      "description": "Portable path reference from the cohort manifest to the canonical in-bundle benchmark_source_future_outcomes artifact."
+    },
+    {
+      "name": "source_future_outcomes_sha256",
+      "field_type": "string",
+      "required": true,
+      "description": "SHA256 digest for the benchmark_source_future_outcomes artifact."
+    },
+    {
+      "name": "entity_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Number of entities in the canonical benchmark cohort denominator."
+    },
+    {
+      "name": "label_row_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Number of rows in the materialized benchmark cohort labels artifact."
+    },
+    {
+      "name": "observed_label_row_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Number of observed=true rows in the materialized benchmark cohort labels artifact."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "benchmark_suite_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional benchmark suite contract identifier."
+    },
+    {
+      "name": "benchmark_task_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional benchmark task contract identifier."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional provenance notes for the materialized cohort."
+    }
+  ]
+}

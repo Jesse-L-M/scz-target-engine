@@ -198,6 +198,7 @@ def _materialize_fixture_outputs(
     )
     materialize_benchmark_cohort_labels(
         manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
         cohort_members_file=FIXTURE_DIR / "cohort_members.csv",
         future_outcomes_file=FIXTURE_DIR / "future_outcomes.csv",
         output_file=cohort_labels_file,

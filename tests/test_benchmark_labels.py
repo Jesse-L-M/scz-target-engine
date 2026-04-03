@@ -161,6 +161,59 @@ def test_materialize_benchmark_cohort_labels_round_trips_fixture_flow(
     assert result["source_future_outcomes_file"].endswith("source_future_outcomes.csv")
 
 
+def test_materialize_benchmark_cohort_labels_accepts_header_only_future_outcomes(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    output_file = tmp_path / "cohort_labels.csv"
+    future_outcomes_file = tmp_path / "future_outcomes.csv"
+    future_outcomes_file.write_text(
+        "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n",
+        encoding="utf-8",
+    )
+    materialize_benchmark_snapshot_manifest(
+        request_file=FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-03",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+
+    result = materialize_benchmark_cohort_labels(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=future_outcomes_file,
+        output_file=output_file,
+    )
+    restored = read_benchmark_cohort_labels(output_file)
+    restored_members = read_benchmark_cohort_members(
+        benchmark_cohort_members_path_for_labels_file(output_file)
+    )
+    restored_cohort_manifest = read_benchmark_cohort_manifest(
+        benchmark_cohort_manifest_path_for_labels_file(output_file)
+    )
+    source_future_outcomes_path = benchmark_source_future_outcomes_path_for_labels_file(
+        output_file
+    )
+
+    assert load_future_outcomes(source_future_outcomes_path) == ()
+    assert result["entity_count"] == len(restored_members) == 3
+    assert result["row_count"] == len(restored) == 45
+    assert result["observed_label_rows"] == 9
+    assert restored_cohort_manifest.label_row_count == 45
+    assert restored_cohort_manifest.observed_label_row_count == 9
+    assert source_future_outcomes_path.read_text(encoding="utf-8") == (
+        "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n"
+    )
+    assert all(
+        label.label_name == "no_qualifying_future_outcome"
+        if label.label_value == OBSERVED_LABEL_VALUE
+        else label.label_name != "no_qualifying_future_outcome"
+        for label in restored
+    )
+
+
 def test_materialize_benchmark_cohort_labels_requires_manifest_file(
     tmp_path: Path,
 ) -> None:

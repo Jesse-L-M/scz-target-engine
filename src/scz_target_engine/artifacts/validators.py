@@ -289,10 +289,6 @@ def _validate_benchmark_source_future_outcomes(
         set(fieldnames),
         context=f"{schema.artifact_name} artifact {path}",
     )
-    if not rows:
-        raise ValueError(
-            "benchmark source future outcomes artifact must contain at least one row"
-        )
     return load_future_outcomes(path)
 
 

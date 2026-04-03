@@ -280,6 +280,76 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
         )
 
 
+def test_benchmark_source_future_outcomes_artifact_accepts_header_only_csv(
+    tmp_path: Path,
+) -> None:
+    snapshot_path = tmp_path / "snapshot_manifest.json"
+    cohort_labels_path = tmp_path / "cohort_labels.csv"
+    future_outcomes_path = tmp_path / "future_outcomes.csv"
+    future_outcomes_path.write_text(
+        "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n",
+        encoding="utf-8",
+    )
+
+    snapshot_artifact = materialize_benchmark_snapshot_manifest(
+        request_file=Path(
+            "data/benchmark/fixtures/scz_small/snapshot_request.json"
+        ).resolve(),
+        archive_index_file=Path(
+            "data/benchmark/fixtures/scz_small/source_archives.json"
+        ).resolve(),
+        output_file=snapshot_path,
+        materialized_at="2026-04-03",
+    )
+
+    materialize_benchmark_cohort_labels(
+        manifest=load_artifact(
+            snapshot_path,
+            artifact_name="benchmark_snapshot_manifest",
+        ).payload,
+        manifest_file=snapshot_path,
+        cohort_members_file=Path(
+            "data/benchmark/fixtures/scz_small/cohort_members.csv"
+        ).resolve(),
+        future_outcomes_file=future_outcomes_path,
+        output_file=cohort_labels_path,
+    )
+
+    source_future_outcomes_artifact = load_artifact(
+        tmp_path / "source_future_outcomes.csv",
+        artifact_name="benchmark_source_future_outcomes",
+    )
+
+    assert snapshot_artifact["snapshot_id"] == "scz_fixture_2024_06_30"
+    assert (
+        source_future_outcomes_artifact.artifact_name
+        == "benchmark_source_future_outcomes"
+    )
+    assert source_future_outcomes_artifact.payload == ()
+
+
+def test_benchmark_source_future_outcomes_artifact_rejects_malformed_rows(
+    tmp_path: Path,
+) -> None:
+    malformed_path = tmp_path / "source_future_outcomes.csv"
+    malformed_path.write_text(
+        (
+            "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n"
+            "gene,ENSG00000162946,future_schizophrenia_program_started,,manual,\n"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="outcome_date must be an ISO date in YYYY-MM-DD format",
+    ):
+        load_artifact(
+            malformed_path,
+            artifact_name="benchmark_source_future_outcomes",
+        )
+
+
 def test_example_rescue_task_contract_validates_against_registered_schema() -> None:
     rescue_contract_artifact = load_artifact(
         Path(

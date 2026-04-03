@@ -272,6 +272,8 @@ Canonical generated locations:
 
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/benchmark_cohort_members.csv`: `benchmark_cohort_members`
+- `data/benchmark/generated/scz_small/source_cohort_members.csv`: `benchmark_source_cohort_members`
+- `data/benchmark/generated/scz_small/source_future_outcomes.csv`: `benchmark_source_future_outcomes`
 - `data/benchmark/generated/scz_small/benchmark_cohort_manifest.json`: `benchmark_cohort_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/intervention_object_feature_bundle.parquet`: generated only when the snapshot request includes `intervention_object`
@@ -288,6 +290,7 @@ What each generated artifact means:
 
 - snapshot manifests freeze the suite/task contract identity, evidence boundary, leakage controls, requested baselines, and per-source inclusion or exclusion accounting
 - cohort-member artifacts freeze the canonical denominator consumed by later runner and reporting validation
+- source-copy cohort artifacts freeze the exact raw cohort inputs copied into the generated bundle so replay stays relocatable and self-contained
 - cohort manifests freeze the digest-pinned bridge from snapshot manifest plus raw cohort inputs to the materialized cohort-member and cohort-label artifacts
 - cohort label artifacts freeze future translational outcome labels over that canonical denominator
 - intervention-object feature bundles freeze the replay-side program lineage, evidence availability, and compatibility inputs used to score one intervention-object snapshot
@@ -302,6 +305,7 @@ What each generated artifact means:
 Runtime validation that now fails closed:
 
 - runner and reporting require a materialized `benchmark_cohort_manifest.json` plus `benchmark_cohort_members.csv` beside the supplied `benchmark_cohort_labels.csv`
+- cohort manifests must point at the canonical sibling `source_cohort_members.csv` and `source_future_outcomes.csv` copies emitted by `build-benchmark-cohort`
 - cohort manifests must match the supplied snapshot manifest identity and digest
 - cohort-label files must match the canonical cohort-member denominator, including exact entity set, stable labels, and full `horizon x label_name` coverage
 - intervention-object replay bundles must match the frozen bundle schema name/version and the manifest `as_of_date`

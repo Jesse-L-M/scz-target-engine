@@ -38,7 +38,7 @@ actually shipped today.
 - A `v0` reference build for schizophrenia gene and module ranking, with sensitivity analysis, markdown/CSV reports, and warning overlays that remain reporting-only
 - Additive `v1` decision vectors plus per-domain/per-stage ranking artifacts
 - PR7 scoring-neutral target ledgers with failure history, directionality hypotheses, and source primitives
-- PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort labels, runner manifests, metric payloads, and confidence interval payloads
+- PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort-member and source-copy artifacts, cohort manifests and labels, runner manifests, metric payloads, and confidence interval payloads
 - A rescue hidden-eval packaging and simulation path for the shipped glutamatergic rescue task, with a public submitter package built from the real governed ranking artifact and an operator-side evaluator that returns only a receipt-style public scorecard while keeping held-out labels and metrics inside operator-only artifacts
 - Milestone 0 contract freezing for `program_memory_release`, `benchmark_release`,
   `rescue_release`, `variant_context_release`, `policy_release`, and
@@ -387,6 +387,8 @@ Artifact layout:
 - `data/curated/rescue_tasks/contracts/*.json`: validated rescue task contract artifacts
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: generated `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/benchmark_cohort_members.csv`: generated `benchmark_cohort_members`
+- `data/benchmark/generated/scz_small/source_cohort_members.csv`: generated `benchmark_source_cohort_members`
+- `data/benchmark/generated/scz_small/source_future_outcomes.csv`: generated `benchmark_source_future_outcomes`
 - `data/benchmark/generated/scz_small/benchmark_cohort_manifest.json`: generated `benchmark_cohort_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: generated `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: generated `benchmark_model_run_manifest` files, one per executed baseline
@@ -405,7 +407,7 @@ Operator notes:
 - Re-running the snapshot or cohort commands overwrites the manifest and cohort-stage artifact files at the same paths.
 - Re-running `run-benchmark` writes run-id keyed payload directories. Changing code version or parameters changes the run id. Identical inputs overwrite the same run-id files.
 - Re-running `build-benchmark-reporting` rewrites the derived public payloads from the current runner outputs. It never reruns scoring.
-- `build-benchmark-cohort` now emits a canonical denominator plus cohort manifest beside `cohort_labels.csv`, and runner/reporting fail closed if those digests drift.
+- `build-benchmark-cohort` now emits a canonical denominator, bundle-local source-copy artifacts, and a cohort manifest beside `cohort_labels.csv`, and runner/reporting fail closed if those digests drift.
 - The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
 - Public slice backfill is registry-driven: `uv run scz-target-engine backfill-benchmark-public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` and `uv run scz-target-engine benchmark backfill public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` regenerate the checked-in slice catalog without weakening leakage rules and do not fall back to live source data.
 - The canonical `scz_small` path remains a gene/module regression fixture. The checked-in public slices are the shipped Track A intervention-object replay path and currently execute `v0_current`, `v1_current`, and `random_with_coverage`.
@@ -424,6 +426,8 @@ It can load and validate:
 
 - `benchmark_snapshot_manifest`
 - `benchmark_cohort_members`
+- `benchmark_source_cohort_members`
+- `benchmark_source_future_outcomes`
 - `benchmark_cohort_manifest`
 - `benchmark_cohort_labels`
 - `benchmark_model_run_manifest`

@@ -21,6 +21,8 @@ That directory is generated, not checked in. Public slice replays write to
 
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: `benchmark_snapshot_manifest`
 - `data/benchmark/generated/scz_small/benchmark_cohort_members.csv`: `benchmark_cohort_members`
+- `data/benchmark/generated/scz_small/source_cohort_members.csv`: `benchmark_source_cohort_members`
+- `data/benchmark/generated/scz_small/source_future_outcomes.csv`: `benchmark_source_future_outcomes`
 - `data/benchmark/generated/scz_small/benchmark_cohort_manifest.json`: `benchmark_cohort_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: `benchmark_cohort_labels`
 - `data/benchmark/generated/public_slices/<slice_id>/intervention_object_feature_bundle.parquet`: generated snapshot-side intervention-object replay bundle when the slice requests `entity_type = intervention_object`
@@ -71,7 +73,7 @@ This fixture flow proves the benchmark path end to end:
 - it resolves the explicit `scz_translational_suite` / `scz_translational_task` contract from `data/curated/rescue_tasks/task_registry.csv`
 - it writes a real `benchmark_snapshot_manifest`
 - it emits explicit per-source inclusion or exclusion entries
-- it materializes a canonical `benchmark_cohort_members` denominator and a digest-pinned `benchmark_cohort_manifest`
+- it materializes a canonical `benchmark_cohort_members` denominator, bundle-local source-copy artifacts, and a digest-pinned `benchmark_cohort_manifest`
 - it materializes `benchmark_cohort_labels`
 - it executes the requested `available_now` baselines only
 - it keeps protocol-only baselines explicit and skipped

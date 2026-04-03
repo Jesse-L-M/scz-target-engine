@@ -5,6 +5,11 @@ import json
 from pathlib import Path
 import shutil
 
+from scz_target_engine.benchmark_intervention_objects import (
+    build_intervention_object_public_slice_rows,
+)
+from scz_target_engine.io import write_csv
+
 
 FIXTURE_DIR = (
     Path(__file__).resolve().parents[1]
@@ -106,27 +111,47 @@ def write_intervention_object_slice_fixture(
         encoding="utf-8",
     )
 
+    cohort_rows, _future_outcome_rows = build_intervention_object_public_slice_rows(
+        as_of_date="2024-06-20",
+        outcome_observation_closed_at="2025-06-30",
+        program_universe_path=program_universe_file,
+        events_path=program_history_events_file,
+    )
     cohort_members_file = fixture_dir / "cohort_members.csv"
-    cohort_members_file.write_text(
-        (
-            "entity_type,entity_id,entity_label\n"
-            "intervention_object,pimavanserin-negative-symptoms-adjunct-phase-3-or-registration,"
-            "pimavanserin | negative symptoms | phase_3_or_registration\n"
-            "intervention_object,ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration,"
-            "ulotaront | acute positive symptoms | phase_3_or_registration\n"
-        ),
-        encoding="utf-8",
+    write_csv(
+        cohort_members_file,
+        cohort_rows,
+        ["entity_type", "entity_id", "entity_label"],
+    )
+    ulotaront_entity_id = next(
+        row["entity_id"]
+        for row in cohort_rows
+        if str(row["entity_label"]).startswith("ulotaront | ")
     )
 
     future_outcomes_file = fixture_dir / "future_outcomes.csv"
-    future_outcomes_file.write_text(
-        (
-            "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n"
-            "intervention_object,ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration,"
-            "future_schizophrenia_positive_signal,2024-10-01,fixture_program_history,"
-            "Synthetic positive outcome for intervention-object benchmark tests.\n"
-        ),
-        encoding="utf-8",
+    write_csv(
+        future_outcomes_file,
+        [
+            {
+                "entity_type": "intervention_object",
+                "entity_id": ulotaront_entity_id,
+                "outcome_label": "future_schizophrenia_positive_signal",
+                "outcome_date": "2024-10-01",
+                "label_source": "fixture_program_history",
+                "label_notes": (
+                    "Synthetic positive outcome for intervention-object benchmark tests."
+                ),
+            }
+        ],
+        [
+            "entity_type",
+            "entity_id",
+            "outcome_label",
+            "outcome_date",
+            "label_source",
+            "label_notes",
+        ],
     )
 
     return InterventionObjectSliceFixture(

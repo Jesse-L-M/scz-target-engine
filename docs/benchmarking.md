@@ -155,7 +155,7 @@ The current explicit task row is:
 - task: `scz_translational_task`
 - question: `scz_translational_ranking_v1`
 - fixture path: `data/benchmark/fixtures/scz_small/`
-- emitted artifact families: `benchmark_snapshot_manifest`, `benchmark_cohort_labels`, `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
+- emitted artifact families: `benchmark_snapshot_manifest`, `benchmark_cohort_members`, `benchmark_source_cohort_members`, `benchmark_source_future_outcomes`, `benchmark_cohort_manifest`, `benchmark_cohort_labels`, `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
 
 `snapshot_request.json` remains an operator input, but the fixture request now carries
 the explicit suite/task ids from that registry row. The snapshot builder resolves the
@@ -250,6 +250,8 @@ Cohort materialization behavior:
 The runner reads and writes these schema families exactly:
 
 - `benchmark_snapshot_manifest`
+- `benchmark_cohort_members`
+- `benchmark_cohort_manifest`
 - `benchmark_cohort_labels`
 - `benchmark_model_run_manifest`
 - `benchmark_metric_output_payload`
@@ -269,6 +271,10 @@ Runtime loading and validation for these artifacts is exposed through
 Canonical generated locations:
 
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: `benchmark_snapshot_manifest`
+- `data/benchmark/generated/scz_small/benchmark_cohort_members.csv`: `benchmark_cohort_members`
+- `data/benchmark/generated/scz_small/source_cohort_members.csv`: `benchmark_source_cohort_members`
+- `data/benchmark/generated/scz_small/source_future_outcomes.csv`: `benchmark_source_future_outcomes`
+- `data/benchmark/generated/scz_small/benchmark_cohort_manifest.json`: `benchmark_cohort_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: `benchmark_cohort_labels`
 - `data/benchmark/generated/scz_small/intervention_object_feature_bundle.parquet`: generated only when the snapshot request includes `intervention_object`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: `benchmark_model_run_manifest`
@@ -278,12 +284,15 @@ Canonical generated locations:
 - `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
 - `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
 - `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
-- `data/benchmark/generated/scz_small/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.md`: markdown error analysis emitted for intervention-object runs when the required bundle and projection artifacts are present
+- `data/benchmark/generated/public_slices/<slice_id>/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/<snapshot_id>/<run_id>.md`: markdown error analysis emitted for intervention-object runs only when the principal intervention-object slice is evaluable and the required bundle plus projection artifacts are present
 
 What each generated artifact means:
 
 - snapshot manifests freeze the suite/task contract identity, evidence boundary, leakage controls, requested baselines, and per-source inclusion or exclusion accounting
-- cohort label artifacts freeze admissible benchmark membership and future translational outcome labels
+- cohort-member artifacts freeze the canonical denominator consumed by later runner and reporting validation
+- source-copy cohort artifacts freeze the exact raw cohort inputs copied into the generated bundle so replay stays relocatable and self-contained
+- cohort manifests freeze the digest-pinned bridge from snapshot manifest plus raw cohort inputs to the materialized cohort-member and cohort-label artifacts
+- cohort label artifacts freeze future translational outcome labels over that canonical denominator
 - intervention-object feature bundles freeze the replay-side program lineage, evidence availability, and compatibility inputs used to score one intervention-object snapshot
 - run manifests record executed baseline, suite/task contract provenance, code version, parameterization, and input digests
 - intervention-object baseline projection payloads freeze the explicit bridge from archived gene/module baseline outputs to intervention-object replay scores for one baseline and snapshot
@@ -291,7 +300,16 @@ What each generated artifact means:
 - confidence interval payloads record percentile-bootstrap intervals, bootstrap count, resample unit, and random seed for the same slice
 - report cards join suite/task/snapshot provenance, source inclusion accounting, run-manifest inputs, and per-slice metric summaries into one public payload per run
 - leaderboard payloads rank the report-card slices by metric while preserving run-level provenance
-- error-analysis markdown files explain misses and false positives on intervention-object replay slices using the frozen bundle metadata and explicit projection payloads
+- error-analysis markdown files explain misses and false positives on evaluable intervention-object replay slices using the frozen bundle metadata and explicit projection payloads
+
+Runtime validation that now fails closed:
+
+- runner and reporting require a materialized `benchmark_cohort_manifest.json` plus `benchmark_cohort_members.csv` beside the supplied `benchmark_cohort_labels.csv`
+- cohort manifests must point at the canonical sibling `source_cohort_members.csv` and `source_future_outcomes.csv` copies emitted by `build-benchmark-cohort`
+- cohort manifests must match the supplied snapshot manifest identity and digest
+- cohort-label files must match the canonical cohort-member denominator, including exact entity set, stable labels, and full `horizon x label_name` coverage
+- intervention-object replay bundles must match the frozen bundle schema name/version and the manifest `as_of_date`
+- intervention-object replay bundles must align with the manifest source inclusion set and the exact intervention-object cohort rows
 
 ## Public Historical Slices
 
@@ -315,10 +333,14 @@ Each slice directory contains:
 - `archives/`: copied archived source extracts referenced by the slice index
 - `program_universe.csv` and `events.csv`: pinned program-history replay inputs used for intervention-object cohort and bundle regeneration
 - `cohort_members.csv` and `future_outcomes.csv`: checked-in intervention-object cohort and label inputs derived from the denominator plus program-history event ledger
+- checked-in intervention-object `entity_id` values now use the full replay grain
+  `asset_lineage_id / target_class_lineage_id / modality / domain / population /
+  regimen / stage_bucket`, not the shorter human-readable denominator slug
 
 The canonical `scz_small` fixture remains the regression path for gene/module
-benchmarking. Public slices now exercise the Track A intervention-object replay path
-without changing that `scz_small` workflow.
+benchmarking. Its checked-in archive contents were restored to the minimal
+pre-Track-A two-gene/one-module surface so public-slice replay work does not
+mutate the legacy gene/module regression path.
 
 The slice catalog at `data/benchmark/public_slices/catalog.json` records the exact
 included and excluded sources for each cutoff. Missing historical archives stay explicit
@@ -356,8 +378,10 @@ uv run scz-target-engine build-benchmark-reporting \
 
 That replay writes the intervention-object feature bundle beside the generated
 snapshot manifest, explicit projected baseline payloads under
-`runner_outputs/baseline_projections/`, and intervention-object leaderboard plus
-error-analysis outputs under `public_payloads/`.
+`runner_outputs/baseline_projections/`, and intervention-object leaderboard
+outputs under `public_payloads/`. Because the shipped checked-in public slices
+have zero principal-horizon positives, the reporting step currently produces no
+error-analysis markdown for them.
 
 ## Current Runner Coverage
 

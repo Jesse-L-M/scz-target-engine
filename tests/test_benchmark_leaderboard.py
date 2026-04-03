@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -43,6 +45,7 @@ def _materialize_fixture_runner_outputs(
     )
     materialize_benchmark_cohort_labels(
         manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
         cohort_members_file=FIXTURE_DIR / "cohort_members.csv",
         future_outcomes_file=FIXTURE_DIR / "future_outcomes.csv",
         output_file=cohort_labels_file,
@@ -114,6 +117,8 @@ def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderbo
         artifact.artifact_name for artifact in v1_report_card.evaluation_input_artifacts
     } >= {
         "benchmark_snapshot_manifest",
+        "benchmark_cohort_manifest",
+        "benchmark_cohort_members",
         "benchmark_cohort_labels",
         "engine_config",
     }
@@ -203,6 +208,7 @@ def test_materialize_benchmark_reporting_emits_intervention_object_error_analysi
     )
     materialize_benchmark_cohort_labels(
         manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
         cohort_members_file=public_slice.cohort_members_file,
         future_outcomes_file=public_slice.future_outcomes_file,
         output_file=cohort_labels_file,
@@ -243,6 +249,125 @@ def test_materialize_benchmark_reporting_emits_intervention_object_error_analysi
         intervention_leaderboard_path
     )
     assert leaderboard_payload.entity_type == "intervention_object"
+
+
+def test_materialize_benchmark_reporting_skips_nonevaluable_public_slice_error_analysis(
+    tmp_path: Path,
+) -> None:
+    public_slice_dir = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "benchmark"
+        / "public_slices"
+        / "scz_translational_2024_06_20"
+    )
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+    reporting_output_dir = tmp_path / "public_payloads"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice_dir / "snapshot_request.json",
+        archive_index_file=public_slice_dir / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=public_slice_dir / "cohort_members.csv",
+        future_outcomes_file=public_slice_dir / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+    materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=public_slice_dir / "source_archives.json",
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-02T00:00:00Z",
+    )
+
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-04-02T12:00:00Z",
+    )
+
+    assert reporting_result["leaderboard_payload_files"]
+    assert reporting_result["error_analysis_files"] == []
+
+
+def test_materialize_benchmark_reporting_rejects_stale_intervention_object_bundle_provenance(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(tmp_path)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+    reporting_output_dir = tmp_path / "public_payloads"
+    pgc_archive_path = (
+        public_slice.source_archives_file.parent
+        / "archives"
+        / "pgc"
+        / "scz2022_fixture.csv"
+    )
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+    materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-02T00:00:00Z",
+    )
+
+    pgc_archive_lines = pgc_archive_path.read_text(encoding="utf-8").splitlines()
+    pgc_archive_lines[1] = "ENSG00000162946,DISC1,0.11"
+    pgc_archive_path.write_text("\n".join(pgc_archive_lines) + "\n", encoding="utf-8")
+    archive_index_payload = json.loads(
+        public_slice.source_archives_file.read_text(encoding="utf-8")
+    )
+    for archive_payload in archive_index_payload["archives"]:
+        if archive_payload["source_name"] != "PGC":
+            continue
+        archive_payload["sha256"] = sha256(pgc_archive_path.read_bytes()).hexdigest()
+        break
+    public_slice.source_archives_file.write_text(
+        json.dumps(archive_index_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="source snapshot provenance does not match",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-02T12:00:00Z",
+        )
 
 
 def test_materialize_benchmark_reporting_prunes_stale_snapshot_outputs(

@@ -20,6 +20,10 @@ That directory is generated, not checked in. Public slice replays write to
 `data/benchmark/generated/public_slices/<slice_id>/`.
 
 - `data/benchmark/generated/scz_small/snapshot_manifest.json`: `benchmark_snapshot_manifest`
+- `data/benchmark/generated/scz_small/benchmark_cohort_members.csv`: `benchmark_cohort_members`
+- `data/benchmark/generated/scz_small/source_cohort_members.csv`: `benchmark_source_cohort_members`
+- `data/benchmark/generated/scz_small/source_future_outcomes.csv`: `benchmark_source_future_outcomes`
+- `data/benchmark/generated/scz_small/benchmark_cohort_manifest.json`: `benchmark_cohort_manifest`
 - `data/benchmark/generated/scz_small/cohort_labels.csv`: `benchmark_cohort_labels`
 - `data/benchmark/generated/public_slices/<slice_id>/intervention_object_feature_bundle.parquet`: generated snapshot-side intervention-object replay bundle when the slice requests `entity_type = intervention_object`
 - `data/benchmark/generated/scz_small/runner_outputs/run_manifests/*.json`: `benchmark_model_run_manifest`
@@ -28,7 +32,7 @@ That directory is generated, not checked in. Public slice replays write to
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: `benchmark_confidence_interval_payload`
 - `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
 - `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
-- `data/benchmark/generated/public_slices/<slice_id>/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/<snapshot_id>/<run_id>.md`: markdown error analysis for intervention-object replay runs
+- `data/benchmark/generated/public_slices/<slice_id>/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/<snapshot_id>/<run_id>.md`: markdown error analysis for intervention-object replay runs when the principal intervention-object slice is evaluable
 
 ## Canonical Command Sequence
 
@@ -69,12 +73,13 @@ This fixture flow proves the benchmark path end to end:
 - it resolves the explicit `scz_translational_suite` / `scz_translational_task` contract from `data/curated/rescue_tasks/task_registry.csv`
 - it writes a real `benchmark_snapshot_manifest`
 - it emits explicit per-source inclusion or exclusion entries
+- it materializes a canonical `benchmark_cohort_members` denominator, bundle-local source-copy artifacts, and a digest-pinned `benchmark_cohort_manifest`
 - it materializes `benchmark_cohort_labels`
 - it executes the requested `available_now` baselines only
 - it keeps protocol-only baselines explicit and skipped
 - it emits `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
 - it derives public report cards and leaderboard payloads from those emitted artifacts without rerunning scoring
-- when replaying intervention-object public slices, it also emits an explicit snapshot-side feature bundle, baseline projection sidecars, and markdown error-analysis outputs
+- when replaying intervention-object public slices, it also emits an explicit snapshot-side feature bundle, baseline projection sidecars, and markdown error-analysis outputs only for evaluable principal-horizon slices
 
 Public slices keep the same registry-driven task contract while changing only the
 cutoff date, checked-in fixture path, and entity type. The catalog in
@@ -85,9 +90,11 @@ routes to the same builder and flags as the flat command above.
 
 Current replay split:
 
-- `fixtures/scz_small/` remains the canonical gene/module regression path
+- `fixtures/scz_small/` remains the canonical gene/module regression path, with the restored minimal pre-Track-A archive surface
 - `public_slices/` now exercise the shipped Track A intervention-object replay path
 - those intervention-object slices use only `v0_current`, `v1_current`, and `random_with_coverage`
+- checked-in intervention-object `cohort_members.csv` ids use the full replay grain `asset_lineage_id / target_class_lineage_id / modality / domain / population / regimen / stage_bucket`
+- generated cohort outputs now pin runner/reporting to `benchmark_cohort_members.csv` and `benchmark_cohort_manifest.json`, so downstream scoring does not trust ad hoc edits to `cohort_labels.csv`
 
 Replay example beyond the original `scz_small` path, using the checked-in `scz_translational_2024_06_20` slice:
 

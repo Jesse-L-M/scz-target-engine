@@ -12,6 +12,10 @@ that future task work can consume without changing current build semantics.
 - `policy_release`
 - `hypothesis_release`
 - `benchmark_snapshot_manifest`
+- `benchmark_cohort_members`
+- `benchmark_source_cohort_members`
+- `benchmark_source_future_outcomes`
+- `benchmark_cohort_manifest`
 - `benchmark_cohort_labels`
 - `benchmark_model_run_manifest`
 - `benchmark_metric_output_payload`
@@ -112,6 +116,9 @@ For benchmark artifacts, the payload is the existing typed model already used by
 benchmark code:
 
 - `BenchmarkSnapshotManifest`
+- `tuple[CohortMember, ...]`
+- `tuple[FutureOutcomeRecord, ...]`
+- `BenchmarkCohortManifest`
 - `tuple[BenchmarkCohortLabel, ...]`
 - `BenchmarkModelRunManifest`
 - `BenchmarkMetricOutputPayload`

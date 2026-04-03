@@ -17,8 +17,17 @@ from scz_target_engine.artifacts.registry import (
     load_artifact_schemas,
 )
 from scz_target_engine.benchmark_labels import (
+    BENCHMARK_COHORT_MEMBERS_FILE_NAME,
+    BENCHMARK_SOURCE_COHORT_MEMBERS_FILE_NAME,
+    BENCHMARK_SOURCE_FUTURE_OUTCOMES_FILE_NAME,
     BenchmarkCohortLabel,
+    BenchmarkCohortManifest,
+    CohortMember,
+    FutureOutcomeRecord,
+    load_future_outcomes,
     read_benchmark_cohort_labels,
+    read_benchmark_cohort_manifest,
+    read_benchmark_cohort_members,
 )
 from scz_target_engine.benchmark_metrics import (
     BenchmarkConfidenceIntervalPayload,
@@ -236,6 +245,64 @@ def _validate_benchmark_cohort_labels(
     if not rows:
         raise ValueError("benchmark cohort labels artifact must contain at least one row")
     return read_benchmark_cohort_labels(path)
+
+
+def _validate_benchmark_cohort_members(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> tuple[CohortMember, ...]:
+    fieldnames, rows = _read_csv_artifact(path)
+    _ensure_required_fields(
+        schema,
+        set(fieldnames),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    if not rows:
+        raise ValueError("benchmark cohort members artifact must contain at least one row")
+    return read_benchmark_cohort_members(path)
+
+
+def _validate_benchmark_source_cohort_members(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> tuple[CohortMember, ...]:
+    fieldnames, rows = _read_csv_artifact(path)
+    _ensure_required_fields(
+        schema,
+        set(fieldnames),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    if not rows:
+        raise ValueError(
+            "benchmark source cohort members artifact must contain at least one row"
+        )
+    return read_benchmark_cohort_members(path)
+
+
+def _validate_benchmark_source_future_outcomes(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> tuple[FutureOutcomeRecord, ...]:
+    fieldnames, rows = _read_csv_artifact(path)
+    _ensure_required_fields(
+        schema,
+        set(fieldnames),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return load_future_outcomes(path)
+
+
+def _validate_benchmark_cohort_manifest(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> BenchmarkCohortManifest:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return read_benchmark_cohort_manifest(path)
 
 
 def _validate_benchmark_model_run_manifest(
@@ -2838,12 +2905,38 @@ def infer_artifact_name(
             return "benchmark_cohort_labels"
         if {"domain_slug", "domain_head_score_v1", "domain_rank_v1"}.issubset(fieldname_set):
             return "domain_head_rankings_v1"
+        if path.name == BENCHMARK_SOURCE_FUTURE_OUTCOMES_FILE_NAME and {
+            "entity_type",
+            "entity_id",
+            "outcome_label",
+            "outcome_date",
+            "label_source",
+        }.issubset(fieldname_set):
+            return "benchmark_source_future_outcomes"
+        if path.name == BENCHMARK_SOURCE_COHORT_MEMBERS_FILE_NAME and {
+            "entity_type",
+            "entity_id",
+            "entity_label",
+        }.issubset(fieldname_set):
+            return "benchmark_source_cohort_members"
+        if path.name == BENCHMARK_COHORT_MEMBERS_FILE_NAME and {
+            "entity_type",
+            "entity_id",
+            "entity_label",
+        }.issubset(fieldname_set):
+            return "benchmark_cohort_members"
+        if {"entity_type", "entity_id", "entity_label"}.issubset(fieldname_set):
+            return "benchmark_cohort_members"
 
     raise ValueError(f"could not infer artifact_name for {path}")
 
 
 _ARTIFACT_VALIDATORS = {
     "benchmark_snapshot_manifest": _validate_benchmark_snapshot_manifest,
+    "benchmark_cohort_members": _validate_benchmark_cohort_members,
+    "benchmark_source_cohort_members": _validate_benchmark_source_cohort_members,
+    "benchmark_source_future_outcomes": _validate_benchmark_source_future_outcomes,
+    "benchmark_cohort_manifest": _validate_benchmark_cohort_manifest,
     "benchmark_cohort_labels": _validate_benchmark_cohort_labels,
     "benchmark_model_run_manifest": _validate_benchmark_model_run_manifest,
     "benchmark_metric_output_payload": _validate_benchmark_metric_output_payload,

@@ -11,10 +11,11 @@ from typing import Any
 
 from scz_target_engine.benchmark_labels import (
     BenchmarkCohortLabel,
-    read_benchmark_cohort_labels,
+    load_materialized_benchmark_cohort_artifacts,
 )
 from scz_target_engine.benchmark_intervention_objects import (
     INTERVENTION_OBJECT_ENTITY_TYPE,
+    build_intervention_object_bundle_source_snapshot_provenance,
     build_intervention_object_projection_payload,
     intervention_object_bundle_path_for_manifest_file,
     intervention_object_projection_path,
@@ -323,20 +324,6 @@ def _build_artifact_reference(
         source_version=source_version,
         notes=notes,
     )
-
-
-def _validate_cohort_labels(
-    manifest: BenchmarkSnapshotManifest,
-    cohort_labels: tuple[BenchmarkCohortLabel, ...],
-) -> None:
-    if not cohort_labels:
-        raise ValueError("benchmark cohort labels must contain at least one row")
-    snapshot_ids = {label.snapshot_id for label in cohort_labels}
-    if snapshot_ids != {manifest.snapshot_id}:
-        raise ValueError("benchmark cohort labels must match the manifest snapshot_id")
-    cohort_ids = {label.cohort_id for label in cohort_labels}
-    if cohort_ids != {manifest.cohort_id}:
-        raise ValueError("benchmark cohort labels must match the manifest cohort_id")
 
 
 def _resolve_included_source_descriptors(
@@ -680,8 +667,37 @@ def _build_context(
                 "intervention-object snapshot requires a materialized feature bundle: "
                 f"{bundle_path}"
             )
+        expected_included_sources = tuple(
+            sorted(
+                source_snapshot.source_name
+                for source_snapshot in manifest.source_snapshots
+                if source_snapshot.included
+            )
+        )
+        expected_excluded_sources = tuple(
+            sorted(
+                source_snapshot.source_name
+                for source_snapshot in manifest.source_snapshots
+                if not source_snapshot.included
+            )
+        )
+        expected_source_snapshot_provenance_json = (
+            build_intervention_object_bundle_source_snapshot_provenance(
+                manifest.source_snapshots,
+                archive_descriptors,
+            )
+        )
         intervention_object_bundle_rows = read_intervention_object_feature_bundle(
-            bundle_path
+            bundle_path,
+            expected_as_of_date=manifest.as_of_date,
+            expected_entities=dict(
+                cohort_entities.get(INTERVENTION_OBJECT_ENTITY_TYPE, ())
+            ),
+            expected_included_sources=expected_included_sources,
+            expected_excluded_sources=expected_excluded_sources,
+            expected_source_snapshot_provenance_json=(
+                expected_source_snapshot_provenance_json
+            ),
         )
         intervention_object_bundle_ref = _build_artifact_reference(
             artifact_name="intervention_object_feature_bundle",
@@ -1114,13 +1130,21 @@ def _baseline_input_artifacts(
     *,
     baseline_id: str,
     manifest_ref: InputArtifactReference,
+    cohort_manifest_ref: InputArtifactReference,
+    cohort_members_ref: InputArtifactReference,
     cohort_ref: InputArtifactReference,
     archive_index_ref: InputArtifactReference,
     config_ref: InputArtifactReference,
     source_refs: dict[str, InputArtifactReference],
     additional_refs: tuple[InputArtifactReference, ...] = (),
 ) -> tuple[InputArtifactReference, ...]:
-    refs = [manifest_ref, cohort_ref, archive_index_ref]
+    refs = [
+        manifest_ref,
+        cohort_manifest_ref,
+        cohort_members_ref,
+        cohort_ref,
+        archive_index_ref,
+    ]
     if baseline_id in {"v0_current", "v1_current"}:
         refs.append(config_ref)
     for source_name in BASELINE_SOURCE_DEPENDENCIES[baseline_id]:
@@ -1178,8 +1202,12 @@ def run_benchmark(
     )
     protocol = task_contract.protocol
     question = protocol.question
-    cohort_labels = read_benchmark_cohort_labels(cohort_labels_file)
-    _validate_cohort_labels(manifest, cohort_labels)
+    materialized_cohort = load_materialized_benchmark_cohort_artifacts(
+        snapshot_manifest=manifest,
+        snapshot_manifest_file=manifest_file,
+        cohort_labels_file=cohort_labels_file,
+    )
+    cohort_labels = materialized_cohort.cohort_labels
     config = load_config(config_file)
     archive_descriptors = load_source_archive_descriptors(archive_index_file)
 
@@ -1205,6 +1233,28 @@ def run_benchmark(
         artifact_name="benchmark_cohort_labels",
         path=cohort_labels_file,
         schema_name="benchmark_cohort_labels",
+    )
+    cohort_members_ref = _build_artifact_reference(
+        artifact_name="benchmark_cohort_members",
+        path=materialized_cohort.cohort_members_path,
+        schema_name="benchmark_cohort_members",
+    )
+    cohort_manifest_ref = _build_artifact_reference(
+        artifact_name="benchmark_cohort_manifest",
+        path=materialized_cohort.cohort_manifest_path,
+        schema_name="benchmark_cohort_manifest",
+    )
+    cohort_source_input_refs: tuple[InputArtifactReference, ...] = (
+        _build_artifact_reference(
+            artifact_name="benchmark_source_cohort_members",
+            path=materialized_cohort.source_cohort_members_path,
+            schema_name="benchmark_source_cohort_members",
+        ),
+        _build_artifact_reference(
+            artifact_name="benchmark_source_future_outcomes",
+            path=materialized_cohort.source_future_outcomes_path,
+            schema_name="benchmark_source_future_outcomes",
+        ),
     )
     archive_index_ref = _build_artifact_reference(
         artifact_name="source_archive_index",
@@ -1437,11 +1487,13 @@ def run_benchmark(
             input_artifacts=_baseline_input_artifacts(
                 baseline_id=baseline_id,
                 manifest_ref=manifest_ref,
+                cohort_manifest_ref=cohort_manifest_ref,
+                cohort_members_ref=cohort_members_ref,
                 cohort_ref=cohort_ref,
                 archive_index_ref=archive_index_ref,
                 config_ref=config_ref,
                 source_refs=context.included_source_refs,
-                additional_refs=tuple(additional_input_refs),
+                additional_refs=cohort_source_input_refs + tuple(additional_input_refs),
             ),
             started_at=started_at,
             completed_at=completed_at,

@@ -24,7 +24,7 @@ PROGRAM_HISTORY_EVENTS_PATH = (
 INTERVENTION_OBJECT_ENTITY_TYPE = "intervention_object"
 INTERVENTION_OBJECT_BUNDLE_FILE_NAME = "intervention_object_feature_bundle.parquet"
 INTERVENTION_OBJECT_BUNDLE_SCHEMA_NAME = "intervention_object_feature_bundle"
-INTERVENTION_OBJECT_BUNDLE_SCHEMA_VERSION = "v1"
+INTERVENTION_OBJECT_BUNDLE_SCHEMA_VERSION = "v2"
 INTERVENTION_OBJECT_PROJECTION_SCHEMA_NAME = (
     "benchmark_intervention_object_baseline_projection"
 )
@@ -34,6 +34,48 @@ INTERVENTION_OBJECT_PROJECTION_AGGREGATION_RULE = (
     "mean_available_legacy_consumer_score"
 )
 INTERVENTION_OBJECT_PROJECTION_CONTRACT = "intervention_object_compatibility_v1"
+INTERVENTION_OBJECT_BUNDLE_SOURCE_PROVENANCE_METADATA_FIELD = (
+    "source_snapshot_provenance_json"
+)
+INTERVENTION_OBJECT_BUNDLE_REQUIRED_COLUMNS = (
+    "entity_type",
+    "entity_id",
+    "intervention_object_id",
+    "entity_label",
+    "source_program_universe_id",
+    "asset_id",
+    "asset_name",
+    "asset_lineage_id",
+    "target",
+    "target_symbols_json",
+    "target_class",
+    "target_class_lineage_id",
+    "mechanism",
+    "modality",
+    "domain",
+    "population",
+    "regimen",
+    "stage_bucket",
+    "coverage_state",
+    "coverage_reason",
+    "common_variant_support",
+    "rare_variant_support",
+    "cell_state_support",
+    "developmental_regulatory_support",
+    "tractability_compoundability",
+    "generic_platform_baseline",
+    "source_present_pgc",
+    "source_present_schema",
+    "source_present_psychencode",
+    "source_present_chembl",
+    "source_present_opentargets",
+    "matched_gene_entity_ids_json",
+    "matched_gene_symbols_json",
+    "matched_module_entity_ids_json",
+    "included_sources_json",
+    "excluded_sources_json",
+    "compatibility_projection_contract",
+)
 
 KNOWN_GENE_LAYER_FIELDS = (
     "common_variant_support",
@@ -142,6 +184,77 @@ def _render_intervention_object_label(
     )
 
 
+def _intervention_object_identity_components(
+    row: dict[str, str],
+    *,
+    stage_bucket: str,
+) -> tuple[str, ...]:
+    return (
+        _clean_text(row.get("asset_lineage_id"))
+        or _clean_text(row.get("asset_id"))
+        or _clean_text(row.get("asset_name")),
+        _clean_text(row.get("target_class_lineage_id"))
+        or _clean_text(row.get("target_class"))
+        or _clean_text(row.get("target")),
+        _clean_text(row.get("modality")),
+        _clean_text(row.get("domain")),
+        _clean_text(row.get("population")),
+        _clean_text(row.get("regimen")),
+        _clean_text(stage_bucket),
+    )
+
+
+def _describe_intervention_object_identity(
+    row: dict[str, str],
+    *,
+    stage_bucket: str,
+) -> str:
+    labels = (
+        "asset_lineage_id",
+        "target_class_lineage_id",
+        "modality",
+        "domain",
+        "population",
+        "regimen",
+        "stage_bucket",
+    )
+    components = _intervention_object_identity_components(
+        row,
+        stage_bucket=stage_bucket,
+    )
+    fields = [
+        f"{label}={value or '<missing>'}"
+        for label, value in zip(labels, components, strict=True)
+    ]
+    source_program_universe_id = _clean_text(row.get("source_program_universe_id")) or _clean_text(
+        row.get("program_universe_id")
+    )
+    if source_program_universe_id:
+        fields.append(f"source_program_universe_id={source_program_universe_id}")
+    return "; ".join(fields)
+
+
+def _register_intervention_object_entity_id(
+    seen_entity_ids: dict[str, str],
+    *,
+    entity_id: str,
+    row: dict[str, str],
+    stage_bucket: str,
+    context: str,
+) -> None:
+    if entity_id not in seen_entity_ids:
+        seen_entity_ids[entity_id] = _describe_intervention_object_identity(
+            row,
+            stage_bucket=stage_bucket,
+        )
+        return
+    raise ValueError(
+        f"{context} produced duplicate replay entity_id {entity_id}: "
+        f"{seen_entity_ids[entity_id]} vs "
+        f"{_describe_intervention_object_identity(row, stage_bucket=stage_bucket)}"
+    )
+
+
 def _load_archive_rows(descriptor: object) -> tuple[dict[str, str], ...]:
     archive_path = Path(_clean_text(getattr(descriptor, "archive_file"))).resolve()
     archive_format = _clean_text(getattr(descriptor, "archive_format"))
@@ -192,6 +305,67 @@ def _descriptor_index(
         ): descriptor
         for descriptor in archive_descriptors
     }
+
+
+def build_intervention_object_bundle_source_snapshot_provenance(
+    source_snapshots: tuple[object, ...],
+    archive_descriptors: tuple[object, ...],
+) -> str:
+    descriptors_by_key = _descriptor_index(archive_descriptors)
+    provenance_records: list[dict[str, object]] = []
+    for source_snapshot in sorted(
+        source_snapshots,
+        key=lambda item: (
+            _clean_text(getattr(item, "source_name")),
+            _clean_text(getattr(item, "source_version")),
+        ),
+    ):
+        source_name = _clean_text(getattr(source_snapshot, "source_name"))
+        source_version = _clean_text(getattr(source_snapshot, "source_version"))
+        included = bool(getattr(source_snapshot, "included", False))
+        archive_sha256 = ""
+        if included:
+            descriptor = descriptors_by_key.get((source_name, source_version))
+            if descriptor is None:
+                raise ValueError(
+                    "intervention-object feature bundle requires an archive descriptor "
+                    "for included source snapshot "
+                    f"{source_name}/{source_version}"
+                )
+            archive_sha256 = _clean_text(getattr(descriptor, "sha256"))
+        provenance_records.append(
+            {
+                "allowed_data_through": _clean_text(
+                    getattr(source_snapshot, "allowed_data_through")
+                ),
+                "archive_sha256": archive_sha256,
+                "cutoff_mode": _clean_text(getattr(source_snapshot, "cutoff_mode")),
+                "evidence_frozen_at": _clean_text(
+                    getattr(source_snapshot, "evidence_frozen_at")
+                ),
+                "evidence_timestamp_field": _clean_text(
+                    getattr(source_snapshot, "evidence_timestamp_field")
+                ),
+                "exclusion_reason": _clean_text(
+                    getattr(source_snapshot, "exclusion_reason")
+                ),
+                "future_record_policy": _clean_text(
+                    getattr(source_snapshot, "future_record_policy")
+                ),
+                "included": included,
+                "materialized_at": _clean_text(getattr(source_snapshot, "materialized_at")),
+                "missing_date_policy": _clean_text(
+                    getattr(source_snapshot, "missing_date_policy")
+                ),
+                "source_name": source_name,
+                "source_version": source_version,
+            }
+        )
+    return json.dumps(
+        provenance_records,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def _collect_included_archive_rows(
@@ -362,26 +536,21 @@ def _render_intervention_object_entity_id(
     *,
     stage_bucket: str,
 ) -> str:
-    resolved_stage_bucket = _clean_text(stage_bucket)
-    current_program_universe_id = _clean_text(row.get("program_universe_id"))
-    current_stage_slug = _slugify(row.get("stage_bucket"))
-    resolved_stage_slug = _slugify(resolved_stage_bucket)
-    stage_suffix = f"-{current_stage_slug}"
-    if (
-        current_program_universe_id
-        and current_stage_slug
-        and resolved_stage_slug
-        and current_program_universe_id.endswith(stage_suffix)
-    ):
-        return current_program_universe_id[: -len(stage_suffix)] + f"-{resolved_stage_slug}"
-
-    components = (
-        _slugify(row.get("asset_id") or row.get("asset_name")),
-        _slugify(row.get("domain")),
-        _slugify(row.get("regimen")),
-        resolved_stage_slug,
+    components = tuple(
+        _slugify(component)
+        for component in _intervention_object_identity_components(
+            row,
+            stage_bucket=_clean_text(stage_bucket),
+        )
+        if _slugify(component)
     )
-    return "-".join(component for component in components if component)
+    entity_id = "-".join(components)
+    if not entity_id:
+        raise ValueError(
+            "intervention-object replay identity requires at least one non-empty "
+            "identity component"
+        )
+    return entity_id
 
 
 def _stage_bucket_as_of_snapshot(
@@ -443,19 +612,11 @@ def _program_row_as_of_snapshot(
         "population": population,
         "regimen": regimen,
     }
-    identity_fields_changed = (
-        domain != _clean_text(row.get("domain"))
-        or regimen != _clean_text(row.get("regimen"))
-    )
-    entity_id_row = (
-        {**as_of_row, "program_universe_id": ""}
-        if identity_fields_changed
-        else as_of_row
-    )
     return {
         **as_of_row,
+        "source_program_universe_id": _clean_text(row.get("program_universe_id")),
         "program_universe_id": _render_intervention_object_entity_id(
-            entity_id_row,
+            as_of_row,
             stage_bucket=stage_bucket,
         ),
         "stage_bucket": stage_bucket,
@@ -565,6 +726,7 @@ def build_intervention_object_public_slice_rows(
     events_by_id = _load_program_history_events(events_path)
     cohort_rows: list[dict[str, str]] = []
     future_outcome_rows: list[dict[str, str]] = []
+    seen_entity_ids: dict[str, str] = {}
     for row in _iter_admissible_program_rows(
         as_of_date=as_of_date,
         program_universe_path=program_universe_path,
@@ -576,6 +738,13 @@ def build_intervention_object_public_slice_rows(
             as_of_date=as_of_date,
         )
         entity_id = _clean_text(as_of_row.get("program_universe_id"))
+        _register_intervention_object_entity_id(
+            seen_entity_ids,
+            entity_id=entity_id,
+            row=as_of_row,
+            stage_bucket=_clean_text(as_of_row.get("stage_bucket")),
+            context="intervention-object public slice materialization",
+        )
         entity_label = _render_intervention_object_label(as_of_row)
         as_of_stage_rank = _stage_bucket_rank(_clean_text(as_of_row.get("stage_bucket")))
         cohort_rows.append(
@@ -689,6 +858,7 @@ def build_intervention_object_bundle_rows(
     )
 
     bundle_rows: list[dict[str, object]] = []
+    seen_entity_ids: dict[str, str] = {}
     for row in _iter_admissible_program_rows(
         as_of_date=as_of_date,
         program_universe_path=program_universe_path,
@@ -700,6 +870,13 @@ def build_intervention_object_bundle_rows(
             as_of_date=as_of_date,
         )
         intervention_object_id = _clean_text(as_of_row.get("program_universe_id"))
+        _register_intervention_object_entity_id(
+            seen_entity_ids,
+            entity_id=intervention_object_id,
+            row=as_of_row,
+            stage_bucket=_clean_text(as_of_row.get("stage_bucket")),
+            context="intervention-object feature-bundle materialization",
+        )
         target_symbols = [
             _normalize_gene_symbol(symbol)
             for symbol in _json_list(as_of_row.get("target_symbols_json", "[]"))
@@ -720,11 +897,18 @@ def build_intervention_object_bundle_rows(
                 "entity_id": intervention_object_id,
                 "intervention_object_id": intervention_object_id,
                 "entity_label": _render_intervention_object_label(as_of_row),
+                "source_program_universe_id": _clean_text(
+                    as_of_row.get("source_program_universe_id")
+                ),
                 "asset_id": _clean_text(as_of_row.get("asset_id")),
                 "asset_name": _clean_text(as_of_row.get("asset_name")),
+                "asset_lineage_id": _clean_text(as_of_row.get("asset_lineage_id")),
                 "target": _clean_text(as_of_row.get("target")),
                 "target_symbols_json": json.dumps(target_symbols, sort_keys=True),
                 "target_class": _clean_text(as_of_row.get("target_class")),
+                "target_class_lineage_id": _clean_text(
+                    as_of_row.get("target_class_lineage_id")
+                ),
                 "mechanism": _clean_text(as_of_row.get("mechanism")),
                 "modality": _clean_text(as_of_row.get("modality")),
                 "domain": _clean_text(as_of_row.get("domain")),
@@ -880,11 +1064,18 @@ def materialize_intervention_object_feature_bundle(
     )
     output_file.parent.mkdir(parents=True, exist_ok=True)
     table = Table.from_pylist(rows)
+    source_snapshot_provenance_json = build_intervention_object_bundle_source_snapshot_provenance(
+        source_snapshots,
+        archive_descriptors,
+    )
     table = table.replace_schema_metadata(
         {
             b"schema_name": INTERVENTION_OBJECT_BUNDLE_SCHEMA_NAME.encode("utf-8"),
             b"schema_version": INTERVENTION_OBJECT_BUNDLE_SCHEMA_VERSION.encode("utf-8"),
             b"as_of_date": as_of_date.encode("utf-8"),
+            INTERVENTION_OBJECT_BUNDLE_SOURCE_PROVENANCE_METADATA_FIELD.encode(
+                "utf-8"
+            ): source_snapshot_provenance_json.encode("utf-8"),
         }
     )
     pq.write_table(table, output_file)
@@ -896,8 +1087,156 @@ def materialize_intervention_object_feature_bundle(
     }
 
 
-def read_intervention_object_feature_bundle(path: Path) -> list[dict[str, object]]:
-    return pq.read_table(path).to_pylist()
+def read_intervention_object_feature_bundle(
+    path: Path,
+    *,
+    expected_as_of_date: str | None = None,
+    expected_entities: dict[str, str] | None = None,
+    expected_included_sources: tuple[str, ...] | None = None,
+    expected_excluded_sources: tuple[str, ...] | None = None,
+    expected_source_snapshot_provenance_json: str | None = None,
+) -> list[dict[str, object]]:
+    table = pq.read_table(path)
+    metadata = {
+        key.decode("utf-8"): value.decode("utf-8")
+        for key, value in (table.schema.metadata or {}).items()
+    }
+    schema_name = _clean_text(metadata.get("schema_name"))
+    if schema_name != INTERVENTION_OBJECT_BUNDLE_SCHEMA_NAME:
+        raise ValueError(
+            "intervention-object feature bundle schema_name mismatch: "
+            f"expected {INTERVENTION_OBJECT_BUNDLE_SCHEMA_NAME}, found {schema_name or '<missing>'}"
+        )
+    schema_version = _clean_text(metadata.get("schema_version"))
+    if schema_version != INTERVENTION_OBJECT_BUNDLE_SCHEMA_VERSION:
+        raise ValueError(
+            "intervention-object feature bundle schema_version mismatch: "
+            f"expected {INTERVENTION_OBJECT_BUNDLE_SCHEMA_VERSION}, found {schema_version or '<missing>'}"
+        )
+    bundle_as_of_date = _clean_text(metadata.get("as_of_date"))
+    _parse_iso_date(bundle_as_of_date, "intervention-object feature bundle as_of_date")
+    if expected_as_of_date is not None and bundle_as_of_date != expected_as_of_date:
+        raise ValueError(
+            "intervention-object feature bundle as_of_date does not match the "
+            f"snapshot manifest: {bundle_as_of_date} != {expected_as_of_date}"
+        )
+    source_snapshot_provenance_json = _clean_text(
+        metadata.get(INTERVENTION_OBJECT_BUNDLE_SOURCE_PROVENANCE_METADATA_FIELD)
+    )
+    if not source_snapshot_provenance_json:
+        raise ValueError(
+            "intervention-object feature bundle metadata is missing "
+            f"{INTERVENTION_OBJECT_BUNDLE_SOURCE_PROVENANCE_METADATA_FIELD}"
+        )
+    try:
+        source_snapshot_provenance = json.loads(source_snapshot_provenance_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "intervention-object feature bundle source snapshot provenance metadata "
+            "must be valid JSON"
+        ) from exc
+    if not isinstance(source_snapshot_provenance, list):
+        raise ValueError(
+            "intervention-object feature bundle source snapshot provenance metadata "
+            "must be a JSON list"
+        )
+    canonical_source_snapshot_provenance_json = json.dumps(
+        source_snapshot_provenance,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    if (
+        expected_source_snapshot_provenance_json is not None
+        and canonical_source_snapshot_provenance_json
+        != expected_source_snapshot_provenance_json
+    ):
+        raise ValueError(
+            "intervention-object feature bundle source snapshot provenance does not "
+            "match the snapshot manifest and archive index"
+        )
+    missing_columns = [
+        column_name
+        for column_name in INTERVENTION_OBJECT_BUNDLE_REQUIRED_COLUMNS
+        if column_name not in table.column_names
+    ]
+    if missing_columns:
+        raise ValueError(
+            "intervention-object feature bundle is missing required columns: "
+            + ", ".join(missing_columns)
+        )
+    rows = table.to_pylist()
+    bundle_entities: dict[str, str] = {}
+    for index, row in enumerate(rows):
+        entity_type = _clean_text(row.get("entity_type"))
+        if entity_type != INTERVENTION_OBJECT_ENTITY_TYPE:
+            raise ValueError(
+                "intervention-object feature bundle rows must all have "
+                f"entity_type={INTERVENTION_OBJECT_ENTITY_TYPE}: row {index}"
+            )
+        entity_id = _clean_text(row.get("entity_id"))
+        if not entity_id:
+            raise ValueError(
+                "intervention-object feature bundle rows must include entity_id: "
+                f"row {index}"
+            )
+        intervention_object_id = _clean_text(row.get("intervention_object_id"))
+        if intervention_object_id != entity_id:
+            raise ValueError(
+                "intervention-object feature bundle rows must align "
+                "intervention_object_id with entity_id"
+            )
+        entity_label = _clean_text(row.get("entity_label"))
+        if entity_id in bundle_entities:
+            raise ValueError(
+                "intervention-object feature bundle repeated entity_id: "
+                f"{entity_id}"
+            )
+        bundle_entities[entity_id] = entity_label
+        if _clean_text(row.get("compatibility_projection_contract")) != (
+            INTERVENTION_OBJECT_PROJECTION_CONTRACT
+        ):
+            raise ValueError(
+                "intervention-object feature bundle compatibility_projection_contract "
+                "does not match the frozen replay contract"
+            )
+        if expected_included_sources is not None:
+            included_sources = tuple(
+                sorted(_json_list(row.get("included_sources_json", "[]")))
+            )
+            if included_sources != tuple(sorted(expected_included_sources)):
+                raise ValueError(
+                    "intervention-object feature bundle included_sources_json does "
+                    "not match the snapshot manifest"
+                )
+        if expected_excluded_sources is not None:
+            excluded_sources = tuple(
+                sorted(_json_list(row.get("excluded_sources_json", "[]")))
+            )
+            if excluded_sources != tuple(sorted(expected_excluded_sources)):
+                raise ValueError(
+                    "intervention-object feature bundle excluded_sources_json does "
+                    "not match the snapshot manifest"
+                )
+    if expected_entities is not None and bundle_entities != expected_entities:
+        missing_entities = sorted(set(expected_entities).difference(bundle_entities))
+        extra_entities = sorted(set(bundle_entities).difference(expected_entities))
+        mismatched_labels = sorted(
+            entity_id
+            for entity_id, entity_label in bundle_entities.items()
+            if entity_id in expected_entities and expected_entities[entity_id] != entity_label
+        )
+        details: list[str] = []
+        if missing_entities:
+            details.append("missing=" + ", ".join(missing_entities[:5]))
+        if extra_entities:
+            details.append("extra=" + ", ".join(extra_entities[:5]))
+        if mismatched_labels:
+            details.append("label_mismatch=" + ", ".join(mismatched_labels[:5]))
+        raise ValueError(
+            "intervention-object feature bundle does not align with the replay cohort: "
+            + "; ".join(details)
+        )
+    return rows
 
 
 def intervention_object_bundle_path_for_manifest_file(manifest_file: Path) -> Path:

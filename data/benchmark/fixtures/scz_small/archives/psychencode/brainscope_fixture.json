@@ -2,109 +2,20 @@
   "genes": [
     {
       "cell_state_support": 0.77,
-      "developmental_regulatory_support": 0.71,
       "entity_id": "ENSG00000162946",
       "entity_label": "DISC1"
     },
     {
       "cell_state_support": 0.69,
-      "developmental_regulatory_support": 0.68,
       "entity_id": "ENSG00000151067",
       "entity_label": "CACNA1C"
-    },
-    {
-      "cell_state_support": 0.72,
-      "developmental_regulatory_support": 0.66,
-      "entity_id": "ENSG00000130175",
-      "entity_label": "CHRM1"
-    },
-    {
-      "cell_state_support": 0.78,
-      "developmental_regulatory_support": 0.73,
-      "entity_id": "ENSG00000162409",
-      "entity_label": "CHRM4"
-    },
-    {
-      "cell_state_support": 0.48,
-      "developmental_regulatory_support": 0.43,
-      "entity_id": "ENSG00000164234",
-      "entity_label": "TAAR1"
-    },
-    {
-      "cell_state_support": 0.57,
-      "developmental_regulatory_support": 0.52,
-      "entity_id": "ENSG00000176393",
-      "entity_label": "HTR1A"
-    },
-    {
-      "cell_state_support": 0.61,
-      "developmental_regulatory_support": 0.58,
-      "entity_id": "ENSG00000196517",
-      "entity_label": "SLC6A9"
-    },
-    {
-      "cell_state_support": 0.63,
-      "developmental_regulatory_support": 0.57,
-      "entity_id": "ENSG00000102468",
-      "entity_label": "HTR2A"
-    },
-    {
-      "cell_state_support": 0.33,
-      "developmental_regulatory_support": 0.31,
-      "entity_id": "ENSG00000148677",
-      "entity_label": "TMEM97"
-    },
-    {
-      "cell_state_support": 0.74,
-      "developmental_regulatory_support": 0.69,
-      "entity_id": "ENSG00000149295",
-      "entity_label": "DRD2"
-    },
-    {
-      "cell_state_support": 0.46,
-      "developmental_regulatory_support": 0.42,
-      "entity_id": "ENSG00000151577",
-      "entity_label": "DRD3"
-    },
-    {
-      "cell_state_support": 0.44,
-      "developmental_regulatory_support": 0.39,
-      "entity_id": "ENSG00000168350",
-      "entity_label": "HTR7"
     }
   ],
   "modules": [
     {
-      "cell_state_specificity": 0.76,
       "developmental_regulatory_relevance": 0.83,
       "entity_id": "MOD_DLPFC_GRN",
-      "entity_label": "Deep Layer Cortical GRN",
-      "member_gene_genetic_enrichment": 0.81,
-      "psychencode_module_member_genes_json": "[\"DISC1\", \"CACNA1C\"]"
-    },
-    {
-      "cell_state_specificity": 0.79,
-      "developmental_regulatory_relevance": 0.82,
-      "entity_id": "MOD_MUSCARINIC",
-      "entity_label": "Muscarinic Signaling Module",
-      "member_gene_genetic_enrichment": 0.84,
-      "psychencode_module_member_genes_json": "[\"CHRM1\", \"CHRM4\"]"
-    },
-    {
-      "cell_state_specificity": 0.61,
-      "developmental_regulatory_relevance": 0.58,
-      "entity_id": "MOD_MONOAMINE",
-      "entity_label": "Monoamine Receptor Module",
-      "member_gene_genetic_enrichment": 0.66,
-      "psychencode_module_member_genes_json": "[\"DRD2\", \"DRD3\", \"HTR1A\", \"HTR2A\", \"HTR7\", \"TAAR1\", \"TMEM97\"]"
-    },
-    {
-      "cell_state_specificity": 0.64,
-      "developmental_regulatory_relevance": 0.6,
-      "entity_id": "MOD_GLYCINE",
-      "entity_label": "Glycinergic Transport Module",
-      "member_gene_genetic_enrichment": 0.68,
-      "psychencode_module_member_genes_json": "[\"SLC6A9\"]"
+      "entity_label": "Deep Layer Cortical GRN"
     }
   ]
 }

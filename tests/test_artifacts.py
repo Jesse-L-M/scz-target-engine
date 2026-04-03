@@ -75,6 +75,10 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
         "policy_release",
         "hypothesis_release",
         "benchmark_snapshot_manifest",
+        "benchmark_cohort_members",
+        "benchmark_source_cohort_members",
+        "benchmark_source_future_outcomes",
+        "benchmark_cohort_manifest",
         "benchmark_cohort_labels",
         "benchmark_model_run_manifest",
         "benchmark_metric_output_payload",
@@ -207,6 +211,7 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
 
     materialize_benchmark_cohort_labels(
         manifest=snapshot_artifact.payload,
+        manifest_file=snapshot_path,
         cohort_members_file=Path(
             "data/benchmark/fixtures/scz_small/cohort_members.csv"
         ).resolve(),
@@ -215,6 +220,32 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
         ).resolve(),
         output_file=cohort_labels_path,
     )
+    cohort_members_artifact = load_artifact(
+        tmp_path / "benchmark_cohort_members.csv"
+    )
+    assert cohort_members_artifact.artifact_name == "benchmark_cohort_members"
+    assert len(cohort_members_artifact.payload) == 3
+    source_cohort_members_artifact = load_artifact(
+        tmp_path / "source_cohort_members.csv"
+    )
+    assert (
+        source_cohort_members_artifact.artifact_name
+        == "benchmark_source_cohort_members"
+    )
+    assert len(source_cohort_members_artifact.payload) == 3
+    source_future_outcomes_artifact = load_artifact(
+        tmp_path / "source_future_outcomes.csv"
+    )
+    assert (
+        source_future_outcomes_artifact.artifact_name
+        == "benchmark_source_future_outcomes"
+    )
+    assert len(source_future_outcomes_artifact.payload) > 0
+    cohort_manifest_artifact = load_artifact(
+        tmp_path / "benchmark_cohort_manifest.json"
+    )
+    assert cohort_manifest_artifact.artifact_name == "benchmark_cohort_manifest"
+    assert cohort_manifest_artifact.payload.cohort_id == snapshot_artifact.payload.cohort_id
     cohort_artifact = load_artifact(cohort_labels_path)
     assert cohort_artifact.artifact_name == "benchmark_cohort_labels"
     assert len(cohort_artifact.payload) > 0
@@ -246,6 +277,76 @@ def test_benchmark_fixture_artifacts_validate_against_registered_schemas(
         assert (
             load_artifact(Path(interval_file)).artifact_name
             == "benchmark_confidence_interval_payload"
+        )
+
+
+def test_benchmark_source_future_outcomes_artifact_accepts_header_only_csv(
+    tmp_path: Path,
+) -> None:
+    snapshot_path = tmp_path / "snapshot_manifest.json"
+    cohort_labels_path = tmp_path / "cohort_labels.csv"
+    future_outcomes_path = tmp_path / "future_outcomes.csv"
+    future_outcomes_path.write_text(
+        "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n",
+        encoding="utf-8",
+    )
+
+    snapshot_artifact = materialize_benchmark_snapshot_manifest(
+        request_file=Path(
+            "data/benchmark/fixtures/scz_small/snapshot_request.json"
+        ).resolve(),
+        archive_index_file=Path(
+            "data/benchmark/fixtures/scz_small/source_archives.json"
+        ).resolve(),
+        output_file=snapshot_path,
+        materialized_at="2026-04-03",
+    )
+
+    materialize_benchmark_cohort_labels(
+        manifest=load_artifact(
+            snapshot_path,
+            artifact_name="benchmark_snapshot_manifest",
+        ).payload,
+        manifest_file=snapshot_path,
+        cohort_members_file=Path(
+            "data/benchmark/fixtures/scz_small/cohort_members.csv"
+        ).resolve(),
+        future_outcomes_file=future_outcomes_path,
+        output_file=cohort_labels_path,
+    )
+
+    source_future_outcomes_artifact = load_artifact(
+        tmp_path / "source_future_outcomes.csv",
+        artifact_name="benchmark_source_future_outcomes",
+    )
+
+    assert snapshot_artifact["snapshot_id"] == "scz_fixture_2024_06_30"
+    assert (
+        source_future_outcomes_artifact.artifact_name
+        == "benchmark_source_future_outcomes"
+    )
+    assert source_future_outcomes_artifact.payload == ()
+
+
+def test_benchmark_source_future_outcomes_artifact_rejects_malformed_rows(
+    tmp_path: Path,
+) -> None:
+    malformed_path = tmp_path / "source_future_outcomes.csv"
+    malformed_path.write_text(
+        (
+            "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n"
+            "gene,ENSG00000162946,future_schizophrenia_program_started,,manual,\n"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="outcome_date must be an ISO date in YYYY-MM-DD format",
+    ):
+        load_artifact(
+            malformed_path,
+            artifact_name="benchmark_source_future_outcomes",
         )
 
 

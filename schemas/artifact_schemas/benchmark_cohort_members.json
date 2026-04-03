@@ -1,0 +1,31 @@
+{
+  "artifact_name": "benchmark_cohort_members",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Canonical materialized benchmark cohort denominator consumed by later label and scoring validation.",
+  "key_fields": [
+    "entity_type",
+    "entity_id"
+  ],
+  "required_fields": [
+    {
+      "name": "entity_type",
+      "field_type": "string",
+      "required": true,
+      "description": "Entity type under evaluation."
+    },
+    {
+      "name": "entity_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable entity identifier."
+    },
+    {
+      "name": "entity_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable entity label used in reports."
+    }
+  ],
+  "optional_fields": []
+}

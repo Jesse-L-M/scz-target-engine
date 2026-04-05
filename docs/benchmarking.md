@@ -152,7 +152,7 @@ rescue tasks are added.
 The current explicit task rows are:
 
 - ranking task: suite `scz_translational_suite`, task `scz_translational_task`, question `scz_translational_ranking_v1`, fixture path `data/benchmark/fixtures/scz_small/`
-- Track B task: suite `scz_translational_suite`, task `scz_failure_memory_track_b_task`, question `scz_translational_ranking_v1`, fixture path `data/benchmark/fixtures/scz_failure_memory_2025_02_01/`
+- Track B task: suite `scz_translational_suite`, task `scz_failure_memory_track_b_task`, question `scz_failure_memory_track_b_v1`, protocol `track_b_structural_replay_protocol_v1`, fixture path `data/benchmark/fixtures/scz_failure_memory_2025_02_01/`
 - both tasks emit the same benchmark artifact families: `benchmark_snapshot_manifest`, `benchmark_cohort_members`, `benchmark_source_cohort_members`, `benchmark_source_future_outcomes`, `benchmark_cohort_manifest`, `benchmark_cohort_labels`, `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
 
 `snapshot_request.json` remains an operator input, but the fixture request now carries
@@ -170,7 +170,27 @@ Checked-in Track B inputs live under
 
 - `track_b_casebook.csv`: frozen benchmark cases with gold analog ids, gold failure scope, gold replay status, and required-difference checklist items
 - `program_universe.csv` and `events.csv`: slice-local program-memory denominator and event ledger used to freeze coverage-at-cutoff and pre-cutoff analog availability
-- the same `snapshot_request.json`, `source_archives.json`, `cohort_members.csv`, and `future_outcomes.csv` entrypoints used by the rest of the benchmark stack
+- `assets.csv`, `event_provenance.csv`, and `directionality_hypotheses.csv`: pinned local program-memory substrate required by the structural replay baselines
+- `cohort_members.csv`: the six admissible Track B proposal ids keyed to `track_b_casebook.csv` `proposal_entity_id`
+- `future_outcomes.csv`: empty artifact-family placeholder kept for stack compatibility; Track B cohort labels are derived from the casebook, not future-outcome ranking labels
+- `snapshot_request.json` and `source_archives.json`: the same benchmark entrypoints used by the rest of the stack, but the request now names the explicit structural replay question `scz_failure_memory_track_b_v1`
+
+Track B cohort materialization is task-aware:
+
+- `build-benchmark-cohort` loads the frozen casebook beside `cohort_members.csv`
+- `benchmark_cohort_members.csv`, `benchmark_cohort_labels`, runner case outputs, and report-card denominators must all refer to the same six proposal ids
+- `benchmark_cohort_labels` emits one true replay-status label per case on horizon `structural_replay`
+- Track B fails closed if `cohort_members.csv` diverges from the casebook ids or labels
+
+The registry-backed fixture contract now validates these archive-index sibling files up
+front for Track B:
+
+- `track_b_casebook.csv`
+- `program_universe.csv`
+- `events.csv`
+- `assets.csv`
+- `event_provenance.csv`
+- `directionality_hypotheses.csv`
 
 Track B executes these baselines only:
 
@@ -197,6 +217,11 @@ Those sidecars are additive reporting aids, not new top-level benchmark schema
 families. The strict no-fallback archive rule still applies: Track B does not fall
 back to live source data or repo-head program-memory state when the checked-in slice
 does not contain enough history.
+
+Bootstrap note:
+
+- `analog_recall_at_3` intervals resample at unit `case` but skip resamples with zero evaluable analog cases instead of coercing them to `0.0`
+- Track B mismatch review now includes pure analog-retrieval misses, so case-review markdown cannot silently omit a retrieval-only failure
 
 Replay example on the checked-in Track B fixture:
 

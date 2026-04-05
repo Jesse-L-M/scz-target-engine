@@ -2,7 +2,12 @@ from hashlib import sha256
 from pathlib import Path
 import shutil
 
-from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
+import pytest
+
+from scz_target_engine.benchmark_labels import (
+    materialize_benchmark_cohort_labels,
+    read_benchmark_cohort_labels,
+)
 from scz_target_engine.benchmark_leaderboard import (
     materialize_benchmark_reporting,
     read_benchmark_leaderboard_payload,
@@ -22,8 +27,13 @@ from scz_target_engine.benchmark_snapshots import (
 from scz_target_engine.benchmark_track_b import (
     TRACK_B_HORIZON,
     TRACK_B_METRIC_NAMES,
+    TrackBCaseOutput,
+    TrackBCaseOutputPayload,
     build_track_b_case_outputs,
+    build_track_b_confusion_summary,
+    build_track_b_error_analysis_markdown,
     build_track_b_program_memory_dataset,
+    estimate_track_b_metric_intervals,
     load_track_b_casebook,
     read_track_b_case_output_payload,
     read_track_b_confusion_summary,
@@ -42,6 +52,59 @@ TRACK_B_FIXTURE_DIR = (
     / "fixtures"
     / "scz_failure_memory_2025_02_01"
 )
+
+
+def _build_track_b_case_output(
+    *,
+    case_id: str,
+    analog_recall_at_3: float | None,
+    failure_scope_exact_match: bool = True,
+    replay_status_exact_match: bool = True,
+    checklist_f1: float = 1.0,
+) -> TrackBCaseOutput:
+    gold_required_differences = ("failure_scope_resolution",)
+    predicted_required_differences = (
+        gold_required_differences
+        if checklist_f1 == 1.0
+        else ()
+    )
+    return TrackBCaseOutput(
+        case_id=case_id,
+        baseline_id="track_b_structural_current",
+        proposal_entity_id=case_id,
+        proposal_entity_label=case_id.replace("-", " "),
+        source_program_universe_id=f"source-{case_id}",
+        coverage_state_at_cutoff="included",
+        coverage_reason_at_cutoff="checked_in_event_history",
+        gold_analog_event_ids=("gold-analog",) if analog_recall_at_3 is not None else (),
+        retrieved_analog_event_ids=(
+            ("gold-analog",)
+            if analog_recall_at_3 == 1.0
+            else ("different-analog",)
+            if analog_recall_at_3 is not None
+            else ()
+        ),
+        retrieved_analogs=(),
+        gold_failure_scope="unresolved",
+        predicted_failure_scope=(
+            "unresolved"
+            if failure_scope_exact_match
+            else "population"
+        ),
+        gold_replay_status="replay_supported",
+        predicted_replay_status=(
+            "replay_supported"
+            if replay_status_exact_match
+            else "replay_not_supported"
+        ),
+        gold_required_differences=gold_required_differences,
+        predicted_required_differences=predicted_required_differences,
+        analog_recall_at_3=analog_recall_at_3,
+        checklist_f1=checklist_f1,
+        replay_status_exact_match=replay_status_exact_match,
+        failure_scope_exact_match=failure_scope_exact_match,
+        reasoning_summary="synthetic track b case output",
+    )
 
 
 def test_load_track_b_casebook_from_checked_in_fixture() -> None:
@@ -166,6 +229,87 @@ def test_build_track_b_program_memory_dataset_uses_local_dataset_dir(
     )
 
 
+def test_track_b_casebook_alignment_is_enforced_during_cohort_materialization(
+    tmp_path: Path,
+) -> None:
+    fixture_dir = tmp_path / "fixture"
+    shutil.copytree(TRACK_B_FIXTURE_DIR, fixture_dir)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=fixture_dir / "snapshot_request.json",
+        archive_index_file=fixture_dir / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    (fixture_dir / "cohort_members.csv").write_text(
+        (
+            "entity_type,entity_id,entity_label\n"
+            "intervention_object,emraclidine-acute-positive-symptoms-monotherapy-phase-2,"
+            "emraclidine | acute positive symptoms | phase_2\n"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B cohort members must match track_b_casebook.csv",
+    ):
+        materialize_benchmark_cohort_labels(
+            manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+            manifest_file=snapshot_manifest_file,
+            cohort_members_file=fixture_dir / "cohort_members.csv",
+            future_outcomes_file=fixture_dir / "future_outcomes.csv",
+            output_file=tmp_path / "cohort_labels.csv",
+        )
+
+
+def test_track_b_cohort_labels_use_casebook_entity_surface(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+    materialize_benchmark_cohort_labels(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+
+    labels = read_benchmark_cohort_labels(cohort_labels_file)
+    observed_status_by_entity = {
+        label.entity_id: label.label_name
+        for label in labels
+        if label.label_value == "true"
+    }
+    assert manifest.benchmark_question_id == "scz_failure_memory_track_b_v1"
+    assert {label.horizon for label in labels} == {TRACK_B_HORIZON}
+    assert set(observed_status_by_entity) == {
+        "brilaroxazine-acute-positive-symptoms-monotherapy-phase-3-or-registration",
+        "emraclidine-acute-positive-symptoms-monotherapy-phase-2",
+        "iclepertin-cognition-adjunct-phase-3-or-registration",
+        "pimavanserin-negative-symptoms-adjunct-phase-3-or-registration",
+        "roluperidone-negative-symptoms-monotherapy-phase-3-or-registration",
+        "ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration",
+    }
+    assert observed_status_by_entity == {
+        "brilaroxazine-acute-positive-symptoms-monotherapy-phase-3-or-registration": "insufficient_history",
+        "emraclidine-acute-positive-symptoms-monotherapy-phase-2": "replay_not_supported",
+        "iclepertin-cognition-adjunct-phase-3-or-registration": "replay_inconclusive",
+        "pimavanserin-negative-symptoms-adjunct-phase-3-or-registration": "replay_inconclusive",
+        "roluperidone-negative-symptoms-monotherapy-phase-3-or-registration": "insufficient_history",
+        "ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration": "replay_supported",
+    }
+
+
 def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
     snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
     cohort_labels_file = tmp_path / "cohort_labels.csv"
@@ -177,8 +321,10 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         output_file=snapshot_manifest_file,
         materialized_at="2026-04-05",
     )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+    assert manifest.benchmark_question_id == "scz_failure_memory_track_b_v1"
     materialize_benchmark_cohort_labels(
-        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest=manifest,
         manifest_file=snapshot_manifest_file,
         cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
         future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
@@ -226,6 +372,9 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         "program_memory_event_provenance",
         "program_memory_directionality_hypotheses",
     }
+    assert {
+        artifact.artifact_name for artifact in structural_manifest.input_artifacts
+    }.isdisjoint({"engine_config"})
 
     structural_run_id = structural_manifest.run_id
     case_output_payload = read_track_b_case_output_payload(
@@ -357,3 +506,96 @@ def test_track_b_reporting_uses_runner_emitted_case_outputs(
         if case_output.gold_replay_status == "replay_supported"
     )
     assert report_card.slices[0].positive_entity_count == expected_positive_count
+
+
+def test_track_b_intervals_skip_nonevaluable_analog_resamples() -> None:
+    case_outputs = (
+        _build_track_b_case_output(case_id="evaluable", analog_recall_at_3=1.0),
+        _build_track_b_case_output(case_id="nonevaluable", analog_recall_at_3=None),
+    )
+
+    metric_intervals = estimate_track_b_metric_intervals(
+        case_outputs,
+        iterations=64,
+        confidence_level=0.95,
+        random_seed=11,
+    )
+
+    assert metric_intervals["analog_recall_at_3"] == (1.0, 1.0, 1.0)
+
+
+def test_track_b_error_analysis_surfaces_analog_only_mismatches() -> None:
+    case_outputs = (
+        _build_track_b_case_output(case_id="analog-only", analog_recall_at_3=0.0),
+    )
+    confusion_summary = build_track_b_confusion_summary(
+        run_id="run-1",
+        baseline_id="track_b_structural_current",
+        snapshot_id="scz_failure_memory_2025_02_01",
+        case_outputs=case_outputs,
+    )
+    payload = TrackBCaseOutputPayload(
+        run_id="run-1",
+        baseline_id="track_b_structural_current",
+        snapshot_id="scz_failure_memory_2025_02_01",
+        as_of_date="2025-02-01",
+        cases=case_outputs,
+    )
+    markdown = build_track_b_error_analysis_markdown(
+        payload=payload,
+        confusion_summary=confusion_summary,
+        metric_intervals={
+            metric_name: (0.0, 0.0, 0.0)
+            for metric_name in TRACK_B_METRIC_NAMES
+        },
+    )
+
+    assert confusion_summary.mismatched_case_ids == ("analog-only",)
+    assert "- analog recall@3: 0.000" in markdown
+
+
+def test_track_b_run_does_not_require_parsing_engine_config(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+    malformed_config_file = tmp_path / "bad-config.toml"
+    malformed_config_file.write_text("weights =", encoding="utf-8")
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+
+    run_result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_dir=runner_output_dir,
+        config_file=malformed_config_file,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-05T00:00:00Z",
+    )
+
+    structural_manifest = read_benchmark_model_run_manifest(
+        next(
+            Path(path)
+            for path in run_result["run_manifest_files"]
+            if "track_b_structural_current" in path
+        )
+    )
+    assert {
+        artifact.artifact_name for artifact in structural_manifest.input_artifacts
+    }.isdisjoint({"engine_config"})

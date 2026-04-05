@@ -71,13 +71,20 @@ is truly different."
 
 - Track B ships as a second task row, `scz_failure_memory_track_b_task`, inside
   the existing `scz_translational_suite`
+- Track B uses the explicit question `scz_failure_memory_track_b_v1` and protocol
+  `track_b_structural_replay_protocol_v1`; it no longer reuses the ranking
+  question contract
 - Track B keeps the existing benchmark artifact families and command sequence;
   v1 adds Track B-specific sidecars rather than a parallel benchmark stack
 - The checked-in principal Track B fixture is
   `data/benchmark/fixtures/scz_failure_memory_2025_02_01/`
-- The Track B fixture pins `track_b_casebook.csv`, `program_universe.csv`, and
-  `events.csv` beside `source_archives.json` so replay stays cutoff-local and
-  does not read repo-head history tables implicitly
+- The Track B fixture pins `track_b_casebook.csv`, `program_universe.csv`,
+  `events.csv`, `assets.csv`, `event_provenance.csv`, and
+  `directionality_hypotheses.csv` beside `source_archives.json` so replay stays
+  cutoff-local and does not read repo-head history tables implicitly
+- `cohort_members.csv` uses the same six proposal ids as the casebook, and
+  Track B cohort labels are derived from the casebook replay-status golds on
+  horizon `structural_replay`
 
 ## Inputs
 
@@ -94,6 +101,11 @@ is truly different."
 - New or changed artifact:
   `track_b_casebook.csv`
   with one benchmark case per row and frozen gold labels
+- New or changed artifact:
+  `benchmark_cohort_labels`
+  for Track B now materializes one true replay-status label per case from the
+  frozen casebook instead of building `1y/3y/5y` ranking labels from
+  `future_outcomes.csv`
 - New or changed artifact:
   runner sidecars under benchmark generated outputs:
   `runner_outputs/track_b_case_outputs/<run_id>.json` and
@@ -166,10 +178,13 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
 ## Acceptance Tests
 
 - Unit:
-  add tests for casebook validation, failure-scope label validation, and scoring of
-  analog recall / checklist F1
+  add tests for casebook/cohort bijection validation, failure-scope label
+  validation, analog-recall bootstrap semantics, retrieval-only mismatch
+  surfacing, and config independence
 - Integration:
   run one Track B slice end to end from frozen snapshot to case-review output
+  and assert the same six ids flow through cohort labels, runner outputs, and
+  reporting payloads
 - Regression:
   add a test that fails if `unresolved_failure_scope` cases are silently coerced
   into a stronger gold or predicted failure label

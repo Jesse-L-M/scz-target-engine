@@ -1,5 +1,7 @@
 entity_type,entity_id,entity_label
-intervention_object,asset-emraclidine-target-class-muscarinic-cholinergic-modulation-small-molecule-acute-positive-symptoms-adults-with-schizophrenia-during-acute-exacerbation-of-psychotic-symptoms-monotherapy-phase-2,emraclidine | acute positive symptoms | phase_2
-intervention_object,asset-iclepertin-target-class-glycinergic-modulation-small-molecule-cognition-adults-with-schizophrenia-and-cognitive-impairment-on-stable-antipsychotics-adjunct-phase-3-or-registration,iclepertin | cognition | phase_3_or_registration
-intervention_object,asset-pimavanserin-target-class-5-ht2a-serotonergic-modulation-small-molecule-negative-symptoms-adults-with-predominant-negative-symptoms-and-controlled-positive-symptoms-on-stable-antipsychotics-adjunct-phase-3-or-registration,pimavanserin | negative symptoms | phase_3_or_registration
-intervention_object,asset-ulotaront-target-class-taar1-centered-modulation-small-molecule-acute-positive-symptoms-acutely-psychotic-adults-with-schizophrenia-monotherapy-phase-3-or-registration,ulotaront | acute positive symptoms | phase_3_or_registration
+intervention_object,brilaroxazine-acute-positive-symptoms-monotherapy-phase-3-or-registration,brilaroxazine | acute positive symptoms | phase_3_or_registration
+intervention_object,emraclidine-acute-positive-symptoms-monotherapy-phase-2,emraclidine | acute positive symptoms | phase_2
+intervention_object,iclepertin-cognition-adjunct-phase-3-or-registration,iclepertin | cognition | phase_3_or_registration
+intervention_object,pimavanserin-negative-symptoms-adjunct-phase-3-or-registration,pimavanserin | negative symptoms | phase_3_or_registration
+intervention_object,roluperidone-negative-symptoms-monotherapy-phase-3-or-registration,roluperidone | negative symptoms | phase_3_or_registration
+intervention_object,ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration,ulotaront | acute positive symptoms | phase_3_or_registration

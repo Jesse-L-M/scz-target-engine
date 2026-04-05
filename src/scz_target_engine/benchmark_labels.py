@@ -9,12 +9,22 @@ import shutil
 from typing import Any
 
 from scz_target_engine.benchmark_protocol import (
+    BENCHMARK_EVALUATION_HORIZONS,
+    BENCHMARK_LABEL_NAMES,
     BENCHMARK_QUESTION_V1,
     BenchmarkSnapshotManifest,
     VALID_ENTITY_TYPES,
 )
 from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 from scz_target_engine.benchmark_snapshots import read_benchmark_snapshot_manifest
+from scz_target_engine.benchmark_track_b import (
+    TRACK_B_CASEBOOK_FILE_NAME,
+    TRACK_B_EVENTS_FILE_NAME,
+    TRACK_B_PROGRAM_UNIVERSE_FILE_NAME,
+    is_track_b_task,
+    load_track_b_casebook,
+    validate_track_b_casebook_against_cohort_members,
+)
 from scz_target_engine.io import read_csv_rows, read_json, write_csv, write_json
 
 
@@ -211,12 +221,12 @@ class BenchmarkCohortLabel:
             raise ValueError("entity_type must be a supported benchmark entity type")
         _require_text(self.entity_id, "entity_id")
         _require_text(self.entity_label, "entity_label")
-        if self.label_name not in BENCHMARK_QUESTION_V1.translational_outcome_labels:
-            raise ValueError("label_name must match the frozen benchmark question labels")
+        if self.label_name not in BENCHMARK_LABEL_NAMES:
+            raise ValueError("label_name must match a supported benchmark question label")
         if self.label_value not in {OBSERVED_LABEL_VALUE, NOT_OBSERVED_LABEL_VALUE}:
             raise ValueError("label_value must be true or false")
-        if self.horizon not in BENCHMARK_QUESTION_V1.evaluation_horizons:
-            raise ValueError("horizon must match the frozen benchmark question horizons")
+        if self.horizon not in BENCHMARK_EVALUATION_HORIZONS:
+            raise ValueError("horizon must match a supported benchmark question horizon")
         if self.outcome_date:
             _parse_iso_date(self.outcome_date, "outcome_date")
         _require_text(self.label_source, "label_source")
@@ -1018,12 +1028,103 @@ def load_materialized_benchmark_cohort_artifacts(
     )
 
 
+def _track_b_casebook_paths_for_cohort_members_file(
+    cohort_members_file: Path,
+) -> tuple[Path, Path, Path]:
+    fixture_dir = cohort_members_file.resolve().parent
+    return (
+        fixture_dir / TRACK_B_CASEBOOK_FILE_NAME,
+        fixture_dir / TRACK_B_PROGRAM_UNIVERSE_FILE_NAME,
+        fixture_dir / TRACK_B_EVENTS_FILE_NAME,
+    )
+
+
+def _build_track_b_cohort_labels(
+    *,
+    manifest: BenchmarkSnapshotManifest,
+    cohort_members: tuple[CohortMember, ...],
+    cohort_members_file: Path,
+    future_outcomes: tuple[FutureOutcomeRecord, ...],
+    question: object,
+) -> tuple[BenchmarkCohortLabel, ...]:
+    if future_outcomes:
+        raise ValueError(
+            "Track B benchmark does not source cohort labels from future_outcomes.csv; "
+            "the file must remain empty"
+        )
+    casebook_path, program_universe_path, events_path = (
+        _track_b_casebook_paths_for_cohort_members_file(cohort_members_file)
+    )
+    missing_paths = [
+        path.name
+        for path in (casebook_path, program_universe_path, events_path)
+        if not path.exists()
+    ]
+    if missing_paths:
+        raise ValueError(
+            "Track B benchmark requires casebook and slice-local fixture files beside "
+            "cohort_members.csv, missing: "
+            + ", ".join(sorted(missing_paths))
+        )
+    cases = load_track_b_casebook(
+        casebook_path,
+        as_of_date=manifest.as_of_date,
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    validate_track_b_casebook_against_cohort_members(
+        cases=cases,
+        cohort_members=cohort_members,
+    )
+    case_index = {
+        case.proposal_entity_id: case
+        for case in cases
+    }
+    labels: list[BenchmarkCohortLabel] = []
+    for member in sorted(
+        cohort_members,
+        key=lambda item: (item.entity_type, item.entity_id, item.entity_label.lower()),
+    ):
+        case = case_index[member.entity_id]
+        for label_name in question.translational_outcome_labels:
+            label_is_observed = case.gold_replay_status == label_name
+            labels.append(
+                BenchmarkCohortLabel(
+                    cohort_id=manifest.cohort_id,
+                    snapshot_id=manifest.snapshot_id,
+                    entity_type=member.entity_type,
+                    entity_id=member.entity_id,
+                    entity_label=member.entity_label,
+                    label_name=label_name,
+                    label_value=(
+                        OBSERVED_LABEL_VALUE
+                        if label_is_observed
+                        else NOT_OBSERVED_LABEL_VALUE
+                    ),
+                    horizon=question.evaluation_horizons[0],
+                    outcome_date="",
+                    label_source=(
+                        "track_b_casebook"
+                        if label_is_observed
+                        else "not_observed_in_track_b_casebook"
+                    ),
+                    label_notes=(
+                        f"case_id={case.case_id}; source_program_universe_id="
+                        f"{case.source_program_universe_id}; gold_failure_scope="
+                        f"{case.gold_failure_scope}"
+                    ),
+                )
+            )
+    return tuple(labels)
+
+
 def build_benchmark_cohort_labels(
     manifest: BenchmarkSnapshotManifest,
     cohort_members: tuple[CohortMember, ...],
     future_outcomes: tuple[FutureOutcomeRecord, ...],
     *,
     task_registry_path: Path | None = None,
+    cohort_members_file: Path | None = None,
 ) -> tuple[BenchmarkCohortLabel, ...]:
     task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=manifest.benchmark_task_id or None,
@@ -1042,6 +1143,18 @@ def build_benchmark_cohort_labels(
         ),
     )
     question = task_contract.protocol.question
+    if is_track_b_task(task_contract.task_id):
+        if cohort_members_file is None:
+            raise ValueError(
+                "Track B cohort label materialization requires cohort_members_file"
+            )
+        return _build_track_b_cohort_labels(
+            manifest=manifest,
+            cohort_members=cohort_members,
+            cohort_members_file=cohort_members_file,
+            future_outcomes=future_outcomes,
+            question=question,
+        )
     as_of_date = _parse_iso_date(manifest.as_of_date, "as_of_date")
     outcome_closed_at = _parse_iso_date(
         manifest.outcome_observation_closed_at,
@@ -1210,6 +1323,7 @@ def materialize_benchmark_cohort_labels(
         cohort_members,
         load_future_outcomes(resolved_future_outcomes_file),
         task_registry_path=task_registry_path,
+        cohort_members_file=resolved_cohort_members_file,
     )
     write_benchmark_cohort_labels(resolved_output_file, labels)
     cohort_members_output_file = benchmark_cohort_members_path_for_labels_file(

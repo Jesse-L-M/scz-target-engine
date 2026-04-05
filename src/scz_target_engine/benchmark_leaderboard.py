@@ -1049,13 +1049,61 @@ def _materialize_track_b_reporting(
 ) -> dict[str, object]:
     case_output_payloads: dict[str, object] = {}
     confusion_summaries: dict[str, object] = {}
+    cohort_entity_labels: dict[str, str] = {}
+    cohort_replay_statuses: dict[str, str] = {}
+    for label in cohort_labels:
+        if str(getattr(label, "entity_type")) != TRACK_B_ENTITY_TYPE:
+            continue
+        if str(getattr(label, "horizon")) != TRACK_B_HORIZON:
+            raise ValueError(
+                "Track B reporting requires benchmark_cohort_labels to use the "
+                f"{TRACK_B_HORIZON} horizon"
+            )
+        entity_id = str(getattr(label, "entity_id"))
+        entity_label = str(getattr(label, "entity_label"))
+        existing_label = cohort_entity_labels.get(entity_id)
+        if existing_label is not None and existing_label != entity_label:
+            raise ValueError(
+                "Track B reporting requires a stable entity_label per cohort entity"
+            )
+        cohort_entity_labels[entity_id] = entity_label
+        if str(getattr(label, "label_value")) == "true":
+            if entity_id in cohort_replay_statuses:
+                raise ValueError(
+                    "Track B reporting requires exactly one observed replay-status "
+                    "label per cohort entity"
+                )
+            cohort_replay_statuses[entity_id] = str(getattr(label, "label_name"))
+    if not cohort_entity_labels:
+        raise ValueError(
+            "Track B reporting requires non-empty benchmark_cohort_labels for the "
+            "Track B entity surface"
+        )
+    if set(cohort_entity_labels) != set(cohort_replay_statuses):
+        raise ValueError(
+            "Track B reporting requires each cohort entity to carry exactly one true "
+            "replay-status label"
+        )
+    expected_cohort_surface = tuple(
+        sorted(
+            (
+                entity_id,
+                cohort_entity_labels[entity_id],
+                cohort_replay_statuses[entity_id],
+            )
+            for entity_id in cohort_entity_labels
+        )
+    )
     reference_case_signature: tuple[
         tuple[str, str, str, str, tuple[str, ...], tuple[str, ...]],
         ...,
     ] | None = None
-    case_count = 0
+    case_count = len(expected_cohort_surface)
     included_coverage_count = 0
-    replay_supported_case_count = 0
+    replay_supported_case_count = sum(
+        replay_status == "replay_supported"
+        for _, _, replay_status in expected_cohort_surface
+    )
 
     for run_id, (_, run_manifest) in run_manifest_index.items():
         metric_items = metrics_by_run_slice.get((run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON))
@@ -1106,6 +1154,21 @@ def _materialize_track_b_reporting(
         confusion_summary = read_track_b_confusion_summary(
             track_b_confusion_summary_path(resolved_runner_output_dir, run_id=run_id)
         )
+        observed_cohort_surface = tuple(
+            sorted(
+                (
+                    case_output.proposal_entity_id,
+                    case_output.proposal_entity_label,
+                    case_output.gold_replay_status,
+                )
+                for case_output in case_output_payload.cases
+            )
+        )
+        if observed_cohort_surface != expected_cohort_surface:
+            raise ValueError(
+                "Track B runner outputs must match the benchmark cohort entity ids, "
+                "labels, and replay-status labels"
+            )
         case_signature = tuple(
             (
                 case_output.case_id,
@@ -1119,16 +1182,10 @@ def _materialize_track_b_reporting(
         )
         if reference_case_signature is None:
             reference_case_signature = case_signature
-            case_count = len(case_output_payload.cases)
             included_coverage_count = sum(
                 1
                 for case_output in case_output_payload.cases
                 if case_output.coverage_state_at_cutoff == "included"
-            )
-            replay_supported_case_count = sum(
-                1
-                for case_output in case_output_payload.cases
-                if case_output.gold_replay_status == "replay_supported"
             )
         elif case_signature != reference_case_signature:
             raise ValueError(

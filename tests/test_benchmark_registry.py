@@ -50,7 +50,8 @@ def test_registry_resolves_track_b_failure_memory_task_contract() -> None:
     )
 
     assert task_contract.suite_id == "scz_translational_suite"
-    assert task_contract.benchmark_question_id == "scz_translational_ranking_v1"
+    assert task_contract.benchmark_question_id == "scz_failure_memory_track_b_v1"
+    assert task_contract.protocol_id == "track_b_structural_replay_protocol_v1"
     assert task_contract.entity_types == ("intervention_object",)
     assert task_contract.supported_baseline_ids == (
         "track_b_exact_target",
@@ -62,6 +63,14 @@ def test_registry_resolves_track_b_failure_memory_task_contract() -> None:
         Path(
             "data/benchmark/fixtures/scz_failure_memory_2025_02_01/snapshot_request.json"
         ).resolve()
+    )
+    assert task_contract.fixture_paths.archive_index_sibling_file_names == (
+        "track_b_casebook.csv",
+        "program_universe.csv",
+        "events.csv",
+        "assets.csv",
+        "event_provenance.csv",
+        "directionality_hypotheses.csv",
     )
 
 
@@ -83,7 +92,7 @@ def test_registry_preserves_legacy_suite_lookup_default_task() -> None:
 
 def test_registry_resolves_task_from_question_and_baseline_context() -> None:
     task_contract = resolve_benchmark_task_contract(
-        benchmark_question_id="scz_translational_ranking_v1",
+        benchmark_question_id="scz_failure_memory_track_b_v1",
         entity_types=("intervention_object",),
         baseline_ids=(
             "track_b_exact_target",

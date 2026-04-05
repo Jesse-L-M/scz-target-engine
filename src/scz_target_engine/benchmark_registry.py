@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scz_target_engine.benchmark_protocol import (
     FROZEN_BENCHMARK_PROTOCOL,
+    TRACK_B_BENCHMARK_PROTOCOL,
     VALID_ENTITY_TYPES,
     ArtifactSchema,
     BenchmarkProtocol,
@@ -19,6 +20,11 @@ DEFAULT_TASK_REGISTRY_PATH = (
 )
 PIPE_SEPARATOR = "|"
 FROZEN_PROTOCOL_ID = "frozen_benchmark_protocol_v1"
+TRACK_B_PROTOCOL_ID = "track_b_structural_replay_protocol_v1"
+SUPPORTED_PROTOCOLS = {
+    FROZEN_PROTOCOL_ID: FROZEN_BENCHMARK_PROTOCOL,
+    TRACK_B_PROTOCOL_ID: TRACK_B_BENCHMARK_PROTOCOL,
+}
 
 
 def _require_text(value: str, field_name: str) -> str:
@@ -36,6 +42,16 @@ def _split_pipe_list(value: str, field_name: str) -> tuple[str, ...]:
     if not items:
         raise ValueError(f"{field_name} must contain at least one value")
     return items
+
+
+def _split_optional_pipe_list(
+    value: str | None,
+    field_name: str,
+) -> tuple[str, ...]:
+    cleaned = "" if value is None else str(value).strip()
+    if not cleaned:
+        return ()
+    return _split_pipe_list(cleaned, field_name)
 
 
 def _parse_optional_bool(value: str | None, field_name: str) -> bool:
@@ -56,9 +72,10 @@ def _resolve_repo_relative_path(path_text: str) -> Path:
 
 def _resolve_protocol(protocol_id: str) -> BenchmarkProtocol:
     resolved_protocol_id = _require_text(protocol_id, "protocol_id")
-    if resolved_protocol_id != FROZEN_PROTOCOL_ID:
+    protocol = SUPPORTED_PROTOCOLS.get(resolved_protocol_id)
+    if protocol is None:
         raise ValueError(f"unsupported benchmark protocol id: {resolved_protocol_id}")
-    return FROZEN_BENCHMARK_PROTOCOL
+    return protocol
 
 
 @dataclass(frozen=True)
@@ -67,6 +84,7 @@ class BenchmarkFixturePaths:
     cohort_members_file: Path
     future_outcomes_file: Path
     archive_index_file: Path
+    archive_index_sibling_file_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for field_name, path in (
@@ -77,6 +95,34 @@ class BenchmarkFixturePaths:
         ):
             if not path.exists():
                 raise ValueError(f"{field_name} does not exist: {path}")
+        for file_name in self.archive_index_sibling_file_names:
+            _require_text(file_name, "archive_index_sibling_file_names")
+        self.validate_archive_index_sibling_files(self.archive_index_file)
+
+    def resolve_archive_index_sibling_paths(
+        self,
+        archive_index_file: Path,
+    ) -> tuple[Path, ...]:
+        base_dir = archive_index_file.resolve().parent
+        return tuple(
+            (base_dir / file_name).resolve()
+            for file_name in self.archive_index_sibling_file_names
+        )
+
+    def validate_archive_index_sibling_files(
+        self,
+        archive_index_file: Path,
+    ) -> None:
+        missing_paths = [
+            path.name
+            for path in self.resolve_archive_index_sibling_paths(archive_index_file)
+            if not path.exists()
+        ]
+        if missing_paths:
+            raise ValueError(
+                "benchmark fixture is missing required archive-index sibling files: "
+                + ", ".join(sorted(missing_paths))
+            )
 
 
 @dataclass(frozen=True)
@@ -100,7 +146,7 @@ class BenchmarkTaskContract:
         _require_text(self.suite_label, "suite_label")
         _require_text(self.task_id, "task_id")
         _require_text(self.task_label, "task_label")
-        if self.protocol_id != FROZEN_PROTOCOL_ID:
+        if self.protocol_id not in SUPPORTED_PROTOCOLS:
             raise ValueError(f"unsupported protocol_id: {self.protocol_id}")
         if self.benchmark_question_id != self.protocol.question.question_id:
             raise ValueError(
@@ -213,6 +259,10 @@ def _build_task_contract(row: dict[str, str]) -> BenchmarkTaskContract:
             ),
             archive_index_file=_resolve_repo_relative_path(
                 row["fixture_archive_index_file"]
+            ),
+            archive_index_sibling_file_names=_split_optional_pipe_list(
+                row.get("fixture_archive_index_sibling_file_names"),
+                "fixture_archive_index_sibling_file_names",
             ),
         ),
         protocol=protocol,
@@ -379,6 +429,7 @@ __all__ = [
     "BenchmarkTaskContract",
     "DEFAULT_TASK_REGISTRY_PATH",
     "FROZEN_PROTOCOL_ID",
+    "TRACK_B_PROTOCOL_ID",
     "load_benchmark_suite_contracts",
     "load_benchmark_task_contracts",
     "resolve_benchmark_suite_contract",

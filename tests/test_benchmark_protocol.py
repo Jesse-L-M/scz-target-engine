@@ -14,6 +14,7 @@ from scz_target_engine.benchmark_protocol import (
     REJECT_SNAPSHOT_POLICY,
     SOURCE_CUTOFF_RULES_V1,
     SOURCE_RELEASE_CUTOFF,
+    TRACK_B_BENCHMARK_PROTOCOL,
     BenchmarkSnapshotManifest,
     BaselineDefinition,
     SourceSnapshot,
@@ -173,6 +174,19 @@ def test_frozen_protocol_declares_intervention_object_track_a_support() -> None:
     assert (
         INTERVENTION_OBJECT_ENTITY_TYPE
         in available_now_baselines["random_with_coverage"].entity_types
+    )
+
+
+def test_track_b_protocol_uses_explicit_structural_replay_question() -> None:
+    assert TRACK_B_BENCHMARK_PROTOCOL.question.question_id == "scz_failure_memory_track_b_v1"
+    assert TRACK_B_BENCHMARK_PROTOCOL.question.evaluation_horizons == (
+        "structural_replay",
+    )
+    assert TRACK_B_BENCHMARK_PROTOCOL.question.translational_outcome_labels == (
+        "replay_supported",
+        "replay_not_supported",
+        "replay_inconclusive",
+        "insufficient_history",
     )
 
 
@@ -424,10 +438,7 @@ def test_snapshot_rejects_baseline_without_entity_type_overlap() -> None:
 def test_snapshot_rejects_non_frozen_benchmark_question_id() -> None:
     with pytest.raises(
         ValueError,
-        match=(
-            "benchmark_question_id must match the frozen benchmark question id "
-            "scz_translational_ranking_v1"
-        ),
+        match="benchmark_question_id must match a supported benchmark question id",
     ):
         BenchmarkSnapshotManifest(
             schema_name="benchmark_snapshot_manifest",
@@ -478,4 +489,8 @@ def test_baseline_definitions_serialize_deterministically() -> None:
 
     assert serialized == restored
     assert [payload["baseline_id"] for payload in serialized] == list(FROZEN_BASELINE_IDS)
-    assert FROZEN_BENCHMARK_PROTOCOL.to_dict()["baselines"] == serialized
+    assert (
+        FROZEN_BENCHMARK_PROTOCOL.to_dict()["baselines"]
+        + TRACK_B_BENCHMARK_PROTOCOL.to_dict()["baselines"]
+        == serialized
+    )

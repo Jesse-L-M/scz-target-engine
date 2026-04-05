@@ -6,14 +6,14 @@
     "track_b_nearest_history",
     "track_b_structural_current"
   ],
-  "benchmark_question_id": "scz_translational_ranking_v1",
+  "benchmark_question_id": "scz_failure_memory_track_b_v1",
   "benchmark_suite_id": "scz_translational_suite",
   "benchmark_task_id": "scz_failure_memory_track_b_task",
   "cohort_id": "scz_failure_memory_2025_02_01_cohort",
   "entity_types": [
     "intervention_object"
   ],
-  "notes": "Checked-in Track B structural replay slice for the post-PR4 failure-memory review. It reuses the archived benchmark snapshot path plus the pinned program-memory events and denominator state at the 2025-02-01 cutoff.",
+  "notes": "Checked-in Track B structural replay slice for the post-PR4 failure-memory review. It reuses the benchmark snapshot artifact family while pinning the 2025-02-01 casebook, denominator rows, and program-memory ledgers that define the structural replay surface.",
   "outcome_observation_closed_at": "2029-06-30",
   "program_history_events_file": "events.csv",
   "program_universe_file": "program_universe.csv",

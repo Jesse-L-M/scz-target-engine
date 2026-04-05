@@ -11,7 +11,7 @@ workflow shipped on `main`.
 - `fixtures/scz_small/archives/`: small fixture-scale archived source extracts
 - `fixtures/scz_small/cohort_members.csv`: admissible ranking cohort
 - `fixtures/scz_small/future_outcomes.csv`: post-cutoff label adjudication input
-- `fixtures/scz_failure_memory_2025_02_01/`: checked-in Track B fixture with `snapshot_request.json`, `source_archives.json`, `track_b_casebook.csv`, pinned local `assets.csv`, `events.csv`, `event_provenance.csv`, `directionality_hypotheses.csv`, `program_universe.csv`, `cohort_members.csv`, and `future_outcomes.csv`
+- `fixtures/scz_failure_memory_2025_02_01/`: checked-in Track B fixture with explicit structural replay question `scz_failure_memory_track_b_v1`, `snapshot_request.json`, `source_archives.json`, `track_b_casebook.csv`, pinned local `assets.csv`, `events.csv`, `event_provenance.csv`, `directionality_hypotheses.csv`, `program_universe.csv`, `cohort_members.csv`, and placeholder `future_outcomes.csv`
 - `public_slices/catalog.json`: checked-in catalog of honest public historical slices derived from the registry-backed fixture task, including principal-horizon evaluability metadata
 
 ## Generated
@@ -122,6 +122,7 @@ uv run scz-target-engine build-benchmark-reporting \
 That Track B flow keeps the benchmark artifact families unchanged while adding:
 
 - `track_b_casebook.csv` as a checked-in fixture input
+- casebook-derived `benchmark_cohort_labels` on horizon `structural_replay`
 - structural metric payloads on horizon `structural_replay`
 - runner sidecars for per-case outputs and confusion summaries
 - reporting-side markdown case reviews under `public_payloads/error_analysis/`
@@ -137,6 +138,8 @@ Current replay split:
 
 - `fixtures/scz_small/` remains the canonical gene/module regression path, with the restored minimal pre-Track-A archive surface
 - `fixtures/scz_failure_memory_2025_02_01/` is the checked-in Track B structural replay slice, pinned to the 2025-02-01 cutoff with a frozen `track_b_casebook.csv`
+- that Track B fixture requires `track_b_casebook.csv`, `program_universe.csv`, `events.csv`, `assets.csv`, `event_provenance.csv`, and `directionality_hypotheses.csv` beside `source_archives.json`, and snapshot build validates that contract up front
+- `cohort_members.csv` in the Track B fixture uses the same six proposal ids as the casebook, and `build-benchmark-cohort` fails closed if they diverge
 - `public_slices/` now exercise the shipped Track A intervention-object replay path
 - those intervention-object slices use only `v0_current`, `v1_current`, and `random_with_coverage`
 - the Track B fixture uses only `track_b_exact_target`, `track_b_target_class`, `track_b_nearest_history`, and `track_b_structural_current`

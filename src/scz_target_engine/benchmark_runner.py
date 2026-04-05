@@ -73,6 +73,7 @@ from scz_target_engine.benchmark_track_b import (
     track_b_events_path_for_archive_index_file,
     track_b_metric_cohort_sizes,
     track_b_program_universe_path_for_archive_index_file,
+    validate_track_b_casebook_against_cohort_members,
     write_track_b_case_output_payload,
     write_track_b_confusion_summary,
 )
@@ -1234,7 +1235,6 @@ def _run_track_b_benchmark(
     materialized_cohort: Any,
     archive_index_file: Path,
     output_dir: Path,
-    config_file: Path,
     code_version: str,
     task_contract: Any,
     bootstrap_iterations: int,
@@ -1243,54 +1243,31 @@ def _run_track_b_benchmark(
     deterministic_test_mode: bool,
     execution_timestamp: str | None,
 ) -> dict[str, object]:
+    task_contract.fixture_paths.validate_archive_index_sibling_files(
+        archive_index_file.resolve()
+    )
     casebook_path = track_b_casebook_path_for_archive_index_file(archive_index_file)
-    if not casebook_path.exists():
-        raise ValueError(
-            "Track B benchmark requires a checked-in track_b_casebook.csv beside "
-            f"the source archive index: {casebook_path}"
-        )
     events_path = track_b_events_path_for_archive_index_file(archive_index_file)
-    if not events_path.exists():
-        raise ValueError(
-            "Track B benchmark requires a checked-in events.csv beside the source "
-            f"archive index: {events_path}"
-        )
     program_universe_path = track_b_program_universe_path_for_archive_index_file(
         archive_index_file
     )
-    if not program_universe_path.exists():
-        raise ValueError(
-            "Track B benchmark requires a checked-in program_universe.csv beside "
-            f"the source archive index: {program_universe_path}"
-        )
     assets_path = track_b_assets_path_for_archive_index_file(archive_index_file)
-    if not assets_path.exists():
-        raise ValueError(
-            "Track B benchmark requires a checked-in assets.csv beside the source "
-            f"archive index: {assets_path}"
-        )
     event_provenance_path = track_b_event_provenance_path_for_archive_index_file(
         archive_index_file
     )
-    if not event_provenance_path.exists():
-        raise ValueError(
-            "Track B benchmark requires a checked-in event_provenance.csv beside "
-            f"the source archive index: {event_provenance_path}"
-        )
     directionality_hypotheses_path = (
         track_b_directionality_hypotheses_path_for_archive_index_file(archive_index_file)
     )
-    if not directionality_hypotheses_path.exists():
-        raise ValueError(
-            "Track B benchmark requires checked-in directionality_hypotheses.csv "
-            f"beside the source archive index: {directionality_hypotheses_path}"
-        )
 
     cases = load_track_b_casebook(
         casebook_path,
         as_of_date=manifest.as_of_date,
         program_universe_path=program_universe_path,
         events_path=events_path,
+    )
+    validate_track_b_casebook_against_cohort_members(
+        cases=cases,
+        cohort_members=materialized_cohort.cohort_members,
     )
     dataset = build_track_b_program_memory_dataset(
         as_of_date=manifest.as_of_date,
@@ -1333,14 +1310,6 @@ def _run_track_b_benchmark(
         artifact_name="source_archive_index",
         path=archive_index_file,
         notes="Archived source descriptor index consumed for the Track B snapshot.",
-    )
-    config_ref = _build_artifact_reference(
-        artifact_name="engine_config",
-        path=config_file,
-        notes=(
-            "Retained for CLI parity; Track B v1 baselines do not consume the v0/v1 "
-            "engine weight configuration."
-        ),
     )
     casebook_ref = _build_artifact_reference(
         artifact_name="track_b_casebook",
@@ -1551,7 +1520,6 @@ def _run_track_b_benchmark(
             program_memory_assets_ref,
             program_memory_provenance_ref,
             program_memory_hypotheses_ref,
-            config_ref,
             *cohort_source_input_refs,
         ]
         input_artifacts.sort(
@@ -1618,7 +1586,7 @@ def run_benchmark(
     cohort_labels_file: Path,
     archive_index_file: Path,
     output_dir: Path,
-    config_file: Path,
+    config_file: Path | None,
     code_version: str,
     bootstrap_iterations: int | None = None,
     bootstrap_confidence_level: float = DEFAULT_BOOTSTRAP_CONFIDENCE_LEVEL,
@@ -1643,9 +1611,6 @@ def run_benchmark(
         snapshot_manifest_file=manifest_file,
         cohort_labels_file=cohort_labels_file,
     )
-    cohort_labels = materialized_cohort.cohort_labels
-    config = load_config(config_file)
-    archive_descriptors = load_source_archive_descriptors(archive_index_file)
 
     resolved_bootstrap_iterations = bootstrap_iterations
     if resolved_bootstrap_iterations is None:
@@ -1661,7 +1626,6 @@ def run_benchmark(
             materialized_cohort=materialized_cohort,
             archive_index_file=archive_index_file,
             output_dir=output_dir,
-            config_file=config_file,
             code_version=code_version,
             task_contract=task_contract,
             bootstrap_iterations=resolved_bootstrap_iterations,
@@ -1671,6 +1635,14 @@ def run_benchmark(
             execution_timestamp=execution_timestamp,
         )
 
+    resolved_config_file = (
+        config_file.resolve()
+        if config_file is not None
+        else (Path(__file__).resolve().parents[2] / "config" / "v0.toml").resolve()
+    )
+    cohort_labels = materialized_cohort.cohort_labels
+    config = load_config(resolved_config_file)
+    archive_descriptors = load_source_archive_descriptors(archive_index_file)
     context = _build_context(
         manifest,
         cohort_labels,
@@ -1717,7 +1689,7 @@ def run_benchmark(
     )
     config_ref = _build_artifact_reference(
         artifact_name="engine_config",
-        path=config_file,
+        path=resolved_config_file,
         notes="Current v0/v1 weight configuration used for benchmark execution",
     )
 
@@ -1995,11 +1967,6 @@ def materialize_benchmark_run(
     deterministic_test_mode: bool = False,
     execution_timestamp: str | None = None,
 ) -> dict[str, object]:
-    resolved_config_file = (
-        config_file.resolve()
-        if config_file is not None
-        else (Path(__file__).resolve().parents[2] / "config" / "v0.toml").resolve()
-    )
     repo_root = Path(__file__).resolve().parents[2]
     resolved_code_version = code_version or _resolve_code_version(repo_root)
     return run_benchmark(
@@ -2007,7 +1974,7 @@ def materialize_benchmark_run(
         cohort_labels_file=cohort_labels_file,
         archive_index_file=archive_index_file,
         output_dir=output_dir,
-        config_file=resolved_config_file,
+        config_file=(config_file.resolve() if config_file is not None else None),
         code_version=resolved_code_version,
         bootstrap_iterations=bootstrap_iterations,
         bootstrap_confidence_level=bootstrap_confidence_level,

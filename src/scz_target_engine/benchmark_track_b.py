@@ -595,11 +595,22 @@ def load_track_b_casebook(
         raise ValueError("track_b_casebook.csv must contain at least one case")
     cases: list[TrackBCase] = []
     seen_case_ids: set[str] = set()
+    seen_proposal_entity_ids: set[str] = set()
     for row in rows:
         case_id = _require_text(str(row.get("case_id", "")), "case_id")
         if case_id in seen_case_ids:
             raise ValueError(f"duplicate case_id in track_b_casebook.csv: {case_id}")
         seen_case_ids.add(case_id)
+        proposal_entity_id = _require_text(
+            str(row.get("proposal_entity_id", "")),
+            "proposal_entity_id",
+        )
+        if proposal_entity_id in seen_proposal_entity_ids:
+            raise ValueError(
+                "duplicate proposal_entity_id in track_b_casebook.csv: "
+                f"{proposal_entity_id}"
+            )
+        seen_proposal_entity_ids.add(proposal_entity_id)
         source_program_universe_id = _require_text(
             str(row.get("source_program_universe_id", "")),
             "source_program_universe_id",
@@ -680,10 +691,7 @@ def load_track_b_casebook(
         cases.append(
             TrackBCase(
                 case_id=case_id,
-                proposal_entity_id=_require_text(
-                    str(row.get("proposal_entity_id", "")),
-                    "proposal_entity_id",
-                ),
+                proposal_entity_id=proposal_entity_id,
                 proposal_entity_label=_require_text(
                     str(row.get("proposal_entity_label", "")),
                     "proposal_entity_label",
@@ -700,6 +708,55 @@ def load_track_b_casebook(
             )
         )
     return tuple(sorted(cases, key=lambda item: item.case_id))
+
+
+def validate_track_b_casebook_against_cohort_members(
+    *,
+    cases: tuple[TrackBCase, ...],
+    cohort_members: tuple[object, ...],
+) -> None:
+    case_index = {
+        case.proposal_entity_id: case.proposal_entity_label
+        for case in cases
+    }
+    member_index: dict[str, str] = {}
+    for member in cohort_members:
+        entity_type = str(getattr(member, "entity_type", "")).strip()
+        entity_id = str(getattr(member, "entity_id", "")).strip()
+        entity_label = str(getattr(member, "entity_label", "")).strip()
+        if entity_type != TRACK_B_ENTITY_TYPE:
+            continue
+        member_index[entity_id] = entity_label
+    missing_entity_ids = sorted(set(case_index).difference(member_index))
+    unexpected_entity_ids = sorted(set(member_index).difference(case_index))
+    label_mismatches = sorted(
+        entity_id
+        for entity_id, entity_label in member_index.items()
+        if entity_id in case_index and case_index[entity_id] != entity_label
+    )
+    if not missing_entity_ids and not unexpected_entity_ids and not label_mismatches:
+        return
+    details: list[str] = []
+    if missing_entity_ids:
+        details.append(
+            "missing="
+            + ", ".join(missing_entity_ids[:5])
+        )
+    if unexpected_entity_ids:
+        details.append(
+            "unexpected="
+            + ", ".join(unexpected_entity_ids[:5])
+        )
+    if label_mismatches:
+        details.append(
+            "label_mismatches="
+            + ", ".join(label_mismatches[:5])
+        )
+    raise ValueError(
+        "Track B cohort members must match track_b_casebook.csv proposal_entity_id "
+        "and proposal_entity_label"
+        + (f" ({'; '.join(details)})" if details else "")
+    )
 
 
 def build_track_b_program_memory_dataset(
@@ -1244,6 +1301,18 @@ def score_track_b_case_outputs(
     }
 
 
+def _track_b_case_has_mismatch(case_output: TrackBCaseOutput) -> bool:
+    analog_retrieval_miss = (
+        case_output.analog_recall_at_3 is not None
+        and case_output.analog_recall_at_3 < 1.0
+    )
+    return analog_retrieval_miss or not (
+        case_output.failure_scope_exact_match
+        and case_output.replay_status_exact_match
+        and case_output.checklist_f1 == 1.0
+    )
+
+
 def track_b_metric_cohort_sizes(
     case_outputs: tuple[TrackBCaseOutput, ...],
 ) -> dict[str, int]:
@@ -1295,12 +1364,22 @@ def estimate_track_b_metric_intervals(
             for _ in range(len(case_outputs))
         )
         sample_scores = score_track_b_case_outputs(sample)
+        _, analog_case_count = _analog_recall_macro_at_3(sample)
         for metric_name, metric_value in sample_scores.items():
+            if metric_name == "analog_recall_at_3" and analog_case_count == 0:
+                continue
             samples_by_metric[metric_name].append(metric_value)
     alpha = (1.0 - confidence_level) / 2.0
     intervals: dict[str, tuple[float, float, float]] = {}
     for metric_name, point_estimate in point_estimates.items():
         sorted_values = sorted(samples_by_metric[metric_name])
+        if not sorted_values:
+            intervals[metric_name] = (
+                point_estimate,
+                point_estimate,
+                point_estimate,
+            )
+            continue
         intervals[metric_name] = (
             point_estimate,
             _round_metric(_percentile(sorted_values, alpha)),
@@ -1323,11 +1402,7 @@ def build_track_b_confusion_summary(
     mismatch_ids = tuple(
         case_output.case_id
         for case_output in case_outputs
-        if not (
-            case_output.failure_scope_exact_match
-            and case_output.replay_status_exact_match
-            and case_output.checklist_f1 == 1.0
-        )
+        if _track_b_case_has_mismatch(case_output)
     )
     failure_scope_counter: Counter[tuple[str, str]] = Counter(
         (
@@ -1440,6 +1515,14 @@ def build_track_b_error_analysis_markdown(
         lines.append(
             f"- replay status: gold `{case_output.gold_replay_status}` vs "
             f"predicted `{case_output.predicted_replay_status}`"
+        )
+        lines.append(
+            "- analog recall@3: "
+            + (
+                f"{case_output.analog_recall_at_3:.3f}"
+                if case_output.analog_recall_at_3 is not None
+                else "not evaluable"
+            )
         )
         lines.append(
             "- required differences: gold "

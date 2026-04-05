@@ -1289,22 +1289,47 @@ def _run_track_b_benchmark(
     task_contract.fixture_paths.validate_archive_index_sibling_files(
         bundled_archive_index_file
     )
-    casebook_path = track_b_casebook_path_for_archive_index_file(
-        bundled_archive_index_file
-    )
-    events_path = track_b_events_path_for_archive_index_file(bundled_archive_index_file)
-    program_universe_path = track_b_program_universe_path_for_archive_index_file(
-        bundled_archive_index_file
-    )
-    assets_path = track_b_assets_path_for_archive_index_file(bundled_archive_index_file)
-    event_provenance_path = track_b_event_provenance_path_for_archive_index_file(
-        bundled_archive_index_file
-    )
-    directionality_hypotheses_path = (
-        track_b_directionality_hypotheses_path_for_archive_index_file(
+    expected_source_artifact_paths = {
+        "track_b_casebook": track_b_casebook_path_for_archive_index_file(
             bundled_archive_index_file
-        )
-    )
+        ).resolve(),
+        "track_b_program_history_events": track_b_events_path_for_archive_index_file(
+            bundled_archive_index_file
+        ).resolve(),
+        "track_b_program_universe": (
+            track_b_program_universe_path_for_archive_index_file(
+                bundled_archive_index_file
+            ).resolve()
+        ),
+        "program_memory_assets": track_b_assets_path_for_archive_index_file(
+            bundled_archive_index_file
+        ).resolve(),
+        "program_memory_event_provenance": (
+            track_b_event_provenance_path_for_archive_index_file(
+                bundled_archive_index_file
+            ).resolve()
+        ),
+        "program_memory_directionality_hypotheses": (
+            track_b_directionality_hypotheses_path_for_archive_index_file(
+                bundled_archive_index_file
+            ).resolve()
+        ),
+    }
+    for artifact_name, expected_path in expected_source_artifact_paths.items():
+        if source_artifact_index[artifact_name] != expected_path:
+            raise ValueError(
+                "Track B runner requires the pinned auxiliary source artifacts to "
+                f"stay beside source_archives.json inside the materialized cohort "
+                f"bundle ({artifact_name})"
+            )
+    casebook_path = source_artifact_index["track_b_casebook"]
+    events_path = source_artifact_index["track_b_program_history_events"]
+    program_universe_path = source_artifact_index["track_b_program_universe"]
+    assets_path = source_artifact_index["program_memory_assets"]
+    event_provenance_path = source_artifact_index["program_memory_event_provenance"]
+    directionality_hypotheses_path = source_artifact_index[
+        "program_memory_directionality_hypotheses"
+    ]
 
     cases = load_track_b_casebook(
         casebook_path,
@@ -1319,6 +1344,7 @@ def _run_track_b_benchmark(
     dataset = build_track_b_program_memory_dataset(
         as_of_date=manifest.as_of_date,
         events_path=events_path,
+        dataset_dir=events_path.resolve().parent,
     )
 
     manifest_ref = _build_artifact_reference(

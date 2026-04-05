@@ -18,6 +18,7 @@ from scz_target_engine.benchmark_intervention_objects import (
     read_intervention_object_projection_payload,
 )
 from scz_target_engine.benchmark_metrics import (
+    BOOTSTRAP_INTERVAL_METHOD,
     BenchmarkConfidenceIntervalPayload,
     BenchmarkMetricOutputPayload,
     RETRIEVAL_METRIC_NAMES,
@@ -42,10 +43,15 @@ from scz_target_engine.benchmark_track_b import (
     TRACK_B_ENTITY_TYPE,
     TRACK_B_HORIZON,
     TRACK_B_METRIC_NAMES,
+    TRACK_B_BOOTSTRAP_RESAMPLE_UNIT,
+    build_track_b_confusion_summary,
     build_track_b_error_analysis_markdown,
+    estimate_track_b_metric_intervals,
     is_track_b_task,
     read_track_b_case_output_payload,
     read_track_b_confusion_summary,
+    score_track_b_case_outputs,
+    track_b_metric_cohort_sizes,
     track_b_case_output_path,
     track_b_confusion_summary_path,
 )
@@ -105,6 +111,25 @@ def _build_artifact_reference(
         schema_name=schema_name,
         notes=notes,
     )
+
+
+def _build_track_b_slice_notes(
+    *,
+    case_count: int,
+    included_coverage_count: int,
+    replay_supported_case_count: int,
+    analog_evaluable_case_count: int,
+    deterministic_test_mode: bool,
+) -> str:
+    notes = (
+        f"track_b_cases={case_count};"
+        f" included_coverage_cases={included_coverage_count};"
+        f" replay_supported_cases={replay_supported_case_count};"
+        f" analog_evaluable_cases={analog_evaluable_case_count}"
+    )
+    if deterministic_test_mode:
+        notes += "; deterministic_test_mode=true"
+    return notes
 
 
 def _parse_slice_counts(notes: str) -> tuple[int, int, int] | None:
@@ -1020,6 +1045,161 @@ def read_benchmark_leaderboard_payload(path: Path) -> BenchmarkLeaderboardPayloa
     return BenchmarkLeaderboardPayload.from_dict(payload)
 
 
+def _validate_track_b_runner_outputs(
+    *,
+    run_id: str,
+    metric_items: list[tuple[Path, BenchmarkMetricOutputPayload]],
+    interval_index: dict[
+        tuple[str, str, str, str],
+        tuple[Path, BenchmarkConfidenceIntervalPayload],
+    ],
+    case_output_payload: Any,
+    confusion_summary: Any,
+) -> tuple[dict[str, float], dict[str, tuple[float, float, float]], str]:
+    if case_output_payload.run_id != run_id:
+        raise ValueError(
+            f"Track B case output payload run_id does not match runner manifest for {run_id}"
+        )
+    if confusion_summary.run_id != run_id:
+        raise ValueError(
+            f"Track B confusion summary run_id does not match runner manifest for {run_id}"
+        )
+    if case_output_payload.baseline_id != confusion_summary.baseline_id:
+        raise ValueError(
+            f"Track B runner outputs disagree on baseline_id for run_id {run_id}"
+        )
+    if case_output_payload.snapshot_id != confusion_summary.snapshot_id:
+        raise ValueError(
+            f"Track B runner outputs disagree on snapshot_id for run_id {run_id}"
+        )
+    expected_metric_values = score_track_b_case_outputs(case_output_payload.cases)
+    expected_metric_cohort_sizes = track_b_metric_cohort_sizes(case_output_payload.cases)
+    expected_confusion_summary = build_track_b_confusion_summary(
+        run_id=run_id,
+        baseline_id=case_output_payload.baseline_id,
+        snapshot_id=case_output_payload.snapshot_id,
+        case_outputs=case_output_payload.cases,
+    )
+    if confusion_summary != expected_confusion_summary:
+        raise ValueError(
+            f"Track B confusion summary does not match runner case outputs for {run_id}"
+        )
+    deterministic_test_mode = any(
+        "deterministic_test_mode=true" in metric_payload.notes
+        for _, metric_payload in metric_items
+    )
+    expected_slice_notes = _build_track_b_slice_notes(
+        case_count=len(case_output_payload.cases),
+        included_coverage_count=sum(
+            1
+            for case_output in case_output_payload.cases
+            if case_output.coverage_state_at_cutoff == "included"
+        ),
+        replay_supported_case_count=sum(
+            1
+            for case_output in case_output_payload.cases
+            if case_output.gold_replay_status == "replay_supported"
+        ),
+        analog_evaluable_case_count=sum(
+            1
+            for case_output in case_output_payload.cases
+            if case_output.analog_recall_at_3 is not None
+        ),
+        deterministic_test_mode=deterministic_test_mode,
+    )
+    interval_payloads = [
+        interval_index[(run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON, metric_name)][1]
+        for metric_name in TRACK_B_METRIC_NAMES
+    ]
+    bootstrap_iterations = interval_payloads[0].bootstrap_iterations
+    confidence_level = interval_payloads[0].confidence_level
+    random_seed = interval_payloads[0].random_seed
+    if random_seed is None:
+        raise ValueError(
+            f"Track B confidence interval payload must record random_seed for {run_id}"
+        )
+    for interval_payload in interval_payloads:
+        if interval_payload.bootstrap_iterations != bootstrap_iterations:
+            raise ValueError(
+                f"Track B confidence interval payloads must agree on bootstrap_iterations for {run_id}"
+            )
+        if interval_payload.confidence_level != confidence_level:
+            raise ValueError(
+                f"Track B confidence interval payloads must agree on confidence_level for {run_id}"
+            )
+        if interval_payload.random_seed != random_seed:
+            raise ValueError(
+                f"Track B confidence interval payloads must agree on random_seed for {run_id}"
+            )
+        if interval_payload.resample_unit != TRACK_B_BOOTSTRAP_RESAMPLE_UNIT:
+            raise ValueError(
+                f"Track B confidence interval payload has unexpected resample_unit for {run_id}"
+            )
+        if interval_payload.notes != (
+            f"method={BOOTSTRAP_INTERVAL_METHOD}; {expected_slice_notes}"
+        ):
+            raise ValueError(
+                f"Track B confidence interval payload notes do not match runner case outputs for {run_id}"
+            )
+    expected_intervals = estimate_track_b_metric_intervals(
+        case_output_payload.cases,
+        iterations=bootstrap_iterations,
+        confidence_level=confidence_level,
+        random_seed=random_seed,
+    )
+    for _, metric_payload in metric_items:
+        if metric_payload.run_id != run_id:
+            raise ValueError(
+                f"Track B metric payload run_id does not match runner manifest for {run_id}"
+            )
+        if metric_payload.snapshot_id != case_output_payload.snapshot_id:
+            raise ValueError(
+                f"Track B metric payload snapshot_id does not match runner case outputs for {run_id}"
+            )
+        if metric_payload.baseline_id != case_output_payload.baseline_id:
+            raise ValueError(
+                f"Track B metric payload baseline_id does not match runner case outputs for {run_id}"
+            )
+        if metric_payload.metric_value != expected_metric_values[metric_payload.metric_name]:
+            raise ValueError(
+                "Track B metric payload does not match runner case outputs for "
+                f"{run_id}/{metric_payload.metric_name}"
+            )
+        if (
+            metric_payload.cohort_size
+            != expected_metric_cohort_sizes[metric_payload.metric_name]
+        ):
+            raise ValueError(
+                "Track B metric payload cohort_size does not match runner case outputs "
+                f"for {run_id}/{metric_payload.metric_name}"
+            )
+        if metric_payload.notes != expected_slice_notes:
+            raise ValueError(
+                "Track B metric payload notes do not match runner case outputs for "
+                f"{run_id}/{metric_payload.metric_name}"
+            )
+        interval_payload = interval_index[
+            (run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON, metric_payload.metric_name)
+        ][1]
+        expected_point_estimate, expected_interval_low, expected_interval_high = (
+            expected_intervals[metric_payload.metric_name]
+        )
+        if (
+            interval_payload.point_estimate,
+            interval_payload.interval_low,
+            interval_payload.interval_high,
+        ) != (
+            expected_point_estimate,
+            expected_interval_low,
+            expected_interval_high,
+        ):
+            raise ValueError(
+                "Track B confidence interval payload does not match runner case "
+                f"outputs for {run_id}/{metric_payload.metric_name}"
+            )
+    return expected_metric_values, expected_intervals, expected_slice_notes
+
+
 def _materialize_track_b_reporting(
     *,
     manifest: object,
@@ -1114,6 +1294,11 @@ def _materialize_track_b_reporting(
         present_metric_names = {
             metric_payload.metric_name for _, metric_payload in metric_items
         }
+        unexpected_metric_names = tuple(
+            metric_name
+            for metric_name in sorted(present_metric_names)
+            if metric_name not in TRACK_B_METRIC_NAMES
+        )
         missing_metric_names = tuple(
             metric_name
             for metric_name in TRACK_B_METRIC_NAMES
@@ -1125,8 +1310,13 @@ def _materialize_track_b_reporting(
             if (run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON, metric_name)
             not in interval_index
         )
-        if missing_metric_names or missing_interval_names:
+        if unexpected_metric_names or missing_metric_names or missing_interval_names:
             details: list[str] = []
+            if unexpected_metric_names:
+                details.append(
+                    "unexpected metric payloads: "
+                    + ", ".join(unexpected_metric_names)
+                )
             if missing_metric_names:
                 details.append("missing metric payloads: " + ", ".join(missing_metric_names))
             if missing_interval_names:
@@ -1153,6 +1343,15 @@ def _materialize_track_b_reporting(
         )
         confusion_summary = read_track_b_confusion_summary(
             track_b_confusion_summary_path(resolved_runner_output_dir, run_id=run_id)
+        )
+        _, validated_intervals, expected_slice_notes = (
+            _validate_track_b_runner_outputs(
+                run_id=run_id,
+                metric_items=metric_items,
+                interval_index=interval_index,
+                case_output_payload=case_output_payload,
+                confusion_summary=confusion_summary,
+            )
         )
         observed_cohort_surface = tuple(
             sorted(
@@ -1237,12 +1436,15 @@ def _materialize_track_b_reporting(
             ]
             metric_paths_for_run.append(metric_path)
             interval_paths_for_run.append(interval_path)
+            point_estimate, interval_low, interval_high = validated_intervals[
+                metric_payload.metric_name
+            ]
             metric_summaries.append(
                 BenchmarkMetricSummary(
                     metric_name=metric_payload.metric_name,
-                    metric_value=metric_payload.metric_value,
-                    interval_low=interval_payload.interval_low,
-                    interval_high=interval_payload.interval_high,
+                    metric_value=point_estimate,
+                    interval_low=interval_low,
+                    interval_high=interval_high,
                     metric_unit=metric_payload.metric_unit,
                     cohort_size=metric_payload.cohort_size,
                     confidence_level=interval_payload.confidence_level,
@@ -1250,16 +1452,16 @@ def _materialize_track_b_reporting(
                     interval_method=_parse_interval_method(interval_payload.notes),
                     resample_unit=interval_payload.resample_unit,
                     random_seed=interval_payload.random_seed,
-                    notes=metric_payload.notes,
+                    notes=expected_slice_notes,
                 )
             )
             metric_intervals[metric_payload.metric_name] = (
-                metric_payload.metric_value,
-                interval_payload.interval_low,
-                interval_payload.interval_high,
+                point_estimate,
+                interval_low,
+                interval_high,
             )
 
-        slice_notes = metric_items[0][1].notes if metric_items else ""
+        slice_notes = expected_slice_notes if metric_items else ""
         slice_report = BenchmarkReportCardSlice(
             entity_type=TRACK_B_ENTITY_TYPE,
             horizon=TRACK_B_HORIZON,

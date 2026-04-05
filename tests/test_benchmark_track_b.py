@@ -1,4 +1,5 @@
 from hashlib import sha256
+import json
 from pathlib import Path
 import shutil
 
@@ -6,6 +7,8 @@ import pytest
 
 from scz_target_engine.benchmark_labels import (
     benchmark_cohort_manifest_path_for_labels_file,
+    benchmark_track_b_auxiliary_source_artifact_path_for_labels_file,
+    benchmark_track_b_source_archives_dir_for_labels_file,
     materialize_benchmark_cohort_labels,
     read_benchmark_cohort_manifest,
     read_benchmark_cohort_labels,
@@ -325,6 +328,30 @@ def test_track_b_cohort_labels_use_casebook_entity_surface(
         "program_memory_event_provenance",
         "program_memory_directionality_hypotheses",
     }
+    assert {
+        artifact.artifact_name: (
+            benchmark_cohort_manifest_path_for_labels_file(cohort_labels_file).parent
+            / artifact.artifact_path
+        ).resolve()
+        for artifact in cohort_manifest.auxiliary_source_artifacts
+    } == {
+        artifact_name: benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+            cohort_labels_file,
+            artifact_name=artifact_name,
+        )
+        for artifact_name in {
+            "source_archive_index",
+            "track_b_casebook",
+            "track_b_program_universe",
+            "track_b_program_history_events",
+            "program_memory_assets",
+            "program_memory_event_provenance",
+            "program_memory_directionality_hypotheses",
+        }
+    }
+    assert benchmark_track_b_source_archives_dir_for_labels_file(
+        cohort_labels_file
+    ).exists()
 
 
 def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
@@ -456,7 +483,64 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
     assert interval_payload.random_seed == expected_seed
 
 
-def test_track_b_reporting_rejects_mutated_pinned_source_fixture(
+def test_track_b_cohort_materialization_preserves_auxiliary_sources_without_task_id(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    snapshot_payload = json.loads(snapshot_manifest_file.read_text(encoding="utf-8"))
+    del snapshot_payload["benchmark_task_id"]
+    snapshot_manifest_file.write_text(
+        json.dumps(snapshot_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+
+    materialize_benchmark_cohort_labels(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+    cohort_manifest = read_benchmark_cohort_manifest(
+        benchmark_cohort_manifest_path_for_labels_file(cohort_labels_file)
+    )
+    assert {
+        artifact.artifact_name
+        for artifact in cohort_manifest.auxiliary_source_artifacts
+    } == {
+        "source_archive_index",
+        "track_b_casebook",
+        "track_b_program_universe",
+        "track_b_program_history_events",
+        "program_memory_assets",
+        "program_memory_event_provenance",
+        "program_memory_directionality_hypotheses",
+    }
+
+    run_result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-05T00:00:00Z",
+    )
+    assert run_result["benchmark_question_id"] == "scz_failure_memory_track_b_v1"
+
+
+def test_track_b_reporting_ignores_mutated_original_source_fixture(
     tmp_path: Path,
 ) -> None:
     fixture_dir = tmp_path / "fixture"
@@ -496,6 +580,60 @@ def test_track_b_reporting_rejects_mutated_pinned_source_fixture(
         encoding="utf-8",
     )
 
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_dir,
+        generated_at="2026-04-05T00:00:00Z",
+    )
+    assert len(reporting_result["report_card_files"]) == 4
+
+
+def test_track_b_reporting_rejects_mutated_bundled_source_fixture(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+    materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-05T00:00:00Z",
+    )
+
+    bundled_casebook = benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+        cohort_labels_file,
+        artifact_name="track_b_casebook",
+    )
+    bundled_casebook.write_text(
+        bundled_casebook.read_text(encoding="utf-8").replace(
+            "replay_supported",
+            "replay_not_supported",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
     with pytest.raises(
         ValueError,
         match="benchmark cohort auxiliary source artifact sha256 does not match",
@@ -504,7 +642,7 @@ def test_track_b_reporting_rejects_mutated_pinned_source_fixture(
             manifest_file=snapshot_manifest_file,
             cohort_labels_file=cohort_labels_file,
             runner_output_dir=runner_output_dir,
-            output_dir=reporting_dir,
+            output_dir=tmp_path / "public_payloads",
             generated_at="2026-04-05T00:00:00Z",
         )
 
@@ -566,7 +704,7 @@ def test_track_b_runner_uses_cohort_pinned_source_fixture(
         if artifact.artifact_name == "track_b_casebook"
     )
     assert Path(track_b_casebook_artifact.artifact_path) == (
-        fixture_dir / "track_b_casebook.csv"
+        cohort_labels_file.parent / "track_b_casebook.csv"
     ).resolve()
     structural_case_output_payload = read_track_b_case_output_payload(
         track_b_case_output_path(runner_output_dir, run_id=structural_manifest.run_id)
@@ -578,13 +716,64 @@ def test_track_b_runner_uses_cohort_pinned_source_fixture(
     ) == 1
 
 
+def test_track_b_run_rejects_tampered_cohort_source_archive_index_path(
+    tmp_path: Path,
+) -> None:
+    fixture_dir = tmp_path / "fixture"
+    alt_fixture_dir = tmp_path / "alt-fixture"
+    shutil.copytree(TRACK_B_FIXTURE_DIR, fixture_dir)
+    shutil.copytree(TRACK_B_FIXTURE_DIR, alt_fixture_dir)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    cohort_manifest_file = benchmark_cohort_manifest_path_for_labels_file(
+        cohort_labels_file
+    )
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=fixture_dir / "snapshot_request.json",
+        archive_index_file=fixture_dir / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=fixture_dir / "cohort_members.csv",
+        future_outcomes_file=fixture_dir / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+
+    cohort_manifest_payload = json.loads(cohort_manifest_file.read_text(encoding="utf-8"))
+    for artifact in cohort_manifest_payload["auxiliary_source_artifacts"]:
+        if artifact["artifact_name"] == "source_archive_index":
+            artifact["artifact_path"] = str(alt_fixture_dir / "source_archives.json")
+    cohort_manifest_file.write_text(
+        json.dumps(cohort_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="canonical source_archive_index artifact beside cohort labels",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=fixture_dir / "source_archives.json",
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-05T00:00:00Z",
+        )
+
+
 def test_track_b_run_rejects_invalid_archive_index(
     tmp_path: Path,
 ) -> None:
     snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
     cohort_labels_file = tmp_path / "cohort_labels.csv"
-    invalid_archive_index_file = tmp_path / "source_archives.json"
-    invalid_archive_index_file.write_text("{}", encoding="utf-8")
+    invalid_archive_index_file = tmp_path / "invalid_source_archives.json"
 
     materialize_benchmark_snapshot_manifest(
         request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
@@ -599,6 +788,7 @@ def test_track_b_run_rejects_invalid_archive_index(
         future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
         output_file=cohort_labels_file,
     )
+    invalid_archive_index_file.write_text("{}", encoding="utf-8")
 
     with pytest.raises(
         ValueError,
@@ -613,6 +803,63 @@ def test_track_b_run_rejects_invalid_archive_index(
             deterministic_test_mode=True,
             code_version="fixture-sha",
             execution_timestamp="2026-04-05T00:00:00Z",
+        )
+
+
+def test_track_b_reporting_rejects_tampered_metric_payload(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+    run_result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-05T00:00:00Z",
+    )
+
+    metric_payload_path = next(
+        Path(path)
+        for path in run_result["metric_payload_files"]
+        if "track_b_structural_current" in path
+        and path.endswith("analog_recall_at_3.json")
+    )
+    metric_payload = json.loads(metric_payload_path.read_text(encoding="utf-8"))
+    metric_payload["metric_value"] = 999.0
+    metric_payload_path.write_text(
+        json.dumps(metric_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B metric payload does not match runner case outputs",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=tmp_path / "public_payloads",
+            generated_at="2026-04-05T00:00:00Z",
         )
 
 

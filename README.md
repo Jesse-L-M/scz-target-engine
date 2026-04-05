@@ -39,6 +39,7 @@ actually shipped today.
 - Additive `v1` decision vectors plus per-domain/per-stage ranking artifacts
 - PR7 scoring-neutral target ledgers with failure history, directionality hypotheses, and source primitives
 - PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort-member and source-copy artifacts, cohort manifests and labels, runner manifests, metric payloads, and confidence interval payloads
+- A second registry-backed benchmark task, `scz_failure_memory_track_b_task`, that reuses the same snapshot/cohort/runner/reporting stack for structural failure-memory replay with a checked-in `track_b_casebook.csv`
 - A rescue hidden-eval packaging and simulation path for the shipped glutamatergic rescue task, with a public submitter package built from the real governed ranking artifact and an operator-side evaluator that returns only a receipt-style public scorecard while keeping held-out labels and metrics inside operator-only artifacts
 - Milestone 0 contract freezing for `program_memory_release`, `benchmark_release`,
   `rescue_release`, `variant_context_release`, `policy_release`, and
@@ -337,10 +338,12 @@ fixture under `data/benchmark/fixtures/scz_small/` plus generated outputs under
 `data/benchmark/generated/scz_small/`.
 
 The suite/task contract source of truth lives in
-`data/curated/rescue_tasks/task_registry.csv`. The current registry-backed task is
-`scz_translational_task` in suite `scz_translational_suite`, and it maps directly to
-the checked-in `scz_small` fixture inputs. The emitted snapshot and run manifests
-carry `benchmark_suite_id` and `benchmark_task_id` as optional provenance fields.
+`data/curated/rescue_tasks/task_registry.csv`. The current registry-backed tasks are
+`scz_translational_task`, which maps to the checked-in `scz_small` ranking fixture,
+and `scz_failure_memory_track_b_task`, which maps to the checked-in
+`scz_failure_memory_2025_02_01` structural replay fixture. The emitted snapshot and
+run manifests carry `benchmark_suite_id` and `benchmark_task_id` as optional
+provenance fields.
 Rescue tasks now use the separate
 `data/curated/rescue_tasks/rescue_task_registry.csv` index plus validated
 `rescue_task_contract` JSON files, so the shipped benchmark registry remains benchmark
@@ -381,6 +384,7 @@ without rerunning scoring logic.
 Artifact layout:
 
 - `data/benchmark/fixtures/scz_small/`: checked-in fixture request, archive index, archived source extracts, cohort membership, and future outcomes
+- `data/benchmark/fixtures/scz_failure_memory_2025_02_01/`: checked-in Track B fixture request, archive index, frozen `track_b_casebook.csv`, pinned `program_universe.csv` and `events.csv`, cohort membership, and future outcomes
 - `data/benchmark/public_slices/catalog.json`: checked-in catalog of honest public cutoffs derived from the registry-backed benchmark task and replayed at intervention-object grain
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract for the current schizophrenia benchmark
 - `data/curated/rescue_tasks/rescue_task_registry.csv`: dedicated registry for rescue task identity and contract lookup
@@ -396,9 +400,16 @@ Artifact layout:
 - `data/benchmark/generated/public_slices/<slice_id>/runner_outputs/baseline_projections/<baseline_id>__intervention_object.json`: explicit intervention-object projection payloads for projected baselines
 - `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_metric_output_payload` files
 - `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/<run_id>/<entity_type>/<horizon>/<metric>.json`: generated `benchmark_confidence_interval_payload` files
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/metric_payloads/<run_id>/intervention_object/structural_replay/<metric>.json`: generated Track B `benchmark_metric_output_payload` files
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/confidence_interval_payloads/<run_id>/intervention_object/structural_replay/<metric>.json`: generated Track B `benchmark_confidence_interval_payload` files
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/track_b_case_outputs/<run_id>.json`: derived per-case Track B structural outputs
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/track_b_confusion_summaries/<run_id>.json`: derived Track B confusion summaries
 - `data/benchmark/generated/public_slices/<slice_id>/`: generated replay outputs for any checked-in public slice; these are local outputs, not checked-in fixtures
 - `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: derived public report card payload, one per executed run
 - `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: derived public leaderboard payload for one metric slice
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/report_cards/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<run_id>.json`: derived Track B public report card payload
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/leaderboards/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/intervention_object/structural_replay/<metric>.json`: derived Track B public leaderboard payload
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<run_id>.md`: derived Track B markdown case review
 - `data/benchmark/generated/public_slices/<slice_id>/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/<snapshot_id>/<run_id>.md`: derived markdown error analysis for intervention-object replay runs
 
 Operator notes:
@@ -409,8 +420,10 @@ Operator notes:
 - Re-running `build-benchmark-reporting` rewrites the derived public payloads from the current runner outputs. It never reruns scoring.
 - `build-benchmark-cohort` now emits a canonical denominator, bundle-local source-copy artifacts, and a cohort manifest beside `cohort_labels.csv`, and runner/reporting fail closed if those digests drift.
 - The checked-in fixture intentionally stays small: it includes archived `PGC`, `Open Targets`, and `PsychENCODE` inputs, while `SCHEMA` and `ChEMBL` remain explicit exclusions at the `2024-06-30` cutoff.
+- The checked-in Track B fixture keeps the same four commands and artifact families, but it executes only `track_b_exact_target`, `track_b_target_class`, `track_b_nearest_history`, and `track_b_structural_current` over the frozen `track_b_casebook.csv`.
 - Public slice backfill is registry-driven: `uv run scz-target-engine backfill-benchmark-public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` and `uv run scz-target-engine benchmark backfill public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task` regenerate the checked-in slice catalog without weakening leakage rules and do not fall back to live source data.
 - The canonical `scz_small` path remains a gene/module regression fixture. The checked-in public slices are the shipped Track A intervention-object replay path and currently execute `v0_current`, `v1_current`, and `random_with_coverage`.
+- The Track B fixture pins its replay substrate locally via `program_universe.csv` and `events.csv`, and it keeps the same strict rule that missing historical archives do not fall back to live source data.
 - As of April 2, 2026, the checked-in Track A catalog contains honest replayable slices at `2024-06-15`, `2024-06-18`, and `2024-06-20`, but none are evaluable on the principal `3y` horizon because each has zero positive intervention-object outcomes after strict replay filtering.
 - Track A public slices pin their program-history replay inputs locally via `program_universe.csv` and `events.csv` inside each slice directory, so replay does not depend on repo-global denominator files at execution time.
 - Write local replay outputs under `data/benchmark/generated/public_slices/scz_translational_2024_06_20/` or another checked-in slice id from `catalog.json`.

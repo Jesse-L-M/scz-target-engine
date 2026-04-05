@@ -632,6 +632,8 @@ def validate_benchmark_cohort_labels_against_manifest(
         benchmark_task_id=manifest.benchmark_task_id or None,
         benchmark_question_id=manifest.benchmark_question_id,
         benchmark_suite_id=manifest.benchmark_suite_id or None,
+        entity_types=manifest.entity_types,
+        baseline_ids=manifest.baseline_ids,
         task_registry_path=(
             Path(manifest.task_registry_path).resolve()
             if getattr(manifest, "task_registry_path", "")
@@ -1027,6 +1029,8 @@ def build_benchmark_cohort_labels(
         benchmark_task_id=manifest.benchmark_task_id or None,
         benchmark_question_id=manifest.benchmark_question_id,
         benchmark_suite_id=manifest.benchmark_suite_id or None,
+        entity_types=manifest.entity_types,
+        baseline_ids=manifest.baseline_ids,
         task_registry_path=(
             task_registry_path
             if task_registry_path is not None

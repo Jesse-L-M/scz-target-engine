@@ -38,6 +38,17 @@ from scz_target_engine.benchmark_snapshots import (
     load_source_archive_descriptors,
     read_benchmark_snapshot_manifest,
 )
+from scz_target_engine.benchmark_track_b import (
+    TRACK_B_ENTITY_TYPE,
+    TRACK_B_HORIZON,
+    TRACK_B_METRIC_NAMES,
+    build_track_b_error_analysis_markdown,
+    is_track_b_task,
+    read_track_b_case_output_payload,
+    read_track_b_confusion_summary,
+    track_b_case_output_path,
+    track_b_confusion_summary_path,
+)
 from scz_target_engine.io import read_json, write_json
 
 
@@ -291,6 +302,24 @@ def _build_error_analysis_path(
         / _normalize_component(benchmark_task_id)
         / _normalize_component(snapshot_id)
         / f"{run_id}.md"
+    )
+
+
+def _build_error_analysis_json_path(
+    output_dir: Path,
+    *,
+    benchmark_suite_id: str,
+    benchmark_task_id: str,
+    snapshot_id: str,
+    run_id: str,
+) -> Path:
+    return (
+        output_dir
+        / "error_analysis"
+        / _normalize_component(benchmark_suite_id)
+        / _normalize_component(benchmark_task_id)
+        / _normalize_component(snapshot_id)
+        / f"{run_id}.json"
     )
 
 
@@ -991,6 +1020,490 @@ def read_benchmark_leaderboard_payload(path: Path) -> BenchmarkLeaderboardPayloa
     return BenchmarkLeaderboardPayload.from_dict(payload)
 
 
+def _materialize_track_b_reporting(
+    *,
+    manifest: object,
+    cohort_labels: tuple[object, ...],
+    benchmark_suite_id: str,
+    benchmark_task_id: str,
+    task_contract: object,
+    resolved_runner_output_dir: Path,
+    resolved_output_dir: Path,
+    resolved_generated_at: str,
+    run_manifest_files: tuple[Path, ...],
+    metric_payload_files: tuple[Path, ...],
+    confidence_interval_files: tuple[Path, ...],
+    run_manifest_index: dict[str, tuple[Path, BenchmarkModelRunManifest]],
+    metric_index: dict[
+        tuple[str, str, str, str],
+        tuple[Path, BenchmarkMetricOutputPayload],
+    ],
+    metrics_by_run_slice: dict[
+        tuple[str, str, str],
+        list[tuple[Path, BenchmarkMetricOutputPayload]],
+    ],
+    interval_index: dict[
+        tuple[str, str, str, str],
+        tuple[Path, BenchmarkConfidenceIntervalPayload],
+    ],
+) -> dict[str, object]:
+    case_output_payloads: dict[str, object] = {}
+    confusion_summaries: dict[str, object] = {}
+    reference_case_signature: tuple[
+        tuple[str, str, str, str, tuple[str, ...], tuple[str, ...]],
+        ...,
+    ] | None = None
+    case_count = 0
+    included_coverage_count = 0
+    replay_supported_case_count = 0
+
+    for run_id, (_, run_manifest) in run_manifest_index.items():
+        metric_items = metrics_by_run_slice.get((run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON))
+        if not metric_items:
+            raise ValueError(
+                f"Track B reporting is missing metric payloads for run_id {run_id}"
+            )
+        present_metric_names = {
+            metric_payload.metric_name for _, metric_payload in metric_items
+        }
+        missing_metric_names = tuple(
+            metric_name
+            for metric_name in TRACK_B_METRIC_NAMES
+            if metric_name not in present_metric_names
+        )
+        missing_interval_names = tuple(
+            metric_name
+            for metric_name in TRACK_B_METRIC_NAMES
+            if (run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON, metric_name)
+            not in interval_index
+        )
+        if missing_metric_names or missing_interval_names:
+            details: list[str] = []
+            if missing_metric_names:
+                details.append("missing metric payloads: " + ", ".join(missing_metric_names))
+            if missing_interval_names:
+                details.append(
+                    "missing confidence interval payloads: "
+                    + ", ".join(missing_interval_names)
+                )
+            raise ValueError(
+                f"incomplete Track B reporting inputs for {run_id} ({'; '.join(details)})"
+            )
+        if not track_b_case_output_path(resolved_runner_output_dir, run_id=run_id).exists():
+            raise ValueError(
+                f"missing Track B case output payload for run_id {run_id}"
+            )
+        if not track_b_confusion_summary_path(
+            resolved_runner_output_dir,
+            run_id=run_id,
+        ).exists():
+            raise ValueError(
+                f"missing Track B confusion summary for run_id {run_id}"
+            )
+        case_output_payload = read_track_b_case_output_payload(
+            track_b_case_output_path(resolved_runner_output_dir, run_id=run_id)
+        )
+        confusion_summary = read_track_b_confusion_summary(
+            track_b_confusion_summary_path(resolved_runner_output_dir, run_id=run_id)
+        )
+        case_signature = tuple(
+            (
+                case_output.case_id,
+                case_output.coverage_state_at_cutoff,
+                case_output.gold_replay_status,
+                case_output.gold_failure_scope,
+                case_output.gold_analog_event_ids,
+                case_output.gold_required_differences,
+            )
+            for case_output in case_output_payload.cases
+        )
+        if reference_case_signature is None:
+            reference_case_signature = case_signature
+            case_count = len(case_output_payload.cases)
+            included_coverage_count = sum(
+                1
+                for case_output in case_output_payload.cases
+                if case_output.coverage_state_at_cutoff == "included"
+            )
+            replay_supported_case_count = sum(
+                1
+                for case_output in case_output_payload.cases
+                if case_output.gold_replay_status == "replay_supported"
+            )
+        elif case_signature != reference_case_signature:
+            raise ValueError(
+                "Track B reporting requires every run to carry the same frozen case "
+                "definitions in the runner-emitted case outputs"
+            )
+        case_output_payloads[run_id] = case_output_payload
+        confusion_summaries[run_id] = confusion_summary
+
+    _clear_reporting_snapshot_outputs(
+        resolved_output_dir,
+        benchmark_suite_id=benchmark_suite_id,
+        benchmark_task_id=benchmark_task_id,
+        snapshot_id=str(getattr(manifest, "snapshot_id")),
+    )
+
+    report_card_records: list[tuple[BenchmarkReportCardPayload, Path]] = []
+    report_card_files: list[str] = []
+    error_analysis_files: list[str] = []
+
+    baseline_index = {
+        baseline.baseline_id: baseline for baseline in task_contract.protocol.baselines
+    }
+
+    for run_id, (
+        run_manifest_path,
+        run_manifest,
+    ) in sorted(
+        run_manifest_index.items(),
+        key=lambda item: (item[1][1].baseline_id, item[0]),
+    ):
+        baseline = baseline_index[run_manifest.baseline_id]
+        metric_items = sorted(
+            metrics_by_run_slice[(run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON)],
+            key=lambda item: item[1].metric_name,
+        )
+        metric_summaries: list[BenchmarkMetricSummary] = []
+        metric_paths_for_run: list[Path] = []
+        interval_paths_for_run: list[Path] = []
+        metric_intervals: dict[str, tuple[float, float, float]] = {}
+        for metric_path, metric_payload in metric_items:
+            interval_path, interval_payload = interval_index[
+                (
+                    metric_payload.run_id,
+                    metric_payload.entity_type,
+                    metric_payload.horizon,
+                    metric_payload.metric_name,
+                )
+            ]
+            metric_paths_for_run.append(metric_path)
+            interval_paths_for_run.append(interval_path)
+            metric_summaries.append(
+                BenchmarkMetricSummary(
+                    metric_name=metric_payload.metric_name,
+                    metric_value=metric_payload.metric_value,
+                    interval_low=interval_payload.interval_low,
+                    interval_high=interval_payload.interval_high,
+                    metric_unit=metric_payload.metric_unit,
+                    cohort_size=metric_payload.cohort_size,
+                    confidence_level=interval_payload.confidence_level,
+                    bootstrap_iterations=interval_payload.bootstrap_iterations,
+                    interval_method=_parse_interval_method(interval_payload.notes),
+                    resample_unit=interval_payload.resample_unit,
+                    random_seed=interval_payload.random_seed,
+                    notes=metric_payload.notes,
+                )
+            )
+            metric_intervals[metric_payload.metric_name] = (
+                metric_payload.metric_value,
+                interval_payload.interval_low,
+                interval_payload.interval_high,
+            )
+
+        slice_notes = metric_items[0][1].notes if metric_items else ""
+        slice_report = BenchmarkReportCardSlice(
+            entity_type=TRACK_B_ENTITY_TYPE,
+            horizon=TRACK_B_HORIZON,
+            admissible_entity_count=case_count,
+            positive_entity_count=replay_supported_case_count,
+            covered_entity_count=included_coverage_count,
+            metrics=tuple(metric_summaries),
+            notes=slice_notes,
+        )
+
+        derived_from_artifacts = [
+            _build_artifact_reference(
+                artifact_name="benchmark_model_run_manifest",
+                path=run_manifest_path,
+                schema_name="benchmark_model_run_manifest",
+                notes="Runner-emitted baseline manifest consumed for Track B reporting.",
+            )
+        ]
+        for path in sorted(metric_paths_for_run):
+            derived_from_artifacts.append(
+                _build_artifact_reference(
+                    artifact_name="benchmark_metric_output_payload",
+                    path=path,
+                    schema_name="benchmark_metric_output_payload",
+                )
+            )
+        for path in sorted(interval_paths_for_run):
+            derived_from_artifacts.append(
+                _build_artifact_reference(
+                    artifact_name="benchmark_confidence_interval_payload",
+                    path=path,
+                    schema_name="benchmark_confidence_interval_payload",
+                )
+            )
+        case_output_payload_path = track_b_case_output_path(
+            resolved_runner_output_dir,
+            run_id=run_id,
+        )
+        confusion_summary_path = track_b_confusion_summary_path(
+            resolved_runner_output_dir,
+            run_id=run_id,
+        )
+        derived_from_artifacts.append(
+            _build_artifact_reference(
+                artifact_name="track_b_case_output_payload",
+                path=case_output_payload_path,
+                notes="Structured per-case Track B runner outputs.",
+            )
+        )
+        derived_from_artifacts.append(
+            _build_artifact_reference(
+                artifact_name="track_b_confusion_summary",
+                path=confusion_summary_path,
+                notes="Track B confusion summary derived directly from the runner case outputs.",
+            )
+        )
+
+        report_card = BenchmarkReportCardPayload(
+            report_card_id=run_id,
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
+            benchmark_question_id=str(getattr(manifest, "benchmark_question_id")),
+            snapshot_id=str(getattr(manifest, "snapshot_id")),
+            cohort_id=str(getattr(manifest, "cohort_id")),
+            run_id=run_manifest.run_id,
+            baseline_id=run_manifest.baseline_id,
+            baseline_label=baseline.label,
+            model_family=run_manifest.model_family,
+            baseline_status=baseline.status,
+            baseline_coverage_rule=baseline.coverage_rule,
+            baseline_description=baseline.description,
+            code_version=run_manifest.code_version,
+            started_at=run_manifest.started_at,
+            completed_at=run_manifest.completed_at,
+            generated_at=resolved_generated_at,
+            as_of_date=str(getattr(manifest, "as_of_date")),
+            outcome_observation_closed_at=str(
+                getattr(manifest, "outcome_observation_closed_at")
+            ),
+            source_snapshots=tuple(getattr(manifest, "source_snapshots")),
+            evaluation_input_artifacts=run_manifest.input_artifacts,
+            derived_from_artifacts=tuple(derived_from_artifacts),
+            slices=(slice_report,),
+            run_parameterization=run_manifest.parameterization,
+            run_notes=run_manifest.notes,
+            notes=(
+                "Derived from Track B runner artifacts without rerunning structural replay scoring."
+            ),
+        )
+        report_card_path = _build_report_card_path(
+            resolved_output_dir,
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
+            snapshot_id=str(getattr(manifest, "snapshot_id")),
+            run_id=run_id,
+        )
+        write_benchmark_report_card_payload(report_card_path, report_card)
+        report_card_records.append((report_card, report_card_path))
+        report_card_files.append(str(report_card_path))
+
+        case_output_payload = case_output_payloads[run_id]
+        confusion_summary = confusion_summaries[run_id]
+        error_analysis_path = _build_error_analysis_path(
+            resolved_output_dir,
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
+            snapshot_id=str(getattr(manifest, "snapshot_id")),
+            run_id=run_id,
+        )
+        error_analysis_path.parent.mkdir(parents=True, exist_ok=True)
+        error_analysis_path.write_text(
+            build_track_b_error_analysis_markdown(
+                payload=case_output_payload,
+                confusion_summary=confusion_summary,
+                metric_intervals=metric_intervals,
+            ),
+            encoding="utf-8",
+        )
+        error_analysis_files.append(str(error_analysis_path))
+
+        error_analysis_json_path = _build_error_analysis_json_path(
+            resolved_output_dir,
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
+            snapshot_id=str(getattr(manifest, "snapshot_id")),
+            run_id=run_id,
+        )
+        write_json(error_analysis_json_path, confusion_summary.to_dict())
+        error_analysis_files.append(str(error_analysis_json_path))
+
+    leaderboard_groups: dict[
+        tuple[str, str, str],
+        list[
+            tuple[
+                BenchmarkReportCardPayload,
+                Path,
+                BenchmarkReportCardSlice,
+                BenchmarkMetricSummary,
+            ]
+        ],
+    ] = {}
+    for report_card, report_card_path in report_card_records:
+        for slice_report in report_card.slices:
+            for metric_summary in slice_report.metrics:
+                leaderboard_groups.setdefault(
+                    (
+                        slice_report.entity_type,
+                        slice_report.horizon,
+                        metric_summary.metric_name,
+                    ),
+                    [],
+                ).append(
+                    (
+                        report_card,
+                        report_card_path,
+                        slice_report,
+                        metric_summary,
+                    )
+                )
+
+    leaderboard_payload_files: list[str] = []
+    for (
+        entity_type,
+        horizon,
+        metric_name,
+    ), group in sorted(leaderboard_groups.items()):
+        if not group:
+            continue
+        metric_unit = group[0][3].metric_unit
+        confidence_level = group[0][3].confidence_level
+        bootstrap_iterations = group[0][3].bootstrap_iterations
+        interval_method = group[0][3].interval_method
+        resample_unit = group[0][3].resample_unit
+        for _, _, _, metric_summary in group:
+            if metric_summary.metric_unit != metric_unit:
+                raise ValueError(
+                    f"inconsistent metric_unit for leaderboard slice {entity_type}/{horizon}/{metric_name}"
+                )
+            if metric_summary.confidence_level != confidence_level:
+                raise ValueError(
+                    "inconsistent confidence_level for leaderboard slice "
+                    f"{entity_type}/{horizon}/{metric_name}"
+                )
+            if metric_summary.bootstrap_iterations != bootstrap_iterations:
+                raise ValueError(
+                    "inconsistent bootstrap_iterations for leaderboard slice "
+                    f"{entity_type}/{horizon}/{metric_name}"
+                )
+            if metric_summary.interval_method != interval_method:
+                raise ValueError(
+                    f"inconsistent interval_method for leaderboard slice {entity_type}/{horizon}/{metric_name}"
+                )
+            if metric_summary.resample_unit != resample_unit:
+                raise ValueError(
+                    f"inconsistent resample_unit for leaderboard slice {entity_type}/{horizon}/{metric_name}"
+                )
+        sorted_group = sorted(
+            group,
+            key=lambda item: (
+                -item[3].metric_value,
+                item[0].baseline_id,
+                item[0].run_id,
+            ),
+        )
+        entries: list[BenchmarkLeaderboardEntry] = []
+        for rank, (
+            report_card,
+            report_card_path,
+            slice_report,
+            metric_summary,
+        ) in enumerate(sorted_group, start=1):
+            entries.append(
+                BenchmarkLeaderboardEntry(
+                    rank=rank,
+                    report_card_id=report_card.report_card_id,
+                    report_card_path=str(report_card_path),
+                    run_id=report_card.run_id,
+                    baseline_id=report_card.baseline_id,
+                    baseline_label=report_card.baseline_label,
+                    model_family=report_card.model_family,
+                    code_version=report_card.code_version,
+                    baseline_status=report_card.baseline_status,
+                    metric_value=metric_summary.metric_value,
+                    interval_low=metric_summary.interval_low,
+                    interval_high=metric_summary.interval_high,
+                    cohort_size=metric_summary.cohort_size,
+                    admissible_entity_count=slice_report.admissible_entity_count,
+                    positive_entity_count=slice_report.positive_entity_count,
+                    covered_entity_count=slice_report.covered_entity_count,
+                    notes=slice_report.notes,
+                )
+            )
+        leaderboard_payload = BenchmarkLeaderboardPayload(
+            leaderboard_id="__".join(
+                (
+                    _normalize_component(benchmark_suite_id),
+                    _normalize_component(benchmark_task_id),
+                    _normalize_component(str(getattr(manifest, "snapshot_id"))),
+                    _normalize_component(entity_type),
+                    _normalize_component(horizon),
+                    _normalize_component(metric_name),
+                )
+            ),
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
+            benchmark_question_id=str(getattr(manifest, "benchmark_question_id")),
+            snapshot_id=str(getattr(manifest, "snapshot_id")),
+            cohort_id=str(getattr(manifest, "cohort_id")),
+            entity_type=entity_type,
+            horizon=horizon,
+            metric_name=metric_name,
+            metric_unit=metric_unit,
+            confidence_level=confidence_level,
+            bootstrap_iterations=bootstrap_iterations,
+            interval_method=interval_method,
+            resample_unit=resample_unit,
+            as_of_date=str(getattr(manifest, "as_of_date")),
+            outcome_observation_closed_at=str(
+                getattr(manifest, "outcome_observation_closed_at")
+            ),
+            generated_at=resolved_generated_at,
+            report_card_files=tuple(
+                str(report_card_path) for _, report_card_path, _, _ in sorted_group
+            ),
+            entries=tuple(entries),
+            notes=(
+                "Derived from Track B report cards, which themselves are derived from "
+                "runner-emitted benchmark artifacts."
+            ),
+        )
+        leaderboard_path = _build_leaderboard_path(
+            resolved_output_dir,
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
+            snapshot_id=str(getattr(manifest, "snapshot_id")),
+            entity_type=entity_type,
+            horizon=horizon,
+            metric_name=metric_name,
+        )
+        write_benchmark_leaderboard_payload(leaderboard_path, leaderboard_payload)
+        leaderboard_payload_files.append(str(leaderboard_path))
+
+    return {
+        "benchmark_suite_id": benchmark_suite_id,
+        "benchmark_task_id": benchmark_task_id,
+        "benchmark_question_id": str(getattr(manifest, "benchmark_question_id")),
+        "snapshot_id": str(getattr(manifest, "snapshot_id")),
+        "cohort_id": str(getattr(manifest, "cohort_id")),
+        "runner_output_dir": str(resolved_runner_output_dir),
+        "output_dir": str(resolved_output_dir),
+        "report_card_files": sorted(report_card_files),
+        "leaderboard_payload_files": sorted(leaderboard_payload_files),
+        "error_analysis_files": sorted(error_analysis_files),
+        "discovered_run_manifest_files": [str(path) for path in run_manifest_files],
+        "discovered_metric_payload_files": [str(path) for path in metric_payload_files],
+        "discovered_confidence_interval_files": [
+            str(path) for path in confidence_interval_files
+        ],
+    }
+
+
 def materialize_benchmark_reporting(
     *,
     manifest_file: Path,
@@ -1014,6 +1527,8 @@ def materialize_benchmark_reporting(
         benchmark_task_id=manifest.benchmark_task_id or None,
         benchmark_question_id=manifest.benchmark_question_id,
         benchmark_suite_id=manifest.benchmark_suite_id or None,
+        entity_types=manifest.entity_types,
+        baseline_ids=manifest.baseline_ids,
         task_registry_path=task_registry_path,
     )
     benchmark_suite_id = manifest.benchmark_suite_id or task_contract.suite_id
@@ -1106,6 +1621,25 @@ def materialize_benchmark_reporting(
         if key in interval_index:
             raise ValueError(f"duplicate confidence interval payload for key {key}")
         interval_index[key] = (path, interval_payload)
+
+    if is_track_b_task(benchmark_task_id):
+        return _materialize_track_b_reporting(
+            manifest=manifest,
+            cohort_labels=cohort_labels,
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
+            task_contract=task_contract,
+            resolved_runner_output_dir=resolved_runner_output_dir,
+            resolved_output_dir=resolved_output_dir,
+            resolved_generated_at=resolved_generated_at,
+            run_manifest_files=run_manifest_files,
+            metric_payload_files=metric_payload_files,
+            confidence_interval_files=confidence_interval_files,
+            run_manifest_index=run_manifest_index,
+            metric_index=metric_index,
+            metrics_by_run_slice=metrics_by_run_slice,
+            interval_index=interval_index,
+        )
 
     label_counts: dict[tuple[str, str], tuple[int, int]] = {}
     slice_keys = tuple(

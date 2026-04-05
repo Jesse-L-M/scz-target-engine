@@ -38,6 +38,15 @@ def _split_pipe_list(value: str, field_name: str) -> tuple[str, ...]:
     return items
 
 
+def _parse_optional_bool(value: str | None, field_name: str) -> bool:
+    cleaned = "" if value is None else str(value).strip().lower()
+    if cleaned in {"", "false", "0", "no"}:
+        return False
+    if cleaned in {"true", "1", "yes"}:
+        return True
+    raise ValueError(f"{field_name} must be one of true/false")
+
+
 def _resolve_repo_relative_path(path_text: str) -> Path:
     path = Path(path_text)
     if path.is_absolute():
@@ -84,6 +93,7 @@ class BenchmarkTaskContract:
     fixture_paths: BenchmarkFixturePaths
     protocol: BenchmarkProtocol
     notes: str = ""
+    legacy_lookup_default: bool = False
 
     def __post_init__(self) -> None:
         _require_text(self.suite_id, "suite_id")
@@ -207,6 +217,10 @@ def _build_task_contract(row: dict[str, str]) -> BenchmarkTaskContract:
         ),
         protocol=protocol,
         notes=str(row.get("notes", "")).strip(),
+        legacy_lookup_default=_parse_optional_bool(
+            row.get("legacy_lookup_default"),
+            "legacy_lookup_default",
+        ),
     )
 
 
@@ -281,6 +295,8 @@ def resolve_benchmark_task_contract(
     benchmark_task_id: str | None = None,
     benchmark_question_id: str | None = None,
     benchmark_suite_id: str | None = None,
+    entity_types: tuple[str, ...] | None = None,
+    baseline_ids: tuple[str, ...] | None = None,
     task_registry_path: Path | None = None,
 ) -> BenchmarkTaskContract:
     tasks = load_benchmark_task_contracts(task_registry_path=task_registry_path)
@@ -300,6 +316,20 @@ def resolve_benchmark_task_contract(
             for task in candidates
             if task.benchmark_question_id == benchmark_question_id
         ]
+    if entity_types:
+        requested_entity_types = set(entity_types)
+        candidates = [
+            task
+            for task in candidates
+            if requested_entity_types.issubset(set(task.entity_types))
+        ]
+    if baseline_ids:
+        requested_baseline_ids = set(baseline_ids)
+        candidates = [
+            task
+            for task in candidates
+            if requested_baseline_ids.issubset(set(task.supported_baseline_ids))
+        ]
 
     if not candidates:
         lookup_parts = []
@@ -309,9 +339,31 @@ def resolve_benchmark_task_contract(
             lookup_parts.append(f"task_id={benchmark_task_id}")
         if benchmark_question_id:
             lookup_parts.append(f"benchmark_question_id={benchmark_question_id}")
+        if entity_types:
+            lookup_parts.append(
+                "entity_types=" + "|".join(sorted(set(entity_types)))
+            )
+        if baseline_ids:
+            lookup_parts.append(
+                "baseline_ids=" + "|".join(sorted(set(baseline_ids)))
+            )
         lookup = ", ".join(lookup_parts) if lookup_parts else "no lookup key provided"
         raise ValueError(f"no benchmark task contract matched: {lookup}")
 
+    if len(candidates) > 1 and not benchmark_task_id and not baseline_ids:
+        legacy_defaults = [
+            task for task in candidates if task.legacy_lookup_default
+        ]
+        if len(legacy_defaults) == 1:
+            return legacy_defaults[0]
+        if len(legacy_defaults) > 1:
+            matched_task_ids = ", ".join(
+                sorted(task.task_id for task in legacy_defaults)
+            )
+            raise ValueError(
+                "benchmark task registry matched multiple legacy lookup defaults: "
+                f"{matched_task_ids}"
+            )
     if len(candidates) > 1:
         matched_task_ids = ", ".join(sorted(task.task_id for task in candidates))
         raise ValueError(

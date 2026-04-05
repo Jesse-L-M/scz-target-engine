@@ -51,6 +51,31 @@ from scz_target_engine.benchmark_snapshots import (
     load_source_archive_descriptors,
     read_benchmark_snapshot_manifest,
 )
+from scz_target_engine.benchmark_track_b import (
+    TRACK_B_BOOTSTRAP_RESAMPLE_UNIT,
+    TRACK_B_CASEBOOK_FILE_NAME,
+    TRACK_B_ENTITY_TYPE,
+    TRACK_B_HORIZON,
+    TRACK_B_METRIC_NAMES,
+    TrackBCaseOutputPayload,
+    build_track_b_case_outputs,
+    build_track_b_confusion_summary,
+    build_track_b_program_memory_dataset,
+    estimate_track_b_metric_intervals,
+    is_track_b_task,
+    track_b_assets_path_for_archive_index_file,
+    load_track_b_casebook,
+    track_b_case_output_path,
+    track_b_casebook_path_for_archive_index_file,
+    track_b_confusion_summary_path,
+    track_b_directionality_hypotheses_path_for_archive_index_file,
+    track_b_event_provenance_path_for_archive_index_file,
+    track_b_events_path_for_archive_index_file,
+    track_b_metric_cohort_sizes,
+    track_b_program_universe_path_for_archive_index_file,
+    write_track_b_case_output_payload,
+    write_track_b_confusion_summary,
+)
 from scz_target_engine.config import EngineConfig, load_config
 from scz_target_engine.decision_vector import build_decision_vectors
 from scz_target_engine.io import read_csv_rows, read_json, write_json
@@ -92,6 +117,10 @@ BASELINE_SOURCE_DEPENDENCIES = {
     "v0_current": ("PGC", "SCHEMA", "PsychENCODE", "Open Targets", "ChEMBL"),
     "v1_current": ("PGC", "SCHEMA", "PsychENCODE", "Open Targets", "ChEMBL"),
     "random_with_coverage": (),
+    "track_b_exact_target": (),
+    "track_b_target_class": (),
+    "track_b_nearest_history": (),
+    "track_b_structural_current": (),
 }
 V1_RESOLUTION_METHOD = "mean_available_domain_head_score"
 
@@ -1178,6 +1207,411 @@ def _build_run_id(
     return "__".join(component for component in components if component)
 
 
+def _track_b_metric_slice_notes(
+    *,
+    case_count: int,
+    included_coverage_count: int,
+    replay_supported_case_count: int,
+    analog_evaluable_case_count: int,
+    deterministic_test_mode: bool,
+) -> str:
+    notes = (
+        f"track_b_cases={case_count};"
+        f" included_coverage_cases={included_coverage_count};"
+        f" replay_supported_cases={replay_supported_case_count};"
+        f" analog_evaluable_cases={analog_evaluable_case_count}"
+    )
+    if deterministic_test_mode:
+        notes += "; deterministic_test_mode=true"
+    return notes
+
+
+def _run_track_b_benchmark(
+    *,
+    manifest: BenchmarkSnapshotManifest,
+    manifest_file: Path,
+    cohort_labels_file: Path,
+    materialized_cohort: Any,
+    archive_index_file: Path,
+    output_dir: Path,
+    config_file: Path,
+    code_version: str,
+    task_contract: Any,
+    bootstrap_iterations: int,
+    bootstrap_confidence_level: float,
+    random_seed: int,
+    deterministic_test_mode: bool,
+    execution_timestamp: str | None,
+) -> dict[str, object]:
+    casebook_path = track_b_casebook_path_for_archive_index_file(archive_index_file)
+    if not casebook_path.exists():
+        raise ValueError(
+            "Track B benchmark requires a checked-in track_b_casebook.csv beside "
+            f"the source archive index: {casebook_path}"
+        )
+    events_path = track_b_events_path_for_archive_index_file(archive_index_file)
+    if not events_path.exists():
+        raise ValueError(
+            "Track B benchmark requires a checked-in events.csv beside the source "
+            f"archive index: {events_path}"
+        )
+    program_universe_path = track_b_program_universe_path_for_archive_index_file(
+        archive_index_file
+    )
+    if not program_universe_path.exists():
+        raise ValueError(
+            "Track B benchmark requires a checked-in program_universe.csv beside "
+            f"the source archive index: {program_universe_path}"
+        )
+    assets_path = track_b_assets_path_for_archive_index_file(archive_index_file)
+    if not assets_path.exists():
+        raise ValueError(
+            "Track B benchmark requires a checked-in assets.csv beside the source "
+            f"archive index: {assets_path}"
+        )
+    event_provenance_path = track_b_event_provenance_path_for_archive_index_file(
+        archive_index_file
+    )
+    if not event_provenance_path.exists():
+        raise ValueError(
+            "Track B benchmark requires a checked-in event_provenance.csv beside "
+            f"the source archive index: {event_provenance_path}"
+        )
+    directionality_hypotheses_path = (
+        track_b_directionality_hypotheses_path_for_archive_index_file(archive_index_file)
+    )
+    if not directionality_hypotheses_path.exists():
+        raise ValueError(
+            "Track B benchmark requires checked-in directionality_hypotheses.csv "
+            f"beside the source archive index: {directionality_hypotheses_path}"
+        )
+
+    cases = load_track_b_casebook(
+        casebook_path,
+        as_of_date=manifest.as_of_date,
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    dataset = build_track_b_program_memory_dataset(
+        as_of_date=manifest.as_of_date,
+        events_path=events_path,
+    )
+
+    manifest_ref = _build_artifact_reference(
+        artifact_name="benchmark_snapshot_manifest",
+        path=manifest_file,
+        schema_name="benchmark_snapshot_manifest",
+    )
+    cohort_ref = _build_artifact_reference(
+        artifact_name="benchmark_cohort_labels",
+        path=cohort_labels_file,
+        schema_name="benchmark_cohort_labels",
+    )
+    cohort_members_ref = _build_artifact_reference(
+        artifact_name="benchmark_cohort_members",
+        path=materialized_cohort.cohort_members_path,
+        schema_name="benchmark_cohort_members",
+    )
+    cohort_manifest_ref = _build_artifact_reference(
+        artifact_name="benchmark_cohort_manifest",
+        path=materialized_cohort.cohort_manifest_path,
+        schema_name="benchmark_cohort_manifest",
+    )
+    cohort_source_input_refs: tuple[InputArtifactReference, ...] = (
+        _build_artifact_reference(
+            artifact_name="benchmark_source_cohort_members",
+            path=materialized_cohort.source_cohort_members_path,
+            schema_name="benchmark_source_cohort_members",
+        ),
+        _build_artifact_reference(
+            artifact_name="benchmark_source_future_outcomes",
+            path=materialized_cohort.source_future_outcomes_path,
+            schema_name="benchmark_source_future_outcomes",
+        ),
+    )
+    archive_index_ref = _build_artifact_reference(
+        artifact_name="source_archive_index",
+        path=archive_index_file,
+        notes="Archived source descriptor index consumed for the Track B snapshot.",
+    )
+    config_ref = _build_artifact_reference(
+        artifact_name="engine_config",
+        path=config_file,
+        notes=(
+            "Retained for CLI parity; Track B v1 baselines do not consume the v0/v1 "
+            "engine weight configuration."
+        ),
+    )
+    casebook_ref = _build_artifact_reference(
+        artifact_name="track_b_casebook",
+        path=casebook_path,
+        notes="Frozen Track B casebook with gold analogs and structural replay labels.",
+    )
+    events_ref = _build_artifact_reference(
+        artifact_name="track_b_program_history_events",
+        path=events_path,
+        notes="Slice-local pinned program-memory event ledger used for Track B cutoff filtering.",
+    )
+    program_universe_ref = _build_artifact_reference(
+        artifact_name="track_b_program_universe",
+        path=program_universe_path,
+        notes="Slice-local pinned denominator rows used for Track B coverage-at-cutoff labels.",
+    )
+    program_memory_assets_ref = _build_artifact_reference(
+        artifact_name="program_memory_assets",
+        path=assets_path,
+        notes="Slice-local pinned program-memory asset ledger used for Track B analog expansion.",
+    )
+    program_memory_provenance_ref = _build_artifact_reference(
+        artifact_name="program_memory_event_provenance",
+        path=event_provenance_path,
+        notes="Slice-local pinned program-memory provenance ledger used for Track B analog references.",
+    )
+    program_memory_hypotheses_ref = _build_artifact_reference(
+        artifact_name="program_memory_directionality_hypotheses",
+        path=directionality_hypotheses_path,
+        notes="Slice-local pinned directionality hypotheses used by the current structural replay surface.",
+    )
+
+    baseline_index = {
+        baseline_definition.baseline_id: baseline_definition
+        for baseline_definition in task_contract.protocol.baselines
+        if baseline_definition.baseline_id in task_contract.supported_baseline_ids
+    }
+    available_now_baselines = [
+        baseline_id
+        for baseline_id in task_contract.supported_baseline_ids
+        if baseline_index[baseline_id].status == AVAILABLE_NOW_STATUS
+    ]
+    requested_available_now_baselines = [
+        baseline_id
+        for baseline_id in manifest.baseline_ids
+        if baseline_index[baseline_id].status == AVAILABLE_NOW_STATUS
+    ]
+    protocol_only_baselines = [
+        baseline_id
+        for baseline_id in task_contract.supported_baseline_ids
+        if baseline_index[baseline_id].status == PROTOCOL_ONLY_STATUS
+    ]
+    requested_protocol_only_baselines = [
+        baseline_id
+        for baseline_id in manifest.baseline_ids
+        if baseline_index[baseline_id].status == PROTOCOL_ONLY_STATUS
+    ]
+
+    run_manifest_files: list[str] = []
+    metric_payload_files: list[str] = []
+    confidence_interval_files: list[str] = []
+    case_output_files: list[str] = []
+    confusion_summary_files: list[str] = []
+    executed_baselines: list[str] = []
+
+    case_count = len(cases)
+    included_coverage_count = sum(
+        1 for case in cases if case.coverage_state_at_cutoff == "included"
+    )
+    replay_supported_case_count = sum(
+        1 for case in cases if case.gold_replay_status == "replay_supported"
+    )
+    analog_evaluable_case_count = sum(
+        1 for case in cases if case.gold_analog_event_ids
+    )
+
+    for baseline_id in requested_available_now_baselines:
+        baseline = baseline_index[baseline_id]
+        parameterization: dict[str, object] = {
+            "benchmark_question_id": manifest.benchmark_question_id,
+            "bootstrap_confidence_level": bootstrap_confidence_level,
+            "bootstrap_iterations": bootstrap_iterations,
+            "deterministic_test_mode": deterministic_test_mode,
+            "interval_method": BOOTSTRAP_INTERVAL_METHOD,
+            "random_seed": random_seed,
+            "resample_unit": TRACK_B_BOOTSTRAP_RESAMPLE_UNIT,
+            "track_b_casebook_sha256": casebook_ref.sha256,
+            "track_b_horizon": TRACK_B_HORIZON,
+            "track_b_case_count": case_count,
+            "track_b_baseline_mode": baseline_id,
+        }
+        run_id = _build_run_id(
+            snapshot_id=manifest.snapshot_id,
+            baseline_id=baseline_id,
+            code_version=code_version,
+            parameterization=parameterization,
+        )
+        started_at = execution_timestamp or _utc_now()
+        slice_random_seed = (
+            random_seed
+            + int.from_bytes(
+                sha256(f"{baseline_id}:{TRACK_B_HORIZON}".encode("utf-8")).digest()[:4],
+                "big",
+            )
+        )
+        case_outputs = build_track_b_case_outputs(
+            cases=cases,
+            dataset=dataset,
+            baseline_id=baseline_id,
+        )
+        metric_values = estimate_track_b_metric_intervals(
+            case_outputs,
+            iterations=bootstrap_iterations,
+            confidence_level=bootstrap_confidence_level,
+            random_seed=slice_random_seed,
+        )
+        metric_cohort_sizes = track_b_metric_cohort_sizes(case_outputs)
+        slice_notes = _track_b_metric_slice_notes(
+            case_count=case_count,
+            included_coverage_count=included_coverage_count,
+            replay_supported_case_count=replay_supported_case_count,
+            analog_evaluable_case_count=analog_evaluable_case_count,
+            deterministic_test_mode=deterministic_test_mode,
+        )
+        for metric_name in TRACK_B_METRIC_NAMES:
+            point_estimate, interval_low, interval_high = metric_values[metric_name]
+            metric_payload = BenchmarkMetricOutputPayload(
+                run_id=run_id,
+                snapshot_id=manifest.snapshot_id,
+                baseline_id=baseline_id,
+                entity_type=TRACK_B_ENTITY_TYPE,
+                horizon=TRACK_B_HORIZON,
+                metric_name=metric_name,
+                metric_value=point_estimate,
+                cohort_size=metric_cohort_sizes[metric_name],
+                notes=slice_notes,
+            )
+            metric_path = _build_metric_payload_path(
+                output_dir,
+                run_id=run_id,
+                entity_type=TRACK_B_ENTITY_TYPE,
+                horizon=TRACK_B_HORIZON,
+                metric_name=metric_name,
+            )
+            write_benchmark_metric_output_payload(metric_path, metric_payload)
+            metric_payload_files.append(str(metric_path))
+
+            interval_payload = BenchmarkConfidenceIntervalPayload(
+                run_id=run_id,
+                snapshot_id=manifest.snapshot_id,
+                baseline_id=baseline_id,
+                entity_type=TRACK_B_ENTITY_TYPE,
+                horizon=TRACK_B_HORIZON,
+                metric_name=metric_name,
+                point_estimate=point_estimate,
+                interval_low=interval_low,
+                interval_high=interval_high,
+                confidence_level=bootstrap_confidence_level,
+                bootstrap_iterations=bootstrap_iterations,
+                resample_unit=TRACK_B_BOOTSTRAP_RESAMPLE_UNIT,
+                random_seed=slice_random_seed,
+                notes=f"method={BOOTSTRAP_INTERVAL_METHOD}; {slice_notes}",
+            )
+            interval_path = _build_interval_payload_path(
+                output_dir,
+                run_id=run_id,
+                entity_type=TRACK_B_ENTITY_TYPE,
+                horizon=TRACK_B_HORIZON,
+                metric_name=metric_name,
+            )
+            write_benchmark_confidence_interval_payload(interval_path, interval_payload)
+            confidence_interval_files.append(str(interval_path))
+
+        case_output_payload = TrackBCaseOutputPayload(
+            run_id=run_id,
+            baseline_id=baseline_id,
+            snapshot_id=manifest.snapshot_id,
+            as_of_date=manifest.as_of_date,
+            cases=case_outputs,
+        )
+        case_output_file = track_b_case_output_path(output_dir, run_id=run_id)
+        write_track_b_case_output_payload(case_output_file, case_output_payload)
+        case_output_files.append(str(case_output_file))
+
+        confusion_summary = build_track_b_confusion_summary(
+            run_id=run_id,
+            baseline_id=baseline_id,
+            snapshot_id=manifest.snapshot_id,
+            case_outputs=case_outputs,
+        )
+        confusion_summary_file = track_b_confusion_summary_path(
+            output_dir,
+            run_id=run_id,
+        )
+        write_track_b_confusion_summary(confusion_summary_file, confusion_summary)
+        confusion_summary_files.append(str(confusion_summary_file))
+
+        completed_at = execution_timestamp or _utc_now()
+        input_artifacts = [
+            manifest_ref,
+            cohort_manifest_ref,
+            cohort_members_ref,
+            cohort_ref,
+            archive_index_ref,
+            casebook_ref,
+            events_ref,
+            program_universe_ref,
+            program_memory_assets_ref,
+            program_memory_provenance_ref,
+            program_memory_hypotheses_ref,
+            config_ref,
+            *cohort_source_input_refs,
+        ]
+        input_artifacts.sort(
+            key=lambda reference: (
+                reference.artifact_name,
+                reference.source_name,
+                reference.artifact_path,
+            )
+        )
+        run_manifest = BenchmarkModelRunManifest(
+            run_id=run_id,
+            snapshot_id=manifest.snapshot_id,
+            baseline_id=baseline_id,
+            model_family=baseline.family,
+            code_version=code_version,
+            benchmark_suite_id=task_contract.suite_id,
+            benchmark_task_id=task_contract.task_id,
+            parameterization=parameterization,
+            input_artifacts=tuple(input_artifacts),
+            started_at=started_at,
+            completed_at=completed_at,
+            notes=(
+                "Track B structural replay run using frozen casebook "
+                f"{TRACK_B_CASEBOOK_FILE_NAME}"
+            ),
+        )
+        run_manifest_path = _build_run_manifest_path(output_dir, run_id)
+        write_benchmark_model_run_manifest(run_manifest_path, run_manifest)
+        run_manifest_files.append(str(run_manifest_path))
+        executed_baselines.append(baseline_id)
+
+    return {
+        "benchmark_suite_id": task_contract.suite_id,
+        "benchmark_task_id": task_contract.task_id,
+        "benchmark_question_id": manifest.benchmark_question_id,
+        "snapshot_id": manifest.snapshot_id,
+        "cohort_id": manifest.cohort_id,
+        "output_dir": str(output_dir),
+        "code_version": code_version,
+        "manifest_file": str(manifest_file),
+        "cohort_labels_file": str(cohort_labels_file),
+        "archive_index_file": str(archive_index_file),
+        "executed_baselines": executed_baselines,
+        "requested_available_now_baselines": requested_available_now_baselines,
+        "available_now_baselines": available_now_baselines,
+        "protocol_only_baselines": protocol_only_baselines,
+        "requested_protocol_only_baselines": requested_protocol_only_baselines,
+        "run_manifest_files": sorted(run_manifest_files),
+        "metric_payload_files": sorted(metric_payload_files),
+        "confidence_interval_files": sorted(confidence_interval_files),
+        "track_b_case_output_files": sorted(case_output_files),
+        "track_b_confusion_summary_files": sorted(confusion_summary_files),
+        "bootstrap_iterations": bootstrap_iterations,
+        "bootstrap_confidence_level": bootstrap_confidence_level,
+        "interval_method": BOOTSTRAP_INTERVAL_METHOD,
+        "resample_unit": TRACK_B_BOOTSTRAP_RESAMPLE_UNIT,
+        "v1_resolution_method": V1_RESOLUTION_METHOD,
+    }
+
+
 def run_benchmark(
     *,
     manifest_file: Path,
@@ -1198,6 +1632,8 @@ def run_benchmark(
         benchmark_task_id=manifest.benchmark_task_id or None,
         benchmark_question_id=manifest.benchmark_question_id,
         benchmark_suite_id=manifest.benchmark_suite_id or None,
+        entity_types=manifest.entity_types,
+        baseline_ids=manifest.baseline_ids,
         task_registry_path=task_registry_path,
     )
     protocol = task_contract.protocol
@@ -1216,6 +1652,24 @@ def run_benchmark(
         resolved_bootstrap_iterations = DEFAULT_BOOTSTRAP_ITERATIONS
         if deterministic_test_mode:
             resolved_bootstrap_iterations = DETERMINISTIC_TEST_BOOTSTRAP_ITERATIONS
+
+    if is_track_b_task(task_contract.task_id):
+        return _run_track_b_benchmark(
+            manifest=manifest,
+            manifest_file=manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            materialized_cohort=materialized_cohort,
+            archive_index_file=archive_index_file,
+            output_dir=output_dir,
+            config_file=config_file,
+            code_version=code_version,
+            task_contract=task_contract,
+            bootstrap_iterations=resolved_bootstrap_iterations,
+            bootstrap_confidence_level=bootstrap_confidence_level,
+            random_seed=random_seed,
+            deterministic_test_mode=deterministic_test_mode,
+            execution_timestamp=execution_timestamp,
+        )
 
     context = _build_context(
         manifest,

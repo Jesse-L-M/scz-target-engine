@@ -109,6 +109,38 @@ def test_snapshot_builder_excludes_missing_archive_file_explicitly(tmp_path: Pat
     assert "archive file missing" in pgc_snapshot.exclusion_reason
 
 
+def test_snapshot_build_request_reports_invalid_entity_types_before_registry_lookup() -> None:
+    with pytest.raises(
+        ValueError,
+        match="entity_types must only contain supported benchmark entity types",
+    ):
+        SnapshotBuildRequest(
+            snapshot_id="scz_fixture_2024_06_30",
+            cohort_id="scz_fixture_small",
+            benchmark_question_id="scz_translational_ranking_v1",
+            as_of_date="2024-06-30",
+            outcome_observation_closed_at="2029-06-30",
+            entity_types=("not_a_real_entity_type",),
+            baseline_ids=("pgc_only",),
+        )
+
+
+def test_snapshot_build_request_reports_invalid_baseline_ids_before_registry_lookup() -> None:
+    with pytest.raises(
+        ValueError,
+        match="baseline_ids must only contain supported benchmark baselines",
+    ):
+        SnapshotBuildRequest(
+            snapshot_id="scz_fixture_2024_06_30",
+            cohort_id="scz_fixture_small",
+            benchmark_question_id="scz_translational_ranking_v1",
+            as_of_date="2024-06-30",
+            outcome_observation_closed_at="2029-06-30",
+            entity_types=("gene",),
+            baseline_ids=("not_a_real_baseline",),
+        )
+
+
 def test_snapshot_builder_rejects_ambiguous_same_date_descriptors() -> None:
     pgc_archive = (
         FIXTURE_DIR / "archives" / "pgc" / "scz2022_fixture.csv"

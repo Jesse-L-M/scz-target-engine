@@ -362,24 +362,42 @@ class BenchmarkSnapshotManifest:
         if self.benchmark_task_id:
             _require_text(self.benchmark_task_id, "benchmark_task_id")
         _require_text(self.benchmark_question_id, "benchmark_question_id")
-        from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
-
-        try:
-            task_contract = resolve_benchmark_task_contract(
-                benchmark_task_id=self.benchmark_task_id or None,
-                benchmark_question_id=self.benchmark_question_id,
-                benchmark_suite_id=self.benchmark_suite_id or None,
-                task_registry_path=(
-                    Path(self.task_registry_path).resolve()
-                    if self.task_registry_path
-                    else None
-                ),
-            )
-        except ValueError as exc:
+        if self.benchmark_question_id != BENCHMARK_QUESTION_V1.question_id:
             raise ValueError(
                 "benchmark_question_id must match the frozen benchmark question id "
                 f"{BENCHMARK_QUESTION_V1.question_id}"
-            ) from exc
+            )
+        _require_non_empty_tuple(self.entity_types, "entity_types")
+        if any(entity_type not in VALID_ENTITY_TYPES for entity_type in self.entity_types):
+            raise ValueError(
+                "entity_types must only contain supported benchmark entity types"
+            )
+        if not self.baseline_ids:
+            raise ValueError("baseline_ids must contain at least one benchmark baseline")
+        if len(self.baseline_ids) != len(set(self.baseline_ids)):
+            raise ValueError("baseline_ids must not repeat baseline_id")
+        unknown_baseline_ids = sorted(
+            set(self.baseline_ids).difference(FROZEN_BASELINE_IDS)
+        )
+        if unknown_baseline_ids:
+            raise ValueError(
+                "baseline_ids must only contain supported benchmark baselines: "
+                + ", ".join(unknown_baseline_ids)
+            )
+        from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
+
+        task_contract = resolve_benchmark_task_contract(
+            benchmark_task_id=self.benchmark_task_id or None,
+            benchmark_question_id=self.benchmark_question_id,
+            benchmark_suite_id=self.benchmark_suite_id or None,
+            entity_types=self.entity_types,
+            baseline_ids=self.baseline_ids,
+            task_registry_path=(
+                Path(self.task_registry_path).resolve()
+                if self.task_registry_path
+                else None
+            ),
+        )
         protocol = task_contract.protocol
         if self.benchmark_question_id != protocol.question.question_id:
             raise ValueError(
@@ -394,17 +412,8 @@ class BenchmarkSnapshotManifest:
             raise ValueError(
                 "outcome_observation_closed_at must be on or after as_of_date"
             )
-        _require_non_empty_tuple(self.entity_types, "entity_types")
-        if any(entity_type not in VALID_ENTITY_TYPES for entity_type in self.entity_types):
-            raise ValueError(
-                "entity_types must only contain supported benchmark entity types"
-            )
         if not self.source_snapshots:
             raise ValueError("source_snapshots must contain at least one source entry")
-        if not self.baseline_ids:
-            raise ValueError("baseline_ids must contain at least one benchmark baseline")
-        if len(self.baseline_ids) != len(set(self.baseline_ids)):
-            raise ValueError("baseline_ids must not repeat baseline_id")
 
         seen_sources: set[str] = set()
         known_baselines = {
@@ -1005,6 +1014,69 @@ FROZEN_BASELINE_MATRIX = (
         ),
         status=AVAILABLE_NOW_STATUS,
         description="Admissible-cohort random baseline for sanity-checking ranking lift.",
+    ),
+    BaselineDefinition(
+        baseline_id="track_b_exact_target",
+        label="Track B exact target",
+        family="track_b_retrieval",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Retrieve only target-exact or same-molecule analogs from the pre-cutoff "
+            "program-memory ledger before scoring structural replay labels."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Failure-memory retrieval baseline restricted to exact-target biological "
+            "neighbors."
+        ),
+    ),
+    BaselineDefinition(
+        baseline_id="track_b_target_class",
+        label="Track B target class",
+        family="track_b_retrieval",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Retrieve target-class or same-molecule analogs from the pre-cutoff "
+            "program-memory ledger before scoring structural replay labels."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Failure-memory retrieval baseline that widens exact-target lookup to the "
+            "checked-in target-class neighborhood."
+        ),
+    ),
+    BaselineDefinition(
+        baseline_id="track_b_nearest_history",
+        label="Track B nearest history",
+        family="track_b_retrieval",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Rank pre-cutoff history by naive nearest-neighbor context overlap "
+            "without requiring the current analog index to endorse a biological anchor."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Naive contextual nearest-history comparator for Track B structural replay."
+        ),
+    ),
+    BaselineDefinition(
+        baseline_id="track_b_structural_current",
+        label="Track B current structural replay",
+        family="track_b_structural_replay",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Run the checked-in program-memory analog retrieval and counterfactual "
+            "replay assessment surfaces on the pre-cutoff Track B casebook."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Current structural failure-memory baseline built from the shipped analog "
+            "and replay-risk APIs."
+        ),
     ),
 )
 

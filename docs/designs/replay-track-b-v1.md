@@ -1,11 +1,11 @@
 # replay-track-b-v1
 
-Status: draft
-Owner branch: Jesse-L-M/calibrate-review
+Status: active
+Owner branch: Jesse-L-M/replay-track-b
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md, docs/designs/replay-track-a-v1.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-01
+Last updated: 2026-04-05
 
 ## Objective
 
@@ -67,6 +67,18 @@ is truly different."
 - current benchmark runner and reporting pattern:
   extend the existing benchmark/report-card flow with Track B case review outputs
 
+## Resolved Decisions In V1
+
+- Track B ships as a second task row, `scz_failure_memory_track_b_task`, inside
+  the existing `scz_translational_suite`
+- Track B keeps the existing benchmark artifact families and command sequence;
+  v1 adds Track B-specific sidecars rather than a parallel benchmark stack
+- The checked-in principal Track B fixture is
+  `data/benchmark/fixtures/scz_failure_memory_2025_02_01/`
+- The Track B fixture pins `track_b_casebook.csv`, `program_universe.csv`, and
+  `events.csv` beside `source_archives.json` so replay stays cutoff-local and
+  does not read repo-head history tables implicitly
+
 ## Inputs
 
 - checked-in program-memory v2 tables
@@ -82,6 +94,10 @@ is truly different."
 - New or changed artifact:
   `track_b_casebook.csv`
   with one benchmark case per row and frozen gold labels
+- New or changed artifact:
+  runner sidecars under benchmark generated outputs:
+  `runner_outputs/track_b_case_outputs/<run_id>.json` and
+  `runner_outputs/track_b_confusion_summaries/<run_id>.json`
 - New or changed artifact:
   derived case-review payloads under benchmark reporting outputs:
   per-run JSON or Markdown summaries of misses, confusions, and analog disagreements
@@ -187,16 +203,23 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
 - Should the principal metric weight the three sub-metrics equally, or should
   failure-scope F1 carry more weight than analog recall?
 
+Current v1 answers:
+
+- Track B now lives as a second task row in the current suite
+- v1 emits the four structural metrics separately and leaves the final stop/go
+  weighting decision to the post-PR4 review
+
 ## Decision Log Links
 
 - `docs/decisions/0001-planning-contract.md`
+- `docs/decisions/0003-track-b-benchmark-task.md`
 
 ## Commands
 
 ```bash
 uv run scz-target-engine program-memory coverage-audit --dataset-dir data/curated/program_history/v2 --output-dir .context/program_memory/coverage --focus-target CHRM4
-uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/public_slices/scz_translational_2024_06_20/snapshot_request.json --archive-index-file data/benchmark/public_slices/scz_translational_2024_06_20/source_archives.json --output-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --materialized-at 2026-03-30
-uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --cohort-members-file data/benchmark/public_slices/scz_translational_2024_06_20/cohort_members.csv --future-outcomes-file data/benchmark/public_slices/scz_translational_2024_06_20/future_outcomes.csv --output-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv
-uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv --archive-index-file data/benchmark/public_slices/scz_translational_2024_06_20/source_archives.json --output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/runner_outputs --config config/v0.toml --deterministic-test-mode
-uv run scz-target-engine build-benchmark-reporting --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_06_20/cohort_labels.csv --runner-output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/runner_outputs --output-dir data/benchmark/generated/public_slices/scz_translational_2024_06_20/public_payloads
+uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/snapshot_request.json --archive-index-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/source_archives.json --output-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json --materialized-at 2026-04-05
+uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json --cohort-members-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/cohort_members.csv --future-outcomes-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/future_outcomes.csv --output-file data/benchmark/generated/scz_failure_memory_2025_02_01/cohort_labels.csv
+uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/scz_failure_memory_2025_02_01/cohort_labels.csv --archive-index-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/source_archives.json --output-dir data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs --config config/v0.toml --deterministic-test-mode
+uv run scz-target-engine build-benchmark-reporting --manifest-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/scz_failure_memory_2025_02_01/cohort_labels.csv --runner-output-dir data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs --output-dir data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads
 ```

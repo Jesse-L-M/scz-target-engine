@@ -122,6 +122,46 @@ def test_snapshot_manifest_round_trips_cleanly() -> None:
     assert payload["baseline_ids"] == ["pgc_only", "v0_current", "random_with_coverage"]
 
 
+def test_snapshot_manifest_reports_invalid_entity_types_before_registry_lookup() -> None:
+    with pytest.raises(
+        ValueError,
+        match="entity_types must only contain supported benchmark entity types",
+    ):
+        BenchmarkSnapshotManifest(
+            schema_name="benchmark_snapshot_manifest",
+            schema_version="v1",
+            snapshot_id="scz_2024_06_30",
+            cohort_id="gene_module_eval",
+            benchmark_question_id="scz_translational_ranking_v1",
+            as_of_date="2024-06-30",
+            outcome_observation_closed_at="2026-06-30",
+            entity_types=("not_a_real_entity_type",),
+            source_snapshots=build_full_source_snapshots(),
+            leakage_controls=LeakageControls(),
+            baseline_ids=("pgc_only",),
+        )
+
+
+def test_snapshot_manifest_reports_invalid_baseline_ids_before_registry_lookup() -> None:
+    with pytest.raises(
+        ValueError,
+        match="baseline_ids must only contain supported benchmark baselines",
+    ):
+        BenchmarkSnapshotManifest(
+            schema_name="benchmark_snapshot_manifest",
+            schema_version="v1",
+            snapshot_id="scz_2024_06_30",
+            cohort_id="gene_module_eval",
+            benchmark_question_id="scz_translational_ranking_v1",
+            as_of_date="2024-06-30",
+            outcome_observation_closed_at="2026-06-30",
+            entity_types=("gene",),
+            source_snapshots=build_full_source_snapshots(),
+            leakage_controls=LeakageControls(),
+            baseline_ids=("not_a_real_baseline",),
+        )
+
+
 def test_frozen_protocol_declares_intervention_object_track_a_support() -> None:
     assert INTERVENTION_OBJECT_ENTITY_TYPE in FROZEN_BENCHMARK_PROTOCOL.question.entity_types
     available_now_baselines = {

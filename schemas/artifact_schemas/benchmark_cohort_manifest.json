@@ -149,6 +149,12 @@
       "description": "Optional benchmark task contract identifier."
     },
     {
+      "name": "auxiliary_source_artifacts",
+      "field_type": "object[]",
+      "required": false,
+      "description": "Optional pinned source artifact references required by benchmark tasks that consume checked-in local fixture ledgers outside the generic cohort member and future outcome files."
+    },
+    {
       "name": "notes",
       "field_type": "string",
       "required": false,

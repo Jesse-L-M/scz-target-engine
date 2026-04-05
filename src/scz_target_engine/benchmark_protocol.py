@@ -1525,6 +1525,17 @@ BENCHMARK_ARTIFACT_SCHEMAS_V1 = (
                 description="Number of observed=true rows in the materialized benchmark cohort labels artifact.",
             ),
             ArtifactField(
+                name="auxiliary_source_artifacts",
+                field_type="object[]",
+                required=False,
+                description=(
+                    "Optional pinned source artifact references required by "
+                    "benchmark tasks that consume checked-in local fixture "
+                    "ledgers outside the generic cohort-member and future-"
+                    "outcome files."
+                ),
+            ),
+            ArtifactField(
                 name="notes",
                 field_type="string",
                 required=False,

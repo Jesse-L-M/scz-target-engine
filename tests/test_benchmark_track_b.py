@@ -5,7 +5,9 @@ import shutil
 import pytest
 
 from scz_target_engine.benchmark_labels import (
+    benchmark_cohort_manifest_path_for_labels_file,
     materialize_benchmark_cohort_labels,
+    read_benchmark_cohort_manifest,
     read_benchmark_cohort_labels,
 )
 from scz_target_engine.benchmark_leaderboard import (
@@ -308,6 +310,21 @@ def test_track_b_cohort_labels_use_casebook_entity_surface(
         "roluperidone-negative-symptoms-monotherapy-phase-3-or-registration": "insufficient_history",
         "ulotaront-acute-positive-symptoms-monotherapy-phase-3-or-registration": "replay_supported",
     }
+    cohort_manifest = read_benchmark_cohort_manifest(
+        benchmark_cohort_manifest_path_for_labels_file(cohort_labels_file)
+    )
+    assert {
+        artifact.artifact_name
+        for artifact in cohort_manifest.auxiliary_source_artifacts
+    } == {
+        "source_archive_index",
+        "track_b_casebook",
+        "track_b_program_universe",
+        "track_b_program_history_events",
+        "program_memory_assets",
+        "program_memory_event_provenance",
+        "program_memory_directionality_hypotheses",
+    }
 
 
 def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
@@ -439,7 +456,7 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
     assert interval_payload.random_seed == expected_seed
 
 
-def test_track_b_reporting_uses_runner_emitted_case_outputs(
+def test_track_b_reporting_rejects_mutated_pinned_source_fixture(
     tmp_path: Path,
 ) -> None:
     fixture_dir = tmp_path / "fixture"
@@ -479,33 +496,124 @@ def test_track_b_reporting_uses_runner_emitted_case_outputs(
         encoding="utf-8",
     )
 
-    reporting_result = materialize_benchmark_reporting(
+    with pytest.raises(
+        ValueError,
+        match="benchmark cohort auxiliary source artifact sha256 does not match",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_dir,
+            generated_at="2026-04-05T00:00:00Z",
+        )
+
+
+def test_track_b_runner_uses_cohort_pinned_source_fixture(
+    tmp_path: Path,
+) -> None:
+    fixture_dir = tmp_path / "fixture"
+    alt_fixture_dir = tmp_path / "alt-fixture"
+    shutil.copytree(TRACK_B_FIXTURE_DIR, fixture_dir)
+    shutil.copytree(TRACK_B_FIXTURE_DIR, alt_fixture_dir)
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=fixture_dir / "snapshot_request.json",
+        archive_index_file=fixture_dir / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
         manifest_file=snapshot_manifest_file,
-        cohort_labels_file=cohort_labels_file,
-        runner_output_dir=runner_output_dir,
-        output_dir=reporting_dir,
-        generated_at="2026-04-05T00:00:00Z",
+        cohort_members_file=fixture_dir / "cohort_members.csv",
+        future_outcomes_file=fixture_dir / "future_outcomes.csv",
+        output_file=cohort_labels_file,
     )
 
-    report_card = read_benchmark_report_card_payload(
-        Path(reporting_result["report_card_files"][0])
+    mutated_casebook = (alt_fixture_dir / "track_b_casebook.csv").read_text(
+        encoding="utf-8"
     )
-    case_output_payload = read_track_b_case_output_payload(
-        track_b_case_output_path(
-            runner_output_dir,
-            run_id=next(
-                read_benchmark_model_run_manifest(Path(path)).run_id
-                for path in run_result["run_manifest_files"]
-                if "track_b_structural_current" in path
-            ),
+    (alt_fixture_dir / "track_b_casebook.csv").write_text(
+        mutated_casebook.replace("replay_supported", "replay_not_supported", 1),
+        encoding="utf-8",
+    )
+
+    run_result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=alt_fixture_dir / "source_archives.json",
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-05T00:00:00Z",
+    )
+
+    structural_manifest = read_benchmark_model_run_manifest(
+        next(
+            Path(path)
+            for path in run_result["run_manifest_files"]
+            if "track_b_structural_current" in path
         )
     )
-    expected_positive_count = sum(
-        1
-        for case_output in case_output_payload.cases
-        if case_output.gold_replay_status == "replay_supported"
+    track_b_casebook_artifact = next(
+        artifact
+        for artifact in structural_manifest.input_artifacts
+        if artifact.artifact_name == "track_b_casebook"
     )
-    assert report_card.slices[0].positive_entity_count == expected_positive_count
+    assert Path(track_b_casebook_artifact.artifact_path) == (
+        fixture_dir / "track_b_casebook.csv"
+    ).resolve()
+    structural_case_output_payload = read_track_b_case_output_payload(
+        track_b_case_output_path(runner_output_dir, run_id=structural_manifest.run_id)
+    )
+    assert sum(
+        1
+        for case_output in structural_case_output_payload.cases
+        if case_output.gold_replay_status == "replay_supported"
+    ) == 1
+
+
+def test_track_b_run_rejects_invalid_archive_index(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    invalid_archive_index_file = tmp_path / "source_archives.json"
+    invalid_archive_index_file.write_text("{}", encoding="utf-8")
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="source archive index must define an archives list",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=invalid_archive_index_file,
+            output_dir=tmp_path / "runner_outputs",
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-05T00:00:00Z",
+        )
 
 
 def test_track_b_intervals_skip_nonevaluable_analog_resamples() -> None:

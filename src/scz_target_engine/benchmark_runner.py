@@ -1227,6 +1227,36 @@ def _track_b_metric_slice_notes(
     return notes
 
 
+def _materialized_track_b_source_artifact_index(
+    materialized_cohort: Any,
+) -> dict[str, Path]:
+    artifact_index = {
+        str(artifact.artifact_name): Path(str(artifact.artifact_path)).resolve()
+        for artifact in getattr(materialized_cohort, "auxiliary_source_artifacts", ())
+    }
+    required_artifact_names = (
+        "source_archive_index",
+        "track_b_casebook",
+        "track_b_program_universe",
+        "track_b_program_history_events",
+        "program_memory_assets",
+        "program_memory_event_provenance",
+        "program_memory_directionality_hypotheses",
+    )
+    missing_artifact_names = [
+        artifact_name
+        for artifact_name in required_artifact_names
+        if artifact_name not in artifact_index
+    ]
+    if missing_artifact_names:
+        raise ValueError(
+            "Track B runner requires the materialized benchmark cohort bundle to "
+            "capture the pinned Track B source artifacts: "
+            + ", ".join(missing_artifact_names)
+        )
+    return artifact_index
+
+
 def _run_track_b_benchmark(
     *,
     manifest: BenchmarkSnapshotManifest,
@@ -1243,20 +1273,37 @@ def _run_track_b_benchmark(
     deterministic_test_mode: bool,
     execution_timestamp: str | None,
 ) -> dict[str, object]:
+    archive_descriptors = load_source_archive_descriptors(archive_index_file)
+    _resolve_included_source_descriptors(manifest, archive_descriptors)
+    source_artifact_index = _materialized_track_b_source_artifact_index(
+        materialized_cohort
+    )
+    bundled_archive_index_file = source_artifact_index["source_archive_index"]
+    if _file_sha256(archive_index_file.resolve()) != _file_sha256(
+        bundled_archive_index_file
+    ):
+        raise ValueError(
+            "Track B runner requires archive_index_file to match the pinned source "
+            "archive index captured in the benchmark cohort bundle"
+        )
     task_contract.fixture_paths.validate_archive_index_sibling_files(
-        archive_index_file.resolve()
+        bundled_archive_index_file
     )
-    casebook_path = track_b_casebook_path_for_archive_index_file(archive_index_file)
-    events_path = track_b_events_path_for_archive_index_file(archive_index_file)
+    casebook_path = track_b_casebook_path_for_archive_index_file(
+        bundled_archive_index_file
+    )
+    events_path = track_b_events_path_for_archive_index_file(bundled_archive_index_file)
     program_universe_path = track_b_program_universe_path_for_archive_index_file(
-        archive_index_file
+        bundled_archive_index_file
     )
-    assets_path = track_b_assets_path_for_archive_index_file(archive_index_file)
+    assets_path = track_b_assets_path_for_archive_index_file(bundled_archive_index_file)
     event_provenance_path = track_b_event_provenance_path_for_archive_index_file(
-        archive_index_file
+        bundled_archive_index_file
     )
     directionality_hypotheses_path = (
-        track_b_directionality_hypotheses_path_for_archive_index_file(archive_index_file)
+        track_b_directionality_hypotheses_path_for_archive_index_file(
+            bundled_archive_index_file
+        )
     )
 
     cases = load_track_b_casebook(
@@ -1308,8 +1355,11 @@ def _run_track_b_benchmark(
     )
     archive_index_ref = _build_artifact_reference(
         artifact_name="source_archive_index",
-        path=archive_index_file,
-        notes="Archived source descriptor index consumed for the Track B snapshot.",
+        path=bundled_archive_index_file,
+        notes=(
+            "Pinned source descriptor index captured in the Track B benchmark cohort "
+            "bundle and validated against the supplied archive_index_file."
+        ),
     )
     casebook_ref = _build_artifact_reference(
         artifact_name="track_b_casebook",
@@ -1561,7 +1611,7 @@ def _run_track_b_benchmark(
         "code_version": code_version,
         "manifest_file": str(manifest_file),
         "cohort_labels_file": str(cohort_labels_file),
-        "archive_index_file": str(archive_index_file),
+        "archive_index_file": str(bundled_archive_index_file),
         "executed_baselines": executed_baselines,
         "requested_available_now_baselines": requested_available_now_baselines,
         "available_now_baselines": available_now_baselines,

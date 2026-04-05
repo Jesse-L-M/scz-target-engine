@@ -1127,6 +1127,14 @@ def validate_track_b_case_output_payload(
                 "Track B case output baseline_id does not match payload baseline_id "
                 f"for {payload.run_id}/{case_output.case_id}"
             )
+        expected_retrieved_event_ids = tuple(
+            analog.event_id for analog in case_output.retrieved_analogs
+        )
+        if case_output.retrieved_analog_event_ids != expected_retrieved_event_ids:
+            raise ValueError(
+                "Track B case output retrieved_analog_event_ids do not match "
+                f"retrieved_analogs for {payload.run_id}/{case_output.case_id}"
+            )
         expected_analog_recall = _analog_recall_at_3(
             case_output.gold_analog_event_ids,
             case_output.retrieved_analog_event_ids,

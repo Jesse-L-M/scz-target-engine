@@ -33,6 +33,7 @@ from scz_target_engine.benchmark_snapshots import (
 from scz_target_engine.benchmark_track_b import (
     TRACK_B_HORIZON,
     TRACK_B_METRIC_NAMES,
+    TrackBAnalogCandidate,
     TrackBCaseOutput,
     TrackBCaseOutputPayload,
     build_track_b_case_outputs,
@@ -59,6 +60,29 @@ TRACK_B_FIXTURE_DIR = (
     / "fixtures"
     / "scz_failure_memory_2025_02_01"
 )
+
+
+def _build_track_b_analog_candidate(event_id: str) -> TrackBAnalogCandidate:
+    return TrackBAnalogCandidate(
+        event_id=event_id,
+        asset_id=f"asset-{event_id}",
+        molecule="synthetic molecule",
+        target="GENE1",
+        target_class="synthetic class",
+        domain="acute_positive_symptoms",
+        population="adults",
+        mono_or_adjunct="monotherapy",
+        phase="phase_2",
+        event_date="2024-01-01",
+        primary_outcome_result="did_not_meet_primary_endpoint",
+        failure_reason_taxonomy="unresolved",
+        failure_scope="unresolved",
+        match_tier="nearest_history",
+        biological_anchor=False,
+        source_tier="company_press_release",
+        source_url=f"https://example.com/{event_id}",
+        match_dimensions=("domain",),
+    )
 
 
 def _build_track_b_case_output(
@@ -1018,7 +1042,10 @@ def test_validate_track_b_case_output_payload_rejects_stale_analog_recall() -> N
         case_id="tampered-analog",
         analog_recall_at_3=1.0,
     ).to_dict()
-    case_payload["retrieved_analog_event_ids"] = ["fake_event_1", "fake_event_2"]
+    case_payload["retrieved_analog_event_ids"] = ["fake_event_1"]
+    case_payload["retrieved_analogs"] = [
+        _build_track_b_analog_candidate("fake_event_1").to_dict()
+    ]
     payload = TrackBCaseOutputPayload(
         run_id="run-1",
         baseline_id="track_b_structural_current",
@@ -1030,6 +1057,30 @@ def test_validate_track_b_case_output_payload_rejects_stale_analog_recall() -> N
     with pytest.raises(
         ValueError,
         match="Track B case output analog_recall_at_3 does not match analog event ids",
+    ):
+        validate_track_b_case_output_payload(
+            payload,
+            expected_as_of_date="2025-02-01",
+        )
+
+
+def test_validate_track_b_case_output_payload_rejects_non_evaluable_retrieved_ids() -> None:
+    case_payload = _build_track_b_case_output(
+        case_id="tampered-non-evaluable",
+        analog_recall_at_3=None,
+    ).to_dict()
+    case_payload["retrieved_analog_event_ids"] = ["fake_event_x", "fake_event_y"]
+    payload = TrackBCaseOutputPayload(
+        run_id="run-1",
+        baseline_id="track_b_structural_current",
+        snapshot_id="scz_failure_memory_2025_02_01",
+        as_of_date="2025-02-01",
+        cases=(TrackBCaseOutput.from_dict(case_payload),),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output retrieved_analog_event_ids do not match retrieved_analogs",
     ):
         validate_track_b_case_output_payload(
             payload,

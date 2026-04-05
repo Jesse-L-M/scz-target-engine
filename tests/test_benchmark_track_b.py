@@ -48,6 +48,7 @@ from scz_target_engine.benchmark_track_b import (
     track_b_confusion_summary_path,
     track_b_events_path_for_archive_index_file,
     track_b_program_universe_path_for_archive_index_file,
+    validate_track_b_case_output_payload,
 )
 
 
@@ -1010,6 +1011,54 @@ def test_track_b_error_analysis_surfaces_analog_only_mismatches() -> None:
 
     assert confusion_summary.mismatched_case_ids == ("analog-only",)
     assert "- analog recall@3: 0.000" in markdown
+
+
+def test_validate_track_b_case_output_payload_rejects_stale_analog_recall() -> None:
+    case_payload = _build_track_b_case_output(
+        case_id="tampered-analog",
+        analog_recall_at_3=1.0,
+    ).to_dict()
+    case_payload["retrieved_analog_event_ids"] = ["fake_event_1", "fake_event_2"]
+    payload = TrackBCaseOutputPayload(
+        run_id="run-1",
+        baseline_id="track_b_structural_current",
+        snapshot_id="scz_failure_memory_2025_02_01",
+        as_of_date="2025-02-01",
+        cases=(TrackBCaseOutput.from_dict(case_payload),),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output analog_recall_at_3 does not match analog event ids",
+    ):
+        validate_track_b_case_output_payload(
+            payload,
+            expected_as_of_date="2025-02-01",
+        )
+
+
+def test_validate_track_b_case_output_payload_rejects_as_of_date_mismatch() -> None:
+    payload = TrackBCaseOutputPayload(
+        run_id="run-1",
+        baseline_id="track_b_structural_current",
+        snapshot_id="scz_failure_memory_2025_02_01",
+        as_of_date="1999-01-01",
+        cases=(
+            _build_track_b_case_output(
+                case_id="date-mismatch",
+                analog_recall_at_3=1.0,
+            ),
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output payload as_of_date does not match snapshot manifest",
+    ):
+        validate_track_b_case_output_payload(
+            payload,
+            expected_as_of_date="2025-02-01",
+        )
 
 
 def test_track_b_run_does_not_require_parsing_engine_config(

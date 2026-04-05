@@ -308,6 +308,84 @@ def test_materialize_benchmark_reporting_keeps_track_b_metrics_scoped_per_run(
         )
 
 
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_analog_recall(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next(
+        path
+        for path in (runner_output_dir / "track_b_case_outputs").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    tampered_case = next(
+        case
+        for case in case_output_payload["cases"]
+        if case.get("analog_recall_at_3") is not None
+        and float(case["analog_recall_at_3"]) > 0.0
+    )
+    tampered_case["retrieved_analog_event_ids"] = [
+        "fake_event_1",
+        "fake_event_2",
+        "fake_event_3",
+    ]
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output analog_recall_at_3 does not match analog event ids",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_track_b_as_of_date_mismatch(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next((runner_output_dir / "track_b_case_outputs").glob("*.json"))
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    case_output_payload["as_of_date"] = "1999-01-01"
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output payload as_of_date does not match snapshot manifest",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
 def test_materialize_benchmark_reporting_emits_intervention_object_error_analysis(
     tmp_path: Path,
 ) -> None:

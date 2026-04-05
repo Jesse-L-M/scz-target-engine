@@ -54,6 +54,7 @@ from scz_target_engine.benchmark_track_b import (
     track_b_metric_cohort_sizes,
     track_b_case_output_path,
     track_b_confusion_summary_path,
+    validate_track_b_case_output_payload,
 )
 from scz_target_engine.io import read_json, write_json
 
@@ -1048,6 +1049,7 @@ def read_benchmark_leaderboard_payload(path: Path) -> BenchmarkLeaderboardPayloa
 def _validate_track_b_runner_outputs(
     *,
     run_id: str,
+    expected_as_of_date: str,
     metric_items: list[tuple[Path, BenchmarkMetricOutputPayload]],
     interval_index: dict[
         tuple[str, str, str, str],
@@ -1060,6 +1062,10 @@ def _validate_track_b_runner_outputs(
         raise ValueError(
             f"Track B case output payload run_id does not match runner manifest for {run_id}"
         )
+    validate_track_b_case_output_payload(
+        case_output_payload,
+        expected_as_of_date=expected_as_of_date,
+    )
     if confusion_summary.run_id != run_id:
         raise ValueError(
             f"Track B confusion summary run_id does not match runner manifest for {run_id}"
@@ -1354,6 +1360,7 @@ def _materialize_track_b_reporting(
         ) = (
             _validate_track_b_runner_outputs(
                 run_id=run_id,
+                expected_as_of_date=str(getattr(manifest, "as_of_date")),
                 metric_items=metric_items,
                 interval_index=interval_index,
                 case_output_payload=case_output_payload,

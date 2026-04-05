@@ -1108,6 +1108,36 @@ def _analog_recall_at_3(
     return len(gold.intersection(retrieved)) / len(gold)
 
 
+def validate_track_b_case_output_payload(
+    payload: TrackBCaseOutputPayload,
+    *,
+    expected_as_of_date: str | None = None,
+) -> None:
+    _parse_iso_date(payload.as_of_date, "as_of_date")
+    if expected_as_of_date is not None:
+        _parse_iso_date(expected_as_of_date, "expected_as_of_date")
+        if payload.as_of_date != expected_as_of_date:
+            raise ValueError(
+                "Track B case output payload as_of_date does not match snapshot manifest "
+                f"for {payload.run_id}"
+            )
+    for case_output in payload.cases:
+        if case_output.baseline_id != payload.baseline_id:
+            raise ValueError(
+                "Track B case output baseline_id does not match payload baseline_id "
+                f"for {payload.run_id}/{case_output.case_id}"
+            )
+        expected_analog_recall = _analog_recall_at_3(
+            case_output.gold_analog_event_ids,
+            case_output.retrieved_analog_event_ids,
+        )
+        if case_output.analog_recall_at_3 != expected_analog_recall:
+            raise ValueError(
+                "Track B case output analog_recall_at_3 does not match analog event "
+                f"ids for {payload.run_id}/{case_output.case_id}"
+            )
+
+
 def build_track_b_case_outputs(
     *,
     cases: tuple[TrackBCase, ...],

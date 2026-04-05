@@ -1229,6 +1229,9 @@ def _materialize_track_b_reporting(
 ) -> dict[str, object]:
     case_output_payloads: dict[str, object] = {}
     confusion_summaries: dict[str, object] = {}
+    validated_metric_values_by_run: dict[str, dict[str, float]] = {}
+    validated_intervals_by_run: dict[str, dict[str, tuple[float, float, float]]] = {}
+    validated_slice_notes_by_run: dict[str, str] = {}
     cohort_entity_labels: dict[str, str] = {}
     cohort_replay_statuses: dict[str, str] = {}
     for label in cohort_labels:
@@ -1344,7 +1347,11 @@ def _materialize_track_b_reporting(
         confusion_summary = read_track_b_confusion_summary(
             track_b_confusion_summary_path(resolved_runner_output_dir, run_id=run_id)
         )
-        _, validated_intervals, expected_slice_notes = (
+        (
+            validated_metric_values,
+            validated_intervals,
+            expected_slice_notes,
+        ) = (
             _validate_track_b_runner_outputs(
                 run_id=run_id,
                 metric_items=metric_items,
@@ -1390,9 +1397,12 @@ def _materialize_track_b_reporting(
             raise ValueError(
                 "Track B reporting requires every run to carry the same frozen case "
                 "definitions in the runner-emitted case outputs"
-            )
+        )
         case_output_payloads[run_id] = case_output_payload
         confusion_summaries[run_id] = confusion_summary
+        validated_metric_values_by_run[run_id] = validated_metric_values
+        validated_intervals_by_run[run_id] = validated_intervals
+        validated_slice_notes_by_run[run_id] = expected_slice_notes
 
     _clear_reporting_snapshot_outputs(
         resolved_output_dir,
@@ -1417,6 +1427,9 @@ def _materialize_track_b_reporting(
         key=lambda item: (item[1][1].baseline_id, item[0]),
     ):
         baseline = baseline_index[run_manifest.baseline_id]
+        validated_metric_values = validated_metric_values_by_run[run_id]
+        validated_intervals = validated_intervals_by_run[run_id]
+        expected_slice_notes = validated_slice_notes_by_run[run_id]
         metric_items = sorted(
             metrics_by_run_slice[(run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON)],
             key=lambda item: item[1].metric_name,
@@ -1442,7 +1455,7 @@ def _materialize_track_b_reporting(
             metric_summaries.append(
                 BenchmarkMetricSummary(
                     metric_name=metric_payload.metric_name,
-                    metric_value=point_estimate,
+                    metric_value=validated_metric_values[metric_payload.metric_name],
                     interval_low=interval_low,
                     interval_high=interval_high,
                     metric_unit=metric_payload.metric_unit,
@@ -1456,7 +1469,7 @@ def _materialize_track_b_reporting(
                 )
             )
             metric_intervals[metric_payload.metric_name] = (
-                point_estimate,
+                validated_metric_values[metric_payload.metric_name],
                 interval_low,
                 interval_high,
             )

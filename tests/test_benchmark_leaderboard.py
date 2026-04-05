@@ -15,6 +15,7 @@ from scz_target_engine.benchmark_leaderboard import (
     read_benchmark_report_card_payload,
 )
 from scz_target_engine.benchmark_metrics import RETRIEVAL_METRIC_NAMES
+from scz_target_engine.benchmark_metrics import read_benchmark_metric_output_payload
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
 from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
@@ -30,6 +31,15 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
+TRACK_B_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "data"
+    / "benchmark"
+    / "fixtures"
+    / "scz_failure_memory_2025_02_01"
+)
+
+
 def _materialize_fixture_runner_outputs(
     tmp_path: Path,
 ) -> tuple[Path, Path, Path, dict[str, object]]:
@@ -59,6 +69,44 @@ def _materialize_fixture_runner_outputs(
         deterministic_test_mode=True,
         code_version="fixture-sha",
         execution_timestamp="2026-03-28T00:00:00Z",
+    )
+    return (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        benchmark_result,
+    )
+
+
+def _materialize_track_b_fixture_runner_outputs(
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, dict[str, object]]:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+    benchmark_result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-05T00:00:00Z",
     )
     return (
         snapshot_manifest_file,
@@ -189,6 +237,75 @@ def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderbo
         Path(entry.report_card_path).exists()
         for entry in leaderboard_payload.entries
     )
+
+
+def test_materialize_benchmark_reporting_keeps_track_b_metrics_scoped_per_run(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        benchmark_result,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-04-05T12:00:00Z",
+    )
+
+    runner_replay_status_by_baseline = {}
+    for metric_path in benchmark_result["metric_payload_files"]:
+        metric_payload = read_benchmark_metric_output_payload(Path(metric_path))
+        if metric_payload.metric_name != "replay_status_exact_match":
+            continue
+        runner_replay_status_by_baseline[metric_payload.baseline_id] = (
+            metric_payload.metric_value
+        )
+
+    assert (
+        runner_replay_status_by_baseline["track_b_nearest_history"]
+        < runner_replay_status_by_baseline["track_b_structural_current"]
+    )
+
+    report_card_replay_status_by_baseline = {}
+    for report_card_path in reporting_result["report_card_files"]:
+        report_card = read_benchmark_report_card_payload(Path(report_card_path))
+        metric_summary = next(
+            metric
+            for metric in report_card.slices[0].metrics
+            if metric.metric_name == "replay_status_exact_match"
+        )
+        report_card_replay_status_by_baseline[report_card.baseline_id] = (
+            metric_summary.metric_value
+        )
+
+    replay_status_leaderboard = read_benchmark_leaderboard_payload(
+        next(
+            Path(path)
+            for path in reporting_result["leaderboard_payload_files"]
+            if path.endswith("replay_status_exact_match.json")
+        )
+    )
+    leaderboard_replay_status_by_baseline = {
+        entry.baseline_id: entry.metric_value
+        for entry in replay_status_leaderboard.entries
+    }
+
+    for baseline_id in (
+        "track_b_nearest_history",
+        "track_b_structural_current",
+    ):
+        assert report_card_replay_status_by_baseline[baseline_id] == (
+            runner_replay_status_by_baseline[baseline_id]
+        )
+        assert leaderboard_replay_status_by_baseline[baseline_id] == (
+            runner_replay_status_by_baseline[baseline_id]
+        )
 
 
 def test_materialize_benchmark_reporting_emits_intervention_object_error_analysis(

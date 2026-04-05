@@ -20,6 +20,7 @@ from scz_target_engine.benchmark_leaderboard import (
 )
 from scz_target_engine.benchmark_metrics import (
     read_benchmark_confidence_interval_payload,
+    read_benchmark_metric_output_payload,
 )
 from scz_target_engine.benchmark_runner import (
     materialize_benchmark_run,
@@ -481,6 +482,108 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         "big",
     )
     assert interval_payload.random_seed == expected_seed
+
+    run_id_by_baseline = {
+        read_benchmark_model_run_manifest(Path(path)).baseline_id: (
+            read_benchmark_model_run_manifest(Path(path)).run_id
+        )
+        for path in run_result["run_manifest_files"]
+    }
+    report_card_by_baseline = {
+        read_benchmark_report_card_payload(Path(path)).baseline_id: (
+            read_benchmark_report_card_payload(Path(path))
+        )
+        for path in reporting_result["report_card_files"]
+    }
+    replay_status_leaderboard = read_benchmark_leaderboard_payload(
+        next(
+            Path(path)
+            for path in reporting_result["leaderboard_payload_files"]
+            if path.endswith("replay_status_exact_match.json")
+        )
+    )
+    leaderboard_entry_by_baseline = {
+        entry.baseline_id: entry for entry in replay_status_leaderboard.entries
+    }
+
+    def _runner_metric_and_interval(
+        baseline_id: str,
+    ) -> tuple[float, tuple[float, float]]:
+        run_id = run_id_by_baseline[baseline_id]
+        metric_payload = read_benchmark_metric_output_payload(
+            next(
+                Path(path)
+                for path in run_result["metric_payload_files"]
+                if run_id in path and path.endswith("replay_status_exact_match.json")
+            )
+        )
+        interval_payload = read_benchmark_confidence_interval_payload(
+            next(
+                Path(path)
+                for path in run_result["confidence_interval_files"]
+                if run_id in path and path.endswith("replay_status_exact_match.json")
+            )
+        )
+        return metric_payload.metric_value, (
+            interval_payload.interval_low,
+            interval_payload.interval_high,
+        )
+
+    nearest_history_value, nearest_history_interval = _runner_metric_and_interval(
+        "track_b_nearest_history"
+    )
+    structural_current_value, structural_current_interval = _runner_metric_and_interval(
+        "track_b_structural_current"
+    )
+    assert nearest_history_value < structural_current_value
+
+    nearest_history_metric = next(
+        metric
+        for metric in report_card_by_baseline["track_b_nearest_history"].slices[0].metrics
+        if metric.metric_name == "replay_status_exact_match"
+    )
+    structural_current_metric = next(
+        metric
+        for metric in report_card_by_baseline["track_b_structural_current"].slices[0].metrics
+        if metric.metric_name == "replay_status_exact_match"
+    )
+    assert nearest_history_metric.metric_value == nearest_history_value
+    assert (
+        nearest_history_metric.interval_low,
+        nearest_history_metric.interval_high,
+    ) == nearest_history_interval
+    assert structural_current_metric.metric_value == structural_current_value
+    assert (
+        structural_current_metric.interval_low,
+        structural_current_metric.interval_high,
+    ) == structural_current_interval
+
+    assert (
+        leaderboard_entry_by_baseline["track_b_nearest_history"].metric_value
+        == nearest_history_value
+    )
+    assert (
+        leaderboard_entry_by_baseline["track_b_nearest_history"].interval_low,
+        leaderboard_entry_by_baseline["track_b_nearest_history"].interval_high,
+    ) == nearest_history_interval
+    assert (
+        leaderboard_entry_by_baseline["track_b_structural_current"].metric_value
+        == structural_current_value
+    )
+    assert (
+        leaderboard_entry_by_baseline["track_b_structural_current"].interval_low,
+        leaderboard_entry_by_baseline["track_b_structural_current"].interval_high,
+    ) == structural_current_interval
+
+    nearest_history_error_analysis = next(
+        Path(path)
+        for path in reporting_result["error_analysis_files"]
+        if path.endswith(".md") and run_id_by_baseline["track_b_nearest_history"] in path
+    ).read_text(encoding="utf-8")
+    assert (
+        f"- `replay_status_exact_match`: {nearest_history_value:.3f} "
+        f"[{nearest_history_interval[0]:.3f}, {nearest_history_interval[1]:.3f}]"
+    ) in nearest_history_error_analysis
 
 
 def test_track_b_cohort_materialization_preserves_auxiliary_sources_without_task_id(

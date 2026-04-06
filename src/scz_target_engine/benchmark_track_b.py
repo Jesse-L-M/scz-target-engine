@@ -64,6 +64,7 @@ TRACK_B_METRIC_NAMES = (
     "what_must_differ_checklist_f1",
     "replay_status_exact_match",
 )
+TRACK_B_RETRIEVAL_LIMIT = 3
 
 
 def _parse_iso_date(value: str, field_name: str) -> date:
@@ -949,17 +950,19 @@ def _retrieved_analogs_for_baseline(
             converted,
             predicate=lambda analog: "target_symbol" in analog.match_dimensions
             or analog.match_tier == "molecule",
-        )[:3]
+        )[:TRACK_B_RETRIEVAL_LIMIT]
     if baseline_id == "track_b_target_class":
         return _filtered_candidates(
             converted,
             predicate=lambda analog: "target_class" in analog.match_dimensions
             or analog.match_tier == "molecule",
-        )[:3]
+        )[:TRACK_B_RETRIEVAL_LIMIT]
     if baseline_id == "track_b_nearest_history":
-        return _nearest_history_candidates(dataset, case.proposal)[:3]
+        return _nearest_history_candidates(dataset, case.proposal)[
+            :TRACK_B_RETRIEVAL_LIMIT
+        ]
     if baseline_id == "track_b_structural_current":
-        return converted[:3]
+        return converted[:TRACK_B_RETRIEVAL_LIMIT]
     raise ValueError(f"unsupported Track B baseline_id: {baseline_id}")
 
 
@@ -1103,7 +1106,7 @@ def _analog_recall_at_3(
 ) -> float | None:
     if not gold_event_ids:
         return None
-    retrieved = set(retrieved_event_ids[:3])
+    retrieved = set(retrieved_event_ids[:TRACK_B_RETRIEVAL_LIMIT])
     gold = set(gold_event_ids)
     return len(gold.intersection(retrieved)) / len(gold)
 
@@ -1126,6 +1129,11 @@ def validate_track_b_case_output_payload(
             raise ValueError(
                 "Track B case output baseline_id does not match payload baseline_id "
                 f"for {payload.run_id}/{case_output.case_id}"
+            )
+        if len(case_output.retrieved_analogs) > TRACK_B_RETRIEVAL_LIMIT:
+            raise ValueError(
+                "Track B case output retrieved_analogs exceed the Track B retrieval "
+                f"limit for {payload.run_id}/{case_output.case_id}"
             )
         expected_retrieved_event_ids = tuple(
             analog.event_id for analog in case_output.retrieved_analogs

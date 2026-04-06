@@ -1088,6 +1088,35 @@ def test_validate_track_b_case_output_payload_rejects_non_evaluable_retrieved_id
         )
 
 
+def test_validate_track_b_case_output_payload_rejects_excess_retrieved_analogs() -> None:
+    case_payload = _build_track_b_case_output(
+        case_id="tampered-too-many-analogs",
+        analog_recall_at_3=None,
+    ).to_dict()
+    event_ids = ("event-1", "event-2", "event-3", "event-4")
+    case_payload["retrieved_analog_event_ids"] = list(event_ids)
+    case_payload["retrieved_analogs"] = [
+        _build_track_b_analog_candidate(event_id).to_dict()
+        for event_id in event_ids
+    ]
+    payload = TrackBCaseOutputPayload(
+        run_id="run-1",
+        baseline_id="track_b_structural_current",
+        snapshot_id="scz_failure_memory_2025_02_01",
+        as_of_date="2025-02-01",
+        cases=(TrackBCaseOutput.from_dict(case_payload),),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output retrieved_analogs exceed the Track B retrieval limit",
+    ):
+        validate_track_b_case_output_payload(
+            payload,
+            expected_as_of_date="2025-02-01",
+        )
+
+
 def test_validate_track_b_case_output_payload_rejects_as_of_date_mismatch() -> None:
     payload = TrackBCaseOutputPayload(
         run_id="run-1",

@@ -402,6 +402,69 @@ def test_materialize_benchmark_reporting_rejects_tampered_track_b_nonevaluable_r
         )
 
 
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_excess_retrieved_analogs(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next(
+        path
+        for path in (runner_output_dir / "track_b_case_outputs").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    tampered_case = next(
+        case
+        for case in case_output_payload["cases"]
+        if case["case_id"] == "roluperidone_negative_symptoms_phase3"
+    )
+    tampered_case["retrieved_analog_event_ids"].append("fake_event_z")
+    tampered_case["retrieved_analogs"].append(
+        {
+            "asset_id": "fake-asset-z",
+            "biological_anchor": False,
+            "domain": "negative_symptoms",
+            "event_date": "2024-06-01",
+            "event_id": "fake_event_z",
+            "failure_reason_taxonomy": "unresolved",
+            "failure_scope": "unresolved",
+            "match_dimensions": ["domain"],
+            "match_tier": "nearest_history",
+            "molecule": "fake molecule z",
+            "mono_or_adjunct": "monotherapy",
+            "phase": "phase_3",
+            "population": "adults",
+            "primary_outcome_result": "did_not_meet_primary_endpoint",
+            "source_tier": "company_press_release",
+            "source_url": "https://example.com/fake-event-z",
+            "target": "GENE1",
+            "target_class": "synthetic class",
+        }
+    )
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output retrieved_analogs exceed the Track B retrieval limit",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
 def test_materialize_benchmark_reporting_rejects_track_b_as_of_date_mismatch(
     tmp_path: Path,
 ) -> None:

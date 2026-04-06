@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
+import json
 from pathlib import Path
 import re
 import shutil
@@ -94,6 +95,11 @@ def _normalize_component(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
 
+def _parameter_digest(payload: dict[str, object]) -> str:
+    encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
+    return sha256(encoded).hexdigest()[:8]
+
+
 def _file_sha256(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as handle:
@@ -136,6 +142,123 @@ def _build_track_b_slice_notes(
     if deterministic_test_mode:
         notes += "; deterministic_test_mode=true"
     return notes
+
+
+def _validate_track_b_run_manifest_ownership(
+    *,
+    manifest: object,
+    run_manifest: BenchmarkModelRunManifest,
+) -> None:
+    if run_manifest.parameterization.get("track_b_baseline_mode") != run_manifest.baseline_id:
+        raise ValueError(
+            "Track B run manifest baseline_id does not match track_b_baseline_mode "
+            f"for {run_manifest.run_id}"
+        )
+    if run_manifest.parameterization.get("benchmark_question_id") != str(
+        getattr(manifest, "benchmark_question_id")
+    ):
+        raise ValueError(
+            "Track B run manifest benchmark_question_id does not match snapshot "
+            f"manifest for {run_manifest.run_id}"
+        )
+    if run_manifest.parameterization.get("track_b_horizon") != TRACK_B_HORIZON:
+        raise ValueError(
+            "Track B run manifest track_b_horizon does not match the Track B "
+            f"reporting surface for {run_manifest.run_id}"
+        )
+    expected_run_id = "__".join(
+        component
+        for component in (
+            _normalize_component(run_manifest.snapshot_id),
+            _normalize_component(run_manifest.baseline_id),
+            _normalize_component(run_manifest.code_version[:12]),
+            _parameter_digest(run_manifest.parameterization),
+        )
+        if component
+    )
+    if run_manifest.run_id != expected_run_id:
+        raise ValueError(
+            "Track B run manifest run_id does not match its baseline/code_version/"
+            f"parameterization contract for {run_manifest.run_id}"
+        )
+
+
+def _validate_track_b_runner_artifact_ownership(
+    *,
+    run_manifest: BenchmarkModelRunManifest,
+    metric_items: list[tuple[Path, BenchmarkMetricOutputPayload]],
+    interval_index: dict[
+        tuple[str, str, str, str],
+        tuple[Path, BenchmarkConfidenceIntervalPayload],
+    ],
+    case_output_payload: Any,
+    confusion_summary: Any,
+) -> None:
+    expected_run_id = run_manifest.run_id
+    expected_baseline_id = run_manifest.baseline_id
+    expected_snapshot_id = run_manifest.snapshot_id
+    if case_output_payload.run_id != expected_run_id:
+        raise ValueError(
+            f"Track B case output payload run_id does not match runner manifest for {expected_run_id}"
+        )
+    if case_output_payload.baseline_id != expected_baseline_id:
+        raise ValueError(
+            "Track B case output payload baseline_id does not match runner manifest "
+            f"for {expected_run_id}"
+        )
+    if case_output_payload.snapshot_id != expected_snapshot_id:
+        raise ValueError(
+            "Track B case output payload snapshot_id does not match runner manifest "
+            f"for {expected_run_id}"
+        )
+    if confusion_summary.run_id != expected_run_id:
+        raise ValueError(
+            f"Track B confusion summary run_id does not match runner manifest for {expected_run_id}"
+        )
+    if confusion_summary.baseline_id != expected_baseline_id:
+        raise ValueError(
+            "Track B confusion summary baseline_id does not match runner manifest "
+            f"for {expected_run_id}"
+        )
+    if confusion_summary.snapshot_id != expected_snapshot_id:
+        raise ValueError(
+            "Track B confusion summary snapshot_id does not match runner manifest "
+            f"for {expected_run_id}"
+        )
+    for _, metric_payload in metric_items:
+        if metric_payload.run_id != expected_run_id:
+            raise ValueError(
+                f"Track B metric payload run_id does not match runner manifest for {expected_run_id}"
+            )
+        if metric_payload.baseline_id != expected_baseline_id:
+            raise ValueError(
+                "Track B metric payload baseline_id does not match runner manifest "
+                f"for {expected_run_id}/{metric_payload.metric_name}"
+            )
+        if metric_payload.snapshot_id != expected_snapshot_id:
+            raise ValueError(
+                "Track B metric payload snapshot_id does not match runner manifest "
+                f"for {expected_run_id}/{metric_payload.metric_name}"
+            )
+    for metric_name in TRACK_B_METRIC_NAMES:
+        interval_payload = interval_index[
+            (expected_run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON, metric_name)
+        ][1]
+        if interval_payload.run_id != expected_run_id:
+            raise ValueError(
+                "Track B confidence interval payload run_id does not match runner "
+                f"manifest for {expected_run_id}/{metric_name}"
+            )
+        if interval_payload.baseline_id != expected_baseline_id:
+            raise ValueError(
+                "Track B confidence interval payload baseline_id does not match "
+                f"runner manifest for {expected_run_id}/{metric_name}"
+            )
+        if interval_payload.snapshot_id != expected_snapshot_id:
+            raise ValueError(
+                "Track B confidence interval payload snapshot_id does not match "
+                f"runner manifest for {expected_run_id}/{metric_name}"
+            )
 
 
 def _parse_slice_counts(notes: str) -> tuple[int, int, int] | None:
@@ -1053,7 +1176,7 @@ def read_benchmark_leaderboard_payload(path: Path) -> BenchmarkLeaderboardPayloa
 
 def _validate_track_b_runner_outputs(
     *,
-    run_id: str,
+    run_manifest: BenchmarkModelRunManifest,
     expected_as_of_date: str,
     expected_case_outputs: tuple[Any, ...],
     metric_items: list[tuple[Path, BenchmarkMetricOutputPayload]],
@@ -1064,10 +1187,14 @@ def _validate_track_b_runner_outputs(
     case_output_payload: Any,
     confusion_summary: Any,
 ) -> tuple[dict[str, float], dict[str, tuple[float, float, float]], str]:
-    if case_output_payload.run_id != run_id:
-        raise ValueError(
-            f"Track B case output payload run_id does not match runner manifest for {run_id}"
-        )
+    _validate_track_b_runner_artifact_ownership(
+        run_manifest=run_manifest,
+        metric_items=metric_items,
+        interval_index=interval_index,
+        case_output_payload=case_output_payload,
+        confusion_summary=confusion_summary,
+    )
+    run_id = run_manifest.run_id
     validate_track_b_case_output_payload(
         case_output_payload,
         expected_as_of_date=expected_as_of_date,
@@ -1076,10 +1203,6 @@ def _validate_track_b_runner_outputs(
         case_output_payload,
         expected_cases=expected_case_outputs,
     )
-    if confusion_summary.run_id != run_id:
-        raise ValueError(
-            f"Track B confusion summary run_id does not match runner manifest for {run_id}"
-        )
     if case_output_payload.baseline_id != confusion_summary.baseline_id:
         raise ValueError(
             f"Track B runner outputs disagree on baseline_id for run_id {run_id}"
@@ -1337,6 +1460,10 @@ def _materialize_track_b_reporting(
     )
 
     for run_id, (_, run_manifest) in run_manifest_index.items():
+        _validate_track_b_run_manifest_ownership(
+            manifest=manifest,
+            run_manifest=run_manifest,
+        )
         metric_items = metrics_by_run_slice.get((run_id, TRACK_B_ENTITY_TYPE, TRACK_B_HORIZON))
         if not metric_items:
             raise ValueError(
@@ -1401,7 +1528,7 @@ def _materialize_track_b_reporting(
             expected_slice_notes,
         ) = (
             _validate_track_b_runner_outputs(
-                run_id=run_id,
+                run_manifest=run_manifest,
                 expected_as_of_date=str(getattr(manifest, "as_of_date")),
                 expected_case_outputs=build_track_b_case_outputs(
                     cases=expected_cases,

@@ -572,6 +572,78 @@ def test_materialize_benchmark_reporting_rejects_tampered_track_b_fabricated_ret
         )
 
 
+def test_materialize_benchmark_reporting_rejects_track_b_cross_baseline_run_id_swap(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    nearest_run_id = next(
+        path.stem
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    structural_run_id = next(
+        path.stem
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+
+    for folder_name in (
+        "run_manifests",
+        "track_b_case_outputs",
+        "track_b_confusion_summaries",
+    ):
+        source_path = runner_output_dir / folder_name / f"{nearest_run_id}.json"
+        target_path = runner_output_dir / folder_name / f"{structural_run_id}.json"
+        payload = json.loads(source_path.read_text(encoding="utf-8"))
+        payload["run_id"] = structural_run_id
+        target_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    for folder_name in ("metric_payloads", "confidence_interval_payloads"):
+        source_dir = (
+            runner_output_dir
+            / folder_name
+            / nearest_run_id
+            / "intervention_object"
+            / "structural_replay"
+        )
+        target_dir = (
+            runner_output_dir
+            / folder_name
+            / structural_run_id
+            / "intervention_object"
+            / "structural_replay"
+        )
+        for source_path in source_dir.glob("*.json"):
+            payload = json.loads(source_path.read_text(encoding="utf-8"))
+            payload["run_id"] = structural_run_id
+            (target_dir / source_path.name).write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B run manifest run_id does not match its baseline/code_version/parameterization contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
 def test_materialize_benchmark_reporting_rejects_track_b_as_of_date_mismatch(
     tmp_path: Path,
 ) -> None:

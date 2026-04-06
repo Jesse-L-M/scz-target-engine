@@ -1154,6 +1154,47 @@ def validate_track_b_case_output_payload(
             )
 
 
+def validate_track_b_case_output_payload_against_expected_cases(
+    payload: TrackBCaseOutputPayload,
+    *,
+    expected_cases: tuple[TrackBCaseOutput, ...],
+) -> None:
+    expected_by_case_id: dict[str, TrackBCaseOutput] = {}
+    for expected_case in expected_cases:
+        if expected_case.case_id in expected_by_case_id:
+            raise ValueError(
+                "expected Track B case outputs must not repeat case_id "
+                f"{expected_case.case_id!r}"
+            )
+        expected_by_case_id[expected_case.case_id] = expected_case
+    observed_by_case_id: dict[str, TrackBCaseOutput] = {}
+    for case_output in payload.cases:
+        if case_output.case_id in observed_by_case_id:
+            raise ValueError(
+                f"Track B case output payload repeats case_id for {payload.run_id}/{case_output.case_id}"
+            )
+        observed_by_case_id[case_output.case_id] = case_output
+    missing_case_ids = sorted(set(expected_by_case_id).difference(observed_by_case_id))
+    unexpected_case_ids = sorted(set(observed_by_case_id).difference(expected_by_case_id))
+    if missing_case_ids or unexpected_case_ids:
+        details: list[str] = []
+        if missing_case_ids:
+            details.append("missing=" + ", ".join(missing_case_ids))
+        if unexpected_case_ids:
+            details.append("unexpected=" + ", ".join(unexpected_case_ids))
+        raise ValueError(
+            "Track B case output case set does not match the pinned source artifacts "
+            f"for {payload.run_id}"
+            + (f" ({'; '.join(details)})" if details else "")
+        )
+    for case_id, expected_case in sorted(expected_by_case_id.items()):
+        if observed_by_case_id[case_id] != expected_case:
+            raise ValueError(
+                "Track B case output does not match the pinned source artifacts "
+                f"for {payload.run_id}/{case_id}"
+            )
+
+
 def build_track_b_case_outputs(
     *,
     cases: tuple[TrackBCase, ...],

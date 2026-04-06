@@ -50,6 +50,7 @@ from scz_target_engine.benchmark_track_b import (
     track_b_events_path_for_archive_index_file,
     track_b_program_universe_path_for_archive_index_file,
     validate_track_b_case_output_payload,
+    validate_track_b_case_output_payload_against_expected_cases,
 )
 
 
@@ -1114,6 +1115,44 @@ def test_validate_track_b_case_output_payload_rejects_excess_retrieved_analogs()
         validate_track_b_case_output_payload(
             payload,
             expected_as_of_date="2025-02-01",
+        )
+
+
+def test_validate_track_b_case_output_payload_against_expected_cases_rejects_fabricated_retrieved_analogs() -> None:
+    expected_case_payload = _build_track_b_case_output(
+        case_id="tampered-fake-analogs",
+        analog_recall_at_3=None,
+    ).to_dict()
+    expected_event_ids = ("event-1", "event-2", "event-3")
+    expected_case_payload["retrieved_analog_event_ids"] = list(expected_event_ids)
+    expected_case_payload["retrieved_analogs"] = [
+        _build_track_b_analog_candidate(event_id).to_dict()
+        for event_id in expected_event_ids
+    ]
+    expected_case = TrackBCaseOutput.from_dict(expected_case_payload)
+
+    tampered_case_payload = expected_case.to_dict()
+    tampered_event_ids = ("fake_event_a", "fake_event_b", "fake_event_c")
+    tampered_case_payload["retrieved_analog_event_ids"] = list(tampered_event_ids)
+    tampered_case_payload["retrieved_analogs"] = [
+        _build_track_b_analog_candidate(event_id).to_dict()
+        for event_id in tampered_event_ids
+    ]
+    payload = TrackBCaseOutputPayload(
+        run_id="run-1",
+        baseline_id="track_b_structural_current",
+        snapshot_id="scz_failure_memory_2025_02_01",
+        as_of_date="2025-02-01",
+        cases=(TrackBCaseOutput.from_dict(tampered_case_payload),),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output does not match the pinned source artifacts",
+    ):
+        validate_track_b_case_output_payload_against_expected_cases(
+            payload,
+            expected_cases=(expected_case,),
         )
 
 

@@ -9,6 +9,7 @@ import shutil
 from typing import Any
 
 from scz_target_engine.benchmark_labels import (
+    MaterializedBenchmarkCohortArtifacts,
     load_materialized_benchmark_cohort_artifacts,
 )
 from scz_target_engine.benchmark_intervention_objects import (
@@ -44,10 +45,13 @@ from scz_target_engine.benchmark_track_b import (
     TRACK_B_HORIZON,
     TRACK_B_METRIC_NAMES,
     TRACK_B_BOOTSTRAP_RESAMPLE_UNIT,
+    build_track_b_case_outputs,
     build_track_b_confusion_summary,
     build_track_b_error_analysis_markdown,
+    build_track_b_program_memory_dataset,
     estimate_track_b_metric_intervals,
     is_track_b_task,
+    load_track_b_casebook,
     read_track_b_case_output_payload,
     read_track_b_confusion_summary,
     score_track_b_case_outputs,
@@ -55,6 +59,7 @@ from scz_target_engine.benchmark_track_b import (
     track_b_case_output_path,
     track_b_confusion_summary_path,
     validate_track_b_case_output_payload,
+    validate_track_b_case_output_payload_against_expected_cases,
 )
 from scz_target_engine.io import read_json, write_json
 
@@ -1050,6 +1055,7 @@ def _validate_track_b_runner_outputs(
     *,
     run_id: str,
     expected_as_of_date: str,
+    expected_case_outputs: tuple[Any, ...],
     metric_items: list[tuple[Path, BenchmarkMetricOutputPayload]],
     interval_index: dict[
         tuple[str, str, str, str],
@@ -1065,6 +1071,10 @@ def _validate_track_b_runner_outputs(
     validate_track_b_case_output_payload(
         case_output_payload,
         expected_as_of_date=expected_as_of_date,
+    )
+    validate_track_b_case_output_payload_against_expected_cases(
+        case_output_payload,
+        expected_cases=expected_case_outputs,
     )
     if confusion_summary.run_id != run_id:
         raise ValueError(
@@ -1209,6 +1219,7 @@ def _validate_track_b_runner_outputs(
 def _materialize_track_b_reporting(
     *,
     manifest: object,
+    materialized_cohort: MaterializedBenchmarkCohortArtifacts,
     cohort_labels: tuple[object, ...],
     benchmark_suite_id: str,
     benchmark_task_id: str,
@@ -1233,6 +1244,37 @@ def _materialize_track_b_reporting(
         tuple[Path, BenchmarkConfidenceIntervalPayload],
     ],
 ) -> dict[str, object]:
+    source_artifact_index = {
+        str(artifact.artifact_name): Path(str(artifact.artifact_path)).resolve()
+        for artifact in materialized_cohort.auxiliary_source_artifacts
+    }
+    required_source_artifact_names = (
+        "track_b_casebook",
+        "track_b_program_universe",
+        "track_b_program_history_events",
+    )
+    missing_source_artifact_names = tuple(
+        artifact_name
+        for artifact_name in required_source_artifact_names
+        if artifact_name not in source_artifact_index
+    )
+    if missing_source_artifact_names:
+        raise ValueError(
+            "Track B reporting requires the materialized benchmark cohort bundle to "
+            "capture the pinned Track B source artifacts: "
+            + ", ".join(missing_source_artifact_names)
+        )
+    expected_cases = load_track_b_casebook(
+        source_artifact_index["track_b_casebook"],
+        as_of_date=str(getattr(manifest, "as_of_date")),
+        program_universe_path=source_artifact_index["track_b_program_universe"],
+        events_path=source_artifact_index["track_b_program_history_events"],
+    )
+    expected_dataset = build_track_b_program_memory_dataset(
+        as_of_date=str(getattr(manifest, "as_of_date")),
+        events_path=source_artifact_index["track_b_program_history_events"],
+        dataset_dir=source_artifact_index["track_b_casebook"].parent,
+    )
     case_output_payloads: dict[str, object] = {}
     confusion_summaries: dict[str, object] = {}
     validated_metric_values_by_run: dict[str, dict[str, float]] = {}
@@ -1361,6 +1403,11 @@ def _materialize_track_b_reporting(
             _validate_track_b_runner_outputs(
                 run_id=run_id,
                 expected_as_of_date=str(getattr(manifest, "as_of_date")),
+                expected_case_outputs=build_track_b_case_outputs(
+                    cases=expected_cases,
+                    dataset=expected_dataset,
+                    baseline_id=run_manifest.baseline_id,
+                ),
                 metric_items=metric_items,
                 interval_index=interval_index,
                 case_output_payload=case_output_payload,
@@ -1904,6 +1951,7 @@ def materialize_benchmark_reporting(
     if is_track_b_task(benchmark_task_id):
         return _materialize_track_b_reporting(
             manifest=manifest,
+            materialized_cohort=materialized_cohort,
             cohort_labels=cohort_labels,
             benchmark_suite_id=benchmark_suite_id,
             benchmark_task_id=benchmark_task_id,

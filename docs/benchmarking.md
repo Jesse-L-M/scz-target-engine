@@ -12,7 +12,7 @@ It is not yet a production-scale historical replay system.
 ## Current Release Boundary
 
 - historical benchmark archives are fixture-scale and currently checked in for the canonical fixture under `data/benchmark/fixtures/scz_small/` plus derived public slices under `data/benchmark/public_slices/`
-- benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
+- benchmark breadth is still limited to the frozen schizophrenia benchmark question, the ranking task plus one checked-in Track B structural replay task, small deterministic cohorts, and the current `available_now` baseline subset
 - protocol-only baselines remain declared for comparability but are not executed unless later archived artifacts make them runnable
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
 - current benchmark outputs are generated locally under `data/benchmark/generated/`; only the fixture inputs under `data/benchmark/fixtures/` are checked in
@@ -149,18 +149,131 @@ the adjacent `data/curated/rescue_tasks/rescue_task_registry.csv` plus validated
 `rescue_task_contract` JSON files, so benchmark lookups do not become ambiguous as
 rescue tasks are added.
 
-The current explicit task row is:
+The current explicit task rows are:
 
-- suite: `scz_translational_suite`
-- task: `scz_translational_task`
-- question: `scz_translational_ranking_v1`
-- fixture path: `data/benchmark/fixtures/scz_small/`
-- emitted artifact families: `benchmark_snapshot_manifest`, `benchmark_cohort_members`, `benchmark_source_cohort_members`, `benchmark_source_future_outcomes`, `benchmark_cohort_manifest`, `benchmark_cohort_labels`, `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
+- ranking task: suite `scz_translational_suite`, task `scz_translational_task`, question `scz_translational_ranking_v1`, fixture path `data/benchmark/fixtures/scz_small/`
+- Track B task: suite `scz_translational_suite`, task `scz_failure_memory_track_b_task`, question `scz_failure_memory_track_b_v1`, protocol `track_b_structural_replay_protocol_v1`, fixture path `data/benchmark/fixtures/scz_failure_memory_2025_02_01/`
+- both tasks emit the same benchmark artifact families: `benchmark_snapshot_manifest`, `benchmark_cohort_members`, `benchmark_source_cohort_members`, `benchmark_source_future_outcomes`, `benchmark_cohort_manifest`, `benchmark_cohort_labels`, `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
 
 `snapshot_request.json` remains an operator input, but the fixture request now carries
 the explicit suite/task ids from that registry row. The snapshot builder resolves the
 task contract from the registry, then the cohort builder and runner continue from the
 emitted snapshot manifest rather than a parallel benchmark configuration path.
+
+## Track B Structural Replay Task
+
+`scz_failure_memory_track_b_task` keeps Track B inside the shipped benchmark stack
+instead of introducing a second runner or reporting pipeline.
+
+Checked-in Track B inputs live under
+`data/benchmark/fixtures/scz_failure_memory_2025_02_01/` and include:
+
+- `track_b_casebook.csv`: frozen benchmark cases with gold analog ids, gold failure scope, gold replay status, and required-difference checklist items
+- `program_universe.csv` and `events.csv`: slice-local program-memory denominator and event ledger used to freeze coverage-at-cutoff and pre-cutoff analog availability
+- `assets.csv`, `event_provenance.csv`, and `directionality_hypotheses.csv`: pinned local program-memory substrate required by the structural replay baselines
+- `cohort_members.csv`: the six admissible Track B proposal ids keyed to `track_b_casebook.csv` `proposal_entity_id`
+- `future_outcomes.csv`: empty artifact-family placeholder kept for stack compatibility; Track B cohort labels are derived from the casebook, not future-outcome ranking labels
+- `snapshot_request.json` and `source_archives.json`: the same benchmark entrypoints used by the rest of the stack, but the request now names the explicit structural replay question `scz_failure_memory_track_b_v1`
+
+Track B cohort materialization is task-aware:
+
+- `build-benchmark-cohort` loads the frozen casebook beside `cohort_members.csv`
+- `benchmark_cohort_members.csv`, `benchmark_cohort_labels`, runner case outputs, and report-card denominators must all refer to the same six proposal ids
+- `benchmark_cohort_labels` emits one true replay-status label per case on horizon `structural_replay`
+- Track B fails closed if `cohort_members.csv` diverges from the casebook ids or labels
+
+The registry-backed fixture contract now validates these archive-index sibling files up
+front for Track B:
+
+- `track_b_casebook.csv`
+- `program_universe.csv`
+- `events.csv`
+- `assets.csv`
+- `event_provenance.csv`
+- `directionality_hypotheses.csv`
+
+Track B executes these baselines only:
+
+- `track_b_exact_target`
+- `track_b_target_class`
+- `track_b_nearest_history`
+- `track_b_structural_current`
+
+Track B emits the usual metric payloads and confidence intervals under the same
+artifact families, but its executable metric bundle is structural:
+
+- `analog_recall_at_3`
+- `failure_scope_macro_f1`
+- `what_must_differ_checklist_f1`
+- `replay_status_exact_match`
+
+Track B also writes derived sidecars from the same run:
+
+- `runner_outputs/track_b_case_outputs/<run_id>.json`
+- `runner_outputs/track_b_confusion_summaries/<run_id>.json`
+- `public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/<snapshot_id>/<run_id>.md`
+
+Those sidecars are additive reporting aids, not new top-level benchmark schema
+families. The strict no-fallback archive rule still applies: Track B does not fall
+back to live source data or repo-head program-memory state when the checked-in slice
+does not contain enough history.
+
+Track B reporting now validates one complete reporting bundle before it writes
+public payloads:
+
+- the exact expected `available_now` Track B baseline set must be present, so a
+  deleted baseline bundle cannot silently shrink the leaderboard
+- run manifests, case outputs, confusion summaries, metric payloads, and
+  confidence-interval payloads must all agree on the owning run, baseline,
+  snapshot, suite/task/question surface, and Track B horizon
+- public `evaluation_input_artifacts` are rebuilt from the validated
+  `benchmark_snapshot_manifest`, materialized cohort bundle, and pinned Track B
+  auxiliary source artifacts rather than copied from `run_manifest.input_artifacts`
+- interval provenance is bound to the run-manifest parameterization, including
+  the deterministic per-baseline seed derived from the base seed plus
+  `baseline_id` / `structural_replay`
+- manifest-only provenance fields such as `track_b_case_count` and
+  `track_b_casebook_sha256` must match the pinned casebook and emitted case set
+
+Track B reporting still does not rerun model inference. It does revalidate the
+full Track B bundle by recomputing structural metrics, confusion summaries, and
+bootstrap intervals from the runner-emitted case outputs plus the pinned cohort
+bundle before it publishes report cards, leaderboards, or error analysis.
+
+Bootstrap note:
+
+- `analog_recall_at_3` intervals resample at unit `case` but skip resamples with zero evaluable analog cases instead of coercing them to `0.0`
+- Track B mismatch review now includes pure analog-retrieval misses, so case-review markdown cannot silently omit a retrieval-only failure
+
+Replay example on the checked-in Track B fixture:
+
+```bash
+uv run scz-target-engine build-benchmark-snapshot \
+  --request-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/snapshot_request.json \
+  --archive-index-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/source_archives.json \
+  --output-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json \
+  --materialized-at 2026-04-05
+
+uv run scz-target-engine build-benchmark-cohort \
+  --manifest-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json \
+  --cohort-members-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/cohort_members.csv \
+  --future-outcomes-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/future_outcomes.csv \
+  --output-file data/benchmark/generated/scz_failure_memory_2025_02_01/cohort_labels.csv
+
+uv run scz-target-engine run-benchmark \
+  --manifest-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_failure_memory_2025_02_01/cohort_labels.csv \
+  --archive-index-file data/benchmark/fixtures/scz_failure_memory_2025_02_01/source_archives.json \
+  --output-dir data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs \
+  --config config/v0.toml \
+  --deterministic-test-mode
+
+uv run scz-target-engine build-benchmark-reporting \
+  --manifest-file data/benchmark/generated/scz_failure_memory_2025_02_01/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_failure_memory_2025_02_01/cohort_labels.csv \
+  --runner-output-dir data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs \
+  --output-dir data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads
+```
 
 ## Canonical End-To-End Workflow
 
@@ -224,6 +337,7 @@ Supporting operator inputs:
 - `source_archives.json`: archived source descriptors with archive paths and SHA256 digests
 - `cohort_members.csv`: admissible ranking cohort membership
 - `future_outcomes.csv`: post-cutoff label adjudication input
+- `track_b_casebook.csv`: Track B-only frozen casebook with gold analog ids and structural replay labels
 - `data/curated/program_history/v2/program_universe.csv` and `data/curated/program_history/v2/events.csv`: checked-in denominator inputs used to derive intervention-object public-slice cohorts and future outcomes
 - `data/curated/rescue_tasks/task_registry.csv`: registry-backed suite/task contract source of truth
 - `data/benchmark/public_slices/catalog.json`: checked-in catalog of derived public historical slice fixtures
@@ -284,6 +398,13 @@ Canonical generated locations:
 - `data/benchmark/generated/public_slices/<slice_id>/...`: local replay outputs for checked-in public slice inputs
 - `data/benchmark/generated/scz_small/public_payloads/report_cards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<run_id>.json`: public report card payload
 - `data/benchmark/generated/scz_small/public_payloads/leaderboards/scz_translational_suite/scz_translational_task/scz_fixture_2024_06_30/<entity_type>/<horizon>/<metric>.json`: public leaderboard payload
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/metric_payloads/<run_id>/intervention_object/structural_replay/<metric>.json`: Track B `benchmark_metric_output_payload`
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/confidence_interval_payloads/<run_id>/intervention_object/structural_replay/<metric>.json`: Track B `benchmark_confidence_interval_payload`
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/track_b_case_outputs/<run_id>.json`: Track B per-case structural output sidecar
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/track_b_confusion_summaries/<run_id>.json`: Track B confusion-summary sidecar
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/report_cards/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<run_id>.json`: Track B public report card payload
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/leaderboards/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/intervention_object/structural_replay/<metric>.json`: Track B public leaderboard payload
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<run_id>.md`: Track B markdown case review
 - `data/benchmark/generated/public_slices/<slice_id>/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/<snapshot_id>/<run_id>.md`: markdown error analysis emitted for intervention-object runs only when the principal intervention-object slice is evaluable and the required bundle plus projection artifacts are present
 
 What each generated artifact means:
@@ -300,6 +421,8 @@ What each generated artifact means:
 - confidence interval payloads record percentile-bootstrap intervals, bootstrap count, resample unit, and random seed for the same slice
 - report cards join suite/task/snapshot provenance, source inclusion accounting, run-manifest inputs, and per-slice metric summaries into one public payload per run
 - leaderboard payloads rank the report-card slices by metric while preserving run-level provenance
+- Track B case-output sidecars freeze per-case analog retrievals, structural predictions, and checklist predictions so reporting never has to rerun replay reasoning
+- Track B confusion summaries freeze cross-case confusions and checklist misses for one run
 - error-analysis markdown files explain misses and false positives on evaluable intervention-object replay slices using the frozen bundle metadata and explicit projection payloads
 
 Runtime validation that now fails closed:
@@ -397,6 +520,10 @@ Implemented executable baselines:
 5. `v1_current`
 6. `chembl_only`
 7. `random_with_coverage`
+8. `track_b_exact_target`
+9. `track_b_target_class`
+10. `track_b_nearest_history`
+11. `track_b_structural_current`
 
 Explicit protocol-only baselines that remain declared but non-executed:
 
@@ -429,6 +556,13 @@ The checked-in public slices intentionally execute only:
 Those slices are intervention-object replay tasks, so `pgc_only`, `schema_only`,
 `opentargets_only`, and `chembl_only` stay outside the current Track A public replay
 surface.
+
+The checked-in Track B fixture intentionally executes only:
+
+- `track_b_exact_target`
+- `track_b_target_class`
+- `track_b_nearest_history`
+- `track_b_structural_current`
 
 ## Metric Bundle And Interval Method
 
@@ -466,6 +600,18 @@ Current confidence interval payloads use percentile bootstrap with:
 - explicit bootstrap iteration count on every payload
 - explicit random seed on every payload
 - deterministic test mode via a fixed seed and reduced iteration count
+
+Track B uses the same confidence-interval artifact family, but with the structural
+replay metric bundle:
+
+- `analog_recall_at_3`
+- `failure_scope_macro_f1`
+- `what_must_differ_checklist_f1`
+- `replay_status_exact_match`
+
+Track B bootstrap payloads resample at unit `case`. The corresponding runner output
+also writes per-case structural sidecars and a confusion summary so the reporting step
+can emit case-review markdown without rerunning replay logic.
 
 ## Operator Flow
 

@@ -14,11 +14,12 @@ from scz_target_engine.benchmark_intervention_objects import (
     materialize_intervention_object_feature_bundle,
 )
 from scz_target_engine.benchmark_protocol import (
-    BENCHMARK_QUESTION_V1,
+    FROZEN_BASELINE_IDS,
     BenchmarkSnapshotManifest,
     SourceCutoffRule,
     SourceSnapshot,
     VALID_ENTITY_TYPES,
+    resolve_benchmark_question,
 )
 from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 from scz_target_engine.io import read_json, write_json
@@ -74,7 +75,7 @@ class SnapshotBuildRequest:
     entity_types: tuple[str, ...]
     baseline_ids: tuple[str, ...]
     notes: str = ""
-    benchmark_question_id: str = BENCHMARK_QUESTION_V1.question_id
+    benchmark_question_id: str = "scz_translational_ranking_v1"
     benchmark_suite_id: str = ""
     benchmark_task_id: str = ""
     task_registry_path: str = ""
@@ -84,22 +85,36 @@ class SnapshotBuildRequest:
     def __post_init__(self) -> None:
         _require_text(self.snapshot_id, "snapshot_id")
         _require_text(self.cohort_id, "cohort_id")
-        try:
-            task_contract = resolve_benchmark_task_contract(
-                benchmark_task_id=self.benchmark_task_id or None,
-                benchmark_question_id=self.benchmark_question_id,
-                benchmark_suite_id=self.benchmark_suite_id or None,
-                task_registry_path=(
-                    Path(self.task_registry_path).resolve()
-                    if self.task_registry_path
-                    else None
-                ),
-            )
-        except ValueError as exc:
+        _require_text(self.benchmark_question_id, "benchmark_question_id")
+        resolve_benchmark_question(self.benchmark_question_id)
+        if not self.entity_types:
+            raise ValueError("entity_types must contain at least one value")
+        if any(entity_type not in VALID_ENTITY_TYPES for entity_type in self.entity_types):
+            raise ValueError("entity_types must only contain supported benchmark entity types")
+        if not self.baseline_ids:
+            raise ValueError("baseline_ids must contain at least one benchmark baseline")
+        if len(self.baseline_ids) != len(set(self.baseline_ids)):
+            raise ValueError("baseline_ids must not repeat baseline_id")
+        unknown_baseline_ids = sorted(
+            set(self.baseline_ids).difference(FROZEN_BASELINE_IDS)
+        )
+        if unknown_baseline_ids:
             raise ValueError(
-                "benchmark_question_id must match the frozen benchmark question id "
-                f"{BENCHMARK_QUESTION_V1.question_id}"
-            ) from exc
+                "baseline_ids must only contain supported benchmark baselines: "
+                + ", ".join(unknown_baseline_ids)
+            )
+        task_contract = resolve_benchmark_task_contract(
+            benchmark_task_id=self.benchmark_task_id or None,
+            benchmark_question_id=self.benchmark_question_id,
+            benchmark_suite_id=self.benchmark_suite_id or None,
+            entity_types=self.entity_types,
+            baseline_ids=self.baseline_ids,
+            task_registry_path=(
+                Path(self.task_registry_path).resolve()
+                if self.task_registry_path
+                else None
+            ),
+        )
         if self.benchmark_question_id != task_contract.benchmark_question_id:
             raise ValueError(
                 "benchmark_question_id must match the resolved benchmark task contract"
@@ -113,10 +128,6 @@ class SnapshotBuildRequest:
             raise ValueError(
                 "outcome_observation_closed_at must be on or after as_of_date"
             )
-        if not self.entity_types:
-            raise ValueError("entity_types must contain at least one value")
-        if any(entity_type not in VALID_ENTITY_TYPES for entity_type in self.entity_types):
-            raise ValueError("entity_types must only contain supported benchmark entity types")
         unsupported_entity_types = sorted(
             set(self.entity_types).difference(task_contract.entity_types)
         )
@@ -125,10 +136,6 @@ class SnapshotBuildRequest:
                 "entity_types must be supported by the benchmark task contract: "
                 + ", ".join(unsupported_entity_types)
             )
-        if not self.baseline_ids:
-            raise ValueError("baseline_ids must contain at least one benchmark baseline")
-        if len(self.baseline_ids) != len(set(self.baseline_ids)):
-            raise ValueError("baseline_ids must not repeat baseline_id")
         unsupported_baselines = sorted(
             set(self.baseline_ids).difference(task_contract.supported_baseline_ids)
         )
@@ -464,6 +471,8 @@ def build_benchmark_snapshot_manifest(
         benchmark_task_id=request.benchmark_task_id or None,
         benchmark_question_id=request.benchmark_question_id,
         benchmark_suite_id=request.benchmark_suite_id or None,
+        entity_types=request.entity_types,
+        baseline_ids=request.baseline_ids,
         task_registry_path=effective_task_registry_path,
     )
     protocol = task_contract.protocol
@@ -531,6 +540,25 @@ def materialize_benchmark_snapshot_manifest(
     request = load_snapshot_build_request(
         request_file,
         task_registry_path=task_registry_path,
+    )
+    task_contract = resolve_benchmark_task_contract(
+        benchmark_task_id=request.benchmark_task_id or None,
+        benchmark_question_id=request.benchmark_question_id,
+        benchmark_suite_id=request.benchmark_suite_id or None,
+        entity_types=request.entity_types,
+        baseline_ids=request.baseline_ids,
+        task_registry_path=(
+            task_registry_path
+            if task_registry_path is not None
+            else (
+                Path(request.task_registry_path).resolve()
+                if request.task_registry_path
+                else None
+            )
+        ),
+    )
+    task_contract.fixture_paths.validate_archive_index_sibling_files(
+        archive_index_file.resolve()
     )
     archive_descriptors = load_source_archive_descriptors(archive_index_file)
     manifest = build_benchmark_snapshot_manifest(

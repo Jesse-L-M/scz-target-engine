@@ -9,12 +9,28 @@ import shutil
 from typing import Any
 
 from scz_target_engine.benchmark_protocol import (
+    BENCHMARK_EVALUATION_HORIZONS,
+    BENCHMARK_LABEL_NAMES,
     BENCHMARK_QUESTION_V1,
     BenchmarkSnapshotManifest,
     VALID_ENTITY_TYPES,
 )
 from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
-from scz_target_engine.benchmark_snapshots import read_benchmark_snapshot_manifest
+from scz_target_engine.benchmark_snapshots import (
+    load_source_archive_descriptors,
+    read_benchmark_snapshot_manifest,
+)
+from scz_target_engine.benchmark_track_b import (
+    TRACK_B_ASSETS_FILE_NAME,
+    TRACK_B_CASEBOOK_FILE_NAME,
+    TRACK_B_DIRECTIONALITY_HYPOTHESES_FILE_NAME,
+    TRACK_B_EVENT_PROVENANCE_FILE_NAME,
+    TRACK_B_EVENTS_FILE_NAME,
+    TRACK_B_PROGRAM_UNIVERSE_FILE_NAME,
+    is_track_b_task,
+    load_track_b_casebook,
+    validate_track_b_casebook_against_cohort_members,
+)
 from scz_target_engine.io import read_csv_rows, read_json, write_csv, write_json
 
 
@@ -45,6 +61,24 @@ BENCHMARK_COHORT_MANIFEST_SCHEMA_VERSION = "v3"
 NO_OUTCOME_LABEL = "no_qualifying_future_outcome"
 OBSERVED_LABEL_VALUE = "true"
 NOT_OBSERVED_LABEL_VALUE = "false"
+TRACK_B_SOURCE_ARCHIVE_INDEX_FILE_NAME = "source_archives.json"
+TRACK_B_SOURCE_ARCHIVE_DIR_NAME = "archives"
+TRACK_B_SOURCE_ARTIFACT_SPECS = (
+    ("source_archive_index", TRACK_B_SOURCE_ARCHIVE_INDEX_FILE_NAME),
+    ("track_b_casebook", TRACK_B_CASEBOOK_FILE_NAME),
+    ("track_b_program_universe", TRACK_B_PROGRAM_UNIVERSE_FILE_NAME),
+    ("track_b_program_history_events", TRACK_B_EVENTS_FILE_NAME),
+    ("program_memory_assets", TRACK_B_ASSETS_FILE_NAME),
+    ("program_memory_event_provenance", TRACK_B_EVENT_PROVENANCE_FILE_NAME),
+    (
+        "program_memory_directionality_hypotheses",
+        TRACK_B_DIRECTIONALITY_HYPOTHESES_FILE_NAME,
+    ),
+)
+TRACK_B_SOURCE_ARTIFACT_FILE_NAMES = {
+    artifact_name: file_name
+    for artifact_name, file_name in TRACK_B_SOURCE_ARTIFACT_SPECS
+}
 
 
 def _parse_iso_date(value: str, field_name: str) -> date:
@@ -137,6 +171,29 @@ def _validate_snapshot_manifest_file_matches_manifest(
         )
 
 
+def _resolve_task_contract_for_manifest(
+    manifest: BenchmarkSnapshotManifest,
+    *,
+    task_registry_path: Path | None = None,
+) -> object:
+    return resolve_benchmark_task_contract(
+        benchmark_task_id=manifest.benchmark_task_id or None,
+        benchmark_question_id=manifest.benchmark_question_id,
+        benchmark_suite_id=manifest.benchmark_suite_id or None,
+        entity_types=manifest.entity_types,
+        baseline_ids=manifest.baseline_ids,
+        task_registry_path=(
+            task_registry_path
+            if task_registry_path is not None
+            else (
+                Path(manifest.task_registry_path).resolve()
+                if getattr(manifest, "task_registry_path", "")
+                else None
+            )
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class CohortMember:
     entity_type: str
@@ -211,12 +268,12 @@ class BenchmarkCohortLabel:
             raise ValueError("entity_type must be a supported benchmark entity type")
         _require_text(self.entity_id, "entity_id")
         _require_text(self.entity_label, "entity_label")
-        if self.label_name not in BENCHMARK_QUESTION_V1.translational_outcome_labels:
-            raise ValueError("label_name must match the frozen benchmark question labels")
+        if self.label_name not in BENCHMARK_LABEL_NAMES:
+            raise ValueError("label_name must match a supported benchmark question label")
         if self.label_value not in {OBSERVED_LABEL_VALUE, NOT_OBSERVED_LABEL_VALUE}:
             raise ValueError("label_value must be true or false")
-        if self.horizon not in BENCHMARK_QUESTION_V1.evaluation_horizons:
-            raise ValueError("horizon must match the frozen benchmark question horizons")
+        if self.horizon not in BENCHMARK_EVALUATION_HORIZONS:
+            raise ValueError("horizon must match a supported benchmark question horizon")
         if self.outcome_date:
             _parse_iso_date(self.outcome_date, "outcome_date")
         _require_text(self.label_source, "label_source")
@@ -254,6 +311,33 @@ class BenchmarkCohortLabel:
 
 
 @dataclass(frozen=True)
+class CohortSourceArtifact:
+    artifact_name: str
+    artifact_path: str
+    artifact_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_text(self.artifact_name, "artifact_name")
+        _require_text(self.artifact_path, "artifact_path")
+        _require_sha256(self.artifact_sha256, "artifact_sha256")
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "artifact_name": self.artifact_name,
+            "artifact_path": self.artifact_path,
+            "artifact_sha256": self.artifact_sha256,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "CohortSourceArtifact":
+        return cls(
+            artifact_name=str(payload["artifact_name"]),
+            artifact_path=str(payload["artifact_path"]),
+            artifact_sha256=str(payload["artifact_sha256"]),
+        )
+
+
+@dataclass(frozen=True)
 class BenchmarkCohortManifest:
     snapshot_id: str
     cohort_id: str
@@ -278,6 +362,7 @@ class BenchmarkCohortManifest:
     source_cohort_members_sha256: str = ""
     source_future_outcomes_path: str = ""
     source_future_outcomes_sha256: str = ""
+    auxiliary_source_artifacts: tuple[CohortSourceArtifact, ...] = ()
     notes: str = ""
 
     def __post_init__(self) -> None:
@@ -335,6 +420,13 @@ class BenchmarkCohortManifest:
             self.source_future_outcomes_sha256,
             "source_future_outcomes_sha256",
         )
+        seen_auxiliary_artifact_names: set[str] = set()
+        for artifact in self.auxiliary_source_artifacts:
+            if artifact.artifact_name in seen_auxiliary_artifact_names:
+                raise ValueError(
+                    "auxiliary_source_artifacts must not repeat artifact_name"
+                )
+            seen_auxiliary_artifact_names.add(artifact.artifact_name)
         if self.entity_count <= 0:
             raise ValueError("entity_count must be positive")
         if self.label_row_count <= 0:
@@ -378,6 +470,11 @@ class BenchmarkCohortManifest:
         payload["source_cohort_members_sha256"] = self.source_cohort_members_sha256
         payload["source_future_outcomes_path"] = self.source_future_outcomes_path
         payload["source_future_outcomes_sha256"] = self.source_future_outcomes_sha256
+        if self.auxiliary_source_artifacts:
+            payload["auxiliary_source_artifacts"] = [
+                artifact.to_dict()
+                for artifact in self.auxiliary_source_artifacts
+            ]
         if self.notes:
             payload["notes"] = self.notes
         return payload
@@ -416,6 +513,10 @@ class BenchmarkCohortManifest:
                 source_cohort_members_sha256=str(payload["source_cohort_members_sha256"]),
                 source_future_outcomes_path=str(payload["source_future_outcomes_path"]),
                 source_future_outcomes_sha256=str(payload["source_future_outcomes_sha256"]),
+                auxiliary_source_artifacts=tuple(
+                    CohortSourceArtifact.from_dict(item)
+                    for item in payload.get("auxiliary_source_artifacts", [])
+                ),
                 entity_count=int(payload["entity_count"]),
                 label_row_count=int(payload["label_row_count"]),
                 observed_label_row_count=int(payload["observed_label_row_count"]),
@@ -436,6 +537,7 @@ class MaterializedBenchmarkCohortArtifacts:
     cohort_manifest: BenchmarkCohortManifest
     cohort_members: tuple[CohortMember, ...]
     cohort_labels: tuple[BenchmarkCohortLabel, ...]
+    auxiliary_source_artifacts: tuple[CohortSourceArtifact, ...] = ()
 
 
 def load_cohort_members(path: Path) -> tuple[CohortMember, ...]:
@@ -515,6 +617,21 @@ def benchmark_source_future_outcomes_path_for_labels_file(labels_file: Path) -> 
     )
 
 
+def benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+    labels_file: Path,
+    *,
+    artifact_name: str,
+) -> Path:
+    file_name = TRACK_B_SOURCE_ARTIFACT_FILE_NAMES.get(artifact_name)
+    if file_name is None:
+        raise ValueError(f"unknown Track B auxiliary source artifact: {artifact_name}")
+    return labels_file.resolve().parent / file_name
+
+
+def benchmark_track_b_source_archives_dir_for_labels_file(labels_file: Path) -> Path:
+    return labels_file.resolve().parent / TRACK_B_SOURCE_ARCHIVE_DIR_NAME
+
+
 def _require_canonical_bundle_artifact_path(
     *,
     actual_path: Path,
@@ -526,6 +643,25 @@ def _require_canonical_bundle_artifact_path(
             "benchmark cohort manifest must point to the canonical "
             f"{artifact_name} artifact beside cohort labels"
         )
+
+
+def _copy_directory_tree_if_needed(
+    *,
+    source_dir: Path,
+    destination_dir: Path,
+) -> Path:
+    resolved_source_dir = source_dir.resolve()
+    resolved_destination_dir = destination_dir.resolve()
+    if resolved_source_dir == resolved_destination_dir:
+        return resolved_destination_dir
+    if resolved_destination_dir.exists():
+        if not resolved_destination_dir.is_dir():
+            raise ValueError(
+                f"destination_dir must be a directory: {resolved_destination_dir}"
+            )
+        shutil.rmtree(resolved_destination_dir)
+    shutil.copytree(resolved_source_dir, resolved_destination_dir)
+    return resolved_destination_dir
 
 
 def write_benchmark_cohort_manifest(
@@ -628,16 +764,7 @@ def validate_benchmark_cohort_labels_against_manifest(
     *,
     cohort_members: tuple[CohortMember, ...],
 ) -> None:
-    task_contract = resolve_benchmark_task_contract(
-        benchmark_task_id=manifest.benchmark_task_id or None,
-        benchmark_question_id=manifest.benchmark_question_id,
-        benchmark_suite_id=manifest.benchmark_suite_id or None,
-        task_registry_path=(
-            Path(manifest.task_registry_path).resolve()
-            if getattr(manifest, "task_registry_path", "")
-            else None
-        ),
-    )
+    task_contract = _resolve_task_contract_for_manifest(manifest)
     question = task_contract.protocol.question
     if not cohort_labels:
         raise ValueError("benchmark cohort labels must contain at least one row")
@@ -753,6 +880,7 @@ def build_benchmark_cohort_manifest(
     cohort_labels_artifact_file: Path,
     source_cohort_members_file: Path,
     source_future_outcomes_file: Path,
+    auxiliary_source_artifact_files: tuple[tuple[str, Path], ...] = (),
 ) -> BenchmarkCohortManifest:
     resolved_cohort_manifest_artifact_file = _resolve_required_path(
         cohort_manifest_artifact_file,
@@ -773,6 +901,13 @@ def build_benchmark_cohort_manifest(
     resolved_source_future_outcomes_file = _resolve_required_path(
         source_future_outcomes_file,
         "source_future_outcomes_file",
+    )
+    resolved_auxiliary_source_artifact_files = tuple(
+        (
+            _require_text(artifact_name, "artifact_name"),
+            _resolve_required_path(artifact_file, f"{artifact_name}_artifact_file"),
+        )
+        for artifact_name, artifact_file in auxiliary_source_artifact_files
     )
     resolved_snapshot_manifest_file = _resolve_required_path(
         snapshot_manifest_file,
@@ -849,6 +984,17 @@ def build_benchmark_cohort_manifest(
             anchor_path=resolved_cohort_manifest_artifact_file,
         ),
         source_future_outcomes_sha256=_file_sha256(resolved_source_future_outcomes_file),
+        auxiliary_source_artifacts=tuple(
+            CohortSourceArtifact(
+                artifact_name=artifact_name,
+                artifact_path=_path_reference_for_manifest(
+                    target_path=artifact_file,
+                    anchor_path=resolved_cohort_manifest_artifact_file,
+                ),
+                artifact_sha256=_file_sha256(artifact_file),
+            )
+            for artifact_name, artifact_file in resolved_auxiliary_source_artifact_files
+        ),
         entity_count=len(cohort_members),
         label_row_count=len(cohort_labels),
         observed_label_row_count=observed_label_row_count,
@@ -980,6 +1126,34 @@ def load_materialized_benchmark_cohort_artifacts(
             "benchmark cohort source future outcomes sha256 does not match "
             "benchmark_cohort_manifest"
         )
+    auxiliary_source_artifacts: list[CohortSourceArtifact] = []
+    for artifact in cohort_manifest.auxiliary_source_artifacts:
+        resolved_artifact_path = _resolve_manifest_path_reference(
+            path_value=artifact.artifact_path,
+            anchor_path=cohort_manifest_path,
+        )
+        if not resolved_artifact_path.exists():
+            raise ValueError(
+                "benchmark cohort manifest references a missing auxiliary source "
+                f"artifact {artifact.artifact_name}: {resolved_artifact_path}"
+            )
+        if _file_sha256(resolved_artifact_path) != artifact.artifact_sha256:
+            raise ValueError(
+                "benchmark cohort auxiliary source artifact sha256 does not match "
+                f"benchmark_cohort_manifest for {artifact.artifact_name}"
+            )
+        auxiliary_source_artifacts.append(
+            CohortSourceArtifact(
+                artifact_name=artifact.artifact_name,
+                artifact_path=str(resolved_artifact_path),
+                artifact_sha256=artifact.artifact_sha256,
+            )
+        )
+    if is_track_b_task(_resolve_task_contract_for_manifest(snapshot_manifest).task_id):
+        _validate_track_b_auxiliary_source_artifacts(
+            auxiliary_source_artifacts=tuple(auxiliary_source_artifacts),
+            cohort_labels_file=resolved_cohort_labels_file,
+        )
     cohort_members = read_benchmark_cohort_members(cohort_members_path)
     cohort_labels = read_benchmark_cohort_labels(resolved_cohort_labels_file)
     if cohort_manifest.entity_count != len(cohort_members):
@@ -1013,7 +1187,205 @@ def load_materialized_benchmark_cohort_artifacts(
         cohort_manifest=cohort_manifest,
         cohort_members=cohort_members,
         cohort_labels=cohort_labels,
+        auxiliary_source_artifacts=tuple(auxiliary_source_artifacts),
     )
+
+
+def _track_b_casebook_paths_for_cohort_members_file(
+    cohort_members_file: Path,
+) -> tuple[Path, Path, Path]:
+    fixture_dir = cohort_members_file.resolve().parent
+    return (
+        fixture_dir / TRACK_B_CASEBOOK_FILE_NAME,
+        fixture_dir / TRACK_B_PROGRAM_UNIVERSE_FILE_NAME,
+        fixture_dir / TRACK_B_EVENTS_FILE_NAME,
+    )
+
+
+def _track_b_source_artifact_paths_for_cohort_members_file(
+    cohort_members_file: Path,
+) -> tuple[tuple[str, Path], ...]:
+    fixture_dir = cohort_members_file.resolve().parent
+    return tuple(
+        (artifact_name, (fixture_dir / file_name).resolve())
+        for artifact_name, file_name in TRACK_B_SOURCE_ARTIFACT_SPECS
+    )
+
+
+def _resolve_track_b_source_artifacts(
+    *,
+    cohort_members_file: Path,
+) -> tuple[tuple[str, Path], ...]:
+    source_artifact_paths = _track_b_source_artifact_paths_for_cohort_members_file(
+        cohort_members_file
+    )
+    missing_paths = [
+        source_path.name
+        for _, source_path in source_artifact_paths
+        if not source_path.exists()
+    ]
+    if missing_paths:
+        raise ValueError(
+            "Track B benchmark requires source archive index and pinned source files "
+            "beside cohort_members.csv, missing: "
+            + ", ".join(sorted(missing_paths))
+        )
+    return source_artifact_paths
+
+
+def _materialize_track_b_source_artifacts(
+    *,
+    cohort_members_file: Path,
+    labels_file: Path,
+) -> tuple[tuple[str, Path], ...]:
+    resolved_source_artifacts = _resolve_track_b_source_artifacts(
+        cohort_members_file=cohort_members_file,
+    )
+    source_artifact_index = {
+        artifact_name: source_path
+        for artifact_name, source_path in resolved_source_artifacts
+    }
+    source_archive_index_file = source_artifact_index["source_archive_index"]
+    source_archives_dir = (
+        source_archive_index_file.resolve().parent / TRACK_B_SOURCE_ARCHIVE_DIR_NAME
+    )
+    if not source_archives_dir.exists():
+        raise ValueError(
+            "Track B benchmark requires archived source fixture files under "
+            "archives/ beside source_archives.json"
+        )
+    _copy_directory_tree_if_needed(
+        source_dir=source_archives_dir,
+        destination_dir=benchmark_track_b_source_archives_dir_for_labels_file(
+            labels_file
+        ),
+    )
+    materialized_artifacts: list[tuple[str, Path]] = []
+    for artifact_name, _ in TRACK_B_SOURCE_ARTIFACT_SPECS:
+        materialized_artifacts.append(
+            (
+                artifact_name,
+                _copy_artifact_if_needed(
+                    source_path=source_artifact_index[artifact_name],
+                    destination_path=(
+                        benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+                            labels_file,
+                            artifact_name=artifact_name,
+                        )
+                    ),
+                ),
+            )
+        )
+    return tuple(materialized_artifacts)
+
+
+def _build_track_b_cohort_labels(
+    *,
+    manifest: BenchmarkSnapshotManifest,
+    cohort_members: tuple[CohortMember, ...],
+    cohort_members_file: Path,
+    future_outcomes: tuple[FutureOutcomeRecord, ...],
+    question: object,
+) -> tuple[BenchmarkCohortLabel, ...]:
+    if future_outcomes:
+        raise ValueError(
+            "Track B benchmark does not source cohort labels from future_outcomes.csv; "
+            "the file must remain empty"
+        )
+    casebook_path, program_universe_path, events_path = (
+        _track_b_casebook_paths_for_cohort_members_file(cohort_members_file)
+    )
+    missing_paths = [
+        path.name
+        for path in (casebook_path, program_universe_path, events_path)
+        if not path.exists()
+    ]
+    if missing_paths:
+        raise ValueError(
+            "Track B benchmark requires casebook and slice-local fixture files beside "
+            "cohort_members.csv, missing: "
+            + ", ".join(sorted(missing_paths))
+        )
+    cases = load_track_b_casebook(
+        casebook_path,
+        as_of_date=manifest.as_of_date,
+        program_universe_path=program_universe_path,
+        events_path=events_path,
+    )
+    validate_track_b_casebook_against_cohort_members(
+        cases=cases,
+        cohort_members=cohort_members,
+    )
+    case_index = {
+        case.proposal_entity_id: case
+        for case in cases
+    }
+    labels: list[BenchmarkCohortLabel] = []
+    for member in sorted(
+        cohort_members,
+        key=lambda item: (item.entity_type, item.entity_id, item.entity_label.lower()),
+    ):
+        case = case_index[member.entity_id]
+        for label_name in question.translational_outcome_labels:
+            label_is_observed = case.gold_replay_status == label_name
+            labels.append(
+                BenchmarkCohortLabel(
+                    cohort_id=manifest.cohort_id,
+                    snapshot_id=manifest.snapshot_id,
+                    entity_type=member.entity_type,
+                    entity_id=member.entity_id,
+                    entity_label=member.entity_label,
+                    label_name=label_name,
+                    label_value=(
+                        OBSERVED_LABEL_VALUE
+                        if label_is_observed
+                        else NOT_OBSERVED_LABEL_VALUE
+                    ),
+                    horizon=question.evaluation_horizons[0],
+                    outcome_date="",
+                    label_source=(
+                        "track_b_casebook"
+                        if label_is_observed
+                        else "not_observed_in_track_b_casebook"
+                    ),
+                    label_notes=(
+                        f"case_id={case.case_id}; source_program_universe_id="
+                        f"{case.source_program_universe_id}; gold_failure_scope="
+                        f"{case.gold_failure_scope}"
+                    ),
+                )
+            )
+    return tuple(labels)
+
+
+def _validate_track_b_auxiliary_source_artifacts(
+    *,
+    auxiliary_source_artifacts: tuple[CohortSourceArtifact, ...],
+    cohort_labels_file: Path,
+) -> None:
+    artifact_index: dict[str, Path] = {}
+    for artifact in auxiliary_source_artifacts:
+        resolved_artifact_path = Path(artifact.artifact_path).resolve()
+        expected_path = benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+            cohort_labels_file,
+            artifact_name=artifact.artifact_name,
+        )
+        _require_canonical_bundle_artifact_path(
+            actual_path=resolved_artifact_path,
+            expected_path=expected_path,
+            artifact_name=artifact.artifact_name,
+        )
+        artifact_index[artifact.artifact_name] = resolved_artifact_path
+    missing_artifact_names = sorted(
+        set(TRACK_B_SOURCE_ARTIFACT_FILE_NAMES).difference(artifact_index)
+    )
+    if missing_artifact_names:
+        raise ValueError(
+            "Track B benchmark cohort manifest must capture every pinned Track B "
+            "source artifact, missing: "
+            + ", ".join(missing_artifact_names)
+        )
+    load_source_archive_descriptors(artifact_index["source_archive_index"])
 
 
 def build_benchmark_cohort_labels(
@@ -1022,22 +1394,25 @@ def build_benchmark_cohort_labels(
     future_outcomes: tuple[FutureOutcomeRecord, ...],
     *,
     task_registry_path: Path | None = None,
+    cohort_members_file: Path | None = None,
 ) -> tuple[BenchmarkCohortLabel, ...]:
-    task_contract = resolve_benchmark_task_contract(
-        benchmark_task_id=manifest.benchmark_task_id or None,
-        benchmark_question_id=manifest.benchmark_question_id,
-        benchmark_suite_id=manifest.benchmark_suite_id or None,
-        task_registry_path=(
-            task_registry_path
-            if task_registry_path is not None
-            else (
-                Path(manifest.task_registry_path).resolve()
-                if getattr(manifest, "task_registry_path", "")
-                else None
-            )
-        ),
+    task_contract = _resolve_task_contract_for_manifest(
+        manifest,
+        task_registry_path=task_registry_path,
     )
     question = task_contract.protocol.question
+    if is_track_b_task(task_contract.task_id):
+        if cohort_members_file is None:
+            raise ValueError(
+                "Track B cohort label materialization requires cohort_members_file"
+            )
+        return _build_track_b_cohort_labels(
+            manifest=manifest,
+            cohort_members=cohort_members,
+            cohort_members_file=cohort_members_file,
+            future_outcomes=future_outcomes,
+            question=question,
+        )
     as_of_date = _parse_iso_date(manifest.as_of_date, "as_of_date")
     outcome_closed_at = _parse_iso_date(
         manifest.outcome_observation_closed_at,
@@ -1206,6 +1581,7 @@ def materialize_benchmark_cohort_labels(
         cohort_members,
         load_future_outcomes(resolved_future_outcomes_file),
         task_registry_path=task_registry_path,
+        cohort_members_file=resolved_cohort_members_file,
     )
     write_benchmark_cohort_labels(resolved_output_file, labels)
     cohort_members_output_file = benchmark_cohort_members_path_for_labels_file(
@@ -1224,6 +1600,16 @@ def materialize_benchmark_cohort_labels(
             resolved_output_file
         ),
     )
+    task_contract = _resolve_task_contract_for_manifest(
+        manifest,
+        task_registry_path=task_registry_path,
+    )
+    auxiliary_source_artifact_files: tuple[tuple[str, Path], ...] = ()
+    if is_track_b_task(task_contract.task_id):
+        auxiliary_source_artifact_files = _materialize_track_b_source_artifacts(
+            cohort_members_file=resolved_cohort_members_file,
+            labels_file=resolved_output_file,
+        )
     cohort_manifest_output_file = benchmark_cohort_manifest_path_for_labels_file(
         resolved_output_file
     )
@@ -1237,6 +1623,7 @@ def materialize_benchmark_cohort_labels(
         cohort_labels_artifact_file=resolved_output_file,
         source_cohort_members_file=source_cohort_members_output_file,
         source_future_outcomes_file=source_future_outcomes_output_file,
+        auxiliary_source_artifact_files=auxiliary_source_artifact_files,
     )
     write_benchmark_cohort_manifest(cohort_manifest_output_file, cohort_manifest)
     observed_label_rows = sum(

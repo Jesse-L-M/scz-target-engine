@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 from hashlib import sha256
 from pathlib import Path
+import re
+import shutil
 
 import pytest
 
-from scz_target_engine.benchmark_labels import materialize_benchmark_cohort_labels
+from scz_target_engine.benchmark_labels import (
+    benchmark_track_b_auxiliary_source_artifact_path_for_labels_file,
+    materialize_benchmark_cohort_labels,
+)
 from scz_target_engine.benchmark_leaderboard import (
     LEADERBOARD_SCHEMA_NAME,
     REPORT_CARD_SCHEMA_NAME,
@@ -15,10 +20,16 @@ from scz_target_engine.benchmark_leaderboard import (
     read_benchmark_report_card_payload,
 )
 from scz_target_engine.benchmark_metrics import RETRIEVAL_METRIC_NAMES
+from scz_target_engine.benchmark_metrics import read_benchmark_metric_output_payload
 from scz_target_engine.benchmark_runner import materialize_benchmark_run
 from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
     read_benchmark_snapshot_manifest,
+)
+from scz_target_engine.benchmark_track_b import (
+    estimate_track_b_metric_intervals,
+    read_track_b_case_output_payload,
+    track_b_case_output_path,
 )
 from tests.benchmark_test_support import write_intervention_object_slice_fixture
 
@@ -30,6 +41,44 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
+TRACK_B_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "data"
+    / "benchmark"
+    / "fixtures"
+    / "scz_failure_memory_2025_02_01"
+)
+
+
+def _normalize_component(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+
+
+def _track_b_run_id_from_manifest_payload(payload: dict[str, object]) -> str:
+    parameterization = payload["parameterization"]
+    assert isinstance(parameterization, dict)
+    return "__".join(
+        component
+        for component in (
+            _normalize_component(str(payload["snapshot_id"])),
+            _normalize_component(str(payload["baseline_id"])),
+            _normalize_component(str(payload["code_version"])[:12]),
+            sha256(
+                json.dumps(parameterization, sort_keys=True).encode("utf-8")
+            ).hexdigest()[:8],
+        )
+        if component
+    )
+
+
+def _track_b_run_id_by_baseline(runner_output_dir: Path) -> dict[str, str]:
+    run_ids: dict[str, str] = {}
+    for path in (runner_output_dir / "run_manifests").glob("*.json"):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        run_ids[str(payload["baseline_id"])] = str(payload["run_id"])
+    return run_ids
+
+
 def _materialize_fixture_runner_outputs(
     tmp_path: Path,
 ) -> tuple[Path, Path, Path, dict[str, object]]:
@@ -59,6 +108,44 @@ def _materialize_fixture_runner_outputs(
         deterministic_test_mode=True,
         code_version="fixture-sha",
         execution_timestamp="2026-03-28T00:00:00Z",
+    )
+    return (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        benchmark_result,
+    )
+
+
+def _materialize_track_b_fixture_runner_outputs(
+    tmp_path: Path,
+) -> tuple[Path, Path, Path, dict[str, object]]:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-05",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+    benchmark_result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-05T00:00:00Z",
     )
     return (
         snapshot_manifest_file,
@@ -189,6 +276,645 @@ def test_materialize_benchmark_reporting_emits_fixture_report_cards_and_leaderbo
         Path(entry.report_card_path).exists()
         for entry in leaderboard_payload.entries
     )
+
+
+def test_materialize_benchmark_reporting_keeps_track_b_metrics_scoped_per_run(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        benchmark_result,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-04-05T12:00:00Z",
+    )
+
+    runner_replay_status_by_baseline = {}
+    for metric_path in benchmark_result["metric_payload_files"]:
+        metric_payload = read_benchmark_metric_output_payload(Path(metric_path))
+        if metric_payload.metric_name != "replay_status_exact_match":
+            continue
+        runner_replay_status_by_baseline[metric_payload.baseline_id] = (
+            metric_payload.metric_value
+        )
+
+    assert (
+        runner_replay_status_by_baseline["track_b_nearest_history"]
+        < runner_replay_status_by_baseline["track_b_structural_current"]
+    )
+
+    report_card_replay_status_by_baseline = {}
+    for report_card_path in reporting_result["report_card_files"]:
+        report_card = read_benchmark_report_card_payload(Path(report_card_path))
+        metric_summary = next(
+            metric
+            for metric in report_card.slices[0].metrics
+            if metric.metric_name == "replay_status_exact_match"
+        )
+        report_card_replay_status_by_baseline[report_card.baseline_id] = (
+            metric_summary.metric_value
+        )
+
+    replay_status_leaderboard = read_benchmark_leaderboard_payload(
+        next(
+            Path(path)
+            for path in reporting_result["leaderboard_payload_files"]
+            if path.endswith("replay_status_exact_match.json")
+        )
+    )
+    leaderboard_replay_status_by_baseline = {
+        entry.baseline_id: entry.metric_value
+        for entry in replay_status_leaderboard.entries
+    }
+
+    for baseline_id in (
+        "track_b_nearest_history",
+        "track_b_structural_current",
+    ):
+        assert report_card_replay_status_by_baseline[baseline_id] == (
+            runner_replay_status_by_baseline[baseline_id]
+        )
+        assert leaderboard_replay_status_by_baseline[baseline_id] == (
+            runner_replay_status_by_baseline[baseline_id]
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_analog_recall(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next(
+        path
+        for path in (runner_output_dir / "track_b_case_outputs").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    tampered_case = next(
+        case
+        for case in case_output_payload["cases"]
+        if case.get("analog_recall_at_3") is not None
+        and float(case["analog_recall_at_3"]) > 0.0
+    )
+    tampered_case["retrieved_analog_event_ids"] = [
+        "fake_event_1",
+        "fake_event_2",
+        "fake_event_3",
+    ]
+    for analog_payload, event_id in zip(
+        tampered_case["retrieved_analogs"],
+        tampered_case["retrieved_analog_event_ids"],
+        strict=True,
+    ):
+        analog_payload["event_id"] = event_id
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output analog_recall_at_3 does not match analog event ids",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_nonevaluable_retrieved_ids(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next(
+        path
+        for path in (runner_output_dir / "track_b_case_outputs").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    tampered_case = next(
+        case
+        for case in case_output_payload["cases"]
+        if case["case_id"] == "roluperidone_negative_symptoms_phase3"
+    )
+    assert tampered_case["gold_analog_event_ids"] == []
+    tampered_case["retrieved_analog_event_ids"] = ["fake_event_x", "fake_event_y"]
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output retrieved_analog_event_ids do not match retrieved_analogs",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_excess_retrieved_analogs(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next(
+        path
+        for path in (runner_output_dir / "track_b_case_outputs").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    tampered_case = next(
+        case
+        for case in case_output_payload["cases"]
+        if case["case_id"] == "roluperidone_negative_symptoms_phase3"
+    )
+    tampered_case["retrieved_analog_event_ids"].append("fake_event_z")
+    tampered_case["retrieved_analogs"].append(
+        {
+            "asset_id": "fake-asset-z",
+            "biological_anchor": False,
+            "domain": "negative_symptoms",
+            "event_date": "2024-06-01",
+            "event_id": "fake_event_z",
+            "failure_reason_taxonomy": "unresolved",
+            "failure_scope": "unresolved",
+            "match_dimensions": ["domain"],
+            "match_tier": "nearest_history",
+            "molecule": "fake molecule z",
+            "mono_or_adjunct": "monotherapy",
+            "phase": "phase_3",
+            "population": "adults",
+            "primary_outcome_result": "did_not_meet_primary_endpoint",
+            "source_tier": "company_press_release",
+            "source_url": "https://example.com/fake-event-z",
+            "target": "GENE1",
+            "target_class": "synthetic class",
+        }
+    )
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output retrieved_analogs exceed the Track B retrieval limit",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_fabricated_retrieved_analogs(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next(
+        path
+        for path in (runner_output_dir / "track_b_case_outputs").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    tampered_case = next(
+        case
+        for case in case_output_payload["cases"]
+        if case["case_id"] == "roluperidone_negative_symptoms_phase3"
+    )
+    tampered_case["retrieved_analog_event_ids"] = [
+        "fake_event_a",
+        "fake_event_b",
+        "fake_event_c",
+    ]
+    tampered_case["retrieved_analogs"] = [
+        {
+            "asset_id": "fake-asset-a",
+            "biological_anchor": False,
+            "domain": "negative_symptoms",
+            "event_date": "2024-06-01",
+            "event_id": "fake_event_a",
+            "failure_reason_taxonomy": "unresolved",
+            "failure_scope": "unresolved",
+            "match_dimensions": ["domain"],
+            "match_tier": "nearest_history",
+            "molecule": "fake molecule a",
+            "mono_or_adjunct": "monotherapy",
+            "phase": "phase_3",
+            "population": "adults",
+            "primary_outcome_result": "did_not_meet_primary_endpoint",
+            "source_tier": "company_press_release",
+            "source_url": "https://example.com/fake-event-a",
+            "target": "GENE1",
+            "target_class": "synthetic class",
+        },
+        {
+            "asset_id": "fake-asset-b",
+            "biological_anchor": False,
+            "domain": "negative_symptoms",
+            "event_date": "2024-06-01",
+            "event_id": "fake_event_b",
+            "failure_reason_taxonomy": "unresolved",
+            "failure_scope": "unresolved",
+            "match_dimensions": ["domain"],
+            "match_tier": "nearest_history",
+            "molecule": "fake molecule b",
+            "mono_or_adjunct": "monotherapy",
+            "phase": "phase_3",
+            "population": "adults",
+            "primary_outcome_result": "did_not_meet_primary_endpoint",
+            "source_tier": "company_press_release",
+            "source_url": "https://example.com/fake-event-b",
+            "target": "GENE1",
+            "target_class": "synthetic class",
+        },
+        {
+            "asset_id": "fake-asset-c",
+            "biological_anchor": False,
+            "domain": "negative_symptoms",
+            "event_date": "2024-06-01",
+            "event_id": "fake_event_c",
+            "failure_reason_taxonomy": "unresolved",
+            "failure_scope": "unresolved",
+            "match_dimensions": ["domain"],
+            "match_tier": "nearest_history",
+            "molecule": "fake molecule c",
+            "mono_or_adjunct": "monotherapy",
+            "phase": "phase_3",
+            "population": "adults",
+            "primary_outcome_result": "did_not_meet_primary_endpoint",
+            "source_tier": "company_press_release",
+            "source_url": "https://example.com/fake-event-c",
+            "target": "GENE1",
+            "target_class": "synthetic class",
+        },
+    ]
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output does not match the pinned source artifacts",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_track_b_cross_baseline_run_id_swap(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    nearest_run_id = next(
+        path.stem
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_nearest_history" in path.name
+    )
+    structural_run_id = next(
+        path.stem
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+
+    for folder_name in (
+        "run_manifests",
+        "track_b_case_outputs",
+        "track_b_confusion_summaries",
+    ):
+        source_path = runner_output_dir / folder_name / f"{nearest_run_id}.json"
+        target_path = runner_output_dir / folder_name / f"{structural_run_id}.json"
+        payload = json.loads(source_path.read_text(encoding="utf-8"))
+        payload["run_id"] = structural_run_id
+        target_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    for folder_name in ("metric_payloads", "confidence_interval_payloads"):
+        source_dir = (
+            runner_output_dir
+            / folder_name
+            / nearest_run_id
+            / "intervention_object"
+            / "structural_replay"
+        )
+        target_dir = (
+            runner_output_dir
+            / folder_name
+            / structural_run_id
+            / "intervention_object"
+            / "structural_replay"
+        )
+        for source_path in source_dir.glob("*.json"):
+            payload = json.loads(source_path.read_text(encoding="utf-8"))
+            payload["run_id"] = structural_run_id
+            (target_dir / source_path.name).write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B run manifest run_id does not match its baseline/code_version/parameterization contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_missing_track_b_baseline_bundle(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    missing_run_id = _track_b_run_id_by_baseline(runner_output_dir)[
+        "track_b_target_class"
+    ]
+    for folder_name in (
+        "run_manifests",
+        "track_b_case_outputs",
+        "track_b_confusion_summaries",
+    ):
+        (runner_output_dir / folder_name / f"{missing_run_id}.json").unlink()
+    shutil.rmtree(runner_output_dir / "metric_payloads" / missing_run_id)
+    shutil.rmtree(runner_output_dir / "confidence_interval_payloads" / missing_run_id)
+
+    with pytest.raises(
+        ValueError,
+        match="Track B reporting requires the complete expected baseline set",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_input_artifacts(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    run_manifest_path = next(
+        path
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    real_casebook = benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+        cohort_labels_file,
+        artifact_name="track_b_casebook",
+    )
+    fake_casebook = tmp_path / "fake_track_b_casebook.csv"
+    fake_casebook.write_bytes(real_casebook.read_bytes())
+    for artifact in run_manifest_payload["input_artifacts"]:
+        if artifact["artifact_name"] == "track_b_casebook":
+            artifact["artifact_path"] = str(fake_casebook.resolve())
+            artifact["sha256"] = sha256(fake_casebook.read_bytes()).hexdigest()
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B run manifest input_artifact path does not match the pinned cohort/source artifact contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_interval_seed(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    run_id = _track_b_run_id_by_baseline(runner_output_dir)["track_b_structural_current"]
+    case_output_payload = read_track_b_case_output_payload(
+        track_b_case_output_path(runner_output_dir, run_id=run_id)
+    )
+    interval_dir = (
+        runner_output_dir
+        / "confidence_interval_payloads"
+        / run_id
+        / "intervention_object"
+        / "structural_replay"
+    )
+    sample_interval_payload = json.loads(
+        next(interval_dir.glob("*.json")).read_text(encoding="utf-8")
+    )
+    tampered_seed = 123456
+    tampered_intervals = estimate_track_b_metric_intervals(
+        case_output_payload.cases,
+        iterations=int(sample_interval_payload["bootstrap_iterations"]),
+        confidence_level=float(sample_interval_payload["confidence_level"]),
+        random_seed=tampered_seed,
+    )
+    for interval_path in interval_dir.glob("*.json"):
+        interval_payload = json.loads(interval_path.read_text(encoding="utf-8"))
+        point_estimate, interval_low, interval_high = tampered_intervals[
+            interval_payload["metric_name"]
+        ]
+        interval_payload["random_seed"] = tampered_seed
+        interval_payload["point_estimate"] = point_estimate
+        interval_payload["interval_low"] = interval_low
+        interval_payload["interval_high"] = interval_high
+        interval_path.write_text(
+            json.dumps(interval_payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B confidence interval payload random_seed does not match the run manifest contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_manifest_only_provenance(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    run_id = _track_b_run_id_by_baseline(runner_output_dir)["track_b_structural_current"]
+    run_manifest_path = next(
+        path
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    run_manifest_payload["parameterization"]["track_b_casebook_sha256"] = "1" * 64
+    new_run_id = _track_b_run_id_from_manifest_payload(run_manifest_payload)
+    run_manifest_payload["run_id"] = new_run_id
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    for folder_name in ("track_b_case_outputs", "track_b_confusion_summaries"):
+        payload_path = runner_output_dir / folder_name / f"{run_id}.json"
+        payload = json.loads(payload_path.read_text(encoding="utf-8"))
+        payload["run_id"] = new_run_id
+        payload_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    for folder_name in ("metric_payloads", "confidence_interval_payloads"):
+        payload_dir = (
+            runner_output_dir
+            / folder_name
+            / run_id
+            / "intervention_object"
+            / "structural_replay"
+        )
+        for payload_path in payload_dir.glob("*.json"):
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            payload["run_id"] = new_run_id
+            payload_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B run manifest parameterization track_b_casebook_sha256 does not match the pinned Track B casebook",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_track_b_as_of_date_mismatch(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    case_output_path = next((runner_output_dir / "track_b_case_outputs").glob("*.json"))
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    case_output_payload["as_of_date"] = "1999-01-01"
+    case_output_path.write_text(
+        json.dumps(case_output_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output payload as_of_date does not match snapshot manifest",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
 
 
 def test_materialize_benchmark_reporting_emits_intervention_object_error_analysis(

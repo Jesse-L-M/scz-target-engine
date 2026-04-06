@@ -118,6 +118,26 @@ class BenchmarkQuestion:
         )
 
 
+def _question_id_index(
+    questions: tuple["BenchmarkQuestion", ...],
+) -> dict[str, "BenchmarkQuestion"]:
+    return {
+        question.question_id: question
+        for question in questions
+    }
+
+
+def resolve_benchmark_question(question_id: str) -> "BenchmarkQuestion":
+    resolved_question_id = _require_text(question_id, "benchmark_question_id")
+    question = BENCHMARK_QUESTIONS_BY_ID.get(resolved_question_id)
+    if question is None:
+        raise ValueError(
+            "benchmark_question_id must match a supported benchmark question id: "
+            + ", ".join(sorted(BENCHMARK_QUESTIONS_BY_ID))
+        )
+    return question
+
+
 @dataclass(frozen=True)
 class LeakageControls:
     mode: str = STRICT_NO_LEAKAGE_MODE
@@ -362,24 +382,38 @@ class BenchmarkSnapshotManifest:
         if self.benchmark_task_id:
             _require_text(self.benchmark_task_id, "benchmark_task_id")
         _require_text(self.benchmark_question_id, "benchmark_question_id")
+        resolve_benchmark_question(self.benchmark_question_id)
+        _require_non_empty_tuple(self.entity_types, "entity_types")
+        if any(entity_type not in VALID_ENTITY_TYPES for entity_type in self.entity_types):
+            raise ValueError(
+                "entity_types must only contain supported benchmark entity types"
+            )
+        if not self.baseline_ids:
+            raise ValueError("baseline_ids must contain at least one benchmark baseline")
+        if len(self.baseline_ids) != len(set(self.baseline_ids)):
+            raise ValueError("baseline_ids must not repeat baseline_id")
+        unknown_baseline_ids = sorted(
+            set(self.baseline_ids).difference(FROZEN_BASELINE_IDS)
+        )
+        if unknown_baseline_ids:
+            raise ValueError(
+                "baseline_ids must only contain supported benchmark baselines: "
+                + ", ".join(unknown_baseline_ids)
+            )
         from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 
-        try:
-            task_contract = resolve_benchmark_task_contract(
-                benchmark_task_id=self.benchmark_task_id or None,
-                benchmark_question_id=self.benchmark_question_id,
-                benchmark_suite_id=self.benchmark_suite_id or None,
-                task_registry_path=(
-                    Path(self.task_registry_path).resolve()
-                    if self.task_registry_path
-                    else None
-                ),
-            )
-        except ValueError as exc:
-            raise ValueError(
-                "benchmark_question_id must match the frozen benchmark question id "
-                f"{BENCHMARK_QUESTION_V1.question_id}"
-            ) from exc
+        task_contract = resolve_benchmark_task_contract(
+            benchmark_task_id=self.benchmark_task_id or None,
+            benchmark_question_id=self.benchmark_question_id,
+            benchmark_suite_id=self.benchmark_suite_id or None,
+            entity_types=self.entity_types,
+            baseline_ids=self.baseline_ids,
+            task_registry_path=(
+                Path(self.task_registry_path).resolve()
+                if self.task_registry_path
+                else None
+            ),
+        )
         protocol = task_contract.protocol
         if self.benchmark_question_id != protocol.question.question_id:
             raise ValueError(
@@ -394,17 +428,8 @@ class BenchmarkSnapshotManifest:
             raise ValueError(
                 "outcome_observation_closed_at must be on or after as_of_date"
             )
-        _require_non_empty_tuple(self.entity_types, "entity_types")
-        if any(entity_type not in VALID_ENTITY_TYPES for entity_type in self.entity_types):
-            raise ValueError(
-                "entity_types must only contain supported benchmark entity types"
-            )
         if not self.source_snapshots:
             raise ValueError("source_snapshots must contain at least one source entry")
-        if not self.baseline_ids:
-            raise ValueError("baseline_ids must contain at least one benchmark baseline")
-        if len(self.baseline_ids) != len(set(self.baseline_ids)):
-            raise ValueError("baseline_ids must not repeat baseline_id")
 
         seen_sources: set[str] = set()
         known_baselines = {
@@ -796,6 +821,55 @@ BENCHMARK_QUESTION_V1 = BenchmarkQuestion(
     ),
 )
 
+TRACK_B_QUESTION_V1 = BenchmarkQuestion(
+    question_id="scz_failure_memory_track_b_v1",
+    disease="schizophrenia",
+    benchmark_universe=(
+        "Evaluate a frozen intervention-object casebook by retrieving only "
+        "pre-cutoff analog history, then scoring structural replay judgments "
+        "about whether that historical failure memory supports, rejects, or "
+        "cannot resolve replay risk for the current proposal."
+    ),
+    entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+    translational_outcome_labels=(
+        "replay_supported",
+        "replay_not_supported",
+        "replay_inconclusive",
+        "insufficient_history",
+    ),
+    evaluation_horizons=("structural_replay",),
+    in_scope_evidence=(
+        "pre-cutoff checked-in program-universe denominator rows",
+        "pre-cutoff checked-in program-memory event history",
+        "pre-cutoff checked-in asset, provenance, and directionality ledgers",
+        "frozen Track B casebook analog and replay adjudications",
+    ),
+    future_outcomes=(
+        "no future-outcome ranking labels are used for Track B",
+        "gold replay-status labels are sourced from the frozen Track B casebook",
+    ),
+)
+
+BENCHMARK_QUESTIONS = (
+    BENCHMARK_QUESTION_V1,
+    TRACK_B_QUESTION_V1,
+)
+BENCHMARK_QUESTIONS_BY_ID = _question_id_index(BENCHMARK_QUESTIONS)
+BENCHMARK_LABEL_NAMES = tuple(
+    dict.fromkeys(
+        label_name
+        for question in BENCHMARK_QUESTIONS
+        for label_name in question.translational_outcome_labels
+    )
+)
+BENCHMARK_EVALUATION_HORIZONS = tuple(
+    dict.fromkeys(
+        horizon
+        for question in BENCHMARK_QUESTIONS
+        for horizon in question.evaluation_horizons
+    )
+)
+
 SOURCE_CUTOFF_RULES_V1 = (
     SourceCutoffRule(
         source_name="PGC",
@@ -881,7 +955,7 @@ SOURCE_CUTOFF_RULES_V1 = (
     ),
 )
 
-FROZEN_BASELINE_MATRIX = (
+FROZEN_RANKING_BASELINE_MATRIX = (
     BaselineDefinition(
         baseline_id="pgc_only",
         label="PGC only",
@@ -1007,6 +1081,74 @@ FROZEN_BASELINE_MATRIX = (
         description="Admissible-cohort random baseline for sanity-checking ranking lift.",
     ),
 )
+
+TRACK_B_BASELINE_MATRIX = (
+    BaselineDefinition(
+        baseline_id="track_b_exact_target",
+        label="Track B exact target",
+        family="track_b_retrieval",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Retrieve only target-exact or same-molecule analogs from the pre-cutoff "
+            "program-memory ledger before scoring structural replay labels."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Failure-memory retrieval baseline restricted to exact-target biological "
+            "neighbors."
+        ),
+    ),
+    BaselineDefinition(
+        baseline_id="track_b_target_class",
+        label="Track B target class",
+        family="track_b_retrieval",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Retrieve target-class or same-molecule analogs from the pre-cutoff "
+            "program-memory ledger before scoring structural replay labels."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Failure-memory retrieval baseline that widens exact-target lookup to the "
+            "checked-in target-class neighborhood."
+        ),
+    ),
+    BaselineDefinition(
+        baseline_id="track_b_nearest_history",
+        label="Track B nearest history",
+        family="track_b_retrieval",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Rank pre-cutoff history by naive nearest-neighbor context overlap "
+            "without requiring the current analog index to endorse a biological anchor."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Naive contextual nearest-history comparator for Track B structural replay."
+        ),
+    ),
+    BaselineDefinition(
+        baseline_id="track_b_structural_current",
+        label="Track B current structural replay",
+        family="track_b_structural_replay",
+        entity_types=(INTERVENTION_OBJECT_ENTITY_TYPE,),
+        required_inputs=("program_memory_v2", "track_b_casebook"),
+        coverage_rule=(
+            "Run the checked-in program-memory analog retrieval and counterfactual "
+            "replay assessment surfaces on the pre-cutoff Track B casebook."
+        ),
+        status=AVAILABLE_NOW_STATUS,
+        description=(
+            "Current structural failure-memory baseline built from the shipped analog "
+            "and replay-risk APIs."
+        ),
+    ),
+)
+
+FROZEN_BASELINE_MATRIX = FROZEN_RANKING_BASELINE_MATRIX + TRACK_B_BASELINE_MATRIX
 
 FROZEN_BASELINE_IDS = tuple(
     baseline_definition.baseline_id for baseline_definition in FROZEN_BASELINE_MATRIX
@@ -1381,6 +1523,17 @@ BENCHMARK_ARTIFACT_SCHEMAS_V1 = (
                 field_type="integer",
                 required=True,
                 description="Number of observed=true rows in the materialized benchmark cohort labels artifact.",
+            ),
+            ArtifactField(
+                name="auxiliary_source_artifacts",
+                field_type="object[]",
+                required=False,
+                description=(
+                    "Optional pinned source artifact references required by "
+                    "benchmark tasks that consume checked-in local fixture "
+                    "ledgers outside the generic cohort-member and future-"
+                    "outcome files."
+                ),
             ),
             ArtifactField(
                 name="notes",
@@ -1760,7 +1913,17 @@ FROZEN_BENCHMARK_PROTOCOL = BenchmarkProtocol(
     question=BENCHMARK_QUESTION_V1,
     leakage_controls=LeakageControls(),
     source_cutoff_rules=SOURCE_CUTOFF_RULES_V1,
-    baselines=FROZEN_BASELINE_MATRIX,
+    baselines=FROZEN_RANKING_BASELINE_MATRIX,
+    artifact_schemas=BENCHMARK_ARTIFACT_SCHEMAS_V1,
+)
+
+TRACK_B_BENCHMARK_PROTOCOL = BenchmarkProtocol(
+    schema_name="benchmark_protocol",
+    schema_version="v1",
+    question=TRACK_B_QUESTION_V1,
+    leakage_controls=LeakageControls(),
+    source_cutoff_rules=SOURCE_CUTOFF_RULES_V1,
+    baselines=TRACK_B_BASELINE_MATRIX,
     artifact_schemas=BENCHMARK_ARTIFACT_SCHEMAS_V1,
 )
 
@@ -1768,6 +1931,10 @@ FROZEN_BENCHMARK_PROTOCOL = BenchmarkProtocol(
 __all__ = [
     "AVAILABLE_NOW_STATUS",
     "BENCHMARK_ARTIFACT_SCHEMAS_V1",
+    "BENCHMARK_EVALUATION_HORIZONS",
+    "BENCHMARK_LABEL_NAMES",
+    "BENCHMARK_QUESTIONS",
+    "BENCHMARK_QUESTIONS_BY_ID",
     "BENCHMARK_QUESTION_V1",
     "BenchmarkProtocol",
     "BenchmarkQuestion",
@@ -1776,6 +1943,7 @@ __all__ = [
     "EXCLUDE_SOURCE_POLICY",
     "FROZEN_BASELINE_IDS",
     "FROZEN_BASELINE_MATRIX",
+    "FROZEN_RANKING_BASELINE_MATRIX",
     "FROZEN_BENCHMARK_PROTOCOL",
     "GENE_ENTITY_TYPE",
     "INTERVENTION_OBJECT_ENTITY_TYPE",
@@ -1790,4 +1958,8 @@ __all__ = [
     "STRICT_NO_LEAKAGE_MODE",
     "SourceCutoffRule",
     "SourceSnapshot",
+    "TRACK_B_BASELINE_MATRIX",
+    "TRACK_B_BENCHMARK_PROTOCOL",
+    "TRACK_B_QUESTION_V1",
+    "resolve_benchmark_question",
 ]

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scz_target_engine.benchmark_protocol import (
     FROZEN_BENCHMARK_PROTOCOL,
+    TRACK_B_BENCHMARK_PROTOCOL,
     VALID_ENTITY_TYPES,
     ArtifactSchema,
     BenchmarkProtocol,
@@ -19,6 +20,11 @@ DEFAULT_TASK_REGISTRY_PATH = (
 )
 PIPE_SEPARATOR = "|"
 FROZEN_PROTOCOL_ID = "frozen_benchmark_protocol_v1"
+TRACK_B_PROTOCOL_ID = "track_b_structural_replay_protocol_v1"
+SUPPORTED_PROTOCOLS = {
+    FROZEN_PROTOCOL_ID: FROZEN_BENCHMARK_PROTOCOL,
+    TRACK_B_PROTOCOL_ID: TRACK_B_BENCHMARK_PROTOCOL,
+}
 
 
 def _require_text(value: str, field_name: str) -> str:
@@ -38,6 +44,25 @@ def _split_pipe_list(value: str, field_name: str) -> tuple[str, ...]:
     return items
 
 
+def _split_optional_pipe_list(
+    value: str | None,
+    field_name: str,
+) -> tuple[str, ...]:
+    cleaned = "" if value is None else str(value).strip()
+    if not cleaned:
+        return ()
+    return _split_pipe_list(cleaned, field_name)
+
+
+def _parse_optional_bool(value: str | None, field_name: str) -> bool:
+    cleaned = "" if value is None else str(value).strip().lower()
+    if cleaned in {"", "false", "0", "no"}:
+        return False
+    if cleaned in {"true", "1", "yes"}:
+        return True
+    raise ValueError(f"{field_name} must be one of true/false")
+
+
 def _resolve_repo_relative_path(path_text: str) -> Path:
     path = Path(path_text)
     if path.is_absolute():
@@ -47,9 +72,10 @@ def _resolve_repo_relative_path(path_text: str) -> Path:
 
 def _resolve_protocol(protocol_id: str) -> BenchmarkProtocol:
     resolved_protocol_id = _require_text(protocol_id, "protocol_id")
-    if resolved_protocol_id != FROZEN_PROTOCOL_ID:
+    protocol = SUPPORTED_PROTOCOLS.get(resolved_protocol_id)
+    if protocol is None:
         raise ValueError(f"unsupported benchmark protocol id: {resolved_protocol_id}")
-    return FROZEN_BENCHMARK_PROTOCOL
+    return protocol
 
 
 @dataclass(frozen=True)
@@ -58,6 +84,7 @@ class BenchmarkFixturePaths:
     cohort_members_file: Path
     future_outcomes_file: Path
     archive_index_file: Path
+    archive_index_sibling_file_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for field_name, path in (
@@ -68,6 +95,34 @@ class BenchmarkFixturePaths:
         ):
             if not path.exists():
                 raise ValueError(f"{field_name} does not exist: {path}")
+        for file_name in self.archive_index_sibling_file_names:
+            _require_text(file_name, "archive_index_sibling_file_names")
+        self.validate_archive_index_sibling_files(self.archive_index_file)
+
+    def resolve_archive_index_sibling_paths(
+        self,
+        archive_index_file: Path,
+    ) -> tuple[Path, ...]:
+        base_dir = archive_index_file.resolve().parent
+        return tuple(
+            (base_dir / file_name).resolve()
+            for file_name in self.archive_index_sibling_file_names
+        )
+
+    def validate_archive_index_sibling_files(
+        self,
+        archive_index_file: Path,
+    ) -> None:
+        missing_paths = [
+            path.name
+            for path in self.resolve_archive_index_sibling_paths(archive_index_file)
+            if not path.exists()
+        ]
+        if missing_paths:
+            raise ValueError(
+                "benchmark fixture is missing required archive-index sibling files: "
+                + ", ".join(sorted(missing_paths))
+            )
 
 
 @dataclass(frozen=True)
@@ -84,13 +139,14 @@ class BenchmarkTaskContract:
     fixture_paths: BenchmarkFixturePaths
     protocol: BenchmarkProtocol
     notes: str = ""
+    legacy_lookup_default: bool = False
 
     def __post_init__(self) -> None:
         _require_text(self.suite_id, "suite_id")
         _require_text(self.suite_label, "suite_label")
         _require_text(self.task_id, "task_id")
         _require_text(self.task_label, "task_label")
-        if self.protocol_id != FROZEN_PROTOCOL_ID:
+        if self.protocol_id not in SUPPORTED_PROTOCOLS:
             raise ValueError(f"unsupported protocol_id: {self.protocol_id}")
         if self.benchmark_question_id != self.protocol.question.question_id:
             raise ValueError(
@@ -204,9 +260,17 @@ def _build_task_contract(row: dict[str, str]) -> BenchmarkTaskContract:
             archive_index_file=_resolve_repo_relative_path(
                 row["fixture_archive_index_file"]
             ),
+            archive_index_sibling_file_names=_split_optional_pipe_list(
+                row.get("fixture_archive_index_sibling_file_names"),
+                "fixture_archive_index_sibling_file_names",
+            ),
         ),
         protocol=protocol,
         notes=str(row.get("notes", "")).strip(),
+        legacy_lookup_default=_parse_optional_bool(
+            row.get("legacy_lookup_default"),
+            "legacy_lookup_default",
+        ),
     )
 
 
@@ -281,6 +345,8 @@ def resolve_benchmark_task_contract(
     benchmark_task_id: str | None = None,
     benchmark_question_id: str | None = None,
     benchmark_suite_id: str | None = None,
+    entity_types: tuple[str, ...] | None = None,
+    baseline_ids: tuple[str, ...] | None = None,
     task_registry_path: Path | None = None,
 ) -> BenchmarkTaskContract:
     tasks = load_benchmark_task_contracts(task_registry_path=task_registry_path)
@@ -300,6 +366,20 @@ def resolve_benchmark_task_contract(
             for task in candidates
             if task.benchmark_question_id == benchmark_question_id
         ]
+    if entity_types:
+        requested_entity_types = set(entity_types)
+        candidates = [
+            task
+            for task in candidates
+            if requested_entity_types.issubset(set(task.entity_types))
+        ]
+    if baseline_ids:
+        requested_baseline_ids = set(baseline_ids)
+        candidates = [
+            task
+            for task in candidates
+            if requested_baseline_ids.issubset(set(task.supported_baseline_ids))
+        ]
 
     if not candidates:
         lookup_parts = []
@@ -309,9 +389,31 @@ def resolve_benchmark_task_contract(
             lookup_parts.append(f"task_id={benchmark_task_id}")
         if benchmark_question_id:
             lookup_parts.append(f"benchmark_question_id={benchmark_question_id}")
+        if entity_types:
+            lookup_parts.append(
+                "entity_types=" + "|".join(sorted(set(entity_types)))
+            )
+        if baseline_ids:
+            lookup_parts.append(
+                "baseline_ids=" + "|".join(sorted(set(baseline_ids)))
+            )
         lookup = ", ".join(lookup_parts) if lookup_parts else "no lookup key provided"
         raise ValueError(f"no benchmark task contract matched: {lookup}")
 
+    if len(candidates) > 1 and not benchmark_task_id and not baseline_ids:
+        legacy_defaults = [
+            task for task in candidates if task.legacy_lookup_default
+        ]
+        if len(legacy_defaults) == 1:
+            return legacy_defaults[0]
+        if len(legacy_defaults) > 1:
+            matched_task_ids = ", ".join(
+                sorted(task.task_id for task in legacy_defaults)
+            )
+            raise ValueError(
+                "benchmark task registry matched multiple legacy lookup defaults: "
+                f"{matched_task_ids}"
+            )
     if len(candidates) > 1:
         matched_task_ids = ", ".join(sorted(task.task_id for task in candidates))
         raise ValueError(
@@ -327,6 +429,7 @@ __all__ = [
     "BenchmarkTaskContract",
     "DEFAULT_TASK_REGISTRY_PATH",
     "FROZEN_PROTOCOL_ID",
+    "TRACK_B_PROTOCOL_ID",
     "load_benchmark_suite_contracts",
     "load_benchmark_task_contracts",
     "resolve_benchmark_suite_contract",

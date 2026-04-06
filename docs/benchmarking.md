@@ -218,6 +218,28 @@ families. The strict no-fallback archive rule still applies: Track B does not fa
 back to live source data or repo-head program-memory state when the checked-in slice
 does not contain enough history.
 
+Track B reporting now validates one complete reporting bundle before it writes
+public payloads:
+
+- the exact expected `available_now` Track B baseline set must be present, so a
+  deleted baseline bundle cannot silently shrink the leaderboard
+- run manifests, case outputs, confusion summaries, metric payloads, and
+  confidence-interval payloads must all agree on the owning run, baseline,
+  snapshot, suite/task/question surface, and Track B horizon
+- public `evaluation_input_artifacts` are rebuilt from the validated
+  `benchmark_snapshot_manifest`, materialized cohort bundle, and pinned Track B
+  auxiliary source artifacts rather than copied from `run_manifest.input_artifacts`
+- interval provenance is bound to the run-manifest parameterization, including
+  the deterministic per-baseline seed derived from the base seed plus
+  `baseline_id` / `structural_replay`
+- manifest-only provenance fields such as `track_b_case_count` and
+  `track_b_casebook_sha256` must match the pinned casebook and emitted case set
+
+Track B reporting still does not rerun model inference. It does revalidate the
+full Track B bundle by recomputing structural metrics, confusion summaries, and
+bootstrap intervals from the runner-emitted case outputs plus the pinned cohort
+bundle before it publishes report cards, leaderboards, or error analysis.
+
 Bootstrap note:
 
 - `analog_recall_at_3` intervals resample at unit `case` but skip resamples with zero evaluable analog cases instead of coercing them to `0.0`

@@ -23,6 +23,7 @@ from scz_target_engine.benchmark_metrics import (
     read_benchmark_metric_output_payload,
 )
 from scz_target_engine.benchmark_runner import (
+    derive_track_b_slice_random_seed,
     materialize_benchmark_run,
     read_benchmark_model_run_manifest,
 )
@@ -475,6 +476,34 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         Path(reporting_result["report_card_files"][0])
     )
     assert report_card.benchmark_task_id == "scz_failure_memory_track_b_task"
+    assert {
+        artifact.artifact_name for artifact in report_card.evaluation_input_artifacts
+    } == {
+        "benchmark_snapshot_manifest",
+        "benchmark_cohort_manifest",
+        "benchmark_cohort_members",
+        "benchmark_source_cohort_members",
+        "benchmark_source_future_outcomes",
+        "benchmark_cohort_labels",
+        "source_archive_index",
+        "track_b_casebook",
+        "track_b_program_universe",
+        "track_b_program_history_events",
+        "program_memory_assets",
+        "program_memory_event_provenance",
+        "program_memory_directionality_hypotheses",
+    }
+    track_b_casebook_input = next(
+        artifact
+        for artifact in report_card.evaluation_input_artifacts
+        if artifact.artifact_name == "track_b_casebook"
+    )
+    assert Path(track_b_casebook_input.artifact_path) == (
+        benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+            cohort_labels_file,
+            artifact_name="track_b_casebook",
+        )
+    )
     assert len(report_card.slices) == 1
     assert report_card.slices[0].entity_type == "intervention_object"
     assert report_card.slices[0].horizon == TRACK_B_HORIZON
@@ -501,11 +530,9 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
             if structural_run_id in path and "analog_recall_at_3.json" in path
         )
     )
-    expected_seed = 17 + int.from_bytes(
-        sha256(
-            f"track_b_structural_current:{TRACK_B_HORIZON}".encode("utf-8")
-        ).digest()[:4],
-        "big",
+    expected_seed = derive_track_b_slice_random_seed(
+        base_random_seed=17,
+        baseline_id="track_b_structural_current",
     )
     assert interval_payload.random_seed == expected_seed
 

@@ -33,6 +33,18 @@ Snapshot build validates the full Track B sibling-file contract up front. Cohort
 materialization fails closed if `cohort_members.csv` diverges from the casebook
 ids or labels.
 
+Reporting now also treats the emitted runner outputs as one owned Track B bundle:
+
+- all four expected Track B baselines must be present
+- run manifests, case outputs, confusion summaries, metric payloads, and
+  confidence-interval payloads must all belong to the same validated run and
+  baseline contract
+- public provenance is rebuilt from the validated snapshot/cohort bundle and the
+  pinned auxiliary source artifacts in this fixture, not copied from mutable run
+  manifests
+- interval seeds, casebook SHA, and case count are validated against the pinned
+  fixture bundle before any public Track B payload is written
+
 The casebook is intentionally small and structural. It is meant to expose:
 
 - exact-target and target-class wins

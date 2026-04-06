@@ -34,6 +34,7 @@ from scz_target_engine.benchmark_metrics import (
 )
 from scz_target_engine.benchmark_runner import (
     _deterministic_random_score,
+    derive_track_b_slice_random_seed,
     materialize_benchmark_run,
     read_benchmark_model_run_manifest,
 )
@@ -176,6 +177,23 @@ def _write_source_cohort_inputs(
             "label_notes",
         ],
     )
+
+
+def test_derive_track_b_slice_random_seed_is_deterministic() -> None:
+    structural_seed = derive_track_b_slice_random_seed(
+        base_random_seed=17,
+        baseline_id="track_b_structural_current",
+    )
+    nearest_history_seed = derive_track_b_slice_random_seed(
+        base_random_seed=17,
+        baseline_id="track_b_nearest_history",
+    )
+
+    assert structural_seed == derive_track_b_slice_random_seed(
+        base_random_seed=17,
+        baseline_id="track_b_structural_current",
+    )
+    assert structural_seed != nearest_history_seed
 
 
 def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifacts(

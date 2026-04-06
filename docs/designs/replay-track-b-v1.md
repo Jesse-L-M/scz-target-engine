@@ -5,7 +5,7 @@ Owner branch: Jesse-L-M/replay-track-b
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md, docs/designs/replay-track-a-v1.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-05
+Last updated: 2026-04-06
 
 ## Objective
 
@@ -85,6 +85,14 @@ is truly different."
 - `cohort_members.csv` uses the same six proposal ids as the casebook, and
   Track B cohort labels are derived from the casebook replay-status golds on
   horizon `structural_replay`
+- Track B public reporting now validates one complete owned runner bundle before
+  writing any output:
+  exact expected baseline set, run-manifest ownership and parameterization,
+  case outputs, confusion summary, metric payloads, confidence-interval
+  provenance, pinned source-artifact provenance, and casebook/count metadata
+- Track B public `evaluation_input_artifacts` are reconstructed from the
+  validated snapshot/cohort bundle and pinned source artifacts, not copied from
+  unchecked `run_manifest.input_artifacts`
 
 ## Inputs
 
@@ -120,6 +128,26 @@ is truly different."
 - Backward-compatibility rule:
   use the current benchmark artifact families and derived reporting outputs rather
   than introducing a second benchmark artifact stack in v1
+
+### Reporting Integrity Contract
+
+Track B reporting is now fail-closed on one bundle contract:
+
+- all expected Track B baselines requested by the snapshot manifest and marked
+  `available_now` must be present exactly once
+- every consumed runner payload must belong to the owning
+  `run_manifest.run_id`, `baseline_id`, `snapshot_id`, suite/task/question
+  surface, and Track B horizon
+- public provenance must be derived from the validated snapshot/cohort bundle
+  plus pinned auxiliary source artifacts, not from mutable run-manifest inputs
+- confidence-interval provenance must bind to the run manifest parameterization:
+  bootstrap iterations, confidence level, resample unit, and the deterministic
+  per-baseline seed derived from the base seed plus `baseline_id` / horizon salt
+- manifest-only Track B provenance fields such as `track_b_case_count` and
+  `track_b_casebook_sha256` must match the pinned casebook and emitted case set
+- reporting must reject missing baselines, bundle swaps, stale provenance,
+  interval tampering, and source-ownership mismatches before writing report
+  cards, leaderboards, or error-analysis outputs
 
 ### Proposed Gold Label Surface Per Case
 
@@ -181,6 +209,10 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
   add tests for casebook/cohort bijection validation, failure-scope label
   validation, analog-recall bootstrap semantics, retrieval-only mismatch
   surfacing, and config independence
+- Unit:
+  add adversarial tests for missing baseline bundles, cross-baseline artifact
+  swaps, tampered manifest input artifacts, tampered interval seed provenance,
+  and tampered manifest-only casebook/count provenance
 - Integration:
   run one Track B slice end to end from frozen snapshot to case-review output
   and assert the same six ids flow through cohort labels, runner outputs, and

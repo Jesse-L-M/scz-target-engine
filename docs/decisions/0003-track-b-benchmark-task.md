@@ -74,6 +74,9 @@ The strict no-fallback archive rule remains unchanged.
 - Track B stays inside the shipped benchmark workflow and artifact registry
 - snapshot, cohort, runner, and reporting keep one explicit structural replay
   contract surface
+- public Track B report cards, leaderboards, and case reviews are now derived
+  from one validated reporting bundle, not a mix of unchecked manifest
+  provenance and independently trusted sidecars
 - the public-slice catalog remains focused on Track A intervention-object replay
 - Track B case review outputs are reproducible from frozen runner sidecars
 
@@ -84,6 +87,10 @@ The strict no-fallback archive rule remains unchanged.
   types and baseline sets
 - Track B-specific reporting needs additive sidecars because the core benchmark
   schema families remain task-agnostic
+- Track B reporting now has a stricter fail-closed contract:
+  the full expected baseline set must be present, interval provenance is bound
+  to the run-manifest seed contract, and public provenance is reconstructed from
+  the validated cohort bundle plus pinned source artifacts
 
 ## Affected Specs
 

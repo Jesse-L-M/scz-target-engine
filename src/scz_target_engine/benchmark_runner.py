@@ -153,6 +153,17 @@ def _parameter_digest(payload: dict[str, object]) -> str:
     return sha256(encoded).hexdigest()[:8]
 
 
+def derive_track_b_slice_random_seed(
+    *,
+    base_random_seed: int,
+    baseline_id: str,
+) -> int:
+    return base_random_seed + int.from_bytes(
+        sha256(f"{baseline_id}:{TRACK_B_HORIZON}".encode("utf-8")).digest()[:4],
+        "big",
+    )
+
+
 def _task_registry_path_from_manifest(
     manifest: BenchmarkSnapshotManifest,
 ) -> Path | None:
@@ -1484,12 +1495,9 @@ def _run_track_b_benchmark(
             parameterization=parameterization,
         )
         started_at = execution_timestamp or _utc_now()
-        slice_random_seed = (
-            random_seed
-            + int.from_bytes(
-                sha256(f"{baseline_id}:{TRACK_B_HORIZON}".encode("utf-8")).digest()[:4],
-                "big",
-            )
+        slice_random_seed = derive_track_b_slice_random_seed(
+            base_random_seed=random_seed,
+            baseline_id=baseline_id,
         )
         case_outputs = build_track_b_case_outputs(
             cases=cases,

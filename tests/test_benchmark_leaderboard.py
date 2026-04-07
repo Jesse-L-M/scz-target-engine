@@ -1353,6 +1353,141 @@ def test_read_track_b_report_card_rejects_invalid_source_snapshot_included(
         read_benchmark_report_card_payload(report_card_path)
 
 
+def test_read_track_b_report_card_rejects_tampered_source_snapshot_provenance(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    payload["source_snapshots"][0]["source_version"] = "forged-version"
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="source_snapshots do not match the pinned benchmark_snapshot_manifest",
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_read_track_b_report_card_rejects_tampered_evaluation_input_artifacts(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    payload["evaluation_input_artifacts"][0]["sha256"] = "0" * 64
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="evaluation_input_artifacts do not match the pinned cohort/source artifact contract",
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "tampered_value", "error_fragment"),
+    (
+        (
+            "sha256",
+            "f" * 64,
+            "derived_from_artifacts do not match the materialized public runner bundle",
+        ),
+        (
+            "notes",
+            "forged-public-note",
+            "derived_from_artifacts does not match the stable public contract",
+        ),
+    ),
+)
+def test_read_track_b_report_card_rejects_tampered_derived_artifact_provenance(
+    tmp_path: Path,
+    field_name: str,
+    tampered_value: str,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    artifact = next(
+        item
+        for item in payload["derived_from_artifacts"]
+        if item["artifact_name"] == "track_b_case_output_payload"
+    )
+    artifact[field_name] = tampered_value
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_read_track_b_report_card_rejects_tampered_public_metric_unit(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    payload["slices"][0]["metrics"][0]["metric_unit"] = "percent"
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B public report card metric_unit does not match the Track B metric contract",
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_materialize_benchmark_reporting_materializes_track_b_public_runner_bundle(
+    tmp_path: Path,
+) -> None:
+    _, _, _, reporting_output_dir, reporting_result = _materialize_track_b_public_payloads(
+        tmp_path
+    )
+
+    report_card = next(
+        read_benchmark_report_card_payload(Path(path))
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+
+    for artifact in report_card.derived_from_artifacts:
+        materialized_path = reporting_output_dir / artifact.artifact_path
+        assert materialized_path.exists()
+        assert sha256(materialized_path.read_bytes()).hexdigest() == artifact.sha256
+
+
 @pytest.mark.parametrize(
     ("field_name", "tampered_value"),
     (
@@ -1403,6 +1538,30 @@ def test_read_track_b_leaderboard_rejects_tampered_entry_code_version(
     with pytest.raises(
         ValueError,
         match="Track B public leaderboard entry code_version must be",
+    ):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+def test_read_track_b_leaderboard_rejects_tampered_leaderboard_id(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    payload["leaderboard_id"] = "forged_leaderboard_id"
+    leaderboard_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="leaderboard_id does not match the stable public contract",
     ):
         read_benchmark_leaderboard_payload(leaderboard_path)
 

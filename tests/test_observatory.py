@@ -67,6 +67,44 @@ def test_load_public_slice_catalog_missing_file_returns_none(
     assert load_public_slice_catalog(catalog_path=missing) is None
 
 
+@pytest.mark.parametrize(
+    "excluded_source_entry",
+    (
+        {},
+        {"source_name": ""},
+    ),
+)
+def test_load_public_slice_catalog_rejects_missing_excluded_source_name(
+    tmp_path: Path,
+    excluded_source_entry: dict[str, str],
+) -> None:
+    catalog_path = tmp_path / "catalog.json"
+    catalog_path.write_text(
+        json.dumps(
+            {
+                "benchmark_suite_id": "scz_translational_suite",
+                "benchmark_task_id": "scz_translational_task",
+                "slices": [
+                    {
+                        "slice_id": "slice_1",
+                        "as_of_date": "2024-06-15",
+                        "included_sources": ["PGC"],
+                        "excluded_sources": [excluded_source_entry],
+                        "slice_dir": "data/benchmark/public_slices/slice_1",
+                    }
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="source_name is required"):
+        load_public_slice_catalog(catalog_path=catalog_path)
+
+
 def test_discover_generated_payloads_empty_dir(tmp_path: Path) -> None:
     index = discover_generated_payloads(generated_dir=tmp_path)
     assert index.report_card_files == ()

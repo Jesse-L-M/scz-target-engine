@@ -172,12 +172,99 @@ def test_load_artifact_rejects_non_string_metric_unit(tmp_path: Path) -> None:
 
     with pytest.raises(
         ValueError,
-        match="benchmark_metric_output_payload metric_unit must be a non-empty string",
+        match="metric_unit must be a string",
     ):
         load_artifact(
             metric_path,
             artifact_name="benchmark_metric_output_payload",
         )
+
+
+def test_load_artifact_rejects_missing_metric_unit(tmp_path: Path) -> None:
+    metric_path = tmp_path / "metric.json"
+    metric_path.write_text(
+        json.dumps(
+            {
+                "schema_name": "benchmark_metric_output_payload",
+                "schema_version": "v1",
+                "run_id": "fixture_run",
+                "snapshot_id": "fixture_snapshot",
+                "baseline_id": "v0_current",
+                "entity_type": "gene",
+                "horizon": "3y",
+                "metric_name": "average_precision_any_positive_outcome",
+                "metric_value": 0.75,
+                "cohort_size": 4,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="is missing required fields: metric_unit",
+    ):
+        load_artifact(
+            metric_path,
+            artifact_name="benchmark_metric_output_payload",
+        )
+
+
+def test_list_artifact_schemas_rejects_metric_unit_as_optional(tmp_path: Path) -> None:
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    schema_path = schema_dir / "benchmark_metric_output_payload.json"
+    _write_schema_file(
+        schema_path,
+        artifact_name="benchmark_metric_output_payload",
+    )
+    payload = json.loads(schema_path.read_text(encoding="utf-8"))
+    metric_unit_field = next(
+        field
+        for field in payload["required_fields"]
+        if field["name"] == "metric_unit"
+    )
+    payload["required_fields"] = [
+        field
+        for field in payload["required_fields"]
+        if field["name"] != "metric_unit"
+    ]
+    metric_unit_field["required"] = False
+    payload["optional_fields"].append(metric_unit_field)
+    schema_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark_metric_output_payload schema must require metric_unit",
+    ):
+        list_artifact_schemas(schema_dir=schema_dir)
+
+
+def test_list_artifact_schemas_rejects_non_string_schema_field_metadata(
+    tmp_path: Path,
+) -> None:
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    schema_path = schema_dir / "benchmark_snapshot_manifest.json"
+    _write_schema_file(
+        schema_path,
+        artifact_name="benchmark_snapshot_manifest",
+    )
+    payload = json.loads(schema_path.read_text(encoding="utf-8"))
+    payload["required_fields"][0]["description"] = False
+    schema_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="description must be a string"):
+        list_artifact_schemas(schema_dir=schema_dir)
 
 
 def test_example_build_artifacts_validate_against_registered_schemas(

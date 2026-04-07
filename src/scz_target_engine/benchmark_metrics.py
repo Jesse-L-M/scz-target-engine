@@ -11,6 +11,14 @@ from scz_target_engine.benchmark_labels import (
     OBSERVED_LABEL_VALUE,
 )
 from scz_target_engine.io import read_json, write_json
+from scz_target_engine.json_contract import (
+    require_json_float,
+    require_json_int,
+    require_json_mapping,
+    require_json_text,
+    require_optional_json_int,
+    require_optional_json_string,
+)
 
 
 METRIC_PAYLOAD_SCHEMA_NAME = "benchmark_metric_output_payload"
@@ -115,26 +123,26 @@ class BenchmarkMetricOutputPayload:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkMetricOutputPayload:
-        metric_unit = payload.get("metric_unit")
-        if metric_unit is None:
-            raise ValueError(f"{METRIC_PAYLOAD_SCHEMA_NAME} metric_unit is required")
-        if not isinstance(metric_unit, str) or not metric_unit.strip():
-            raise ValueError(
-                f"{METRIC_PAYLOAD_SCHEMA_NAME} metric_unit must be a non-empty string"
-            )
+        mapping = require_json_mapping(payload, METRIC_PAYLOAD_SCHEMA_NAME)
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            run_id=str(payload["run_id"]),
-            snapshot_id=str(payload["snapshot_id"]),
-            baseline_id=str(payload["baseline_id"]),
-            entity_type=str(payload["entity_type"]),
-            horizon=str(payload["horizon"]),
-            metric_name=str(payload["metric_name"]),
-            metric_value=float(payload["metric_value"]),
-            metric_unit=metric_unit,
-            cohort_size=int(payload["cohort_size"]),
-            notes=str(payload.get("notes", "")),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            run_id=require_json_text(mapping.get("run_id"), "run_id"),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            baseline_id=require_json_text(mapping.get("baseline_id"), "baseline_id"),
+            entity_type=require_json_text(mapping.get("entity_type"), "entity_type"),
+            horizon=require_json_text(mapping.get("horizon"), "horizon"),
+            metric_name=require_json_text(mapping.get("metric_name"), "metric_name"),
+            metric_value=require_json_float(
+                mapping.get("metric_value"),
+                "metric_value",
+            ),
+            metric_unit=require_json_text(mapping.get("metric_unit"), "metric_unit"),
+            cohort_size=require_json_int(mapping.get("cohort_size"), "cohort_size"),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 
@@ -207,24 +215,45 @@ class BenchmarkConfidenceIntervalPayload:
         cls,
         payload: dict[str, Any],
     ) -> BenchmarkConfidenceIntervalPayload:
-        random_seed = payload.get("random_seed")
+        mapping = require_json_mapping(payload, INTERVAL_PAYLOAD_SCHEMA_NAME)
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            run_id=str(payload["run_id"]),
-            snapshot_id=str(payload["snapshot_id"]),
-            baseline_id=str(payload["baseline_id"]),
-            entity_type=str(payload["entity_type"]),
-            horizon=str(payload["horizon"]),
-            metric_name=str(payload["metric_name"]),
-            point_estimate=float(payload["point_estimate"]),
-            interval_low=float(payload["interval_low"]),
-            interval_high=float(payload["interval_high"]),
-            confidence_level=float(payload["confidence_level"]),
-            bootstrap_iterations=int(payload["bootstrap_iterations"]),
-            resample_unit=str(payload["resample_unit"]),
-            random_seed=None if random_seed in {None, ""} else int(random_seed),
-            notes=str(payload.get("notes", "")),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            run_id=require_json_text(mapping.get("run_id"), "run_id"),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            baseline_id=require_json_text(mapping.get("baseline_id"), "baseline_id"),
+            entity_type=require_json_text(mapping.get("entity_type"), "entity_type"),
+            horizon=require_json_text(mapping.get("horizon"), "horizon"),
+            metric_name=require_json_text(mapping.get("metric_name"), "metric_name"),
+            point_estimate=require_json_float(
+                mapping.get("point_estimate"),
+                "point_estimate",
+            ),
+            interval_low=require_json_float(mapping.get("interval_low"), "interval_low"),
+            interval_high=require_json_float(
+                mapping.get("interval_high"),
+                "interval_high",
+            ),
+            confidence_level=require_json_float(
+                mapping.get("confidence_level"),
+                "confidence_level",
+            ),
+            bootstrap_iterations=require_json_int(
+                mapping.get("bootstrap_iterations"),
+                "bootstrap_iterations",
+            ),
+            resample_unit=require_json_text(
+                mapping.get("resample_unit"),
+                "resample_unit",
+            ),
+            random_seed=require_optional_json_int(
+                mapping.get("random_seed"),
+                "random_seed",
+            ),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 
@@ -236,9 +265,10 @@ def write_benchmark_metric_output_payload(
 
 
 def read_benchmark_metric_output_payload(path: Path) -> BenchmarkMetricOutputPayload:
-    payload = read_json(path)
-    if not isinstance(payload, dict):
-        raise ValueError("benchmark metric output payload must be a JSON object")
+    payload = require_json_mapping(
+        read_json(path),
+        "benchmark metric output payload",
+    )
     return BenchmarkMetricOutputPayload.from_dict(payload)
 
 
@@ -252,9 +282,10 @@ def write_benchmark_confidence_interval_payload(
 def read_benchmark_confidence_interval_payload(
     path: Path,
 ) -> BenchmarkConfidenceIntervalPayload:
-    payload = read_json(path)
-    if not isinstance(payload, dict):
-        raise ValueError("benchmark confidence interval payload must be a JSON object")
+    payload = require_json_mapping(
+        read_json(path),
+        "benchmark confidence interval payload",
+    )
     return BenchmarkConfidenceIntervalPayload.from_dict(payload)
 
 

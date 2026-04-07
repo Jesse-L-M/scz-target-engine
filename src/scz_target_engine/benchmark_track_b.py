@@ -10,6 +10,16 @@ from typing import Any
 
 from scz_target_engine.benchmark_protocol import INTERVENTION_OBJECT_ENTITY_TYPE
 from scz_target_engine.io import read_csv_rows, read_json, write_json
+from scz_target_engine.json_contract import (
+    require_json_bool,
+    require_json_float,
+    require_json_int,
+    require_json_list,
+    require_json_mapping,
+    require_json_text,
+    require_optional_json_float,
+    require_optional_json_string,
+)
 from scz_target_engine.program_memory.counterfactuals import FAILURE_SCOPE_BY_TAXONOMY
 from scz_target_engine.program_memory import (
     InterventionProposal,
@@ -237,26 +247,49 @@ class TrackBAnalogCandidate:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> TrackBAnalogCandidate:
+        mapping = require_json_mapping(payload, "Track B analog candidate")
         return cls(
-            event_id=str(payload["event_id"]),
-            asset_id=str(payload["asset_id"]),
-            molecule=str(payload["molecule"]),
-            target=str(payload["target"]),
-            target_class=str(payload["target_class"]),
-            domain=str(payload["domain"]),
-            population=str(payload["population"]),
-            mono_or_adjunct=str(payload["mono_or_adjunct"]),
-            phase=str(payload["phase"]),
-            event_date=str(payload["event_date"]),
-            primary_outcome_result=str(payload["primary_outcome_result"]),
-            failure_reason_taxonomy=str(payload["failure_reason_taxonomy"]),
-            failure_scope=str(payload["failure_scope"]),
-            match_tier=str(payload["match_tier"]),
-            biological_anchor=bool(payload["biological_anchor"]),
-            source_tier=str(payload["source_tier"]),
-            source_url=str(payload["source_url"]),
+            event_id=require_json_text(mapping.get("event_id"), "event_id"),
+            asset_id=require_json_text(mapping.get("asset_id"), "asset_id"),
+            molecule=require_json_text(mapping.get("molecule"), "molecule"),
+            target=require_json_text(mapping.get("target"), "target"),
+            target_class=require_json_text(
+                mapping.get("target_class"),
+                "target_class",
+            ),
+            domain=require_json_text(mapping.get("domain"), "domain"),
+            population=require_json_text(mapping.get("population"), "population"),
+            mono_or_adjunct=require_json_text(
+                mapping.get("mono_or_adjunct"),
+                "mono_or_adjunct",
+            ),
+            phase=require_json_text(mapping.get("phase"), "phase"),
+            event_date=require_json_text(mapping.get("event_date"), "event_date"),
+            primary_outcome_result=require_json_text(
+                mapping.get("primary_outcome_result"),
+                "primary_outcome_result",
+            ),
+            failure_reason_taxonomy=require_json_text(
+                mapping.get("failure_reason_taxonomy"),
+                "failure_reason_taxonomy",
+            ),
+            failure_scope=require_json_text(
+                mapping.get("failure_scope"),
+                "failure_scope",
+            ),
+            match_tier=require_json_text(mapping.get("match_tier"), "match_tier"),
+            biological_anchor=require_json_bool(
+                mapping.get("biological_anchor"),
+                "biological_anchor",
+            ),
+            source_tier=require_json_text(mapping.get("source_tier"), "source_tier"),
+            source_url=require_json_text(mapping.get("source_url"), "source_url"),
             match_dimensions=tuple(
-                str(item) for item in payload.get("match_dimensions", [])
+                require_json_text(item, "match_dimensions[]")
+                for item in require_json_list(
+                    mapping.get("match_dimensions"),
+                    "match_dimensions",
+                )
             ),
         )
 
@@ -347,43 +380,102 @@ class TrackBCaseOutput:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> TrackBCaseOutput:
-        analog_recall_at_3 = payload.get("analog_recall_at_3")
+        mapping = require_json_mapping(payload, "Track B case output")
         return cls(
-            case_id=str(payload["case_id"]),
-            baseline_id=str(payload["baseline_id"]),
-            proposal_entity_id=str(payload["proposal_entity_id"]),
-            proposal_entity_label=str(payload["proposal_entity_label"]),
-            source_program_universe_id=str(payload["source_program_universe_id"]),
-            coverage_state_at_cutoff=str(payload["coverage_state_at_cutoff"]),
-            coverage_reason_at_cutoff=str(payload["coverage_reason_at_cutoff"]),
+            case_id=require_json_text(mapping.get("case_id"), "case_id"),
+            baseline_id=require_json_text(mapping.get("baseline_id"), "baseline_id"),
+            proposal_entity_id=require_json_text(
+                mapping.get("proposal_entity_id"),
+                "proposal_entity_id",
+            ),
+            proposal_entity_label=require_json_text(
+                mapping.get("proposal_entity_label"),
+                "proposal_entity_label",
+            ),
+            source_program_universe_id=require_json_text(
+                mapping.get("source_program_universe_id"),
+                "source_program_universe_id",
+            ),
+            coverage_state_at_cutoff=require_json_text(
+                mapping.get("coverage_state_at_cutoff"),
+                "coverage_state_at_cutoff",
+            ),
+            coverage_reason_at_cutoff=require_json_text(
+                mapping.get("coverage_reason_at_cutoff"),
+                "coverage_reason_at_cutoff",
+            ),
             gold_analog_event_ids=tuple(
-                str(item) for item in payload.get("gold_analog_event_ids", [])
+                require_json_text(item, "gold_analog_event_ids[]")
+                for item in require_json_list(
+                    mapping.get("gold_analog_event_ids"),
+                    "gold_analog_event_ids",
+                )
             ),
             retrieved_analog_event_ids=tuple(
-                str(item) for item in payload.get("retrieved_analog_event_ids", [])
+                require_json_text(item, "retrieved_analog_event_ids[]")
+                for item in require_json_list(
+                    mapping.get("retrieved_analog_event_ids"),
+                    "retrieved_analog_event_ids",
+                )
             ),
             retrieved_analogs=tuple(
                 TrackBAnalogCandidate.from_dict(item)
-                for item in payload.get("retrieved_analogs", [])
+                for item in require_json_list(
+                    mapping.get("retrieved_analogs"),
+                    "retrieved_analogs",
+                )
             ),
-            gold_failure_scope=str(payload["gold_failure_scope"]),
-            predicted_failure_scope=str(payload["predicted_failure_scope"]),
-            gold_replay_status=str(payload["gold_replay_status"]),
-            predicted_replay_status=str(payload["predicted_replay_status"]),
+            gold_failure_scope=require_json_text(
+                mapping.get("gold_failure_scope"),
+                "gold_failure_scope",
+            ),
+            predicted_failure_scope=require_json_text(
+                mapping.get("predicted_failure_scope"),
+                "predicted_failure_scope",
+            ),
+            gold_replay_status=require_json_text(
+                mapping.get("gold_replay_status"),
+                "gold_replay_status",
+            ),
+            predicted_replay_status=require_json_text(
+                mapping.get("predicted_replay_status"),
+                "predicted_replay_status",
+            ),
             gold_required_differences=tuple(
-                str(item) for item in payload.get("gold_required_differences", [])
+                require_json_text(item, "gold_required_differences[]")
+                for item in require_json_list(
+                    mapping.get("gold_required_differences"),
+                    "gold_required_differences",
+                )
             ),
             predicted_required_differences=tuple(
-                str(item) for item in payload.get("predicted_required_differences", [])
+                require_json_text(item, "predicted_required_differences[]")
+                for item in require_json_list(
+                    mapping.get("predicted_required_differences"),
+                    "predicted_required_differences",
+                )
             ),
-            analog_recall_at_3=(
-                None if analog_recall_at_3 is None else float(analog_recall_at_3)
+            analog_recall_at_3=require_optional_json_float(
+                mapping.get("analog_recall_at_3"),
+                "analog_recall_at_3",
             ),
-            checklist_f1=float(payload["checklist_f1"]),
-            replay_status_exact_match=bool(payload["replay_status_exact_match"]),
-            failure_scope_exact_match=bool(payload["failure_scope_exact_match"]),
-            reasoning_summary=str(payload["reasoning_summary"]),
-            notes=str(payload.get("notes", "")),
+            checklist_f1=require_json_float(
+                mapping.get("checklist_f1"),
+                "checklist_f1",
+            ),
+            replay_status_exact_match=require_json_bool(
+                mapping.get("replay_status_exact_match"),
+                "replay_status_exact_match",
+            ),
+            failure_scope_exact_match=require_json_bool(
+                mapping.get("failure_scope_exact_match"),
+                "failure_scope_exact_match",
+            ),
+            reasoning_summary=require_json_text(
+                mapping.get("reasoning_summary"),
+                "reasoning_summary",
+            ),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 
@@ -428,15 +520,23 @@ class TrackBCaseOutputPayload:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> TrackBCaseOutputPayload:
+        mapping = require_json_mapping(payload, TRACK_B_CASE_OUTPUT_SCHEMA_NAME)
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            run_id=str(payload["run_id"]),
-            baseline_id=str(payload["baseline_id"]),
-            snapshot_id=str(payload["snapshot_id"]),
-            as_of_date=str(payload["as_of_date"]),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            run_id=require_json_text(mapping.get("run_id"), "run_id"),
+            baseline_id=require_json_text(mapping.get("baseline_id"), "baseline_id"),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            as_of_date=require_json_text(mapping.get("as_of_date"), "as_of_date"),
             cases=tuple(
-                TrackBCaseOutput.from_dict(item) for item in payload.get("cases", [])
+                TrackBCaseOutput.from_dict(item)
+                for item in require_json_list(
+                    mapping.get("cases"),
+                    "cases",
+                )
             ),
         )
 
@@ -454,9 +554,10 @@ class TrackBCountRow:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> TrackBCountRow:
+        mapping = require_json_mapping(payload, "Track B count row")
         return cls(
-            label=str(payload["label"]),
-            count=int(payload["count"]),
+            label=require_json_text(mapping.get("label"), "label"),
+            count=require_json_int(mapping.get("count"), "count"),
         )
 
 
@@ -475,10 +576,14 @@ class TrackBConfusionCount:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> TrackBConfusionCount:
+        mapping = require_json_mapping(payload, "Track B confusion count")
         return cls(
-            gold_label=str(payload["gold_label"]),
-            predicted_label=str(payload["predicted_label"]),
-            count=int(payload["count"]),
+            gold_label=require_json_text(mapping.get("gold_label"), "gold_label"),
+            predicted_label=require_json_text(
+                mapping.get("predicted_label"),
+                "predicted_label",
+            ),
+            count=require_json_int(mapping.get("count"), "count"),
         )
 
 
@@ -542,39 +647,66 @@ class TrackBConfusionSummary:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> TrackBConfusionSummary:
-        metric_values = payload.get("metric_values", {})
-        if not isinstance(metric_values, dict):
-            raise ValueError("metric_values must be a JSON object")
+        mapping = require_json_mapping(payload, TRACK_B_CONFUSION_SCHEMA_NAME)
+        metric_values = require_json_mapping(
+            mapping.get("metric_values"),
+            "metric_values",
+        )
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            run_id=str(payload["run_id"]),
-            baseline_id=str(payload["baseline_id"]),
-            snapshot_id=str(payload["snapshot_id"]),
-            case_count=int(payload["case_count"]),
-            analog_evaluable_case_count=int(payload["analog_evaluable_case_count"]),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            run_id=require_json_text(mapping.get("run_id"), "run_id"),
+            baseline_id=require_json_text(mapping.get("baseline_id"), "baseline_id"),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            case_count=require_json_int(mapping.get("case_count"), "case_count"),
+            analog_evaluable_case_count=require_json_int(
+                mapping.get("analog_evaluable_case_count"),
+                "analog_evaluable_case_count",
+            ),
             metric_values={
-                str(key): float(value)
+                require_json_text(key, "metric_values key"): require_json_float(
+                    value,
+                    f"metric_values[{key!r}]",
+                )
                 for key, value in metric_values.items()
             },
             mismatched_case_ids=tuple(
-                str(item) for item in payload.get("mismatched_case_ids", [])
+                require_json_text(item, "mismatched_case_ids[]")
+                for item in require_json_list(
+                    mapping.get("mismatched_case_ids"),
+                    "mismatched_case_ids",
+                )
             ),
             failure_scope_confusions=tuple(
                 TrackBConfusionCount.from_dict(item)
-                for item in payload.get("failure_scope_confusions", [])
+                for item in require_json_list(
+                    mapping.get("failure_scope_confusions"),
+                    "failure_scope_confusions",
+                )
             ),
             replay_status_confusions=tuple(
                 TrackBConfusionCount.from_dict(item)
-                for item in payload.get("replay_status_confusions", [])
+                for item in require_json_list(
+                    mapping.get("replay_status_confusions"),
+                    "replay_status_confusions",
+                )
             ),
             checklist_false_positives=tuple(
                 TrackBCountRow.from_dict(item)
-                for item in payload.get("checklist_false_positives", [])
+                for item in require_json_list(
+                    mapping.get("checklist_false_positives"),
+                    "checklist_false_positives",
+                )
             ),
             checklist_false_negatives=tuple(
                 TrackBCountRow.from_dict(item)
-                for item in payload.get("checklist_false_negatives", [])
+                for item in require_json_list(
+                    mapping.get("checklist_false_negatives"),
+                    "checklist_false_negatives",
+                )
             ),
         )
 
@@ -587,9 +719,10 @@ def write_track_b_case_output_payload(
 
 
 def read_track_b_case_output_payload(path: Path) -> TrackBCaseOutputPayload:
-    payload = read_json(path)
-    if not isinstance(payload, dict):
-        raise ValueError("track B case output payload must be a JSON object")
+    payload = require_json_mapping(
+        read_json(path),
+        "track B case output payload",
+    )
     return TrackBCaseOutputPayload.from_dict(payload)
 
 
@@ -601,9 +734,10 @@ def write_track_b_confusion_summary(
 
 
 def read_track_b_confusion_summary(path: Path) -> TrackBConfusionSummary:
-    payload = read_json(path)
-    if not isinstance(payload, dict):
-        raise ValueError("track B confusion summary must be a JSON object")
+    payload = require_json_mapping(
+        read_json(path),
+        "track B confusion summary",
+    )
     return TrackBConfusionSummary.from_dict(payload)
 
 

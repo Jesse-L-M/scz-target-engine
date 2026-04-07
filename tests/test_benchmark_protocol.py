@@ -321,7 +321,7 @@ def test_leakage_controls_from_dict_rejects_non_boolean_flags(field_name: str) -
     payload = LeakageControls().to_dict()
     payload[field_name] = "false"
 
-    with pytest.raises(ValueError, match="must be an explicit boolean"):
+    with pytest.raises(ValueError, match="must be a boolean"):
         LeakageControls.from_dict(payload)
 
 

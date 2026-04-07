@@ -12,6 +12,7 @@ from scz_target_engine.benchmark_leaderboard import (
     read_benchmark_report_card_payload,
 )
 from scz_target_engine.io import read_csv_rows, read_json
+from scz_target_engine.json_contract import require_optional_json_string
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -118,7 +119,10 @@ def load_public_slice_catalog(
                 included_sources=included_sources,
                 excluded_source_names=excluded_names,
                 slice_dir=_require_text(entry.get("slice_dir"), f"slices[{index}].slice_dir"),
-                notes=str(entry.get("notes", "")),
+                notes=require_optional_json_string(
+                    entry.get("notes"),
+                    f"slices[{index}].notes",
+                ),
             )
         )
     return PublicSliceCatalog(

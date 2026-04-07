@@ -17,7 +17,15 @@ def load_artifact_schema(path: Path) -> ArtifactSchemaDefinition:
     payload = read_json(path)
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a single artifact schema object")
-    return ArtifactSchemaDefinition.from_dict(payload)
+    schema = ArtifactSchemaDefinition.from_dict(payload)
+    if (
+        schema.artifact_name == "benchmark_metric_output_payload"
+        and "metric_unit" not in schema.required_field_names
+    ):
+        raise ValueError(
+            "benchmark_metric_output_payload schema must require metric_unit"
+        )
+    return schema
 
 
 def _load_artifact_schemas_from_dir(

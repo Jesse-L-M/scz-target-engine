@@ -268,9 +268,18 @@ public payloads:
   tampered `derived_from_artifacts.notes`, missing materialized public bundle
   files, forged public `leaderboard_id`, and wrong per-metric public
   `metric_unit`
+- those readers rebuild the expected Track B case outputs from the pinned
+  casebook plus program-memory dataset, so a self-consistent forged public
+  case-output bundle still fails closed
 - those readers also recompute public report-card headline metrics and reopen
   referenced public report cards when validating leaderboards, so forged entry
   values, ranks, counts, or report-card paths fail closed
+- public leaderboards also require the full expected `available_now` Track B
+  baseline set for the pinned snapshot/task contract, so omitted, duplicate,
+  or unexpected baselines fail closed
+- public `evaluation_input_artifacts[].artifact_path`,
+  `leaderboard.report_card_files[]`, and `leaderboard.entries[].report_card_path`
+  must stay relative-only stable public paths
 - interval provenance is bound to the run-manifest parameterization, including
   the deterministic per-baseline seed derived from the base seed plus
   `baseline_id` / `structural_replay`

@@ -18,6 +18,7 @@ from scz_target_engine.benchmark_leaderboard import (
     TRACK_B_PUBLIC_CODE_VERSION,
     TRACK_B_PUBLIC_RUN_NOTES,
     TRACK_B_PUBLIC_STARTED_AT,
+    _build_track_b_public_id,
     materialize_benchmark_reporting,
     read_benchmark_leaderboard_payload,
     read_benchmark_report_card_payload,
@@ -130,6 +131,71 @@ def _track_b_run_id_by_baseline(runner_output_dir: Path) -> dict[str, str]:
         payload = json.loads(path.read_text(encoding="utf-8"))
         run_ids[str(payload["baseline_id"])] = str(payload["run_id"])
     return run_ids
+
+
+def _write_json_payload(path: Path, payload: object) -> None:
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _track_b_public_report_card_path(
+    reporting_result: dict[str, object],
+    *,
+    baseline_id: str,
+) -> Path:
+    return next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if baseline_id in path
+    )
+
+
+def _rewrite_track_b_public_report_card_identity(
+    report_card_path: Path,
+    *,
+    new_baseline_id: str,
+) -> Path:
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    old_public_id = str(payload["report_card_id"])
+    parameterization = dict(payload["run_parameterization"])
+    parameterization["track_b_baseline_mode"] = new_baseline_id
+    new_public_id = _build_track_b_public_id(
+        snapshot_id=str(payload["snapshot_id"]),
+        baseline_id=new_baseline_id,
+        run_parameterization=parameterization,
+    )
+    payload["baseline_id"] = new_baseline_id
+    payload["run_id"] = new_public_id
+    payload["report_card_id"] = new_public_id
+    payload["run_parameterization"] = parameterization
+    for artifact in payload["derived_from_artifacts"]:
+        artifact["artifact_path"] = str(artifact["artifact_path"]).replace(
+            old_public_id,
+            new_public_id,
+        )
+    new_report_card_path = report_card_path.with_name(f"{new_public_id}.json")
+    _write_json_payload(new_report_card_path, payload)
+    if new_report_card_path != report_card_path:
+        report_card_path.unlink()
+    return new_report_card_path
+
+
+def _refresh_track_b_public_derived_artifact_sha(
+    report_card_path: Path,
+    *,
+    artifact_name: str,
+    artifact_path: Path,
+) -> None:
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    artifact = next(
+        item
+        for item in payload["derived_from_artifacts"]
+        if item["artifact_name"] == artifact_name
+    )
+    artifact["sha256"] = sha256(artifact_path.read_bytes()).hexdigest()
+    _write_json_payload(report_card_path, payload)
 
 
 def _materialize_fixture_runner_outputs(
@@ -1324,14 +1390,14 @@ def test_read_track_b_report_card_rejects_tampered_redacted_fields(
     (
         (
             lambda payload: payload["source_snapshots"][0].pop("included"),
-            "included must be an explicit boolean",
+            "included must be a boolean",
         ),
         (
             lambda payload: payload["source_snapshots"][0].__setitem__(
                 "included",
                 "false",
             ),
-            "included must be an explicit boolean",
+            "included must be a boolean",
         ),
     ),
 )
@@ -1478,6 +1544,125 @@ def test_read_track_b_report_card_rejects_tampered_public_metric_unit(
     ("mutator", "error_fragment"),
     (
         (
+            lambda payload: payload.__setitem__("baseline_label", False),
+            "baseline_label must be a string",
+        ),
+        (
+            lambda payload: payload["slices"][0]["metrics"][0].__setitem__(
+                "metric_value",
+                "0.75",
+            ),
+            "metric_value must be a float",
+        ),
+        (
+            lambda payload: payload["slices"][0]["metrics"][0].__setitem__(
+                "cohort_size",
+                6.5,
+            ),
+            "cohort_size must be an integer",
+        ),
+    ),
+)
+def test_read_track_b_report_card_rejects_malformed_json_types(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = _track_b_public_report_card_path(
+        reporting_result,
+        baseline_id="track_b_structural_current",
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    mutator(payload)
+    _write_json_payload(report_card_path, payload)
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_read_track_b_report_card_rejects_forged_public_case_output_bundle(
+    tmp_path: Path,
+) -> None:
+    _, _, _, reporting_output_dir, reporting_result = _materialize_track_b_public_payloads(
+        tmp_path
+    )
+
+    report_card_path = _track_b_public_report_card_path(
+        reporting_result,
+        baseline_id="track_b_structural_current",
+    )
+    report_card_payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    case_output_path = reporting_output_dir / next(
+        artifact["artifact_path"]
+        for artifact in report_card_payload["derived_from_artifacts"]
+        if artifact["artifact_name"] == "track_b_case_output_payload"
+    )
+    case_output_payload = json.loads(case_output_path.read_text(encoding="utf-8"))
+    case_output_payload["cases"][0]["proposal_entity_label"] = "forged public label"
+    _write_json_payload(case_output_path, case_output_payload)
+    _refresh_track_b_public_derived_artifact_sha(
+        report_card_path,
+        artifact_name="track_b_case_output_payload",
+        artifact_path=case_output_path,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B case output does not match the pinned source artifacts",
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_read_track_b_report_card_rejects_forged_track_b_baseline_outside_task_contract(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = _track_b_public_report_card_path(
+        reporting_result,
+        baseline_id="track_b_structural_current",
+    )
+    forged_report_card_path = _rewrite_track_b_public_report_card_identity(
+        report_card_path,
+        new_baseline_id="track_b_totally_forged",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="baseline_id is not part of the Track B task contract",
+    ):
+        read_benchmark_report_card_payload(forged_report_card_path)
+
+
+def test_read_track_b_report_card_rejects_absolute_evaluation_input_artifact_paths(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = _track_b_public_report_card_path(
+        reporting_result,
+        baseline_id="track_b_structural_current",
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    artifact_path = Path(payload["evaluation_input_artifacts"][0]["artifact_path"])
+    payload["evaluation_input_artifacts"][0]["artifact_path"] = str(
+        (report_card_path.parent / artifact_path).resolve()
+    )
+    _write_json_payload(report_card_path, payload)
+
+    with pytest.raises(
+        ValueError,
+        match=r"evaluation_input_artifacts\[\]\.artifact_path must be a relative path",
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
             lambda metric: metric.__setitem__(
                 "metric_value",
                 float(metric["metric_value"]) + 0.123456,
@@ -1540,6 +1725,39 @@ def test_materialize_benchmark_reporting_materializes_track_b_public_runner_bund
         materialized_path = reporting_output_dir / artifact.artifact_path
         assert materialized_path.exists()
         assert sha256(materialized_path.read_bytes()).hexdigest() == artifact.sha256
+
+
+def test_materialize_benchmark_reporting_emits_relative_track_b_public_paths(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card = read_benchmark_report_card_payload(
+        _track_b_public_report_card_path(
+            reporting_result,
+            baseline_id="track_b_structural_current",
+        )
+    )
+    leaderboard = read_benchmark_leaderboard_payload(
+        next(
+            Path(path)
+            for path in reporting_result["leaderboard_payload_files"]
+            if path.endswith("replay_status_exact_match.json")
+        )
+    )
+
+    assert all(
+        not Path(artifact.artifact_path).is_absolute()
+        for artifact in report_card.evaluation_input_artifacts
+    )
+    assert all(
+        not Path(path_text).is_absolute()
+        for path_text in leaderboard.report_card_files
+    )
+    assert all(
+        not Path(entry.report_card_path).is_absolute()
+        for entry in leaderboard.entries
+    )
 
 
 def test_materialize_track_b_public_bundle_rewrites_runner_contract(
@@ -1739,6 +1957,43 @@ def test_read_track_b_leaderboard_rejects_tampered_public_schema_identity(
     ("mutator", "error_fragment"),
     (
         (
+            lambda payload: payload.__setitem__("metric_name", False),
+            "metric_name must be a string",
+        ),
+        (
+            lambda payload: payload.__setitem__("confidence_level", "0.95"),
+            "confidence_level must be a float",
+        ),
+        (
+            lambda payload: payload["entries"][0].__setitem__("rank", 1.5),
+            "rank must be an integer",
+        ),
+    ),
+)
+def test_read_track_b_leaderboard_rejects_malformed_json_types(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    mutator(payload)
+    _write_json_payload(leaderboard_path, payload)
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
             lambda payload: payload["entries"][0].__setitem__(
                 "metric_value",
                 float(payload["entries"][0]["metric_value"]) + 0.25,
@@ -1809,6 +2064,67 @@ def test_read_track_b_leaderboard_rejects_nonexistent_report_card_path(
         ValueError,
         match="Track B public leaderboard report_card_path does not exist",
     ):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+def test_read_track_b_leaderboard_rejects_incomplete_expected_baseline_set(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    payload["report_card_files"] = payload["report_card_files"][:-1]
+    payload["entries"] = payload["entries"][:-1]
+    _write_json_payload(leaderboard_path, payload)
+
+    with pytest.raises(
+        ValueError,
+        match="Track B public leaderboard report_card_files do not match the complete expected baseline set",
+    ):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
+            lambda payload, path: payload["report_card_files"].__setitem__(
+                0,
+                str((path.parent / payload["report_card_files"][0]).resolve()),
+            ),
+            r"Track B public leaderboard report_card_files\[\] must be a relative path",
+        ),
+        (
+            lambda payload, path: payload["entries"][0].__setitem__(
+                "report_card_path",
+                str((path.parent / payload["entries"][0]["report_card_path"]).resolve()),
+            ),
+            "Track B public leaderboard entry report_card_path must be a relative path",
+        ),
+    ),
+)
+def test_read_track_b_leaderboard_rejects_absolute_public_report_card_paths(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    mutator(payload, leaderboard_path)
+    _write_json_payload(leaderboard_path, payload)
+
+    with pytest.raises(ValueError, match=error_fragment):
         read_benchmark_leaderboard_payload(leaderboard_path)
 
 
@@ -1958,7 +2274,7 @@ def test_materialize_benchmark_reporting_rejects_omitted_track_b_metric_unit(
 
     with pytest.raises(
         ValueError,
-        match="benchmark_metric_output_payload metric_unit is required",
+        match="metric_unit must be a string",
     ):
         materialize_benchmark_reporting(
             manifest_file=snapshot_manifest_file,

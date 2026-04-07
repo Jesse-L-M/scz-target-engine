@@ -180,6 +180,10 @@ Track B reporting is now fail-closed on one bundle contract:
   cohort bundle from `evaluation_input_artifacts`, then fail closed if
   `source_snapshots` or rebuilt `evaluation_input_artifacts` differ from the
   trusted files on disk
+- public Track B report cards must also rebuild the expected case-output payload
+  from the pinned casebook plus the materialized program-memory dataset and
+  fail closed if the published public case outputs are self-consistent but do
+  not match those pinned expected cases
 - public readers pin `derived_from_artifacts` end to end, including stable
   `notes` strings plus the materialized file `sha256` digests, instead of
   trusting only artifact name/path/schema triples
@@ -202,6 +206,12 @@ Track B reporting is now fail-closed on one bundle contract:
   summary fields
 - public Track B leaderboards must open the referenced public report cards and
   fail closed if entry values, ranks, counts, or report-card paths disagree
+- public Track B leaderboards must also reference the complete expected
+  `available_now` baseline set for the pinned snapshot/task contract; omitted,
+  duplicate, or unexpected baselines fail closed on read
+- public `evaluation_input_artifacts[].artifact_path`,
+  `leaderboard.report_card_files[]`, and `leaderboard.entries[].report_card_path`
+  are part of the public contract and must remain relative-only stable paths
 - public report-card and leaderboard readers fail closed on schema identity,
   redacted Track B provenance fields, missing `run_parameterization`, and nested
   `SourceSnapshot.included` flags that are missing or not literal booleans

@@ -162,6 +162,37 @@ def test_load_public_slice_catalog_rejects_missing_required_arrays(
         load_public_slice_catalog(catalog_path=catalog_path)
 
 
+def test_load_public_slice_catalog_rejects_non_string_notes(
+    tmp_path: Path,
+) -> None:
+    catalog_path = tmp_path / "catalog.json"
+    catalog_path.write_text(
+        json.dumps(
+            {
+                "benchmark_suite_id": "scz_translational_suite",
+                "benchmark_task_id": "scz_translational_task",
+                "slices": [
+                    {
+                        "slice_id": "slice_1",
+                        "as_of_date": "2024-06-15",
+                        "included_sources": ["PGC"],
+                        "excluded_sources": [],
+                        "slice_dir": "data/benchmark/public_slices/slice_1",
+                        "notes": False,
+                    }
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"slices\[0\]\.notes must be a string"):
+        load_public_slice_catalog(catalog_path=catalog_path)
+
+
 def test_discover_generated_payloads_empty_dir(tmp_path: Path) -> None:
     index = discover_generated_payloads(generated_dir=tmp_path)
     assert index.report_card_files == ()

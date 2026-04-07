@@ -44,11 +44,17 @@ Reporting now also treats the emitted runner outputs as one owned Track B bundle
   manifests
 - Track B run manifests must keep the exact allowed parameterization keys, and
   public report cards republish only those validated fields
+- public Track B IDs, report-card filenames, leaderboard entry paths, and
+  error-analysis filenames are rebuilt from `snapshot_id`, `baseline_id`, and
+  the validated public `run_parameterization`, not from the mutable runner
+  `run_id`
 - public Track B report cards and leaderboards publish
   `code_version = redacted_untrusted_runner_code_version`; the runner-emitted
   full `code_version` is not treated as trustworthy public provenance
+- public Track B report cards redact self-attested runner `started_at`,
+  `completed_at`, and `run_notes`
 - the Track B `run_id` still validates bundle self-consistency, but it is not a
-  public code-provenance claim
+  public code-provenance claim and is not republished in the public contract
 - explicit metric units, interval seeds, casebook SHA, case count, and
   duplicate `artifact_name` entries are all validated against the pinned
   fixture bundle

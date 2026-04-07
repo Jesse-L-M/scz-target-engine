@@ -149,6 +149,7 @@ def test_metric_payload_helpers_round_trip(tmp_path: Path) -> None:
         metric_name="average_precision_any_positive_outcome",
         metric_value=0.75,
         cohort_size=4,
+        metric_unit="fraction",
         notes="fixture metric payload",
     )
     interval_payload = BenchmarkConfidenceIntervalPayload(
@@ -175,6 +176,20 @@ def test_metric_payload_helpers_round_trip(tmp_path: Path) -> None:
 
     assert read_benchmark_metric_output_payload(metric_path) == metric_payload
     assert read_benchmark_confidence_interval_payload(interval_path) == interval_payload
+
+
+def test_metric_payload_requires_metric_unit_at_construction() -> None:
+    with pytest.raises(TypeError, match="metric_unit"):
+        BenchmarkMetricOutputPayload(
+            run_id="fixture_run",
+            snapshot_id="fixture_snapshot",
+            baseline_id="v0_current",
+            entity_type="gene",
+            horizon="3y",
+            metric_name="average_precision_any_positive_outcome",
+            metric_value=0.75,
+            cohort_size=4,
+        )
 
 
 def test_metric_payload_helpers_require_metric_unit(tmp_path: Path) -> None:

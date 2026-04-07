@@ -69,7 +69,7 @@ class BenchmarkMetricOutputPayload:
     metric_name: str
     metric_value: float
     cohort_size: int
-    metric_unit: str = "fraction"
+    metric_unit: str
     notes: str = ""
     schema_name: str = METRIC_PAYLOAD_SCHEMA_NAME
     schema_version: str = METRIC_PAYLOAD_SCHEMA_VERSION

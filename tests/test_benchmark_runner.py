@@ -269,10 +269,15 @@ def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifact
     metric_payload = read_benchmark_metric_output_payload(
         Path(result["metric_payload_files"][0])
     )
+    raw_metric_payload = json.loads(
+        Path(result["metric_payload_files"][0]).read_text(encoding="utf-8")
+    )
     interval_payload = read_benchmark_confidence_interval_payload(
         Path(result["confidence_interval_files"][0])
     )
     assert metric_payload.schema_name == "benchmark_metric_output_payload"
+    assert metric_payload.metric_unit == "fraction"
+    assert raw_metric_payload["metric_unit"] == "fraction"
     assert interval_payload.schema_name == "benchmark_confidence_interval_payload"
     assert interval_payload.point_estimate == metric_payload.metric_value
     assert interval_payload.notes.startswith("method=percentile_bootstrap;")

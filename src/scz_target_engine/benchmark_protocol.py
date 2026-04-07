@@ -273,12 +273,14 @@ class SourceSnapshot:
     evidence_timestamp_field: str | None
     missing_date_policy: str
     future_record_policy: str
-    included: bool = True
+    included: bool
     exclusion_reason: str = ""
 
     def __post_init__(self) -> None:
         _require_text(self.source_name, "source_name")
         _require_text(self.source_version, "source_version")
+        if not isinstance(self.included, bool):
+            raise ValueError("included must be an explicit boolean")
         if self.cutoff_mode not in VALID_CUTOFF_MODES:
             raise ValueError("cutoff_mode must be a supported snapshot cutoff mode")
         _parse_iso_date(self.allowed_data_through, "allowed_data_through")
@@ -331,6 +333,9 @@ class SourceSnapshot:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> SourceSnapshot:
+        included = payload.get("included")
+        if not isinstance(included, bool):
+            raise ValueError("included must be an explicit boolean")
         return cls(
             source_name=str(payload["source_name"]),
             source_version=str(payload["source_version"]),
@@ -349,7 +354,7 @@ class SourceSnapshot:
             ),
             missing_date_policy=str(payload["missing_date_policy"]),
             future_record_policy=str(payload["future_record_policy"]),
-            included=bool(payload.get("included", True)),
+            included=included,
             exclusion_reason=str(payload.get("exclusion_reason", "")),
         )
 

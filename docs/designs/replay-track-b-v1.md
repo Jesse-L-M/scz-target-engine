@@ -155,15 +155,29 @@ Track B reporting is now fail-closed on one bundle contract:
   unexpected keys fail closed instead of surviving into public provenance
 - public provenance must be derived from the validated snapshot/cohort bundle
   plus pinned auxiliary source artifacts, not from mutable run-manifest inputs
+- public Track B report cards, leaderboard entries, report-card filenames, and
+  error-analysis filenames all use one stable public identifier derived from
+  `snapshot_id`, `baseline_id`, and the validated public `run_parameterization`;
+  mutable runner `code_version` and runner `run_id` do not flow into public IDs
 - `run_id` still validates the runner bundle's internal
   baseline/`code_version`/parameterization self-consistency, but public Track B
-  provenance does not rely on that mutable field
+  provenance does not rely on that mutable field and does not republish it
+- public Track B report cards redact self-attested runner operational metadata:
+  `started_at = redacted_untrusted_runner_started_at`,
+  `completed_at = redacted_untrusted_runner_completed_at`, and
+  `run_notes = redacted_untrusted_runner_notes`
+- public `derived_from_artifacts[].artifact_path` values use stable public
+  logical paths rooted at `validated_track_b_runner_bundle/<track_b_public_id>/...`
+  instead of leaking internal runner filesystem paths or mutable runner IDs
 - confidence-interval provenance must bind to the run manifest parameterization:
   bootstrap iterations, confidence level, resample unit, and the deterministic
   per-baseline seed derived from the base seed plus `baseline_id` / horizon salt
 - Track B metric payloads must include explicit `metric_unit` and use the
   frozen metric-unit contract for each structural metric, which is currently
   `fraction` for all four shipped metrics
+- public report-card and leaderboard readers fail closed on schema identity,
+  redacted Track B provenance fields, missing `run_parameterization`, and nested
+  `SourceSnapshot.included` flags that are missing or not literal booleans
 - manifest-only Track B provenance fields such as `track_b_case_count` and
   `track_b_casebook_sha256` must match the pinned casebook and emitted case set
 - duplicate `artifact_name` entries in any consumed Track B input-artifact
@@ -240,8 +254,9 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
   same-prefix `code_version` provenance, full `code_version` forgery with a
   recomputed `run_id` plus rewritten bundle references, unexpected Track B
   parameterization keys, metric-unit tampering, omitted `metric_unit`,
-  duplicate input-artifact names, and tampered manifest-only casebook/count
-  provenance
+  duplicate input-artifact names, tampered public Track B schema identity,
+  non-redacted public Track B provenance fields, and nested
+  `SourceSnapshot.included` coercion or omission in public payload readers
 - Integration:
   run one Track B slice end to end from frozen snapshot to case-review output
   and assert the same six ids flow through cohort labels, runner outputs, and

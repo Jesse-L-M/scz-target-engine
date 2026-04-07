@@ -57,6 +57,7 @@ from scz_target_engine.benchmark_track_b import (
     TRACK_B_ENTITY_TYPE,
     TRACK_B_HORIZON,
     TRACK_B_METRIC_NAMES,
+    TRACK_B_METRIC_UNITS,
     TrackBCaseOutputPayload,
     build_track_b_case_outputs,
     build_track_b_confusion_summary,
@@ -1560,6 +1561,7 @@ def _run_track_b_benchmark(
                 metric_name=metric_name,
                 metric_value=point_estimate,
                 cohort_size=metric_cohort_sizes[metric_name],
+                metric_unit=TRACK_B_METRIC_UNITS[metric_name],
                 notes=slice_notes,
             )
             metric_path = _build_metric_payload_path(
@@ -1971,6 +1973,7 @@ def run_benchmark(
                         metric_name=metric_name,
                         metric_value=point_estimate,
                         cohort_size=len(ranked_rows),
+                        metric_unit="fraction",
                         notes=slice_notes,
                     )
                     metric_path = _build_metric_payload_path(

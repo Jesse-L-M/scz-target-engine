@@ -172,10 +172,18 @@ Track B reporting is now fail-closed on one bundle contract:
 - reporting must materialize that advertised
   `validated_track_b_runner_bundle/<track_b_public_id>/...` tree exactly as
   published, and public readers must reject any missing advertised file
+- the materialized public runner bundle must itself be a public contract:
+  `run_id = <track_b_public_id>`, `code_version` and runner timestamps/notes are
+  redacted, and `input_artifacts[].artifact_path` values are rebased to
+  relative public paths instead of leaking absolute local filesystem paths
 - public readers reload the pinned `benchmark_snapshot_manifest` plus the
   cohort bundle from `evaluation_input_artifacts`, then fail closed if
   `source_snapshots` or rebuilt `evaluation_input_artifacts` differ from the
   trusted files on disk
+- public Track B report cards must also rebuild the expected case-output payload
+  from the pinned casebook plus the materialized program-memory dataset and
+  fail closed if the published public case outputs are self-consistent but do
+  not match those pinned expected cases
 - public readers pin `derived_from_artifacts` end to end, including stable
   `notes` strings plus the materialized file `sha256` digests, instead of
   trusting only artifact name/path/schema triples
@@ -191,6 +199,19 @@ Track B reporting is now fail-closed on one bundle contract:
 - public Track B report-card metric summaries must also validate `metric_unit`
   against that frozen per-metric contract instead of accepting any non-empty
   string
+- public Track B report-card headline metrics must be rebound to the
+  materialized public runner bundle by recomputing `metric_value`,
+  `interval_low`, `interval_high`, `cohort_size`, and confidence metadata from
+  the public case-output / interval payloads instead of trusting the embedded
+  summary fields
+- public Track B leaderboards must open the referenced public report cards and
+  fail closed if entry values, ranks, counts, or report-card paths disagree
+- public Track B leaderboards must also reference the complete expected
+  `available_now` baseline set for the pinned snapshot/task contract; omitted,
+  duplicate, or unexpected baselines fail closed on read
+- public `evaluation_input_artifacts[].artifact_path`,
+  `leaderboard.report_card_files[]`, and `leaderboard.entries[].report_card_path`
+  are part of the public contract and must remain relative-only stable paths
 - public report-card and leaderboard readers fail closed on schema identity,
   redacted Track B provenance fields, missing `run_parameterization`, and nested
   `SourceSnapshot.included` flags that are missing or not literal booleans

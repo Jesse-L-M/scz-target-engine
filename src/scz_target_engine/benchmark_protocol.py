@@ -5,6 +5,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from scz_target_engine.json_contract import (
+    require_json_bool,
+    require_json_list,
+    require_json_mapping,
+    require_json_text,
+    require_optional_json_string,
+)
+
 
 GENE_ENTITY_TYPE = "gene"
 MODULE_ENTITY_TYPE = "module"
@@ -108,19 +116,46 @@ class BenchmarkQuestion:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkQuestion:
+        mapping = require_json_mapping(payload, "benchmark question")
         return cls(
-            question_id=str(payload["question_id"]),
-            disease=str(payload["disease"]),
-            benchmark_universe=str(payload["benchmark_universe"]),
-            entity_types=tuple(str(item) for item in payload["entity_types"]),
+            question_id=require_json_text(mapping.get("question_id"), "question_id"),
+            disease=require_json_text(mapping.get("disease"), "disease"),
+            benchmark_universe=require_json_text(
+                mapping.get("benchmark_universe"),
+                "benchmark_universe",
+            ),
+            entity_types=tuple(
+                require_json_text(item, "entity_types[]")
+                for item in require_json_list(mapping.get("entity_types"), "entity_types")
+            ),
             translational_outcome_labels=tuple(
-                str(item) for item in payload["translational_outcome_labels"]
+                require_json_text(item, "translational_outcome_labels[]")
+                for item in require_json_list(
+                    mapping.get("translational_outcome_labels"),
+                    "translational_outcome_labels",
+                )
             ),
             evaluation_horizons=tuple(
-                str(item) for item in payload["evaluation_horizons"]
+                require_json_text(item, "evaluation_horizons[]")
+                for item in require_json_list(
+                    mapping.get("evaluation_horizons"),
+                    "evaluation_horizons",
+                )
             ),
-            in_scope_evidence=tuple(str(item) for item in payload["in_scope_evidence"]),
-            future_outcomes=tuple(str(item) for item in payload["future_outcomes"]),
+            in_scope_evidence=tuple(
+                require_json_text(item, "in_scope_evidence[]")
+                for item in require_json_list(
+                    mapping.get("in_scope_evidence"),
+                    "in_scope_evidence",
+                )
+            ),
+            future_outcomes=tuple(
+                require_json_text(item, "future_outcomes[]")
+                for item in require_json_list(
+                    mapping.get("future_outcomes"),
+                    "future_outcomes",
+                )
+            ),
         )
 
 
@@ -199,27 +234,37 @@ class LeakageControls:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> LeakageControls:
+        mapping = require_json_mapping(payload, "leakage controls")
         return cls(
-            mode=str(payload["mode"]),
-            require_snapshot_manifest=_require_explicit_bool(
-                payload["require_snapshot_manifest"],
+            mode=require_json_text(mapping.get("mode"), "mode"),
+            require_snapshot_manifest=require_json_bool(
+                mapping.get("require_snapshot_manifest"),
                 "require_snapshot_manifest",
             ),
-            forbid_future_evidence=_require_explicit_bool(
-                payload["forbid_future_evidence"],
+            forbid_future_evidence=require_json_bool(
+                mapping.get("forbid_future_evidence"),
                 "forbid_future_evidence",
             ),
-            forbid_future_outcome_labels_in_inputs=_require_explicit_bool(
-                payload["forbid_future_outcome_labels_in_inputs"],
+            forbid_future_outcome_labels_in_inputs=require_json_bool(
+                mapping.get("forbid_future_outcome_labels_in_inputs"),
                 "forbid_future_outcome_labels_in_inputs",
             ),
-            require_precutoff_materialization=_require_explicit_bool(
-                payload["require_precutoff_materialization"],
+            require_precutoff_materialization=require_json_bool(
+                mapping.get("require_precutoff_materialization"),
                 "require_precutoff_materialization",
             ),
-            undated_source_policy=str(payload["undated_source_policy"]),
-            missing_cutoff_policy=str(payload["missing_cutoff_policy"]),
-            internal_state_policy=str(payload["internal_state_policy"]),
+            undated_source_policy=require_json_text(
+                mapping.get("undated_source_policy"),
+                "undated_source_policy",
+            ),
+            missing_cutoff_policy=require_json_text(
+                mapping.get("missing_cutoff_policy"),
+                "missing_cutoff_policy",
+            ),
+            internal_state_policy=require_json_text(
+                mapping.get("internal_state_policy"),
+                "internal_state_policy",
+            ),
         )
 
 
@@ -354,29 +399,57 @@ class SourceSnapshot:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> SourceSnapshot:
-        included = payload.get("included")
-        if not isinstance(included, bool):
-            raise ValueError("included must be an explicit boolean")
+        mapping = require_json_mapping(payload, "source snapshot")
         return cls(
-            source_name=str(payload["source_name"]),
-            source_version=str(payload["source_version"]),
-            cutoff_mode=str(payload["cutoff_mode"]),
-            allowed_data_through=str(payload["allowed_data_through"]),
+            source_name=require_json_text(mapping.get("source_name"), "source_name"),
+            source_version=require_json_text(
+                mapping.get("source_version"),
+                "source_version",
+            ),
+            cutoff_mode=require_json_text(mapping.get("cutoff_mode"), "cutoff_mode"),
+            allowed_data_through=require_json_text(
+                mapping.get("allowed_data_through"),
+                "allowed_data_through",
+            ),
             evidence_frozen_at=(
                 None
-                if payload.get("evidence_frozen_at") in {None, ""}
-                else str(payload["evidence_frozen_at"])
+                if not require_optional_json_string(
+                    mapping.get("evidence_frozen_at"),
+                    "evidence_frozen_at",
+                ).strip()
+                else require_optional_json_string(
+                    mapping.get("evidence_frozen_at"),
+                    "evidence_frozen_at",
+                )
             ),
-            materialized_at=str(payload["materialized_at"]),
+            materialized_at=require_json_text(
+                mapping.get("materialized_at"),
+                "materialized_at",
+            ),
             evidence_timestamp_field=(
                 None
-                if payload.get("evidence_timestamp_field") in {None, ""}
-                else str(payload["evidence_timestamp_field"])
+                if not require_optional_json_string(
+                    mapping.get("evidence_timestamp_field"),
+                    "evidence_timestamp_field",
+                ).strip()
+                else require_optional_json_string(
+                    mapping.get("evidence_timestamp_field"),
+                    "evidence_timestamp_field",
+                )
             ),
-            missing_date_policy=str(payload["missing_date_policy"]),
-            future_record_policy=str(payload["future_record_policy"]),
-            included=included,
-            exclusion_reason=str(payload.get("exclusion_reason", "")),
+            missing_date_policy=require_json_text(
+                mapping.get("missing_date_policy"),
+                "missing_date_policy",
+            ),
+            future_record_policy=require_json_text(
+                mapping.get("future_record_policy"),
+                "future_record_policy",
+            ),
+            included=require_json_bool(mapping.get("included"), "included"),
+            exclusion_reason=require_optional_json_string(
+                mapping.get("exclusion_reason"),
+                "exclusion_reason",
+            ),
         )
 
 
@@ -582,28 +655,61 @@ class BenchmarkSnapshotManifest:
         *,
         task_registry_path: Path | None = None,
     ) -> BenchmarkSnapshotManifest:
+        mapping = require_json_mapping(payload, "benchmark snapshot manifest")
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            snapshot_id=str(payload["snapshot_id"]),
-            cohort_id=str(payload["cohort_id"]),
-            benchmark_question_id=str(payload["benchmark_question_id"]),
-            as_of_date=str(payload["as_of_date"]),
-            outcome_observation_closed_at=str(payload["outcome_observation_closed_at"]),
-            entity_types=tuple(str(item) for item in payload["entity_types"]),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            cohort_id=require_json_text(mapping.get("cohort_id"), "cohort_id"),
+            benchmark_question_id=require_json_text(
+                mapping.get("benchmark_question_id"),
+                "benchmark_question_id",
+            ),
+            as_of_date=require_json_text(mapping.get("as_of_date"), "as_of_date"),
+            outcome_observation_closed_at=require_json_text(
+                mapping.get("outcome_observation_closed_at"),
+                "outcome_observation_closed_at",
+            ),
+            entity_types=tuple(
+                require_json_text(item, "entity_types[]")
+                for item in require_json_list(mapping.get("entity_types"), "entity_types")
+            ),
             source_snapshots=tuple(
                 SourceSnapshot.from_dict(item)
-                for item in payload["source_snapshots"]
+                for item in require_json_list(
+                    mapping.get("source_snapshots"),
+                    "source_snapshots",
+                )
             ),
-            leakage_controls=LeakageControls.from_dict(payload["leakage_controls"]),
-            baseline_ids=tuple(str(item) for item in payload["baseline_ids"]),
-            benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
-            benchmark_task_id=str(payload.get("benchmark_task_id", "")),
-            notes=str(payload.get("notes", "")),
+            leakage_controls=LeakageControls.from_dict(
+                require_json_mapping(
+                    mapping.get("leakage_controls"),
+                    "leakage_controls",
+                )
+            ),
+            baseline_ids=tuple(
+                require_json_text(item, "baseline_ids[]")
+                for item in require_json_list(mapping.get("baseline_ids"), "baseline_ids")
+            ),
+            benchmark_suite_id=require_optional_json_string(
+                mapping.get("benchmark_suite_id"),
+                "benchmark_suite_id",
+            ),
+            benchmark_task_id=require_optional_json_string(
+                mapping.get("benchmark_task_id"),
+                "benchmark_task_id",
+            ),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
             task_registry_path=(
                 str(task_registry_path.resolve())
                 if task_registry_path is not None
-                else str(payload.get("task_registry_path", ""))
+                else require_optional_json_string(
+                    mapping.get("task_registry_path"),
+                    "task_registry_path",
+                )
             ),
         )
 

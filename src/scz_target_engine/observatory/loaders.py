@@ -12,6 +12,7 @@ from scz_target_engine.benchmark_leaderboard import (
     read_benchmark_report_card_payload,
 )
 from scz_target_engine.io import read_csv_rows, read_json
+from scz_target_engine.json_contract import require_optional_json_string
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -80,7 +81,7 @@ def load_public_slice_catalog(
         return None
     payload = _require_mapping(read_json(resolved), "public slice catalog")
     slices: list[PublicSliceSummary] = []
-    for index, entry_value in enumerate(_require_list(payload.get("slices", []), "slices")):
+    for index, entry_value in enumerate(_require_list(payload.get("slices"), "slices")):
         entry = _require_mapping(entry_value, f"slices[{index}]")
         excluded_names = tuple(
             _require_text(
@@ -91,7 +92,7 @@ def load_public_slice_catalog(
             )
             for exc_index, exc in enumerate(
                 _require_list(
-                    entry.get("excluded_sources", []),
+                    entry.get("excluded_sources"),
                     f"slices[{index}].excluded_sources",
                 )
             )
@@ -103,7 +104,7 @@ def load_public_slice_catalog(
             )
             for source_index, source_name in enumerate(
                 _require_list(
-                    entry.get("included_sources", []),
+                    entry.get("included_sources"),
                     f"slices[{index}].included_sources",
                 )
             )
@@ -118,7 +119,10 @@ def load_public_slice_catalog(
                 included_sources=included_sources,
                 excluded_source_names=excluded_names,
                 slice_dir=_require_text(entry.get("slice_dir"), f"slices[{index}].slice_dir"),
-                notes=str(entry.get("notes", "")),
+                notes=require_optional_json_string(
+                    entry.get("notes"),
+                    f"slices[{index}].notes",
+                ),
             )
         )
     return PublicSliceCatalog(

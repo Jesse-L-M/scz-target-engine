@@ -102,7 +102,10 @@ The strict no-fallback archive rule remains unchanged.
   `validated_track_b_runner_bundle/<track_b_public_id>/...` files, recompute
   and validate public `leaderboard_id`, pin public `source_snapshots`,
   `evaluation_input_artifacts`, and `derived_from_artifacts` `sha256` / `notes`
-  against trusted files, and fail closed on duplicate input-artifact names
+  against trusted files, rebuild expected Track B case outputs from the pinned
+  casebook plus dataset instead of trusting self-consistent public bundles,
+  require leaderboards to reference the complete expected baseline set, enforce
+  relative-only public paths, and fail closed on duplicate input-artifact names
 
 ## Affected Specs
 

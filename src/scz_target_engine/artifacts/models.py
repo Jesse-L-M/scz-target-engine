@@ -4,10 +4,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scz_target_engine.json_contract import (
+    require_json_list,
+    require_json_mapping,
+    require_json_text,
+    require_optional_json_string,
+)
+
 
 def _require_text(value: str, field_name: str) -> str:
     if not value or not value.strip():
         raise ValueError(f"{field_name} is required")
+    return value
+
+
+def _require_explicit_bool(value: object, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an explicit boolean")
     return value
 
 
@@ -54,11 +67,12 @@ class ArtifactFieldDefinition:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ArtifactFieldDefinition:
+        mapping = require_json_mapping(payload, "artifact field definition")
         return cls(
-            name=str(payload["name"]),
-            field_type=str(payload["field_type"]),
-            required=bool(payload["required"]),
-            description=str(payload["description"]),
+            name=require_json_text(mapping.get("name"), "name"),
+            field_type=require_json_text(mapping.get("field_type"), "field_type"),
+            required=_require_explicit_bool(mapping.get("required"), "required"),
+            description=require_json_text(mapping.get("description"), "description"),
         )
 
 
@@ -113,16 +127,34 @@ class ArtifactSchemaDefinition:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ArtifactSchemaDefinition:
+        mapping = require_json_mapping(payload, "artifact schema definition")
+        required_fields = require_json_list(
+            mapping.get("required_fields"),
+            "required_fields",
+        )
+        optional_fields = require_json_list(
+            mapping.get("optional_fields"),
+            "optional_fields",
+        )
         fields = tuple(
             ArtifactFieldDefinition.from_dict(item)
-            for item in payload["required_fields"] + payload["optional_fields"]
+            for item in required_fields + optional_fields
         )
         return cls(
-            artifact_name=str(payload["artifact_name"]),
-            schema_version=str(payload["schema_version"]),
-            file_format=str(payload["file_format"]),
-            description=str(payload["description"]),
-            key_fields=tuple(str(item) for item in payload["key_fields"]),
+            artifact_name=require_json_text(
+                mapping.get("artifact_name"),
+                "artifact_name",
+            ),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            file_format=require_json_text(mapping.get("file_format"), "file_format"),
+            description=require_json_text(mapping.get("description"), "description"),
+            key_fields=tuple(
+                require_json_text(item, "key_fields[]")
+                for item in require_json_list(mapping.get("key_fields"), "key_fields")
+            ),
             fields=fields,
         )
 
@@ -165,13 +197,20 @@ class ReleaseManifestFileEntry:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ReleaseManifestFileEntry:
+        mapping = require_json_mapping(payload, "release manifest file entry")
         return cls(
-            artifact_id=str(payload["artifact_id"]),
-            path=str(payload["path"]),
-            sha256=str(payload["sha256"]),
-            artifact_name=str(payload.get("artifact_name", "")),
-            expected_schema_version=str(payload.get("expected_schema_version", "")),
-            notes=str(payload.get("notes", "")),
+            artifact_id=require_json_text(mapping.get("artifact_id"), "artifact_id"),
+            path=require_json_text(mapping.get("path"), "path"),
+            sha256=require_json_text(mapping.get("sha256"), "sha256"),
+            artifact_name=require_optional_json_string(
+                mapping.get("artifact_name"),
+                "artifact_name",
+            ),
+            expected_schema_version=require_optional_json_string(
+                mapping.get("expected_schema_version"),
+                "expected_schema_version",
+            ),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 
@@ -223,21 +262,35 @@ class ReleaseManifest:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ReleaseManifest:
-        files_payload = payload["files"]
-        if not isinstance(files_payload, list):
-            raise ValueError("files must be a list")
+        mapping = require_json_mapping(payload, "release manifest")
+        files_payload = require_json_list(mapping.get("files"), "files")
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            release_id=str(payload["release_id"]),
-            release_family=str(payload["release_family"]),
-            release_version=str(payload["release_version"]),
-            materialized_at=str(payload["materialized_at"]),
-            compatibility_phase=str(payload["compatibility_phase"]),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            release_id=require_json_text(mapping.get("release_id"), "release_id"),
+            release_family=require_json_text(
+                mapping.get("release_family"),
+                "release_family",
+            ),
+            release_version=require_json_text(
+                mapping.get("release_version"),
+                "release_version",
+            ),
+            materialized_at=require_json_text(
+                mapping.get("materialized_at"),
+                "materialized_at",
+            ),
+            compatibility_phase=require_json_text(
+                mapping.get("compatibility_phase"),
+                "compatibility_phase",
+            ),
             files=tuple(
                 ReleaseManifestFileEntry.from_dict(item) for item in files_payload
             ),
-            notes=str(payload.get("notes", "")),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 

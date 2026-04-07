@@ -141,6 +141,104 @@ def _build_track_b_case_output(
     )
 
 
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
+            lambda payload: payload["cases"][0].__setitem__(
+                "proposal_entity_label",
+                False,
+            ),
+            "proposal_entity_label must be a string",
+        ),
+        (
+            lambda payload: payload["cases"][0].__setitem__(
+                "analog_recall_at_3",
+                "1.0",
+            ),
+            "analog_recall_at_3 must be a float",
+        ),
+        (
+            lambda payload: payload["cases"][0].__setitem__(
+                "replay_status_exact_match",
+                "true",
+            ),
+            "replay_status_exact_match must be a boolean",
+        ),
+    ),
+)
+def test_read_track_b_case_output_payload_rejects_malformed_json_types(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    payload = TrackBCaseOutputPayload(
+        run_id="fixture_run",
+        baseline_id="track_b_structural_current",
+        snapshot_id="fixture_snapshot",
+        as_of_date="2025-02-01",
+        cases=(
+            _build_track_b_case_output(
+                case_id="fixture_case",
+                analog_recall_at_3=1.0,
+            ),
+        ),
+    ).to_dict()
+    mutator(payload)
+    payload_path = tmp_path / "track_b_case_output.json"
+    payload_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_track_b_case_output_payload(payload_path)
+
+
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
+            lambda payload: payload.__setitem__("case_count", 1.5),
+            "case_count must be an integer",
+        ),
+        (
+            lambda payload: payload["metric_values"].__setitem__(
+                "analog_recall_at_3",
+                "0.5",
+            ),
+            r"metric_values\['analog_recall_at_3'\] must be a float",
+        ),
+    ),
+)
+def test_read_track_b_confusion_summary_rejects_malformed_json_types(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    case_outputs = (
+        _build_track_b_case_output(
+            case_id="fixture_case",
+            analog_recall_at_3=1.0,
+        ),
+    )
+    payload = build_track_b_confusion_summary(
+        run_id="fixture_run",
+        baseline_id="track_b_structural_current",
+        snapshot_id="fixture_snapshot",
+        case_outputs=case_outputs,
+    ).to_dict()
+    mutator(payload)
+    payload_path = tmp_path / "track_b_confusion_summary.json"
+    payload_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_track_b_confusion_summary(payload_path)
+
+
 def test_load_track_b_casebook_from_checked_in_fixture() -> None:
     archive_index_file = TRACK_B_FIXTURE_DIR / "source_archives.json"
     cases = load_track_b_casebook(
@@ -499,7 +597,8 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         for artifact in report_card.evaluation_input_artifacts
         if artifact.artifact_name == "track_b_casebook"
     )
-    assert Path(track_b_casebook_input.artifact_path) == (
+    assert not Path(track_b_casebook_input.artifact_path).is_absolute()
+    assert (Path(reporting_result["report_card_files"][0]).parent / Path(track_b_casebook_input.artifact_path)).resolve() == (
         benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
             cohort_labels_file,
             artifact_name="track_b_casebook",

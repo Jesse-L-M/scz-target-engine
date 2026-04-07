@@ -81,6 +81,12 @@ from scz_target_engine.benchmark_track_b import (
 from scz_target_engine.config import EngineConfig, load_config
 from scz_target_engine.decision_vector import build_decision_vectors
 from scz_target_engine.io import read_csv_rows, read_json, write_json
+from scz_target_engine.json_contract import (
+    require_json_list,
+    require_json_mapping,
+    require_json_text,
+    require_optional_json_string,
+)
 from scz_target_engine.scoring import (
     GENE_REQUIRED_GROUPS,
     MODULE_REQUIRED_GROUPS,
@@ -211,14 +217,30 @@ class InputArtifactReference:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> InputArtifactReference:
+        mapping = require_json_mapping(payload, "input_artifact_reference")
         return cls(
-            artifact_name=str(payload["artifact_name"]),
-            artifact_path=str(payload["artifact_path"]),
-            sha256=str(payload["sha256"]),
-            schema_name=str(payload.get("schema_name", "")),
-            source_name=str(payload.get("source_name", "")),
-            source_version=str(payload.get("source_version", "")),
-            notes=str(payload.get("notes", "")),
+            artifact_name=require_json_text(
+                mapping.get("artifact_name"),
+                "artifact_name",
+            ),
+            artifact_path=require_json_text(
+                mapping.get("artifact_path"),
+                "artifact_path",
+            ),
+            sha256=require_json_text(mapping.get("sha256"), "sha256"),
+            schema_name=require_optional_json_string(
+                mapping.get("schema_name"),
+                "schema_name",
+            ),
+            source_name=require_optional_json_string(
+                mapping.get("source_name"),
+                "source_name",
+            ),
+            source_version=require_optional_json_string(
+                mapping.get("source_version"),
+                "source_version",
+            ),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 
@@ -289,24 +311,44 @@ class BenchmarkModelRunManifest:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkModelRunManifest:
+        mapping = require_json_mapping(payload, RUN_MANIFEST_SCHEMA_NAME)
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            run_id=str(payload["run_id"]),
-            snapshot_id=str(payload["snapshot_id"]),
-            baseline_id=str(payload["baseline_id"]),
-            model_family=str(payload["model_family"]),
-            code_version=str(payload["code_version"]),
-            benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
-            benchmark_task_id=str(payload.get("benchmark_task_id", "")),
-            parameterization=payload.get("parameterization"),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            run_id=require_json_text(mapping.get("run_id"), "run_id"),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            baseline_id=require_json_text(mapping.get("baseline_id"), "baseline_id"),
+            model_family=require_json_text(mapping.get("model_family"), "model_family"),
+            code_version=require_json_text(mapping.get("code_version"), "code_version"),
+            benchmark_suite_id=require_optional_json_string(
+                mapping.get("benchmark_suite_id"),
+                "benchmark_suite_id",
+            ),
+            benchmark_task_id=require_optional_json_string(
+                mapping.get("benchmark_task_id"),
+                "benchmark_task_id",
+            ),
+            parameterization=(
+                None
+                if mapping.get("parameterization") is None
+                else require_json_mapping(
+                    mapping.get("parameterization"),
+                    "parameterization",
+                )
+            ),
             input_artifacts=tuple(
                 InputArtifactReference.from_dict(item)
-                for item in payload["input_artifacts"]
+                for item in require_json_list(
+                    mapping.get("input_artifacts"),
+                    "input_artifacts",
+                )
             ),
-            started_at=str(payload["started_at"]),
-            completed_at=str(payload["completed_at"]),
-            notes=str(payload.get("notes", "")),
+            started_at=require_json_text(mapping.get("started_at"), "started_at"),
+            completed_at=require_json_text(mapping.get("completed_at"), "completed_at"),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 
@@ -342,9 +384,10 @@ def write_benchmark_model_run_manifest(
 
 
 def read_benchmark_model_run_manifest(path: Path) -> BenchmarkModelRunManifest:
-    payload = read_json(path)
-    if not isinstance(payload, dict):
-        raise ValueError("benchmark model run manifest must be a JSON object")
+    payload = require_json_mapping(
+        read_json(path),
+        "benchmark model run manifest",
+    )
     return BenchmarkModelRunManifest.from_dict(payload)
 
 

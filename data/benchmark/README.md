@@ -140,6 +140,13 @@ That Track B flow keeps the benchmark artifact families unchanged while adding:
   extra Track B parameterization keys, tampered metric units, omitted
   `metric_unit`, duplicate input-artifact names, tampered interval seeds, and
   tampered Track B casebook/count provenance
+- a rewritten public `validated_track_b_runner_bundle/<track_b_public_id>/...`
+  surface where copied JSON uses the stable public `run_id`, redacts runner
+  code/timestamp/note fields, and rebases copied input-artifact paths away from
+  absolute local filesystem paths
+- public readers that re-derive Track B report-card headline metrics from the
+  materialized public runner bundle and reopen referenced report cards before
+  accepting public leaderboard entries
 
 Public slices keep the same registry-driven task contract while changing only the
 cutoff date, checked-in fixture path, and entity type. The catalog in

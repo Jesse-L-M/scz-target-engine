@@ -58,6 +58,13 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
+TRACK_B_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "data"
+    / "benchmark"
+    / "fixtures"
+    / "scz_failure_memory_2025_02_01"
+)
 AVAILABLE_NOW_GENE_BASELINES = [
     "pgc_only",
     "schema_only",
@@ -194,6 +201,55 @@ def test_derive_track_b_slice_random_seed_is_deterministic() -> None:
         baseline_id="track_b_structural_current",
     )
     assert structural_seed != nearest_history_seed
+
+
+def test_materialize_track_b_run_rejects_subset_baseline_manifest(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=TRACK_B_FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-07",
+    )
+    snapshot_manifest_payload = json.loads(
+        snapshot_manifest_file.read_text(encoding="utf-8")
+    )
+    snapshot_manifest_payload["baseline_ids"] = ["track_b_structural_current"]
+    snapshot_manifest_file.write_text(
+        json.dumps(snapshot_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+    materialize_benchmark_cohort_labels(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=TRACK_B_FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=TRACK_B_FIXTURE_DIR / "future_outcomes.csv",
+        output_file=cohort_labels_file,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Track B runner requires manifest baseline_ids to match the full frozen "
+            "Track B available_now baseline set"
+        ),
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+            output_dir=runner_output_dir,
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-07T00:00:00Z",
+        )
 
 
 def test_materialize_benchmark_run_executes_fixture_baselines_and_emits_artifacts(

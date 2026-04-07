@@ -180,6 +180,12 @@ Track B reporting is now fail-closed on one bundle contract:
   cohort bundle from `evaluation_input_artifacts`, then fail closed if
   `source_snapshots` or rebuilt `evaluation_input_artifacts` differ from the
   trusted files on disk
+- public Track B reporting must materialize every pinned
+  `evaluation_input_artifacts[]` file into
+  `validated_track_b_runner_bundle/<track_b_public_id>/inputs/<basename>` and
+  public validation must rebuild Track B state only from that hashed public
+  input set, never from ambient sibling files beside `track_b_casebook.csv` or
+  any other local fixture file
 - public Track B report cards must also rebuild the expected case-output payload
   from the pinned casebook plus the materialized program-memory dataset and
   fail closed if the published public case outputs are self-consistent but do
@@ -211,7 +217,13 @@ Track B reporting is now fail-closed on one bundle contract:
   duplicate, or unexpected baselines fail closed on read
 - public `evaluation_input_artifacts[].artifact_path`,
   `leaderboard.report_card_files[]`, and `leaderboard.entries[].report_card_path`
-  are part of the public contract and must remain relative-only stable paths
+  are part of the public contract and must remain stable relative paths that,
+  after normalization and resolution, still stay within the Track B
+  `public_payloads` root; `../../` escapes and off-tree references fail closed
+- Track B public readers and reporting derive the allowed suite/task identity,
+  question, and full expected `available_now` baseline set from the pinned
+  snapshot manifest plus the frozen Track B protocol in code, not from any
+  mutable external `task_registry_path`
 - public report-card and leaderboard readers fail closed on schema identity,
   redacted Track B provenance fields, missing `run_parameterization`, and nested
   `SourceSnapshot.included` flags that are missing or not literal booleans
@@ -223,6 +235,20 @@ Track B reporting is now fail-closed on one bundle contract:
   interval tampering, metric-unit tampering, duplicate-artifact bypasses, and
   source-ownership mismatches before writing report cards, leaderboards, or
   error-analysis outputs
+
+### Shared Runtime Hardening
+
+The supporting runtime readers now fail closed too:
+
+- artifact schemas derive requiredness from container placement, not embedded
+  field metadata, so a malformed `required_fields[].required = false` flag
+  cannot silently downgrade a required field at runtime
+- shared benchmark/protocol/runtime JSON readers reject nulls, whitespace-only
+  strings, booleans, numbers, and wrong container shapes instead of coercing
+  them into apparently valid strings or lists
+- observatory packet loaders treat malformed existing JSON as corruption and
+  raise, while still returning `None` only for true absence or for a valid
+  hypothesis packet that simply lacks rescue augmentation
 
 ### Proposed Gold Label Surface Per Case
 
@@ -299,6 +325,13 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
   files, tampered public `leaderboard_id`, tampered public report-card
   `metric_unit`, and nested `SourceSnapshot.included` coercion or omission in
   public payload readers
+- Unit:
+  add adversarial tests for `../../` public path escapes, forged off-tree nested
+  artifact references, shadow sibling files beside `track_b_casebook.csv`,
+  redirected registry paths that try to shrink or rewrite the Track B baseline
+  contract, malformed `required_fields[].required` metadata, malformed
+  benchmark/protocol JSON scalar or container types, and malformed existing
+  observatory packet JSON files
 - Integration:
   run one Track B slice end to end from frozen snapshot to case-review output
   and assert the same six ids flow through cohort labels, runner outputs, and

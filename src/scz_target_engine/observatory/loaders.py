@@ -189,7 +189,9 @@ def load_hypothesis_packets(
         return None
     payload = read_json(resolved)
     if not isinstance(payload, dict):
-        return None
+        raise ValueError(
+            f"hypothesis packets file must contain a JSON object: {resolved}"
+        )
     return payload
 
 
@@ -208,7 +210,10 @@ def load_rescue_augmented_packets(
             return None
         payload = read_json(resolved)
         if not isinstance(payload, dict):
-            return None
+            raise ValueError(
+                "rescue-augmented packets file must contain a JSON object: "
+                f"{resolved}"
+            )
         if "rescue_augmentation" not in payload:
             return None
         return payload

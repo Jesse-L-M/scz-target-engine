@@ -235,6 +235,10 @@ public payloads:
 - public `evaluation_input_artifacts` are rebuilt from the validated
   `benchmark_snapshot_manifest`, materialized cohort bundle, and pinned Track B
   auxiliary source artifacts rather than copied from `run_manifest.input_artifacts`
+- reporting copies those pinned `evaluation_input_artifacts` into
+  `validated_track_b_runner_bundle/<track_b_public_id>/inputs/<basename>`, and
+  public Track B revalidation rebuilds from that hashed public input set only
+  instead of reopening sibling fixture files from the local workspace
 - public Track B report cards and leaderboard entries publish
   `code_version = redacted_untrusted_runner_code_version`; reporting does not
   treat the runner-emitted full `code_version` as trustworthy public
@@ -279,7 +283,13 @@ public payloads:
   or unexpected baselines fail closed
 - public `evaluation_input_artifacts[].artifact_path`,
   `leaderboard.report_card_files[]`, and `leaderboard.entries[].report_card_path`
-  must stay relative-only stable public paths
+  must stay stable relative public paths that still resolve inside the Track B
+  `public_payloads` root after normalization, so `../../` escapes and off-tree
+  references fail closed
+- Track B reporting and public validation derive suite/task/question identity
+  and the complete expected `available_now` baseline set from the pinned
+  snapshot manifest plus the frozen Track B protocol in code, not from a
+  mutable `task_registry_path`
 - interval provenance is bound to the run-manifest parameterization, including
   the deterministic per-baseline seed derived from the base seed plus
   `baseline_id` / `structural_replay`
@@ -295,6 +305,15 @@ Track B reporting still does not rerun model inference. It does revalidate the
 full Track B bundle by recomputing structural metrics, confusion summaries, and
 bootstrap intervals from the runner-emitted case outputs plus the pinned cohort
 bundle before it publishes report cards, leaderboards, or error analysis.
+
+Shared runtime readers were hardened in the same release:
+
+- artifact schema loading now treats `required_fields` as required by position,
+  not by embedded `required` metadata
+- benchmark/protocol/runtime JSON readers reject malformed scalar and container
+  types instead of coercing them into strings or iterables
+- observatory packet loaders raise on malformed existing JSON and return `None`
+  only for true absence or a valid hypothesis packet with no rescue augmentation
 
 Bootstrap note:
 

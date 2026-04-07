@@ -42,6 +42,7 @@ from scz_target_engine.benchmark_protocol import (
     GENE_ENTITY_TYPE,
     MODULE_ENTITY_TYPE,
     PROTOCOL_ONLY_STATUS,
+    TRACK_B_BENCHMARK_PROTOCOL,
     BaselineDefinition,
     BenchmarkSnapshotManifest,
 )
@@ -143,6 +144,13 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _manifest_uses_track_b_protocol(manifest: BenchmarkSnapshotManifest) -> bool:
+    return is_track_b_task(manifest.benchmark_task_id) or (
+        manifest.benchmark_question_id
+        == TRACK_B_BENCHMARK_PROTOCOL.question.question_id
+    )
+
+
 def _normalize_component(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
@@ -181,6 +189,14 @@ def _task_registry_path_from_manifest(
     if not manifest.task_registry_path:
         return None
     return Path(manifest.task_registry_path).resolve()
+
+
+def _expected_track_b_available_now_baseline_ids() -> tuple[str, ...]:
+    return tuple(
+        baseline.baseline_id
+        for baseline in TRACK_B_BENCHMARK_PROTOCOL.baselines
+        if baseline.status == AVAILABLE_NOW_STATUS
+    )
 
 
 def _score_to_string(value: float | str) -> str:
@@ -1352,7 +1368,8 @@ def _run_track_b_benchmark(
     archive_index_file: Path,
     output_dir: Path,
     code_version: str,
-    task_contract: Any,
+    benchmark_suite_id: str,
+    benchmark_task_id: str,
     bootstrap_iterations: int,
     bootstrap_confidence_level: float,
     random_seed: int,
@@ -1372,9 +1389,6 @@ def _run_track_b_benchmark(
             "Track B runner requires archive_index_file to match the pinned source "
             "archive index captured in the benchmark cohort bundle"
         )
-    task_contract.fixture_paths.validate_archive_index_sibling_files(
-        bundled_archive_index_file
-    )
     expected_source_artifact_paths = {
         "track_b_casebook": track_b_casebook_path_for_archive_index_file(
             bundled_archive_index_file
@@ -1506,22 +1520,27 @@ def _run_track_b_benchmark(
 
     baseline_index = {
         baseline_definition.baseline_id: baseline_definition
-        for baseline_definition in task_contract.protocol.baselines
-        if baseline_definition.baseline_id in task_contract.supported_baseline_ids
+        for baseline_definition in TRACK_B_BENCHMARK_PROTOCOL.baselines
     }
-    available_now_baselines = [
-        baseline_id
-        for baseline_id in task_contract.supported_baseline_ids
-        if baseline_index[baseline_id].status == AVAILABLE_NOW_STATUS
-    ]
-    requested_available_now_baselines = [
-        baseline_id
-        for baseline_id in manifest.baseline_ids
-        if baseline_index[baseline_id].status == AVAILABLE_NOW_STATUS
-    ]
+    expected_baseline_ids = _expected_track_b_available_now_baseline_ids()
+    if tuple(sorted(manifest.baseline_ids)) != tuple(sorted(expected_baseline_ids)):
+        raise ValueError(
+            "Track B runner requires manifest baseline_ids to match the full frozen "
+            "Track B available_now baseline set"
+        )
+    unknown_baseline_ids = sorted(
+        set(manifest.baseline_ids).difference(baseline_index)
+    )
+    if unknown_baseline_ids:
+        raise ValueError(
+            "Track B manifest baseline_ids must match the frozen Track B protocol: "
+            + ", ".join(unknown_baseline_ids)
+        )
+    available_now_baselines = list(expected_baseline_ids)
+    requested_available_now_baselines = list(expected_baseline_ids)
     protocol_only_baselines = [
         baseline_id
-        for baseline_id in task_contract.supported_baseline_ids
+        for baseline_id in manifest.baseline_ids
         if baseline_index[baseline_id].status == PROTOCOL_ONLY_STATUS
     ]
     requested_protocol_only_baselines = [
@@ -1695,8 +1714,8 @@ def _run_track_b_benchmark(
             baseline_id=baseline_id,
             model_family=baseline.family,
             code_version=code_version,
-            benchmark_suite_id=task_contract.suite_id,
-            benchmark_task_id=task_contract.task_id,
+            benchmark_suite_id=benchmark_suite_id,
+            benchmark_task_id=benchmark_task_id,
             parameterization=parameterization,
             input_artifacts=tuple(input_artifacts),
             started_at=started_at,
@@ -1712,8 +1731,8 @@ def _run_track_b_benchmark(
         executed_baselines.append(baseline_id)
 
     return {
-        "benchmark_suite_id": task_contract.suite_id,
-        "benchmark_task_id": task_contract.task_id,
+        "benchmark_suite_id": benchmark_suite_id,
+        "benchmark_task_id": benchmark_task_id,
         "benchmark_question_id": manifest.benchmark_question_id,
         "snapshot_id": manifest.snapshot_id,
         "cohort_id": manifest.cohort_id,
@@ -1755,17 +1774,6 @@ def run_benchmark(
     execution_timestamp: str | None = None,
 ) -> dict[str, object]:
     manifest = read_benchmark_snapshot_manifest(manifest_file)
-    task_registry_path = _task_registry_path_from_manifest(manifest)
-    task_contract = resolve_benchmark_task_contract(
-        benchmark_task_id=manifest.benchmark_task_id or None,
-        benchmark_question_id=manifest.benchmark_question_id,
-        benchmark_suite_id=manifest.benchmark_suite_id or None,
-        entity_types=manifest.entity_types,
-        baseline_ids=manifest.baseline_ids,
-        task_registry_path=task_registry_path,
-    )
-    protocol = task_contract.protocol
-    question = protocol.question
     materialized_cohort = load_materialized_benchmark_cohort_artifacts(
         snapshot_manifest=manifest,
         snapshot_manifest_file=manifest_file,
@@ -1778,7 +1786,11 @@ def run_benchmark(
         if deterministic_test_mode:
             resolved_bootstrap_iterations = DETERMINISTIC_TEST_BOOTSTRAP_ITERATIONS
 
-    if is_track_b_task(task_contract.task_id):
+    if _manifest_uses_track_b_protocol(manifest):
+        if not manifest.benchmark_suite_id or not manifest.benchmark_task_id:
+            raise ValueError(
+                "Track B snapshot manifests must pin benchmark_suite_id and benchmark_task_id"
+            )
         return _run_track_b_benchmark(
             manifest=manifest,
             manifest_file=manifest_file,
@@ -1787,13 +1799,26 @@ def run_benchmark(
             archive_index_file=archive_index_file,
             output_dir=output_dir,
             code_version=code_version,
-            task_contract=task_contract,
+            benchmark_suite_id=manifest.benchmark_suite_id,
+            benchmark_task_id=manifest.benchmark_task_id,
             bootstrap_iterations=resolved_bootstrap_iterations,
             bootstrap_confidence_level=bootstrap_confidence_level,
             random_seed=random_seed,
             deterministic_test_mode=deterministic_test_mode,
             execution_timestamp=execution_timestamp,
         )
+
+    task_registry_path = _task_registry_path_from_manifest(manifest)
+    task_contract = resolve_benchmark_task_contract(
+        benchmark_task_id=manifest.benchmark_task_id or None,
+        benchmark_question_id=manifest.benchmark_question_id,
+        benchmark_suite_id=manifest.benchmark_suite_id or None,
+        entity_types=manifest.entity_types,
+        baseline_ids=manifest.baseline_ids,
+        task_registry_path=task_registry_path,
+    )
+    protocol = task_contract.protocol
+    question = protocol.question
 
     resolved_config_file = (
         config_file.resolve()

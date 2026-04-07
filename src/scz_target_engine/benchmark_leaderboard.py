@@ -33,6 +33,7 @@ from scz_target_engine.benchmark_metrics import (
 )
 from scz_target_engine.benchmark_protocol import (
     AVAILABLE_NOW_STATUS,
+    TRACK_B_BENCHMARK_PROTOCOL,
     SourceSnapshot,
 )
 from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
@@ -108,6 +109,7 @@ TRACK_B_PUBLIC_COMPLETED_AT = "redacted_untrusted_runner_completed_at"
 TRACK_B_PUBLIC_RUN_NOTES = "redacted_untrusted_runner_notes"
 TRACK_B_PUBLIC_ID_PREFIX = "track_b_public"
 TRACK_B_PUBLIC_DERIVED_ARTIFACT_ROOT = "validated_track_b_runner_bundle"
+TRACK_B_PUBLIC_INPUT_ARTIFACT_DIR = "inputs"
 
 
 def _require_text(value: str, field_name: str) -> str:
@@ -121,6 +123,48 @@ def _require_relative_public_path_text(path_text: str, field_name: str) -> str:
     if Path(normalized).is_absolute():
         raise ValueError(f"{field_name} must be a relative path")
     return normalized
+
+
+def _manifest_uses_track_b_protocol(manifest: object) -> bool:
+    benchmark_task_id = getattr(manifest, "benchmark_task_id", "")
+    benchmark_question_id = getattr(manifest, "benchmark_question_id", "")
+    return is_track_b_task(benchmark_task_id) or (
+        benchmark_question_id == TRACK_B_BENCHMARK_PROTOCOL.question.question_id
+    )
+
+
+def _require_track_b_manifest_task_identity(manifest: object) -> tuple[str, str]:
+    benchmark_suite_value = getattr(manifest, "benchmark_suite_id", "")
+    benchmark_task_value = getattr(manifest, "benchmark_task_id", "")
+    benchmark_question_value = getattr(manifest, "benchmark_question_id", "")
+    benchmark_suite_id = _require_text(
+        benchmark_suite_value if isinstance(benchmark_suite_value, str) else "",
+        "benchmark_suite_id",
+    )
+    benchmark_task_id = _require_text(
+        benchmark_task_value if isinstance(benchmark_task_value, str) else "",
+        "benchmark_task_id",
+    )
+    if not is_track_b_task(benchmark_task_id):
+        raise ValueError(
+            "Track B public/reporting validation requires a pinned Track B benchmark_task_id"
+        )
+    if (
+        benchmark_question_value
+        != TRACK_B_BENCHMARK_PROTOCOL.question.question_id
+    ):
+        raise ValueError(
+            "Track B public/reporting validation requires the frozen Track B benchmark_question_id"
+        )
+    return benchmark_suite_id, benchmark_task_id
+
+
+def _expected_track_b_available_now_baseline_ids() -> tuple[str, ...]:
+    return tuple(
+        baseline.baseline_id
+        for baseline in TRACK_B_BENCHMARK_PROTOCOL.baselines
+        if baseline.status == AVAILABLE_NOW_STATUS
+    )
 
 
 def _require_schema_identity(
@@ -436,6 +480,24 @@ def _reporting_output_root_from_payload_path(
     )
 
 
+def _resolve_track_b_public_contract_path(
+    path_text: str,
+    *,
+    anchor_path: Path,
+    output_root: Path,
+    field_name: str,
+) -> Path:
+    normalized = _require_relative_public_path_text(path_text, field_name)
+    resolved = (anchor_path.resolve().parent / normalized).resolve()
+    try:
+        resolved.relative_to(output_root.resolve())
+    except ValueError as exc:
+        raise ValueError(
+            f"{field_name} must stay within the Track B public payload root"
+        ) from exc
+    return resolved
+
+
 def _resolve_report_card_reference_path(
     path_text: str,
     *,
@@ -445,6 +507,54 @@ def _resolve_report_card_reference_path(
     if path.is_absolute():
         return path.resolve()
     return (anchor_path.parent / path).resolve()
+
+
+def _track_b_public_input_bundle_root(
+    *,
+    output_dir: Path,
+    public_id: str,
+) -> Path:
+    return (
+        output_dir
+        / TRACK_B_PUBLIC_DERIVED_ARTIFACT_ROOT
+        / public_id
+        / TRACK_B_PUBLIC_INPUT_ARTIFACT_DIR
+    )
+
+
+def _materialize_track_b_public_input_artifacts(
+    *,
+    output_dir: Path,
+    public_id: str,
+    evaluation_input_artifacts: tuple[InputArtifactReference, ...],
+) -> tuple[InputArtifactReference, ...]:
+    input_root = _track_b_public_input_bundle_root(
+        output_dir=output_dir,
+        public_id=public_id,
+    )
+    input_root.mkdir(parents=True, exist_ok=True)
+    seen_relative_paths: set[str] = set()
+    public_input_artifacts: list[InputArtifactReference] = []
+    for artifact in evaluation_input_artifacts:
+        source_path = Path(artifact.artifact_path).resolve()
+        destination_path = input_root / source_path.name
+        relative_path = _relative_path(output_dir.resolve(), destination_path)
+        if relative_path in seen_relative_paths:
+            raise ValueError(
+                "Track B public evaluation_input_artifacts must not collide on public "
+                f"input bundle paths ({relative_path})"
+            )
+        shutil.copy2(source_path, destination_path)
+        seen_relative_paths.add(relative_path)
+        public_input_artifacts.append(
+            _build_artifact_reference(
+                artifact_name=artifact.artifact_name,
+                path=destination_path,
+                schema_name=artifact.schema_name,
+                notes=artifact.notes,
+            )
+        )
+    return tuple(public_input_artifacts)
 
 
 def _track_b_public_bundle_destination(
@@ -710,7 +820,6 @@ class _TrackBPublicReadContext:
     snapshot_manifest_path: Path
     snapshot_manifest: object
     cohort_labels_path: Path
-    task_contract: object
     expected_baseline_ids: tuple[str, ...]
     baseline_index: dict[str, object]
     expected_input_artifacts: tuple[InputArtifactReference, ...]
@@ -801,10 +910,19 @@ def _build_track_b_public_read_context(
     report_card_path: Path,
     report_card: BenchmarkReportCardPayload,
 ) -> _TrackBPublicReadContext:
+    output_root = _reporting_output_root_from_payload_path(
+        report_card_path,
+        anchor_dir_name="report_cards",
+    )
     for artifact in report_card.evaluation_input_artifacts:
-        _require_relative_public_path_text(
+        _resolve_track_b_public_contract_path(
             artifact.artifact_path,
-            "Track B public report card evaluation_input_artifacts[].artifact_path",
+            anchor_path=report_card_path,
+            output_root=output_root,
+            field_name=(
+                "Track B public report card "
+                "evaluation_input_artifacts[].artifact_path"
+            ),
         )
     evaluation_input_artifact_index = _index_artifacts_by_name(
         report_card.evaluation_input_artifacts,
@@ -824,15 +942,26 @@ def _build_track_b_public_read_context(
             "Track B public report card evaluation_input_artifacts must include "
             "benchmark_cohort_labels"
         )
-    snapshot_manifest_path = _resolve_report_card_reference_path(
+    snapshot_manifest_path = _resolve_track_b_public_contract_path(
         snapshot_manifest_artifact.artifact_path,
         anchor_path=report_card_path,
+        output_root=output_root,
+        field_name=(
+            "Track B public report card "
+            "evaluation_input_artifacts[].artifact_path"
+        ),
     )
-    cohort_labels_path = _resolve_report_card_reference_path(
+    cohort_labels_path = _resolve_track_b_public_contract_path(
         cohort_labels_artifact.artifact_path,
         anchor_path=report_card_path,
+        output_root=output_root,
+        field_name=(
+            "Track B public report card "
+            "evaluation_input_artifacts[].artifact_path"
+        ),
     )
     snapshot_manifest = read_benchmark_snapshot_manifest(snapshot_manifest_path)
+    _require_track_b_manifest_task_identity(snapshot_manifest)
     materialized_cohort = load_materialized_benchmark_cohort_artifacts(
         snapshot_manifest=snapshot_manifest,
         snapshot_manifest_file=snapshot_manifest_path,
@@ -847,28 +976,29 @@ def _build_track_b_public_read_context(
         expected_input_artifacts_absolute,
         destination_anchor_path=report_card_path,
     )
-    task_registry_path = _task_registry_path_from_manifest(snapshot_manifest)
-    task_contract = resolve_benchmark_task_contract(
-        benchmark_task_id=getattr(snapshot_manifest, "benchmark_task_id") or None,
-        benchmark_question_id=str(getattr(snapshot_manifest, "benchmark_question_id")),
-        benchmark_suite_id=getattr(snapshot_manifest, "benchmark_suite_id") or None,
-        entity_types=tuple(getattr(snapshot_manifest, "entity_types")),
-        baseline_ids=tuple(getattr(snapshot_manifest, "baseline_ids")),
-        task_registry_path=task_registry_path,
-    )
     baseline_index = {
-        baseline.baseline_id: baseline for baseline in task_contract.protocol.baselines
+        baseline.baseline_id: baseline
+        for baseline in TRACK_B_BENCHMARK_PROTOCOL.baselines
     }
+    snapshot_baseline_ids = tuple(getattr(snapshot_manifest, "baseline_ids"))
+    unknown_baseline_ids = sorted(set(snapshot_baseline_ids).difference(baseline_index))
+    if unknown_baseline_ids:
+        raise ValueError(
+            "Track B public report card snapshot manifest baseline_ids must match "
+            "the frozen Track B protocol: "
+            + ", ".join(unknown_baseline_ids)
+        )
+    expected_baseline_ids = _expected_track_b_available_now_baseline_ids()
+    if tuple(sorted(snapshot_baseline_ids)) != tuple(sorted(expected_baseline_ids)):
+        raise ValueError(
+            "Track B public report card snapshot manifest baseline_ids must match "
+            "the full frozen Track B available_now baseline set"
+        )
     baseline = baseline_index.get(report_card.baseline_id)
     if baseline is None:
         raise ValueError(
             "Track B public report card baseline_id is not part of the Track B task contract"
         )
-    expected_baseline_ids = tuple(
-        baseline_id
-        for baseline_id in getattr(snapshot_manifest, "baseline_ids")
-        if baseline_index[baseline_id].status == AVAILABLE_NOW_STATUS
-    )
     if report_card.baseline_id not in expected_baseline_ids:
         raise ValueError(
             "Track B public report card baseline_id is not part of the expected Track B baseline set"
@@ -951,7 +1081,6 @@ def _build_track_b_public_read_context(
         snapshot_manifest_path=snapshot_manifest_path,
         snapshot_manifest=snapshot_manifest,
         cohort_labels_path=cohort_labels_path,
-        task_contract=task_contract,
         expected_baseline_ids=expected_baseline_ids,
         baseline_index=baseline_index,
         expected_input_artifacts=expected_input_artifacts,
@@ -1314,6 +1443,10 @@ def _validate_track_b_public_leaderboard_provenance(
     path: Path,
     leaderboard: BenchmarkLeaderboardPayload,
 ) -> None:
+    output_root = _reporting_output_root_from_payload_path(
+        path,
+        anchor_dir_name="leaderboards",
+    )
     report_card_records: list[
         tuple[
             str,
@@ -1323,9 +1456,11 @@ def _validate_track_b_public_leaderboard_provenance(
         ]
     ] = []
     for report_card_path_text in leaderboard.report_card_files:
-        resolved_report_card_path = _resolve_report_card_reference_path(
+        resolved_report_card_path = _resolve_track_b_public_contract_path(
             report_card_path_text,
             anchor_path=path,
+            output_root=output_root,
+            field_name="Track B public leaderboard report_card_files[]",
         )
         if not resolved_report_card_path.exists():
             raise ValueError(
@@ -1409,9 +1544,11 @@ def _validate_track_b_public_leaderboard_provenance(
 
     first_report_card_path_text, first_report_card, _, _ = report_card_records[0]
     public_context = _build_track_b_public_read_context(
-        report_card_path=_resolve_report_card_reference_path(
+        report_card_path=_resolve_track_b_public_contract_path(
             first_report_card_path_text,
             anchor_path=path,
+            output_root=output_root,
+            field_name="Track B public leaderboard report_card_files[]",
         ),
         report_card=first_report_card,
     )
@@ -3259,13 +3396,8 @@ def _validate_track_b_public_report_card_provenance(
         report_card=report_card,
     )
     snapshot_manifest = public_context.snapshot_manifest
-    expected_suite_id = getattr(snapshot_manifest, "benchmark_suite_id") or getattr(
-        public_context.task_contract,
-        "suite_id",
-    )
-    expected_task_id = getattr(snapshot_manifest, "benchmark_task_id") or getattr(
-        public_context.task_contract,
-        "task_id",
+    expected_suite_id, expected_task_id = _require_track_b_manifest_task_identity(
+        snapshot_manifest
     )
     if report_card.benchmark_suite_id != expected_suite_id:
         raise ValueError(
@@ -3606,17 +3738,23 @@ def _validate_track_b_runner_outputs(
 def _validate_track_b_expected_baseline_set(
     *,
     manifest: object,
-    task_contract: object,
+    baseline_index: dict[str, object],
     run_manifest_index: dict[str, tuple[Path, BenchmarkModelRunManifest]],
 ) -> dict[str, tuple[Path, BenchmarkModelRunManifest]]:
-    baseline_index = {
-        baseline.baseline_id: baseline for baseline in task_contract.protocol.baselines
-    }
-    expected_baseline_ids = tuple(
-        baseline_id
-        for baseline_id in getattr(manifest, "baseline_ids")
-        if baseline_index[baseline_id].status == "available_now"
-    )
+    manifest_baseline_ids = tuple(getattr(manifest, "baseline_ids"))
+    unknown_baseline_ids = sorted(set(manifest_baseline_ids).difference(baseline_index))
+    if unknown_baseline_ids:
+        raise ValueError(
+            "Track B reporting requires manifest baseline_ids to match the frozen "
+            "Track B protocol: "
+            + ", ".join(unknown_baseline_ids)
+        )
+    expected_baseline_ids = _expected_track_b_available_now_baseline_ids()
+    if tuple(sorted(manifest_baseline_ids)) != tuple(sorted(expected_baseline_ids)):
+        raise ValueError(
+            "Track B reporting requires manifest baseline_ids to match the full "
+            "frozen Track B available_now baseline set"
+        )
     observed_by_baseline: dict[str, tuple[Path, BenchmarkModelRunManifest]] = {}
     duplicate_baseline_ids: list[str] = []
     for path, run_manifest in run_manifest_index.values():
@@ -3659,7 +3797,6 @@ def _validate_track_b_reporting_bundle(
     cohort_labels: tuple[object, ...],
     benchmark_suite_id: str,
     benchmark_task_id: str,
-    task_contract: object,
     resolved_runner_output_dir: Path,
     run_manifest_index: dict[str, tuple[Path, BenchmarkModelRunManifest]],
     metrics_by_run_slice: dict[
@@ -3746,7 +3883,8 @@ def _validate_track_b_reporting_bundle(
             "pinned Track B casebook entity ids, labels, and replay-status labels"
         )
     baseline_index = {
-        baseline.baseline_id: baseline for baseline in task_contract.protocol.baselines
+        baseline.baseline_id: baseline
+        for baseline in TRACK_B_BENCHMARK_PROTOCOL.baselines
     }
     casebook_sha256 = next(
         artifact.sha256
@@ -3780,7 +3918,7 @@ def _validate_track_b_reporting_bundle(
         )
     run_manifests_by_baseline = _validate_track_b_expected_baseline_set(
         manifest=manifest,
-        task_contract=task_contract,
+        baseline_index=baseline_index,
         run_manifest_index=run_manifest_index,
     )
     validated_runs_by_run_id: dict[str, _ValidatedTrackBRunBundle] = {}
@@ -3917,7 +4055,6 @@ def _materialize_track_b_reporting(
     cohort_labels_file: Path,
     benchmark_suite_id: str,
     benchmark_task_id: str,
-    task_contract: object,
     resolved_runner_output_dir: Path,
     resolved_output_dir: Path,
     resolved_generated_at: str,
@@ -3946,7 +4083,6 @@ def _materialize_track_b_reporting(
         cohort_labels=cohort_labels,
         benchmark_suite_id=benchmark_suite_id,
         benchmark_task_id=benchmark_task_id,
-        task_contract=task_contract,
         resolved_runner_output_dir=resolved_runner_output_dir,
         run_manifest_index=run_manifest_index,
         metrics_by_run_slice=metrics_by_run_slice,
@@ -3969,7 +4105,8 @@ def _materialize_track_b_reporting(
     error_analysis_files: list[str] = []
 
     baseline_index = {
-        baseline.baseline_id: baseline for baseline in task_contract.protocol.baselines
+        baseline.baseline_id: baseline
+        for baseline in TRACK_B_BENCHMARK_PROTOCOL.baselines
     }
 
     for run_id, validated_run in sorted(
@@ -4032,6 +4169,11 @@ def _materialize_track_b_reporting(
             baseline_id=run_manifest.baseline_id,
             run_parameterization=validated_run.validated_parameterization,
         )
+        public_input_artifacts = _materialize_track_b_public_input_artifacts(
+            output_dir=resolved_output_dir,
+            public_id=public_run_id,
+            evaluation_input_artifacts=validated_bundle.evaluation_input_artifacts,
+        )
         public_run_manifest_path = _track_b_public_bundle_destination(
             output_dir=resolved_output_dir,
             public_id=public_run_id,
@@ -4042,7 +4184,7 @@ def _materialize_track_b_reporting(
             run_id=public_run_id,
             code_version=TRACK_B_PUBLIC_CODE_VERSION,
             input_artifacts=_rebase_artifact_references(
-                validated_bundle.evaluation_input_artifacts,
+                public_input_artifacts,
                 destination_anchor_path=public_run_manifest_path,
             ),
             started_at=TRACK_B_PUBLIC_STARTED_AT,
@@ -4218,7 +4360,7 @@ def _materialize_track_b_reporting(
             ),
             source_snapshots=tuple(getattr(manifest, "source_snapshots")),
             evaluation_input_artifacts=_rebase_artifact_references(
-                validated_bundle.evaluation_input_artifacts,
+                public_input_artifacts,
                 destination_anchor_path=report_card_path,
             ),
             derived_from_artifacts=tuple(derived_from_artifacts),
@@ -4464,20 +4606,30 @@ def materialize_benchmark_reporting(
     resolved_runner_output_dir = runner_output_dir.resolve()
     resolved_output_dir = output_dir.resolve()
     resolved_generated_at = generated_at or _utc_now()
-    task_registry_path = _task_registry_path_from_manifest(manifest)
-    task_contract = resolve_benchmark_task_contract(
-        benchmark_task_id=manifest.benchmark_task_id or None,
-        benchmark_question_id=manifest.benchmark_question_id,
-        benchmark_suite_id=manifest.benchmark_suite_id or None,
-        entity_types=manifest.entity_types,
-        baseline_ids=manifest.baseline_ids,
-        task_registry_path=task_registry_path,
-    )
-    benchmark_suite_id = manifest.benchmark_suite_id or task_contract.suite_id
-    benchmark_task_id = manifest.benchmark_task_id or task_contract.task_id
-    baseline_index = {
-        baseline.baseline_id: baseline for baseline in task_contract.protocol.baselines
-    }
+    if _manifest_uses_track_b_protocol(manifest):
+        benchmark_suite_id, benchmark_task_id = _require_track_b_manifest_task_identity(
+            manifest
+        )
+        baseline_index = {
+            baseline.baseline_id: baseline
+            for baseline in TRACK_B_BENCHMARK_PROTOCOL.baselines
+        }
+    else:
+        task_registry_path = _task_registry_path_from_manifest(manifest)
+        task_contract = resolve_benchmark_task_contract(
+            benchmark_task_id=manifest.benchmark_task_id or None,
+            benchmark_question_id=manifest.benchmark_question_id,
+            benchmark_suite_id=manifest.benchmark_suite_id or None,
+            entity_types=manifest.entity_types,
+            baseline_ids=manifest.baseline_ids,
+            task_registry_path=task_registry_path,
+        )
+        benchmark_suite_id = manifest.benchmark_suite_id or task_contract.suite_id
+        benchmark_task_id = manifest.benchmark_task_id or task_contract.task_id
+        baseline_index = {
+            baseline.baseline_id: baseline
+            for baseline in task_contract.protocol.baselines
+        }
 
     for label in cohort_labels:
         if label.snapshot_id != manifest.snapshot_id:
@@ -4573,7 +4725,6 @@ def materialize_benchmark_reporting(
             cohort_labels_file=cohort_labels_file.resolve(),
             benchmark_suite_id=benchmark_suite_id,
             benchmark_task_id=benchmark_task_id,
-            task_contract=task_contract,
             resolved_runner_output_dir=resolved_runner_output_dir,
             resolved_output_dir=resolved_output_dir,
             resolved_generated_at=resolved_generated_at,

@@ -78,6 +78,11 @@ The strict no-fallback archive rule remains unchanged.
 - public Track B report cards, leaderboards, and case reviews are now derived
   from one validated reporting bundle, not a mix of unchecked manifest
   provenance and independently trusted sidecars
+- public Track B validation is now fully fail-closed on owned inputs:
+  pinned `evaluation_input_artifacts` are copied into
+  `validated_track_b_runner_bundle/<track_b_public_id>/inputs/<basename>`,
+  nested public paths must still resolve inside `public_payloads`, and
+  revalidation does not reopen ambient sibling files beside the casebook
 - the public-slice catalog remains focused on Track A intervention-object replay
 - Track B case review outputs are reproducible from frozen runner sidecars
 
@@ -104,8 +109,11 @@ The strict no-fallback archive rule remains unchanged.
   `evaluation_input_artifacts`, and `derived_from_artifacts` `sha256` / `notes`
   against trusted files, rebuild expected Track B case outputs from the pinned
   casebook plus dataset instead of trusting self-consistent public bundles,
-  require leaderboards to reference the complete expected baseline set, enforce
-  relative-only public paths, and fail closed on duplicate input-artifact names
+  require leaderboards to reference the complete expected baseline set from the
+  frozen Track B protocol rather than a mutable registry path, enforce public
+  path containment after normalization and resolution, fail closed on duplicate
+  input-artifact names, and harden shared artifact/protocol/runtime readers plus
+  observatory packet loaders against malformed JSON types
 
 ## Affected Specs
 

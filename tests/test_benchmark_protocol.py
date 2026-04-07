@@ -16,7 +16,10 @@ from scz_target_engine.benchmark_protocol import (
     SOURCE_RELEASE_CUTOFF,
     TRACK_B_BENCHMARK_PROTOCOL,
     ArtifactField,
+    ArtifactSchema,
+    BenchmarkProtocol,
     BenchmarkSnapshotManifest,
+    SourceCutoffRule,
     BaselineDefinition,
     SourceSnapshot,
 )
@@ -335,6 +338,58 @@ def test_artifact_field_from_dict_rejects_non_boolean_required() -> None:
                 "description": "forged",
             }
         )
+
+
+def test_artifact_schema_from_dict_rejects_required_fields_marked_optional() -> None:
+    payload = {
+        "artifact_name": "benchmark_metric_output_payload",
+        "schema_version": "v1",
+        "file_format": "json",
+        "description": "fixture",
+        "key_fields": ["run_id"],
+        "required_fields": [
+            {
+                "name": "run_id",
+                "field_type": "string",
+                "required": False,
+                "description": "fixture",
+            }
+        ],
+        "optional_fields": [],
+    }
+
+    with pytest.raises(
+        ValueError,
+        match=r"required_fields\[0\]\.required must be true",
+    ):
+        ArtifactSchema.from_dict(payload)
+
+
+def test_source_cutoff_rule_from_dict_rejects_non_string_fields() -> None:
+    payload = SOURCE_CUTOFF_RULES_V1[0].to_dict()
+    payload["source_name"] = False
+
+    with pytest.raises(ValueError, match="source_name must be a string"):
+        SourceCutoffRule.from_dict(payload)
+
+
+def test_baseline_definition_from_dict_rejects_non_list_required_inputs() -> None:
+    payload = TRACK_B_BENCHMARK_PROTOCOL.baselines[0].to_dict()
+    payload["required_inputs"] = True
+
+    with pytest.raises(ValueError, match="required_inputs must be a JSON array"):
+        BaselineDefinition.from_dict(payload)
+
+
+def test_benchmark_protocol_from_dict_rejects_non_list_source_rules() -> None:
+    payload = TRACK_B_BENCHMARK_PROTOCOL.to_dict()
+    payload["source_cutoff_rules"] = "not-a-list"
+
+    with pytest.raises(
+        ValueError,
+        match="source_cutoff_rules must be a JSON array",
+    ):
+        BenchmarkProtocol.from_dict(payload)
 
 
 def test_snapshot_allows_post_cutoff_materialization_from_precutoff_archive() -> None:

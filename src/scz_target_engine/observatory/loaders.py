@@ -80,7 +80,7 @@ def load_public_slice_catalog(
         return None
     payload = _require_mapping(read_json(resolved), "public slice catalog")
     slices: list[PublicSliceSummary] = []
-    for index, entry_value in enumerate(_require_list(payload.get("slices", []), "slices")):
+    for index, entry_value in enumerate(_require_list(payload.get("slices"), "slices")):
         entry = _require_mapping(entry_value, f"slices[{index}]")
         excluded_names = tuple(
             _require_text(
@@ -91,7 +91,7 @@ def load_public_slice_catalog(
             )
             for exc_index, exc in enumerate(
                 _require_list(
-                    entry.get("excluded_sources", []),
+                    entry.get("excluded_sources"),
                     f"slices[{index}].excluded_sources",
                 )
             )
@@ -103,7 +103,7 @@ def load_public_slice_catalog(
             )
             for source_index, source_name in enumerate(
                 _require_list(
-                    entry.get("included_sources", []),
+                    entry.get("included_sources"),
                     f"slices[{index}].included_sources",
                 )
             )

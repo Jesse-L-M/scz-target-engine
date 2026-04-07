@@ -118,6 +118,10 @@ class BenchmarkMetricOutputPayload:
         metric_unit = payload.get("metric_unit")
         if metric_unit is None:
             raise ValueError(f"{METRIC_PAYLOAD_SCHEMA_NAME} metric_unit is required")
+        if not isinstance(metric_unit, str) or not metric_unit.strip():
+            raise ValueError(
+                f"{METRIC_PAYLOAD_SCHEMA_NAME} metric_unit must be a non-empty string"
+            )
         return cls(
             schema_name=str(payload["schema_name"]),
             schema_version=str(payload["schema_version"]),
@@ -128,7 +132,7 @@ class BenchmarkMetricOutputPayload:
             horizon=str(payload["horizon"]),
             metric_name=str(payload["metric_name"]),
             metric_value=float(payload["metric_value"]),
-            metric_unit=str(metric_unit),
+            metric_unit=metric_unit,
             cohort_size=int(payload["cohort_size"]),
             notes=str(payload.get("notes", "")),
         )

@@ -121,6 +121,65 @@ def test_benchmark_schema_registrations_match_frozen_protocol_contract() -> None
         )
 
 
+def test_load_artifact_rejects_schema_with_string_required_flag(
+    tmp_path: Path,
+) -> None:
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    schema_path = schema_dir / "benchmark_snapshot_manifest.json"
+    _write_schema_file(
+        schema_path,
+        artifact_name="benchmark_snapshot_manifest",
+    )
+    payload = json.loads(schema_path.read_text(encoding="utf-8"))
+    payload["required_fields"][0]["required"] = "false"
+    schema_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="required must be an explicit boolean"):
+        load_artifact(
+            tmp_path / "unused.json",
+            artifact_name="benchmark_snapshot_manifest",
+            schema_dir=schema_dir,
+        )
+
+
+def test_load_artifact_rejects_non_string_metric_unit(tmp_path: Path) -> None:
+    metric_path = tmp_path / "metric.json"
+    metric_path.write_text(
+        json.dumps(
+            {
+                "schema_name": "benchmark_metric_output_payload",
+                "schema_version": "v1",
+                "run_id": "fixture_run",
+                "snapshot_id": "fixture_snapshot",
+                "baseline_id": "v0_current",
+                "entity_type": "gene",
+                "horizon": "3y",
+                "metric_name": "average_precision_any_positive_outcome",
+                "metric_value": 0.75,
+                "metric_unit": False,
+                "cohort_size": 4,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark_metric_output_payload metric_unit must be a non-empty string",
+    ):
+        load_artifact(
+            metric_path,
+            artifact_name="benchmark_metric_output_payload",
+        )
+
+
 def test_example_build_artifacts_validate_against_registered_schemas(
     tmp_path: Path,
 ) -> None:

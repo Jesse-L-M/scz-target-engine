@@ -105,6 +105,63 @@ def test_load_public_slice_catalog_rejects_missing_excluded_source_name(
         load_public_slice_catalog(catalog_path=catalog_path)
 
 
+@pytest.mark.parametrize(
+    ("payload", "error_fragment"),
+    (
+        (
+            {
+                "benchmark_suite_id": "scz_translational_suite",
+                "benchmark_task_id": "scz_translational_task",
+            },
+            "slices must be a JSON array",
+        ),
+        (
+            {
+                "benchmark_suite_id": "scz_translational_suite",
+                "benchmark_task_id": "scz_translational_task",
+                "slices": [
+                    {
+                        "slice_id": "slice_1",
+                        "as_of_date": "2024-06-15",
+                        "excluded_sources": [],
+                        "slice_dir": "data/benchmark/public_slices/slice_1",
+                    }
+                ],
+            },
+            "slices\\[0\\]\\.included_sources must be a JSON array",
+        ),
+        (
+            {
+                "benchmark_suite_id": "scz_translational_suite",
+                "benchmark_task_id": "scz_translational_task",
+                "slices": [
+                    {
+                        "slice_id": "slice_1",
+                        "as_of_date": "2024-06-15",
+                        "included_sources": ["PGC"],
+                        "slice_dir": "data/benchmark/public_slices/slice_1",
+                    }
+                ],
+            },
+            "slices\\[0\\]\\.excluded_sources must be a JSON array",
+        ),
+    ),
+)
+def test_load_public_slice_catalog_rejects_missing_required_arrays(
+    tmp_path: Path,
+    payload: dict[str, object],
+    error_fragment: str,
+) -> None:
+    catalog_path = tmp_path / "catalog.json"
+    catalog_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        load_public_slice_catalog(catalog_path=catalog_path)
+
+
 def test_discover_generated_payloads_empty_dir(tmp_path: Path) -> None:
     index = discover_generated_payloads(generated_dir=tmp_path)
     assert index.report_card_files == ()

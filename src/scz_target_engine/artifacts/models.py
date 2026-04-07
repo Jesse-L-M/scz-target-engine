@@ -11,6 +11,12 @@ def _require_text(value: str, field_name: str) -> str:
     return value
 
 
+def _require_explicit_bool(value: object, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an explicit boolean")
+    return value
+
+
 def _require_non_empty_tuple(values: tuple[str, ...], field_name: str) -> None:
     if not values:
         raise ValueError(f"{field_name} must contain at least one value")
@@ -57,7 +63,7 @@ class ArtifactFieldDefinition:
         return cls(
             name=str(payload["name"]),
             field_type=str(payload["field_type"]),
-            required=bool(payload["required"]),
+            required=_require_explicit_bool(payload["required"], "required"),
             description=str(payload["description"]),
         )
 

@@ -23,10 +23,14 @@ from scz_target_engine.benchmark_leaderboard import (
     read_benchmark_report_card_payload,
 )
 from scz_target_engine.benchmark_metrics import RETRIEVAL_METRIC_NAMES
-from scz_target_engine.benchmark_metrics import read_benchmark_metric_output_payload
+from scz_target_engine.benchmark_metrics import (
+    read_benchmark_confidence_interval_payload,
+    read_benchmark_metric_output_payload,
+)
 from scz_target_engine.benchmark_runner import (
     build_track_b_run_id,
     materialize_benchmark_run,
+    read_benchmark_model_run_manifest,
 )
 from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
@@ -36,6 +40,7 @@ from scz_target_engine.benchmark_track_b import (
     TRACK_B_RUN_PARAMETERIZATION_FIELDS,
     estimate_track_b_metric_intervals,
     read_track_b_case_output_payload,
+    read_track_b_confusion_summary,
     track_b_case_output_path,
 )
 from tests.benchmark_test_support import write_intervention_object_slice_fixture
@@ -1469,6 +1474,55 @@ def test_read_track_b_report_card_rejects_tampered_public_metric_unit(
         read_benchmark_report_card_payload(report_card_path)
 
 
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
+            lambda metric: metric.__setitem__(
+                "metric_value",
+                float(metric["metric_value"]) + 0.123456,
+            ),
+            "Track B public report card metric_value does not match the materialized public runner bundle",
+        ),
+        (
+            lambda metric: metric.__setitem__(
+                "interval_low",
+                float(metric["interval_low"]) - 0.000001,
+            ),
+            "Track B public report card interval_low does not match the materialized public runner bundle",
+        ),
+        (
+            lambda metric: metric.__setitem__(
+                "interval_high",
+                float(metric["interval_high"]) + 0.000001,
+            ),
+            "Track B public report card interval_high does not match the materialized public runner bundle",
+        ),
+    ),
+)
+def test_read_track_b_report_card_rejects_tampered_headline_metrics(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    mutator(payload["slices"][0]["metrics"][0])
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_report_card_payload(report_card_path)
+
+
 def test_materialize_benchmark_reporting_materializes_track_b_public_runner_bundle(
     tmp_path: Path,
 ) -> None:
@@ -1486,6 +1540,91 @@ def test_materialize_benchmark_reporting_materializes_track_b_public_runner_bund
         materialized_path = reporting_output_dir / artifact.artifact_path
         assert materialized_path.exists()
         assert sha256(materialized_path.read_bytes()).hexdigest() == artifact.sha256
+
+
+def test_materialize_track_b_public_bundle_rewrites_runner_contract(
+    tmp_path: Path,
+) -> None:
+    forged_code_version = "forged-track-b-code-version"
+    (
+        _,
+        _,
+        runner_output_dir,
+        reporting_output_dir,
+        reporting_result,
+    ) = _materialize_track_b_public_payloads(
+        tmp_path,
+        code_version=forged_code_version,
+    )
+
+    internal_run_id = _track_b_run_id_by_baseline(runner_output_dir)[
+        "track_b_structural_current"
+    ]
+    report_card = next(
+        read_benchmark_report_card_payload(Path(path))
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    run_manifest_path = next(
+        reporting_output_dir / artifact.artifact_path
+        for artifact in report_card.derived_from_artifacts
+        if artifact.artifact_name == "benchmark_model_run_manifest"
+    )
+    public_run_manifest = read_benchmark_model_run_manifest(run_manifest_path)
+
+    assert public_run_manifest.run_id == report_card.report_card_id
+    assert public_run_manifest.run_id != internal_run_id
+    assert public_run_manifest.code_version == TRACK_B_PUBLIC_CODE_VERSION
+    assert public_run_manifest.code_version != forged_code_version
+    assert public_run_manifest.started_at == TRACK_B_PUBLIC_STARTED_AT
+    assert public_run_manifest.completed_at == TRACK_B_PUBLIC_COMPLETED_AT
+    assert public_run_manifest.notes == TRACK_B_PUBLIC_RUN_NOTES
+    assert all(
+        not Path(artifact.artifact_path).is_absolute()
+        for artifact in public_run_manifest.input_artifacts
+    )
+    assert str(tmp_path) not in run_manifest_path.read_text(encoding="utf-8")
+
+    metric_payload_path = next(
+        reporting_output_dir / artifact.artifact_path
+        for artifact in report_card.derived_from_artifacts
+        if artifact.artifact_name == "benchmark_metric_output_payload"
+    )
+    public_metric_payload = read_benchmark_metric_output_payload(metric_payload_path)
+    assert public_metric_payload.run_id == report_card.report_card_id
+
+    interval_payload_path = next(
+        reporting_output_dir / artifact.artifact_path
+        for artifact in report_card.derived_from_artifacts
+        if artifact.artifact_name == "benchmark_confidence_interval_payload"
+    )
+    public_interval_payload = read_benchmark_confidence_interval_payload(
+        interval_payload_path
+    )
+    assert public_interval_payload.run_id == report_card.report_card_id
+
+    case_output_path = next(
+        reporting_output_dir / artifact.artifact_path
+        for artifact in report_card.derived_from_artifacts
+        if artifact.artifact_name == "track_b_case_output_payload"
+    )
+    public_case_output = read_track_b_case_output_payload(case_output_path)
+    assert public_case_output.run_id == report_card.report_card_id
+
+    confusion_summary_path = next(
+        reporting_output_dir / artifact.artifact_path
+        for artifact in report_card.derived_from_artifacts
+        if artifact.artifact_name == "track_b_confusion_summary"
+    )
+    public_confusion_summary = read_track_b_confusion_summary(confusion_summary_path)
+    assert public_confusion_summary.run_id == report_card.report_card_id
+
+    for artifact in report_card.derived_from_artifacts:
+        payload_text = (reporting_output_dir / artifact.artifact_path).read_text(
+            encoding="utf-8"
+        )
+        assert internal_run_id not in payload_text
+        assert forged_code_version not in payload_text
 
 
 @pytest.mark.parametrize(
@@ -1593,6 +1732,83 @@ def test_read_track_b_leaderboard_rejects_tampered_public_schema_identity(
     )
 
     with pytest.raises(ValueError, match=r"schema_(name|version) must be"):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
+            lambda payload: payload["entries"][0].__setitem__(
+                "metric_value",
+                float(payload["entries"][0]["metric_value"]) + 0.25,
+            ),
+            "Track B public leaderboard entries do not match the referenced public report cards",
+        ),
+        (
+            lambda payload: payload["entries"][0].__setitem__("rank", 99),
+            "Track B public leaderboard entries do not match the referenced public report cards",
+        ),
+        (
+            lambda payload: payload["entries"][0].__setitem__(
+                "positive_entity_count",
+                int(payload["entries"][0]["positive_entity_count"]) + 1,
+            ),
+            "Track B public leaderboard entries do not match the referenced public report cards",
+        ),
+    ),
+)
+def test_read_track_b_leaderboard_rejects_tampered_entry_values_ranks_and_counts(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    mutator(payload)
+    leaderboard_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+def test_read_track_b_leaderboard_rejects_nonexistent_report_card_path(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    missing_report_card_id = "track_b_public__missing_report_card"
+    missing_report_card_path = str(
+        Path(payload["report_card_files"][0]).with_name(f"{missing_report_card_id}.json")
+    )
+    payload["report_card_files"][0] = missing_report_card_path
+    payload["entries"][0]["report_card_id"] = missing_report_card_id
+    payload["entries"][0]["run_id"] = missing_report_card_id
+    payload["entries"][0]["report_card_path"] = missing_report_card_path
+    leaderboard_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B public leaderboard report_card_path does not exist",
+    ):
         read_benchmark_leaderboard_payload(leaderboard_path)
 
 

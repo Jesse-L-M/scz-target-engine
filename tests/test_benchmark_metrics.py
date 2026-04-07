@@ -221,3 +221,35 @@ def test_metric_payload_helpers_require_metric_unit(tmp_path: Path) -> None:
         match="benchmark_metric_output_payload metric_unit is required",
     ):
         read_benchmark_metric_output_payload(metric_path)
+
+
+def test_metric_payload_helpers_reject_non_string_metric_unit(tmp_path: Path) -> None:
+    metric_path = tmp_path / "metric.json"
+    metric_path.write_text(
+        json.dumps(
+            {
+                "schema_name": "benchmark_metric_output_payload",
+                "schema_version": "v1",
+                "run_id": "fixture_run",
+                "snapshot_id": "fixture_snapshot",
+                "baseline_id": "v0_current",
+                "entity_type": "gene",
+                "horizon": "3y",
+                "metric_name": "average_precision_any_positive_outcome",
+                "metric_value": 0.75,
+                "metric_unit": False,
+                "cohort_size": 4,
+                "notes": "fixture metric payload",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark_metric_output_payload metric_unit must be a non-empty string",
+    ):
+        read_benchmark_metric_output_payload(metric_path)

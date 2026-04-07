@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -27,6 +28,8 @@ from scz_target_engine.benchmark_metrics import (
     build_positive_relevance_index,
     read_benchmark_confidence_interval_payload,
     read_benchmark_metric_output_payload,
+    write_benchmark_confidence_interval_payload,
+    write_benchmark_metric_output_payload,
 )
 from scz_target_engine.benchmark_protocol import (
     SourceSnapshot,
@@ -38,6 +41,7 @@ from scz_target_engine.benchmark_runner import (
     build_track_b_run_id,
     derive_track_b_slice_random_seed,
     read_benchmark_model_run_manifest,
+    write_benchmark_model_run_manifest,
 )
 from scz_target_engine.benchmark_snapshots import (
     load_source_archive_descriptors,
@@ -67,6 +71,8 @@ from scz_target_engine.benchmark_track_b import (
     track_b_confusion_summary_path,
     validate_track_b_case_output_payload,
     validate_track_b_case_output_payload_against_expected_cases,
+    write_track_b_case_output_payload,
+    write_track_b_confusion_summary,
 )
 from scz_target_engine.io import read_json, write_json
 
@@ -131,6 +137,12 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _relative_path(from_dir: Path, to_path: Path) -> str:
+    return Path(
+        os.path.relpath(to_path.resolve(), start=from_dir.resolve())
+    ).as_posix()
 
 
 def _index_artifacts_by_name(
@@ -362,6 +374,36 @@ def _sort_artifact_references(
     )
 
 
+def _rebase_artifact_references(
+    artifacts: tuple[InputArtifactReference, ...],
+    *,
+    destination_anchor_path: Path,
+    source_anchor_path: Path | None = None,
+) -> tuple[InputArtifactReference, ...]:
+    rebased: list[InputArtifactReference] = []
+    destination_dir = destination_anchor_path.resolve().parent
+    for artifact in artifacts:
+        if source_anchor_path is None:
+            resolved_source_path = Path(artifact.artifact_path).resolve()
+        else:
+            resolved_source_path = _resolve_report_card_reference_path(
+                artifact.artifact_path,
+                anchor_path=source_anchor_path,
+            )
+        rebased.append(
+            InputArtifactReference(
+                artifact_name=artifact.artifact_name,
+                artifact_path=_relative_path(destination_dir, resolved_source_path),
+                sha256=artifact.sha256,
+                schema_name=artifact.schema_name,
+                source_name=artifact.source_name,
+                source_version=artifact.source_version,
+                notes=artifact.notes,
+            )
+        )
+    return tuple(rebased)
+
+
 def _reporting_output_root_from_payload_path(
     path: Path,
     *,
@@ -387,11 +429,10 @@ def _resolve_report_card_reference_path(
     return (anchor_path.parent / path).resolve()
 
 
-def _materialize_track_b_public_bundle_file(
+def _track_b_public_bundle_destination(
     *,
     output_dir: Path,
     public_id: str,
-    source_path: Path,
     artifact_name: str,
     metric_name: str | None = None,
 ) -> Path:
@@ -401,8 +442,39 @@ def _materialize_track_b_public_bundle_file(
         metric_name=metric_name,
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source_path.resolve(), destination)
     return destination
+
+
+def _write_track_b_public_bundle_payload(
+    destination: Path,
+    *,
+    artifact_name: str,
+    payload: object,
+) -> None:
+    if artifact_name == "benchmark_model_run_manifest":
+        if not isinstance(payload, BenchmarkModelRunManifest):
+            raise TypeError("public Track B run manifest payload must be a run manifest")
+        write_benchmark_model_run_manifest(destination, payload)
+        return
+    if artifact_name == "benchmark_metric_output_payload":
+        if not isinstance(payload, BenchmarkMetricOutputPayload):
+            raise TypeError("public Track B metric payload must be a metric payload")
+        write_benchmark_metric_output_payload(destination, payload)
+        return
+    if artifact_name == "benchmark_confidence_interval_payload":
+        if not isinstance(payload, BenchmarkConfidenceIntervalPayload):
+            raise TypeError(
+                "public Track B confidence interval payload must be an interval payload"
+            )
+        write_benchmark_confidence_interval_payload(destination, payload)
+        return
+    if artifact_name == "track_b_case_output_payload":
+        write_track_b_case_output_payload(destination, payload)
+        return
+    if artifact_name == "track_b_confusion_summary":
+        write_track_b_confusion_summary(destination, payload)
+        return
+    raise ValueError(f"unsupported Track B public derived artifact {artifact_name}")
 
 
 def _clear_track_b_public_bundle_outputs(
@@ -613,6 +685,570 @@ class _ValidatedTrackBReportingBundle:
     included_coverage_count: int
     replay_supported_case_count: int
     validated_runs_by_run_id: dict[str, _ValidatedTrackBRunBundle]
+
+
+def _validate_track_b_public_run_manifest(
+    *,
+    bundle_manifest_path: Path,
+    report_card_path: Path,
+    report_card: BenchmarkReportCardPayload,
+) -> BenchmarkModelRunManifest:
+    public_run_manifest = read_benchmark_model_run_manifest(bundle_manifest_path)
+    if public_run_manifest.run_id != report_card.report_card_id:
+        raise ValueError(
+            "Track B public runner bundle run_manifest run_id does not match the "
+            "public report_card_id"
+        )
+    if public_run_manifest.snapshot_id != report_card.snapshot_id:
+        raise ValueError(
+            "Track B public runner bundle run_manifest snapshot_id does not match "
+            "the public report card"
+        )
+    if public_run_manifest.baseline_id != report_card.baseline_id:
+        raise ValueError(
+            "Track B public runner bundle run_manifest baseline_id does not match "
+            "the public report card"
+        )
+    if public_run_manifest.model_family != report_card.model_family:
+        raise ValueError(
+            "Track B public runner bundle run_manifest model_family does not match "
+            "the public report card"
+        )
+    if public_run_manifest.benchmark_suite_id != report_card.benchmark_suite_id:
+        raise ValueError(
+            "Track B public runner bundle run_manifest benchmark_suite_id does not "
+            "match the public report card"
+        )
+    if public_run_manifest.benchmark_task_id != report_card.benchmark_task_id:
+        raise ValueError(
+            "Track B public runner bundle run_manifest benchmark_task_id does not "
+            "match the public report card"
+        )
+    if public_run_manifest.code_version != TRACK_B_PUBLIC_CODE_VERSION:
+        raise ValueError(
+            "Track B public runner bundle run_manifest code_version must be "
+            f"{TRACK_B_PUBLIC_CODE_VERSION}"
+        )
+    if public_run_manifest.started_at != TRACK_B_PUBLIC_STARTED_AT:
+        raise ValueError(
+            "Track B public runner bundle run_manifest started_at must be "
+            f"{TRACK_B_PUBLIC_STARTED_AT}"
+        )
+    if public_run_manifest.completed_at != TRACK_B_PUBLIC_COMPLETED_AT:
+        raise ValueError(
+            "Track B public runner bundle run_manifest completed_at must be "
+            f"{TRACK_B_PUBLIC_COMPLETED_AT}"
+        )
+    if public_run_manifest.notes != TRACK_B_PUBLIC_RUN_NOTES:
+        raise ValueError(
+            "Track B public runner bundle run_manifest notes must be "
+            f"{TRACK_B_PUBLIC_RUN_NOTES}"
+        )
+    if public_run_manifest.parameterization != report_card.run_parameterization:
+        raise ValueError(
+            "Track B public runner bundle run_manifest parameterization does not "
+            "match the public report card"
+        )
+    expected_input_artifacts = _rebase_artifact_references(
+        report_card.evaluation_input_artifacts,
+        destination_anchor_path=bundle_manifest_path,
+        source_anchor_path=report_card_path,
+    )
+    if _sort_artifact_references(public_run_manifest.input_artifacts) != (
+        _sort_artifact_references(expected_input_artifacts)
+    ):
+        raise ValueError(
+            "Track B public runner bundle run_manifest input_artifacts do not match "
+            "the public evaluation_input_artifacts contract"
+        )
+    return public_run_manifest
+
+
+def _validate_track_b_public_report_card_bundle(
+    *,
+    report_card_path: Path,
+    report_card: BenchmarkReportCardPayload,
+) -> None:
+    output_root = _reporting_output_root_from_payload_path(
+        report_card_path,
+        anchor_dir_name="report_cards",
+    )
+    validated_parameterization = _validate_track_b_public_parameterization(
+        report_card.run_parameterization,
+        benchmark_question_id=report_card.benchmark_question_id,
+        baseline_id=report_card.baseline_id,
+        run_id=report_card.run_id,
+        context="Track B public report card",
+    )
+    bundle_manifest_path = output_root / _build_track_b_public_derived_artifact_path(
+        report_card.report_card_id,
+        artifact_name="benchmark_model_run_manifest",
+    )
+    _validate_track_b_public_run_manifest(
+        bundle_manifest_path=bundle_manifest_path,
+        report_card_path=report_card_path,
+        report_card=report_card,
+    )
+
+    case_output_path = output_root / _build_track_b_public_derived_artifact_path(
+        report_card.report_card_id,
+        artifact_name="track_b_case_output_payload",
+    )
+    case_output_payload = read_track_b_case_output_payload(case_output_path)
+    if case_output_payload.run_id != report_card.report_card_id:
+        raise ValueError(
+            "Track B public runner bundle case output run_id does not match the "
+            "public report_card_id"
+        )
+    if case_output_payload.snapshot_id != report_card.snapshot_id:
+        raise ValueError(
+            "Track B public runner bundle case output snapshot_id does not match "
+            "the public report card"
+        )
+    if case_output_payload.baseline_id != report_card.baseline_id:
+        raise ValueError(
+            "Track B public runner bundle case output baseline_id does not match "
+            "the public report card"
+        )
+    validate_track_b_case_output_payload(
+        case_output_payload,
+        expected_as_of_date=report_card.as_of_date,
+    )
+
+    confusion_summary_path = output_root / _build_track_b_public_derived_artifact_path(
+        report_card.report_card_id,
+        artifact_name="track_b_confusion_summary",
+    )
+    confusion_summary = read_track_b_confusion_summary(confusion_summary_path)
+    expected_confusion_summary = build_track_b_confusion_summary(
+        run_id=report_card.report_card_id,
+        baseline_id=report_card.baseline_id,
+        snapshot_id=report_card.snapshot_id,
+        case_outputs=case_output_payload.cases,
+    )
+    if confusion_summary != expected_confusion_summary:
+        raise ValueError(
+            "Track B public runner bundle confusion summary does not match the "
+            "materialized public case outputs"
+        )
+
+    case_count = len(case_output_payload.cases)
+    included_coverage_count = sum(
+        1
+        for case_output in case_output_payload.cases
+        if case_output.coverage_state_at_cutoff == "included"
+    )
+    replay_supported_case_count = sum(
+        1
+        for case_output in case_output_payload.cases
+        if case_output.gold_replay_status == "replay_supported"
+    )
+    analog_evaluable_case_count = sum(
+        1 for case_output in case_output_payload.cases if case_output.analog_recall_at_3 is not None
+    )
+    expected_slice_notes = _build_track_b_slice_notes(
+        case_count=case_count,
+        included_coverage_count=included_coverage_count,
+        replay_supported_case_count=replay_supported_case_count,
+        analog_evaluable_case_count=analog_evaluable_case_count,
+        deterministic_test_mode=bool(validated_parameterization["deterministic_test_mode"]),
+    )
+    expected_metric_values = score_track_b_case_outputs(case_output_payload.cases)
+    expected_metric_cohort_sizes = track_b_metric_cohort_sizes(case_output_payload.cases)
+    slice_random_seed = derive_track_b_slice_random_seed(
+        base_random_seed=int(validated_parameterization["random_seed"]),
+        baseline_id=report_card.baseline_id,
+    )
+    expected_intervals = estimate_track_b_metric_intervals(
+        case_output_payload.cases,
+        iterations=int(validated_parameterization["bootstrap_iterations"]),
+        confidence_level=float(validated_parameterization["bootstrap_confidence_level"]),
+        random_seed=slice_random_seed,
+    )
+
+    slice_report = report_card.slices[0]
+    if slice_report.admissible_entity_count != case_count:
+        raise ValueError(
+            "Track B public report card admissible_entity_count does not match the "
+            "materialized public case outputs"
+        )
+    if slice_report.positive_entity_count != replay_supported_case_count:
+        raise ValueError(
+            "Track B public report card positive_entity_count does not match the "
+            "materialized public case outputs"
+        )
+    if slice_report.covered_entity_count != included_coverage_count:
+        raise ValueError(
+            "Track B public report card covered_entity_count does not match the "
+            "materialized public case outputs"
+        )
+    if slice_report.notes != expected_slice_notes:
+        raise ValueError(
+            "Track B public report card slice notes do not match the materialized "
+            "public case outputs"
+        )
+
+    metric_summary_index = {
+        metric_summary.metric_name: metric_summary for metric_summary in slice_report.metrics
+    }
+    if len(metric_summary_index) != len(slice_report.metrics):
+        raise ValueError(
+            "Track B public report card metric summaries must keep unique metric_name "
+            "entries"
+        )
+    if set(metric_summary_index) != set(TRACK_B_METRIC_NAMES):
+        raise ValueError(
+            "Track B public report card metric summaries do not match the Track B "
+            "public contract"
+        )
+    for metric_name in TRACK_B_METRIC_NAMES:
+        metric_payload_path = output_root / _build_track_b_public_derived_artifact_path(
+            report_card.report_card_id,
+            artifact_name="benchmark_metric_output_payload",
+            metric_name=metric_name,
+        )
+        metric_payload = read_benchmark_metric_output_payload(metric_payload_path)
+        if metric_payload.metric_name != metric_name:
+            raise ValueError(
+                "Track B public runner bundle metric payload file does not match its "
+                f"advertised metric_name for {metric_name}"
+            )
+        if metric_payload.run_id != report_card.report_card_id:
+            raise ValueError(
+                "Track B public runner bundle metric payload run_id does not match "
+                "the public report_card_id"
+            )
+        if metric_payload.snapshot_id != report_card.snapshot_id:
+            raise ValueError(
+                "Track B public runner bundle metric payload snapshot_id does not "
+                "match the public report card"
+            )
+        if metric_payload.baseline_id != report_card.baseline_id:
+            raise ValueError(
+                "Track B public runner bundle metric payload baseline_id does not "
+                "match the public report card"
+            )
+        if metric_payload.entity_type != TRACK_B_ENTITY_TYPE:
+            raise ValueError(
+                f"Track B public runner bundle metric payload entity_type must be {TRACK_B_ENTITY_TYPE}"
+            )
+        if metric_payload.horizon != TRACK_B_HORIZON:
+            raise ValueError(
+                f"Track B public runner bundle metric payload horizon must be {TRACK_B_HORIZON}"
+            )
+        expected_metric_unit = TRACK_B_METRIC_UNITS[metric_name]
+        if metric_payload.metric_unit != expected_metric_unit:
+            raise ValueError(
+                "Track B public runner bundle metric payload metric_unit does not "
+                f"match the Track B metric contract for {metric_name}"
+            )
+        if metric_payload.metric_value != expected_metric_values[metric_name]:
+            raise ValueError(
+                "Track B public runner bundle metric payload does not match the "
+                f"materialized public case outputs for {metric_name}"
+            )
+        if metric_payload.cohort_size != expected_metric_cohort_sizes[metric_name]:
+            raise ValueError(
+                "Track B public runner bundle metric payload cohort_size does not "
+                f"match the materialized public case outputs for {metric_name}"
+            )
+        if metric_payload.notes != expected_slice_notes:
+            raise ValueError(
+                "Track B public runner bundle metric payload notes do not match the "
+                f"materialized public case outputs for {metric_name}"
+            )
+
+        interval_payload_path = output_root / _build_track_b_public_derived_artifact_path(
+            report_card.report_card_id,
+            artifact_name="benchmark_confidence_interval_payload",
+            metric_name=metric_name,
+        )
+        interval_payload = read_benchmark_confidence_interval_payload(interval_payload_path)
+        if interval_payload.metric_name != metric_name:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload file does "
+                f"not match its advertised metric_name for {metric_name}"
+            )
+        if interval_payload.run_id != report_card.report_card_id:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload run_id does "
+                "not match the public report_card_id"
+            )
+        if interval_payload.snapshot_id != report_card.snapshot_id:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload snapshot_id "
+                "does not match the public report card"
+            )
+        if interval_payload.baseline_id != report_card.baseline_id:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload baseline_id "
+                "does not match the public report card"
+            )
+        if interval_payload.entity_type != TRACK_B_ENTITY_TYPE:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload entity_type "
+                f"must be {TRACK_B_ENTITY_TYPE}"
+            )
+        if interval_payload.horizon != TRACK_B_HORIZON:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload horizon "
+                f"must be {TRACK_B_HORIZON}"
+            )
+        if (
+            interval_payload.bootstrap_iterations
+            != int(validated_parameterization["bootstrap_iterations"])
+        ):
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload "
+                "bootstrap_iterations does not match the public report card "
+                "parameterization"
+            )
+        if (
+            interval_payload.confidence_level
+            != float(validated_parameterization["bootstrap_confidence_level"])
+        ):
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload "
+                "confidence_level does not match the public report card "
+                "parameterization"
+            )
+        if interval_payload.resample_unit != TRACK_B_BOOTSTRAP_RESAMPLE_UNIT:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload "
+                "resample_unit does not match the Track B metric contract"
+            )
+        if interval_payload.random_seed != slice_random_seed:
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload random_seed "
+                "does not match the public report card parameterization"
+            )
+        expected_point_estimate, expected_interval_low, expected_interval_high = (
+            expected_intervals[metric_name]
+        )
+        if (
+            interval_payload.point_estimate,
+            interval_payload.interval_low,
+            interval_payload.interval_high,
+        ) != (
+            expected_point_estimate,
+            expected_interval_low,
+            expected_interval_high,
+        ):
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload does not "
+                f"match the materialized public case outputs for {metric_name}"
+            )
+        if interval_payload.notes != (
+            f"method={BOOTSTRAP_INTERVAL_METHOD}; {expected_slice_notes}"
+        ):
+            raise ValueError(
+                "Track B public runner bundle confidence interval payload notes do "
+                f"not match the materialized public case outputs for {metric_name}"
+            )
+
+        metric_summary = metric_summary_index[metric_name]
+        if metric_summary.metric_value != expected_metric_values[metric_name]:
+            raise ValueError(
+                "Track B public report card metric_value does not match the "
+                f"materialized public runner bundle for {metric_name}"
+            )
+        if metric_summary.interval_low != expected_interval_low:
+            raise ValueError(
+                "Track B public report card interval_low does not match the "
+                f"materialized public runner bundle for {metric_name}"
+            )
+        if metric_summary.interval_high != expected_interval_high:
+            raise ValueError(
+                "Track B public report card interval_high does not match the "
+                f"materialized public runner bundle for {metric_name}"
+            )
+        if metric_summary.cohort_size != expected_metric_cohort_sizes[metric_name]:
+            raise ValueError(
+                "Track B public report card cohort_size does not match the "
+                f"materialized public runner bundle for {metric_name}"
+            )
+        if (
+            metric_summary.confidence_level,
+            metric_summary.bootstrap_iterations,
+            metric_summary.interval_method,
+            metric_summary.resample_unit,
+            metric_summary.random_seed,
+            metric_summary.notes,
+        ) != (
+            interval_payload.confidence_level,
+            interval_payload.bootstrap_iterations,
+            BOOTSTRAP_INTERVAL_METHOD,
+            interval_payload.resample_unit,
+            interval_payload.random_seed,
+            expected_slice_notes,
+        ):
+            raise ValueError(
+                "Track B public report card confidence metadata does not match the "
+                f"materialized public runner bundle for {metric_name}"
+            )
+
+
+def _validate_track_b_public_leaderboard_provenance(
+    path: Path,
+    leaderboard: BenchmarkLeaderboardPayload,
+) -> None:
+    report_card_records: list[
+        tuple[
+            str,
+            BenchmarkReportCardPayload,
+            BenchmarkReportCardSlice,
+            BenchmarkMetricSummary,
+        ]
+    ] = []
+    for report_card_path_text in leaderboard.report_card_files:
+        resolved_report_card_path = _resolve_report_card_reference_path(
+            report_card_path_text,
+            anchor_path=path,
+        )
+        if not resolved_report_card_path.exists():
+            raise ValueError(
+                "Track B public leaderboard report_card_path does not exist: "
+                f"{report_card_path_text}"
+            )
+        report_card = read_benchmark_report_card_payload(resolved_report_card_path)
+        if report_card.benchmark_suite_id != leaderboard.benchmark_suite_id:
+            raise ValueError(
+                "Track B public leaderboard report cards do not match the expected "
+                "benchmark_suite_id"
+            )
+        if report_card.benchmark_task_id != leaderboard.benchmark_task_id:
+            raise ValueError(
+                "Track B public leaderboard report cards do not match the expected "
+                "benchmark_task_id"
+            )
+        if report_card.benchmark_question_id != leaderboard.benchmark_question_id:
+            raise ValueError(
+                "Track B public leaderboard report cards do not match the expected "
+                "benchmark_question_id"
+            )
+        if report_card.snapshot_id != leaderboard.snapshot_id:
+            raise ValueError(
+                "Track B public leaderboard report cards do not match the expected "
+                "snapshot_id"
+            )
+        if report_card.cohort_id != leaderboard.cohort_id:
+            raise ValueError(
+                "Track B public leaderboard report cards do not match the expected "
+                "cohort_id"
+            )
+        if report_card.as_of_date != leaderboard.as_of_date:
+            raise ValueError(
+                "Track B public leaderboard report cards do not match the expected "
+                "as_of_date"
+            )
+        if (
+            report_card.outcome_observation_closed_at
+            != leaderboard.outcome_observation_closed_at
+        ):
+            raise ValueError(
+                "Track B public leaderboard report cards do not match the expected "
+                "outcome_observation_closed_at"
+            )
+        slice_report = next(
+            (
+                candidate
+                for candidate in report_card.slices
+                if candidate.entity_type == leaderboard.entity_type
+                and candidate.horizon == leaderboard.horizon
+            ),
+            None,
+        )
+        if slice_report is None:
+            raise ValueError(
+                "Track B public leaderboard referenced report card is missing the "
+                "expected slice"
+            )
+        metric_summary = next(
+            (
+                candidate
+                for candidate in slice_report.metrics
+                if candidate.metric_name == leaderboard.metric_name
+            ),
+            None,
+        )
+        if metric_summary is None:
+            raise ValueError(
+                "Track B public leaderboard referenced report card is missing the "
+                "expected metric summary"
+            )
+        report_card_records.append(
+            (
+                report_card_path_text,
+                report_card,
+                slice_report,
+                metric_summary,
+            )
+        )
+
+    sorted_report_card_records = sorted(
+        report_card_records,
+        key=lambda item: (
+            -item[3].metric_value,
+            item[1].baseline_id,
+            item[1].run_id,
+        ),
+    )
+    expected_report_card_files = tuple(item[0] for item in sorted_report_card_records)
+    if leaderboard.report_card_files != expected_report_card_files:
+        raise ValueError(
+            "Track B public leaderboard report_card_files do not match the "
+            "referenced public report cards"
+        )
+    expected_entries: list[BenchmarkLeaderboardEntry] = []
+    for rank, (
+        report_card_path_text,
+        report_card,
+        slice_report,
+        metric_summary,
+    ) in enumerate(sorted_report_card_records, start=1):
+        if (
+            metric_summary.metric_unit,
+            metric_summary.confidence_level,
+            metric_summary.bootstrap_iterations,
+            metric_summary.interval_method,
+            metric_summary.resample_unit,
+        ) != (
+            leaderboard.metric_unit,
+            leaderboard.confidence_level,
+            leaderboard.bootstrap_iterations,
+            leaderboard.interval_method,
+            leaderboard.resample_unit,
+        ):
+            raise ValueError(
+                "Track B public leaderboard summary metadata does not match the "
+                "referenced public report cards"
+            )
+        expected_entries.append(
+            BenchmarkLeaderboardEntry(
+                rank=rank,
+                report_card_id=report_card.report_card_id,
+                report_card_path=report_card_path_text,
+                run_id=report_card.run_id,
+                baseline_id=report_card.baseline_id,
+                baseline_label=report_card.baseline_label,
+                model_family=report_card.model_family,
+                code_version=report_card.code_version,
+                baseline_status=report_card.baseline_status,
+                metric_value=metric_summary.metric_value,
+                interval_low=metric_summary.interval_low,
+                interval_high=metric_summary.interval_high,
+                cohort_size=metric_summary.cohort_size,
+                admissible_entity_count=slice_report.admissible_entity_count,
+                positive_entity_count=slice_report.positive_entity_count,
+                covered_entity_count=slice_report.covered_entity_count,
+                notes=slice_report.notes,
+            )
+        )
+    if tuple(expected_entries) != leaderboard.entries:
+        raise ValueError(
+            "Track B public leaderboard entries do not match the referenced public "
+            "report cards"
+        )
 
 
 def _require_track_b_parameterization_mapping(
@@ -2304,6 +2940,10 @@ def _validate_track_b_public_report_card_provenance(
             "Track B public report card derived_from_artifacts do not match the "
             "materialized public runner bundle"
         )
+    _validate_track_b_public_report_card_bundle(
+        report_card_path=path,
+        report_card=report_card,
+    )
 
 
 def write_benchmark_leaderboard_payload(
@@ -2337,6 +2977,8 @@ def read_benchmark_leaderboard_payload(path: Path) -> BenchmarkLeaderboardPayloa
     payload = _require_json_mapping(path)
     leaderboard = BenchmarkLeaderboardPayload.from_dict(payload)
     _validate_leaderboard_file_path(path, leaderboard)
+    if is_track_b_task(leaderboard.benchmark_task_id):
+        _validate_track_b_public_leaderboard_provenance(path, leaderboard)
     return leaderboard
 
 
@@ -2887,13 +3529,8 @@ def _materialize_track_b_reporting(
         run_manifest = validated_run.run_manifest
         baseline = baseline_index[run_manifest.baseline_id]
         metric_summaries: list[BenchmarkMetricSummary] = []
-        metric_paths_for_run: list[Path] = []
-        interval_paths_for_run: list[Path] = []
         metric_intervals: dict[str, tuple[float, float, float]] = {}
         for metric_path, metric_payload in validated_run.metric_items:
-            interval_path = validated_run.interval_paths_by_metric[
-                metric_payload.metric_name
-            ]
             interval_payload = interval_index[
                 (
                     metric_payload.run_id,
@@ -2902,8 +3539,6 @@ def _materialize_track_b_reporting(
                     metric_payload.metric_name,
                 )
             ][1]
-            metric_paths_for_run.append(metric_path)
-            interval_paths_for_run.append(interval_path)
             point_estimate, interval_low, interval_high = validated_run.validated_intervals[
                 metric_payload.metric_name
             ]
@@ -2946,33 +3581,96 @@ def _materialize_track_b_reporting(
             baseline_id=run_manifest.baseline_id,
             run_parameterization=validated_run.validated_parameterization,
         )
-        _materialize_track_b_public_bundle_file(
+        public_run_manifest_path = _track_b_public_bundle_destination(
             output_dir=resolved_output_dir,
             public_id=public_run_id,
-            source_path=run_manifest_path,
             artifact_name="benchmark_model_run_manifest",
         )
-        for path in sorted(metric_paths_for_run):
-            _materialize_track_b_public_bundle_file(
+        public_run_manifest = replace(
+            run_manifest,
+            run_id=public_run_id,
+            code_version=TRACK_B_PUBLIC_CODE_VERSION,
+            input_artifacts=_rebase_artifact_references(
+                validated_bundle.evaluation_input_artifacts,
+                destination_anchor_path=public_run_manifest_path,
+            ),
+            started_at=TRACK_B_PUBLIC_STARTED_AT,
+            completed_at=TRACK_B_PUBLIC_COMPLETED_AT,
+            parameterization=validated_run.validated_parameterization,
+            notes=TRACK_B_PUBLIC_RUN_NOTES,
+        )
+        _write_track_b_public_bundle_payload(
+            public_run_manifest_path,
+            artifact_name="benchmark_model_run_manifest",
+            payload=public_run_manifest,
+        )
+        public_metric_paths: dict[str, Path] = {}
+        public_interval_paths: dict[str, Path] = {}
+        for metric_path, metric_payload in sorted(
+            validated_run.metric_items,
+            key=lambda item: item[1].metric_name,
+        ):
+            metric_name = metric_payload.metric_name
+            public_metric_path = _track_b_public_bundle_destination(
                 output_dir=resolved_output_dir,
                 public_id=public_run_id,
-                source_path=path,
                 artifact_name="benchmark_metric_output_payload",
-                metric_name=path.stem,
+                metric_name=metric_name,
             )
-        for path in sorted(interval_paths_for_run):
-            _materialize_track_b_public_bundle_file(
+            _write_track_b_public_bundle_payload(
+                public_metric_path,
+                artifact_name="benchmark_metric_output_payload",
+                payload=replace(metric_payload, run_id=public_run_id),
+            )
+            public_metric_paths[metric_name] = public_metric_path
+
+            interval_payload = interval_index[
+                (
+                    metric_payload.run_id,
+                    metric_payload.entity_type,
+                    metric_payload.horizon,
+                    metric_name,
+                )
+            ][1]
+            public_interval_path = _track_b_public_bundle_destination(
                 output_dir=resolved_output_dir,
                 public_id=public_run_id,
-                source_path=path,
                 artifact_name="benchmark_confidence_interval_payload",
-                metric_name=path.stem,
+                metric_name=metric_name,
             )
+            _write_track_b_public_bundle_payload(
+                public_interval_path,
+                artifact_name="benchmark_confidence_interval_payload",
+                payload=replace(interval_payload, run_id=public_run_id),
+            )
+            public_interval_paths[metric_name] = public_interval_path
 
+        case_output_payload = validated_run.case_output_payload
+        confusion_summary = validated_run.confusion_summary
+        public_case_output_path = _track_b_public_bundle_destination(
+            output_dir=resolved_output_dir,
+            public_id=public_run_id,
+            artifact_name="track_b_case_output_payload",
+        )
+        _write_track_b_public_bundle_payload(
+            public_case_output_path,
+            artifact_name="track_b_case_output_payload",
+            payload=replace(case_output_payload, run_id=public_run_id),
+        )
+        public_confusion_summary_path = _track_b_public_bundle_destination(
+            output_dir=resolved_output_dir,
+            public_id=public_run_id,
+            artifact_name="track_b_confusion_summary",
+        )
+        _write_track_b_public_bundle_payload(
+            public_confusion_summary_path,
+            artifact_name="track_b_confusion_summary",
+            payload=replace(confusion_summary, run_id=public_run_id),
+        )
         derived_from_artifacts = [
             _build_artifact_reference(
                 artifact_name="benchmark_model_run_manifest",
-                path=run_manifest_path,
+                path=public_run_manifest_path,
                 schema_name="benchmark_model_run_manifest",
                 notes=_track_b_public_derived_artifact_notes(
                     "benchmark_model_run_manifest"
@@ -2983,12 +3681,11 @@ def _materialize_track_b_reporting(
                 ),
             )
         ]
-        for path in sorted(metric_paths_for_run):
-            metric_name = path.stem
+        for metric_name, public_metric_path in sorted(public_metric_paths.items()):
             derived_from_artifacts.append(
                 _build_artifact_reference(
                     artifact_name="benchmark_metric_output_payload",
-                    path=path,
+                    path=public_metric_path,
                     schema_name="benchmark_metric_output_payload",
                     artifact_path_override=_build_track_b_public_derived_artifact_path(
                         public_run_id,
@@ -2997,12 +3694,11 @@ def _materialize_track_b_reporting(
                     ),
                 )
             )
-        for path in sorted(interval_paths_for_run):
-            metric_name = path.stem
+        for metric_name, public_interval_path in sorted(public_interval_paths.items()):
             derived_from_artifacts.append(
                 _build_artifact_reference(
                     artifact_name="benchmark_confidence_interval_payload",
-                    path=path,
+                    path=public_interval_path,
                     schema_name="benchmark_confidence_interval_payload",
                     artifact_path_override=_build_track_b_public_derived_artifact_path(
                         public_run_id,
@@ -3011,30 +3707,10 @@ def _materialize_track_b_reporting(
                     ),
                 )
             )
-        case_output_payload_path = track_b_case_output_path(
-            resolved_runner_output_dir,
-            run_id=run_id,
-        )
-        confusion_summary_path = track_b_confusion_summary_path(
-            resolved_runner_output_dir,
-            run_id=run_id,
-        )
-        _materialize_track_b_public_bundle_file(
-            output_dir=resolved_output_dir,
-            public_id=public_run_id,
-            source_path=case_output_payload_path,
-            artifact_name="track_b_case_output_payload",
-        )
-        _materialize_track_b_public_bundle_file(
-            output_dir=resolved_output_dir,
-            public_id=public_run_id,
-            source_path=confusion_summary_path,
-            artifact_name="track_b_confusion_summary",
-        )
         derived_from_artifacts.append(
             _build_artifact_reference(
                 artifact_name="track_b_case_output_payload",
-                path=case_output_payload_path,
+                path=public_case_output_path,
                 schema_name=TRACK_B_CASE_OUTPUT_SCHEMA_NAME,
                 notes=_track_b_public_derived_artifact_notes(
                     "track_b_case_output_payload"
@@ -3048,7 +3724,7 @@ def _materialize_track_b_reporting(
         derived_from_artifacts.append(
             _build_artifact_reference(
                 artifact_name="track_b_confusion_summary",
-                path=confusion_summary_path,
+                path=public_confusion_summary_path,
                 schema_name=TRACK_B_CONFUSION_SCHEMA_NAME,
                 notes=_track_b_public_derived_artifact_notes(
                     "track_b_confusion_summary"
@@ -3106,8 +3782,6 @@ def _materialize_track_b_reporting(
         report_card_records.append((report_card, report_card_path))
         report_card_files.append(str(report_card_path))
 
-        case_output_payload = validated_run.case_output_payload
-        confusion_summary = validated_run.confusion_summary
         error_analysis_path = _build_error_analysis_path(
             resolved_output_dir,
             benchmark_suite_id=benchmark_suite_id,

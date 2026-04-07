@@ -98,8 +98,11 @@ The strict no-fallback archive rule remains unchanged.
   `redacted_untrusted_runner_code_version`, redact self-attested runner
   timestamps and notes, keep runner `run_id` only as an internal
   bundle-consistency check, reject unexpected Track B parameterization keys,
-  require explicit metric units, and fail closed on duplicate input-artifact
-  names
+  require explicit metric units, materialize the advertised
+  `validated_track_b_runner_bundle/<track_b_public_id>/...` files, recompute
+  and validate public `leaderboard_id`, pin public `source_snapshots`,
+  `evaluation_input_artifacts`, and `derived_from_artifacts` `sha256` / `notes`
+  against trusted files, and fail closed on duplicate input-artifact names
 
 ## Affected Specs
 

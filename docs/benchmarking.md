@@ -252,9 +252,17 @@ public payloads:
   `started_at = redacted_untrusted_runner_started_at`,
   `completed_at = redacted_untrusted_runner_completed_at`, and
   `run_notes = redacted_untrusted_runner_notes`
+- public `derived_from_artifacts[].artifact_path` values use stable logical
+  paths rooted at `validated_track_b_runner_bundle/<track_b_public_id>/...`,
+  and reporting materializes that published tree exactly as advertised
 - public Track B readers fail closed on exact schema identity, the redacted
   Track B provenance contract, missing `run_parameterization`, and nested
   `SourceSnapshot.included` values that are missing or not literal booleans
+- those readers also reject forged `source_snapshots`, rebuilt
+  `evaluation_input_artifacts`, tampered `derived_from_artifacts.sha256`,
+  tampered `derived_from_artifacts.notes`, missing materialized public bundle
+  files, forged public `leaderboard_id`, and wrong per-metric public
+  `metric_unit`
 - interval provenance is bound to the run-manifest parameterization, including
   the deterministic per-baseline seed derived from the base seed plus
   `baseline_id` / `structural_replay`
@@ -360,7 +368,16 @@ uv run scz-target-engine build-benchmark-reporting \
 The reporting stage is intentionally downstream of the runner. It derives public-facing
 report cards and leaderboard payloads from `benchmark_model_run_manifest`,
 `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload` files,
-plus the supplied snapshot manifest and cohort labels. It does not rerun scoring logic.
+plus the supplied snapshot manifest and cohort labels.
+
+For Track A and generic ranking tasks, reporting remains a read-only join over
+the emitted runner artifacts. For Track B, reporting is stricter: it reloads the
+pinned snapshot/cohort bundle, recomputes structural metric values,
+confidence-interval summaries, and confusion outputs from the case-output sidecars,
+rebuilds public provenance from trusted inputs instead of `run_manifest.input_artifacts`,
+and materializes the advertised
+`validated_track_b_runner_bundle/<track_b_public_id>/...` files before it writes
+public payloads.
 
 Supporting operator inputs:
 
@@ -451,7 +468,12 @@ What each generated artifact means:
 - intervention-object baseline projection payloads freeze the explicit bridge from archived gene/module baseline outputs to intervention-object replay scores for one baseline and snapshot
 - metric payloads record point estimates for one `(run_id, entity_type, horizon, metric_name)` slice
 - confidence interval payloads record percentile-bootstrap intervals, bootstrap count, resample unit, and random seed for the same slice
-- report cards join suite/task/snapshot provenance, source inclusion accounting, run-manifest inputs, and per-slice metric summaries into one public payload per run
+- report cards join suite/task/snapshot provenance, source inclusion accounting,
+  and per-slice metric summaries into one public payload per run; Track B public
+  report cards rebuild `evaluation_input_artifacts` from the validated
+  snapshot/cohort bundle, pin `source_snapshots` to the snapshot manifest, and
+  point `derived_from_artifacts` at a materialized
+  `validated_track_b_runner_bundle/<track_b_public_id>/...` tree
 - leaderboard payloads rank the report-card slices by metric while preserving run-level provenance
 - Track B case-output sidecars freeze per-case analog retrievals, structural predictions, and checklist predictions so reporting never has to rerun replay reasoning
 - Track B confusion summaries freeze cross-case confusions and checklist misses for one run

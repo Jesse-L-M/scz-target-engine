@@ -615,6 +615,14 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         structural_current_metric.interval_low,
         structural_current_metric.interval_high,
     ) == structural_current_interval
+    assert (
+        report_card_by_baseline["track_b_nearest_history"].run_id
+        != run_id_by_baseline["track_b_nearest_history"]
+    )
+    assert (
+        leaderboard_entry_by_baseline["track_b_nearest_history"].run_id
+        == report_card_by_baseline["track_b_nearest_history"].run_id
+    )
 
     assert (
         leaderboard_entry_by_baseline["track_b_nearest_history"].metric_value
@@ -636,12 +644,14 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
     nearest_history_error_analysis = next(
         Path(path)
         for path in reporting_result["error_analysis_files"]
-        if path.endswith(".md") and run_id_by_baseline["track_b_nearest_history"] in path
+        if path.endswith(".md")
+        and report_card_by_baseline["track_b_nearest_history"].report_card_id in path
     ).read_text(encoding="utf-8")
     assert (
         f"- `replay_status_exact_match`: {nearest_history_value:.3f} "
         f"[{nearest_history_interval[0]:.3f}, {nearest_history_interval[1]:.3f}]"
     ) in nearest_history_error_analysis
+    assert run_id_by_baseline["track_b_nearest_history"] not in nearest_history_error_analysis
 
 
 def test_track_b_cohort_materialization_preserves_auxiliary_sources_without_task_id(

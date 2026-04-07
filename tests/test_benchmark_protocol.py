@@ -281,6 +281,7 @@ def test_invalid_cutoff_definition_fails_clearly() -> None:
             evidence_timestamp_field=None,
             missing_date_policy=EXCLUDE_SOURCE_POLICY,
             future_record_policy=REJECT_SNAPSHOT_POLICY,
+            included=True,
         )
 
 
@@ -364,6 +365,7 @@ def test_snapshot_rejects_unknown_source_without_frozen_rule() -> None:
                     evidence_timestamp_field=None,
                     missing_date_policy=EXCLUDE_SOURCE_POLICY,
                     future_record_policy=REJECT_SNAPSHOT_POLICY,
+                    included=True,
                 ),
                 *tuple(
                     build_source_snapshot(

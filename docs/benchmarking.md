@@ -211,7 +211,8 @@ Track B also writes derived sidecars from the same run:
 
 - `runner_outputs/track_b_case_outputs/<run_id>.json`
 - `runner_outputs/track_b_confusion_summaries/<run_id>.json`
-- `public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/<snapshot_id>/<run_id>.md`
+- `public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/<snapshot_id>/<track_b_public_id>.md`
+- `public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/<snapshot_id>/<track_b_public_id>.json`
 
 Those sidecars are additive reporting aids, not new top-level benchmark schema
 families. The strict no-fallback archive rule still applies: Track B does not fall
@@ -234,14 +235,32 @@ public payloads:
 - public `evaluation_input_artifacts` are rebuilt from the validated
   `benchmark_snapshot_manifest`, materialized cohort bundle, and pinned Track B
   auxiliary source artifacts rather than copied from `run_manifest.input_artifacts`
-- Track B `run_id` binds the public `code_version` surface to the full contract:
-  snapshot id, baseline id, `code_version[:12]`, a digest of the full
-  `code_version`, and the Track B parameterization digest
+- public Track B report cards and leaderboard entries publish
+  `code_version = redacted_untrusted_runner_code_version`; reporting does not
+  treat the runner-emitted full `code_version` as trustworthy public
+  provenance because it has no immutable source outside the mutable runner
+  bundle
+- public Track B IDs and filenames are rebuilt from trusted contract inputs:
+  `snapshot_id`, `baseline_id`, and the validated public
+  `run_parameterization` digest. Public report cards, leaderboard entries,
+  report-card paths, and error-analysis paths do not reuse the mutable runner
+  `run_id`
+- Track B `run_id` still validates the runner bundle's internal
+  baseline/`code_version`/parameterization self-consistency, but public
+  provenance does not rely on that mutable field and does not republish it
+- Track B public report cards redact self-attested runner operational metadata:
+  `started_at = redacted_untrusted_runner_started_at`,
+  `completed_at = redacted_untrusted_runner_completed_at`, and
+  `run_notes = redacted_untrusted_runner_notes`
+- public Track B readers fail closed on exact schema identity, the redacted
+  Track B provenance contract, missing `run_parameterization`, and nested
+  `SourceSnapshot.included` values that are missing or not literal booleans
 - interval provenance is bound to the run-manifest parameterization, including
   the deterministic per-baseline seed derived from the base seed plus
   `baseline_id` / `structural_replay`
-- Track B metric payloads must keep the shipped metric-unit contract, currently
-  `fraction` for all four structural replay metrics
+- Track B metric payloads must include explicit `metric_unit` and keep the
+  shipped metric-unit contract, currently `fraction` for all four structural
+  replay metrics
 - manifest-only provenance fields such as `track_b_case_count` and
   `track_b_casebook_sha256` must match the pinned casebook and emitted case set
 - duplicate `artifact_name` entries in consumed Track B input-artifact
@@ -414,9 +433,10 @@ Canonical generated locations:
 - `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/confidence_interval_payloads/<run_id>/intervention_object/structural_replay/<metric>.json`: Track B `benchmark_confidence_interval_payload`
 - `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/track_b_case_outputs/<run_id>.json`: Track B per-case structural output sidecar
 - `data/benchmark/generated/scz_failure_memory_2025_02_01/runner_outputs/track_b_confusion_summaries/<run_id>.json`: Track B confusion-summary sidecar
-- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/report_cards/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<run_id>.json`: Track B public report card payload
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/report_cards/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<track_b_public_id>.json`: Track B public report card payload
 - `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/leaderboards/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/intervention_object/structural_replay/<metric>.json`: Track B public leaderboard payload
-- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<run_id>.md`: Track B markdown case review
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<track_b_public_id>.md`: Track B markdown case review
+- `data/benchmark/generated/scz_failure_memory_2025_02_01/public_payloads/error_analysis/scz_translational_suite/scz_failure_memory_track_b_task/scz_failure_memory_2025_02_01/<track_b_public_id>.json`: Track B public confusion-summary JSON
 - `data/benchmark/generated/public_slices/<slice_id>/public_payloads/error_analysis/scz_translational_suite/scz_translational_task/<snapshot_id>/<run_id>.md`: markdown error analysis emitted for intervention-object runs only when the principal intervention-object slice is evaluable and the required bundle plus projection artifacts are present
 
 What each generated artifact means:

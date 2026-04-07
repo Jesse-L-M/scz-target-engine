@@ -1609,9 +1609,11 @@ def build_track_b_error_analysis_markdown(
     payload: TrackBCaseOutputPayload,
     confusion_summary: TrackBConfusionSummary,
     metric_intervals: dict[str, tuple[float, float, float]],
+    report_id: str | None = None,
 ) -> str:
+    resolved_report_id = payload.run_id if report_id is None else report_id
     lines = [
-        f"# Track B Case Review: {payload.run_id}",
+        f"# Track B Case Review: {resolved_report_id}",
         "",
         f"- baseline: `{payload.baseline_id}`",
         f"- snapshot: `{payload.snapshot_id}`",

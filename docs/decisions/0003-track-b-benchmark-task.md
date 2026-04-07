@@ -50,7 +50,8 @@ Track B adds only additive checked-in inputs and derived sidecars:
    `event_provenance.csv`, and `directionality_hypotheses.csv`
 3. `runner_outputs/track_b_case_outputs/<run_id>.json`
 4. `runner_outputs/track_b_confusion_summaries/<run_id>.json`
-5. `public_payloads/error_analysis/.../<run_id>.md`
+5. `public_payloads/error_analysis/.../<track_b_public_id>.md`
+6. `public_payloads/error_analysis/.../<track_b_public_id>.json`
 
 Those Track B sidecars are not new top-level benchmark schema families.
 
@@ -91,10 +92,14 @@ The strict no-fallback archive rule remains unchanged.
   the full expected baseline set must be present, interval provenance is bound
   to the run-manifest seed contract, public provenance is reconstructed from
   the validated cohort bundle plus pinned source artifacts, schema identity is
-  enforced on every reporting-consumed runner artifact, `run_id` binds the full
-  published `code_version`, unexpected Track B parameterization keys are
-  rejected, metric units are pinned to the Track B metric definitions, and
-  duplicate input-artifact names fail closed
+  enforced on every reporting-consumed runner artifact, public Track B outputs
+  use stable public IDs derived from `snapshot_id`, `baseline_id`, and the
+  validated public `run_parameterization`, redact `code_version` as
+  `redacted_untrusted_runner_code_version`, redact self-attested runner
+  timestamps and notes, keep runner `run_id` only as an internal
+  bundle-consistency check, reject unexpected Track B parameterization keys,
+  require explicit metric units, and fail closed on duplicate input-artifact
+  names
 
 ## Affected Specs
 

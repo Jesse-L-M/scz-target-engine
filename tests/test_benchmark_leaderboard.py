@@ -14,6 +14,10 @@ from scz_target_engine.benchmark_labels import (
 from scz_target_engine.benchmark_leaderboard import (
     LEADERBOARD_SCHEMA_NAME,
     REPORT_CARD_SCHEMA_NAME,
+    TRACK_B_PUBLIC_COMPLETED_AT,
+    TRACK_B_PUBLIC_CODE_VERSION,
+    TRACK_B_PUBLIC_RUN_NOTES,
+    TRACK_B_PUBLIC_STARTED_AT,
     materialize_benchmark_reporting,
     read_benchmark_leaderboard_payload,
     read_benchmark_report_card_payload,
@@ -93,6 +97,26 @@ def _rewrite_track_b_run_id_references(
                 json.dumps(payload, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+
+
+def _rename_track_b_run_bundle_paths(
+    runner_output_dir: Path,
+    *,
+    old_run_id: str,
+    new_run_id: str,
+) -> None:
+    for folder_name in (
+        "run_manifests",
+        "track_b_case_outputs",
+        "track_b_confusion_summaries",
+    ):
+        source_path = runner_output_dir / folder_name / f"{old_run_id}.json"
+        target_path = runner_output_dir / folder_name / f"{new_run_id}.json"
+        source_path.rename(target_path)
+    for folder_name in ("metric_payloads", "confidence_interval_payloads"):
+        source_dir = runner_output_dir / folder_name / old_run_id
+        target_dir = runner_output_dir / folder_name / new_run_id
+        source_dir.rename(target_dir)
 
 
 def _track_b_run_id_by_baseline(runner_output_dir: Path) -> dict[str, str]:
@@ -178,6 +202,37 @@ def _materialize_track_b_fixture_runner_outputs(
         cohort_labels_file,
         runner_output_dir,
         benchmark_result,
+    )
+
+
+def _materialize_track_b_public_payloads(
+    tmp_path: Path,
+    *,
+    code_version: str = "fixture-sha",
+) -> tuple[Path, Path, Path, Path, dict[str, object]]:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(
+        tmp_path,
+        code_version=code_version,
+    )
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-04-05T12:00:00Z",
+    )
+    return (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        reporting_output_dir,
+        reporting_result,
     )
 
 
@@ -340,6 +395,7 @@ def test_materialize_benchmark_reporting_keeps_track_b_metrics_scoped_per_run(
     report_card_replay_status_by_baseline = {}
     for report_card_path in reporting_result["report_card_files"]:
         report_card = read_benchmark_report_card_payload(Path(report_card_path))
+        assert report_card.code_version == TRACK_B_PUBLIC_CODE_VERSION
         metric_summary = next(
             metric
             for metric in report_card.slices[0].metrics
@@ -360,6 +416,10 @@ def test_materialize_benchmark_reporting_keeps_track_b_metrics_scoped_per_run(
         entry.baseline_id: entry.metric_value
         for entry in replay_status_leaderboard.entries
     }
+    assert all(
+        entry.code_version == TRACK_B_PUBLIC_CODE_VERSION
+        for entry in replay_status_leaderboard.entries
+    )
 
     for baseline_id in (
         "track_b_nearest_history",
@@ -994,6 +1054,389 @@ def test_materialize_benchmark_reporting_rejects_track_b_code_version_same_prefi
         )
 
 
+def test_materialize_benchmark_reporting_keeps_track_b_public_ids_and_paths_stable_after_bundle_rewrite(
+    tmp_path: Path,
+) -> None:
+    original_public_dir = tmp_path / "original_public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(
+        tmp_path,
+        code_version="1234567890ab-original",
+    )
+    original_reporting = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=original_public_dir,
+        generated_at="2026-04-05T12:00:00Z",
+    )
+    original_structural_report_card = next(
+        read_benchmark_report_card_payload(Path(path))
+        for path in original_reporting["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    original_replay_status_leaderboard = read_benchmark_leaderboard_payload(
+        next(
+            Path(path)
+            for path in original_reporting["leaderboard_payload_files"]
+            if path.endswith("replay_status_exact_match.json")
+        )
+    )
+    original_structural_entry = next(
+        entry
+        for entry in original_replay_status_leaderboard.entries
+        if entry.baseline_id == "track_b_structural_current"
+    )
+    original_error_analysis_files = sorted(
+        path
+        for path in original_reporting["error_analysis_files"]
+        if "track_b_structural_current" in path
+    )
+
+    old_run_id = _track_b_run_id_by_baseline(runner_output_dir)[
+        "track_b_structural_current"
+    ]
+    run_manifest_path = runner_output_dir / "run_manifests" / f"{old_run_id}.json"
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    forged_code_version = "1234567890ab-forged"
+    run_manifest_payload["code_version"] = forged_code_version
+    new_run_id = _track_b_run_id_from_manifest_payload(run_manifest_payload)
+    run_manifest_payload["run_id"] = new_run_id
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    _rewrite_track_b_run_id_references(
+        runner_output_dir,
+        old_run_id=old_run_id,
+        new_run_id=new_run_id,
+    )
+    _rename_track_b_run_bundle_paths(
+        runner_output_dir,
+        old_run_id=old_run_id,
+        new_run_id=new_run_id,
+    )
+
+    rewritten_public_dir = tmp_path / "rewritten_public_payloads"
+    rewritten_reporting = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=rewritten_public_dir,
+        generated_at="2026-04-05T12:00:00Z",
+    )
+
+    structural_report_card = next(
+        read_benchmark_report_card_payload(Path(path))
+        for path in rewritten_reporting["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    assert structural_report_card.run_id == original_structural_report_card.run_id
+    assert structural_report_card.report_card_id == original_structural_report_card.report_card_id
+    assert structural_report_card.code_version == TRACK_B_PUBLIC_CODE_VERSION
+    assert structural_report_card.code_version != forged_code_version
+    assert structural_report_card.run_id != new_run_id
+
+    rewritten_structural_report_card_path = next(
+        path
+        for path in rewritten_reporting["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    original_structural_report_card_path = next(
+        path
+        for path in original_reporting["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    assert Path(rewritten_structural_report_card_path).name == Path(
+        original_structural_report_card_path
+    ).name
+
+    replay_status_leaderboard = read_benchmark_leaderboard_payload(
+        next(
+            Path(path)
+            for path in rewritten_reporting["leaderboard_payload_files"]
+            if path.endswith("replay_status_exact_match.json")
+        )
+    )
+    structural_entry = next(
+        entry
+        for entry in replay_status_leaderboard.entries
+        if entry.baseline_id == "track_b_structural_current"
+    )
+    assert structural_entry.run_id == original_structural_entry.run_id
+    assert Path(structural_entry.report_card_path).name == Path(
+        original_structural_entry.report_card_path
+    ).name
+    assert structural_entry.code_version == TRACK_B_PUBLIC_CODE_VERSION
+    assert structural_entry.code_version != forged_code_version
+    assert structural_entry.run_id != new_run_id
+
+    rewritten_error_analysis_files = sorted(
+        path
+        for path in rewritten_reporting["error_analysis_files"]
+        if "track_b_structural_current" in path
+    )
+    assert [Path(path).name for path in rewritten_error_analysis_files] == [
+        Path(path).name for path in original_error_analysis_files
+    ]
+
+
+def test_materialize_benchmark_reporting_redacts_track_b_runner_operational_metadata(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    forged_started_at = "1900-01-01T00:00:00Z"
+    forged_completed_at = "1900-01-02T00:00:00Z"
+    forged_notes = "forged runner operational notes"
+    run_manifest_path = next(
+        path
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    run_manifest_payload["started_at"] = forged_started_at
+    run_manifest_payload["completed_at"] = forged_completed_at
+    run_manifest_payload["notes"] = forged_notes
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-04-05T12:00:00Z",
+    )
+
+    structural_report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    structural_report_card = read_benchmark_report_card_payload(
+        structural_report_card_path
+    )
+    assert structural_report_card.started_at == TRACK_B_PUBLIC_STARTED_AT
+    assert structural_report_card.completed_at == TRACK_B_PUBLIC_COMPLETED_AT
+    assert structural_report_card.run_notes == TRACK_B_PUBLIC_RUN_NOTES
+
+    report_card_payload = json.loads(
+        structural_report_card_path.read_text(encoding="utf-8")
+    )
+    assert report_card_payload["started_at"] != forged_started_at
+    assert report_card_payload["completed_at"] != forged_completed_at
+    assert report_card_payload["run_notes"] != forged_notes
+
+
+def test_read_track_b_report_card_rejects_missing_run_parameterization(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    payload.pop("run_parameterization")
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B public report card run_parameterization is required",
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "tampered_value", "error_fragment"),
+    (
+        (
+            "code_version",
+            "forged-code-version",
+            "Track B public report card code_version must be",
+        ),
+        (
+            "started_at",
+            "forged-started-at",
+            "Track B public report card started_at must be",
+        ),
+        (
+            "completed_at",
+            "forged-completed-at",
+            "Track B public report card completed_at must be",
+        ),
+        (
+            "run_notes",
+            "forged-run-notes",
+            "Track B public report card run_notes must be",
+        ),
+    ),
+)
+def test_read_track_b_report_card_rejects_tampered_redacted_fields(
+    tmp_path: Path,
+    field_name: str,
+    tampered_value: str,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    payload[field_name] = tampered_value
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+@pytest.mark.parametrize(
+    ("mutator", "error_fragment"),
+    (
+        (
+            lambda payload: payload["source_snapshots"][0].pop("included"),
+            "included must be an explicit boolean",
+        ),
+        (
+            lambda payload: payload["source_snapshots"][0].__setitem__(
+                "included",
+                "false",
+            ),
+            "included must be an explicit boolean",
+        ),
+    ),
+)
+def test_read_track_b_report_card_rejects_invalid_source_snapshot_included(
+    tmp_path: Path,
+    mutator: object,
+    error_fragment: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    mutator(payload)
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "tampered_value"),
+    (
+        ("schema_name", "tampered_schema"),
+        ("schema_version", "v999"),
+    ),
+)
+def test_read_track_b_report_card_rejects_tampered_public_schema_identity(
+    tmp_path: Path,
+    field_name: str,
+    tampered_value: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = next(
+        Path(path)
+        for path in reporting_result["report_card_files"]
+        if "track_b_structural_current" in path
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    payload[field_name] = tampered_value
+    report_card_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"schema_(name|version) must be"):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_read_track_b_leaderboard_rejects_tampered_entry_code_version(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    payload["entries"][0]["code_version"] = "forged-code-version"
+    leaderboard_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B public leaderboard entry code_version must be",
+    ):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "tampered_value"),
+    (
+        ("schema_name", "tampered_schema"),
+        ("schema_version", "v999"),
+    ),
+)
+def test_read_track_b_leaderboard_rejects_tampered_public_schema_identity(
+    tmp_path: Path,
+    field_name: str,
+    tampered_value: str,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    payload[field_name] = tampered_value
+    leaderboard_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"schema_(name|version) must be"):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
 def test_materialize_benchmark_reporting_rejects_unexpected_track_b_parameterization_keys(
     tmp_path: Path,
 ) -> None:
@@ -1117,6 +1560,50 @@ def test_materialize_benchmark_reporting_rejects_tampered_track_b_metric_unit(
             output_dir=reporting_output_dir,
             generated_at="2026-04-05T12:00:00Z",
         )
+
+
+def test_materialize_benchmark_reporting_rejects_omitted_track_b_metric_unit(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    metric_path = next((runner_output_dir / "metric_payloads").rglob("*.json"))
+    payload = json.loads(metric_path.read_text(encoding="utf-8"))
+    payload.pop("metric_unit")
+    metric_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark_metric_output_payload metric_unit is required",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_track_b_runner_outputs_emit_explicit_metric_unit(
+    tmp_path: Path,
+) -> None:
+    _, _, _, benchmark_result = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    metric_payload = json.loads(
+        Path(benchmark_result["metric_payload_files"][0]).read_text(encoding="utf-8")
+    )
+
+    assert metric_payload["metric_unit"] == "fraction"
 
 
 def test_materialize_benchmark_reporting_rejects_duplicate_track_b_input_artifact_names(

@@ -88,9 +88,11 @@ This fixture flow proves the benchmark path end to end:
 - it emits `benchmark_model_run_manifest`, `benchmark_metric_output_payload`, and `benchmark_confidence_interval_payload`
 - it derives public report cards and leaderboard payloads from those emitted artifacts without rerunning model inference
 - Track B reporting additionally revalidates one complete owned reporting bundle:
-  exact expected baseline set, run-manifest ownership, sidecar ownership,
-  pinned source-artifact provenance, manifest-only casebook/count provenance,
-  and deterministic interval-seed provenance
+  exact expected baseline set, canonical schema identity for every
+  reporting-consumed runner artifact, exact Track B run-parameterization shape,
+  run-id binding for the full published code version, pinned source-artifact
+  provenance, manifest-only casebook/count provenance, pinned metric units,
+  duplicate-artifact rejection, and deterministic interval-seed provenance
 - when replaying intervention-object public slices, it also emits an explicit snapshot-side feature bundle, baseline projection sidecars, and markdown error-analysis outputs only for evaluable principal-horizon slices
 
 Track B uses the same four commands with the checked-in failure-memory fixture:
@@ -131,8 +133,10 @@ That Track B flow keeps the benchmark artifact families unchanged while adding:
 - runner sidecars for per-case outputs and confusion summaries
 - reporting-side markdown case reviews under `public_payloads/error_analysis/`
 - fail-closed reporting validation for missing baselines, bundle swaps,
-  tampered manifest input artifacts, tampered interval seeds, and tampered
-  Track B casebook/count provenance
+  tampered manifest input artifacts, tampered schema identity, forged
+  same-prefix code provenance, extra Track B parameterization keys, tampered
+  metric units, duplicate input-artifact names, tampered interval seeds, and
+  tampered Track B casebook/count provenance
 
 Public slices keep the same registry-driven task contract while changing only the
 cutoff date, checked-in fixture path, and entity type. The catalog in

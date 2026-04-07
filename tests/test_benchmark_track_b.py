@@ -34,6 +34,7 @@ from scz_target_engine.benchmark_snapshots import (
 from scz_target_engine.benchmark_track_b import (
     TRACK_B_HORIZON,
     TRACK_B_METRIC_NAMES,
+    TRACK_B_RUN_PARAMETERIZATION_FIELDS,
     TrackBAnalogCandidate,
     TrackBCaseOutput,
     TrackBCaseOutputPayload,
@@ -505,6 +506,10 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         )
     )
     assert len(report_card.slices) == 1
+    assert report_card.run_parameterization is not None
+    assert set(report_card.run_parameterization) == set(
+        TRACK_B_RUN_PARAMETERIZATION_FIELDS
+    )
     assert report_card.slices[0].entity_type == "intervention_object"
     assert report_card.slices[0].horizon == TRACK_B_HORIZON
     assert report_card.slices[0].admissible_entity_count == 6

@@ -83,6 +83,16 @@ class BenchmarkMetricOutputPayload:
         _require_text(self.metric_name, "metric_name")
         _require_text(self.schema_name, "schema_name")
         _require_text(self.schema_version, "schema_version")
+        if self.schema_name != METRIC_PAYLOAD_SCHEMA_NAME:
+            raise ValueError(
+                f"{METRIC_PAYLOAD_SCHEMA_NAME} schema_name must be "
+                f"{METRIC_PAYLOAD_SCHEMA_NAME}"
+            )
+        if self.schema_version != METRIC_PAYLOAD_SCHEMA_VERSION:
+            raise ValueError(
+                f"{METRIC_PAYLOAD_SCHEMA_NAME} schema_version must be "
+                f"{METRIC_PAYLOAD_SCHEMA_VERSION}"
+            )
         if self.cohort_size < 0:
             raise ValueError("cohort_size must be non-negative")
 
@@ -149,6 +159,16 @@ class BenchmarkConfidenceIntervalPayload:
         _require_text(self.resample_unit, "resample_unit")
         _require_text(self.schema_name, "schema_name")
         _require_text(self.schema_version, "schema_version")
+        if self.schema_name != INTERVAL_PAYLOAD_SCHEMA_NAME:
+            raise ValueError(
+                f"{INTERVAL_PAYLOAD_SCHEMA_NAME} schema_name must be "
+                f"{INTERVAL_PAYLOAD_SCHEMA_NAME}"
+            )
+        if self.schema_version != INTERVAL_PAYLOAD_SCHEMA_VERSION:
+            raise ValueError(
+                f"{INTERVAL_PAYLOAD_SCHEMA_NAME} schema_version must be "
+                f"{INTERVAL_PAYLOAD_SCHEMA_VERSION}"
+            )
         if self.bootstrap_iterations <= 0:
             raise ValueError("bootstrap_iterations must be positive")
         if self.interval_low > self.interval_high:

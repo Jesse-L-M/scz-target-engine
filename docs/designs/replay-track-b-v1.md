@@ -5,7 +5,7 @@ Owner branch: Jesse-L-M/replay-track-b
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md, docs/designs/replay-track-a-v1.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-06
+Last updated: 2026-04-07
 
 ## Objective
 
@@ -135,19 +135,38 @@ Track B reporting is now fail-closed on one bundle contract:
 
 - all expected Track B baselines requested by the snapshot manifest and marked
   `available_now` must be present exactly once
+- every consumed Track B runner artifact must keep its canonical schema identity:
+  run manifests, metric payloads, confidence-interval payloads, case-output
+  payloads, and confusion summaries all reject tampered `schema_name` or
+  `schema_version`
 - every consumed runner payload must belong to the owning
   `run_manifest.run_id`, `baseline_id`, `snapshot_id`, suite/task/question
   surface, and Track B horizon
+- `run_manifest.parameterization` must match the exact Track B allowlist:
+  `benchmark_question_id`, `bootstrap_confidence_level`,
+  `bootstrap_iterations`, `deterministic_test_mode`, `interval_method`,
+  `random_seed`, `resample_unit`, `track_b_casebook_sha256`,
+  `track_b_horizon`, `track_b_case_count`, and `track_b_baseline_mode`
+- public `run_parameterization` is republished only from that validated allowlist;
+  unexpected keys fail closed instead of surviving into public provenance
 - public provenance must be derived from the validated snapshot/cohort bundle
   plus pinned auxiliary source artifacts, not from mutable run-manifest inputs
+- `run_id` now binds public code provenance to the full Track B contract:
+  snapshot id, baseline id, `code_version[:12]`, a digest of the full
+  `code_version`, and the parameterization digest
 - confidence-interval provenance must bind to the run manifest parameterization:
   bootstrap iterations, confidence level, resample unit, and the deterministic
   per-baseline seed derived from the base seed plus `baseline_id` / horizon salt
+- Track B metric payloads must use the frozen metric-unit contract for each
+  structural metric, which is currently `fraction` for all four shipped metrics
 - manifest-only Track B provenance fields such as `track_b_case_count` and
   `track_b_casebook_sha256` must match the pinned casebook and emitted case set
+- duplicate `artifact_name` entries in any consumed Track B input-artifact
+  provenance surface fail closed instead of being collapsed by name
 - reporting must reject missing baselines, bundle swaps, stale provenance,
-  interval tampering, and source-ownership mismatches before writing report
-  cards, leaderboards, or error-analysis outputs
+  interval tampering, metric-unit tampering, duplicate-artifact bypasses, and
+  source-ownership mismatches before writing report cards, leaderboards, or
+  error-analysis outputs
 
 ### Proposed Gold Label Surface Per Case
 
@@ -212,7 +231,10 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
 - Unit:
   add adversarial tests for missing baseline bundles, cross-baseline artifact
   swaps, tampered manifest input artifacts, tampered interval seed provenance,
-  and tampered manifest-only casebook/count provenance
+  tampered schema identity on reporting-consumed runner artifacts, forged
+  same-prefix `code_version` provenance, unexpected Track B parameterization
+  keys, metric-unit tampering, duplicate input-artifact names, and tampered
+  manifest-only casebook/count provenance
 - Integration:
   run one Track B slice end to end from frozen snapshot to case-review output
   and assert the same six ids flow through cohort labels, runner outputs, and

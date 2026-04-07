@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from hashlib import sha256
 from pathlib import Path
-import re
 import shutil
 
 import pytest
@@ -21,12 +20,16 @@ from scz_target_engine.benchmark_leaderboard import (
 )
 from scz_target_engine.benchmark_metrics import RETRIEVAL_METRIC_NAMES
 from scz_target_engine.benchmark_metrics import read_benchmark_metric_output_payload
-from scz_target_engine.benchmark_runner import materialize_benchmark_run
+from scz_target_engine.benchmark_runner import (
+    build_track_b_run_id,
+    materialize_benchmark_run,
+)
 from scz_target_engine.benchmark_snapshots import (
     materialize_benchmark_snapshot_manifest,
     read_benchmark_snapshot_manifest,
 )
 from scz_target_engine.benchmark_track_b import (
+    TRACK_B_RUN_PARAMETERIZATION_FIELDS,
     estimate_track_b_metric_intervals,
     read_track_b_case_output_payload,
     track_b_case_output_path,
@@ -50,25 +53,46 @@ TRACK_B_FIXTURE_DIR = (
 )
 
 
-def _normalize_component(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
-
-
 def _track_b_run_id_from_manifest_payload(payload: dict[str, object]) -> str:
     parameterization = payload["parameterization"]
     assert isinstance(parameterization, dict)
-    return "__".join(
-        component
-        for component in (
-            _normalize_component(str(payload["snapshot_id"])),
-            _normalize_component(str(payload["baseline_id"])),
-            _normalize_component(str(payload["code_version"])[:12]),
-            sha256(
-                json.dumps(parameterization, sort_keys=True).encode("utf-8")
-            ).hexdigest()[:8],
-        )
-        if component
+    return build_track_b_run_id(
+        snapshot_id=str(payload["snapshot_id"]),
+        baseline_id=str(payload["baseline_id"]),
+        code_version=str(payload["code_version"]),
+        parameterization=parameterization,
     )
+
+
+def _rewrite_track_b_run_id_references(
+    runner_output_dir: Path,
+    *,
+    old_run_id: str,
+    new_run_id: str,
+) -> None:
+    for folder_name in ("track_b_case_outputs", "track_b_confusion_summaries"):
+        payload_path = runner_output_dir / folder_name / f"{old_run_id}.json"
+        payload = json.loads(payload_path.read_text(encoding="utf-8"))
+        payload["run_id"] = new_run_id
+        payload_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    for folder_name in ("metric_payloads", "confidence_interval_payloads"):
+        payload_dir = (
+            runner_output_dir
+            / folder_name
+            / old_run_id
+            / "intervention_object"
+            / "structural_replay"
+        )
+        for payload_path in payload_dir.glob("*.json"):
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            payload["run_id"] = new_run_id
+            payload_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
 
 
 def _track_b_run_id_by_baseline(runner_output_dir: Path) -> dict[str, str]:
@@ -119,6 +143,8 @@ def _materialize_fixture_runner_outputs(
 
 def _materialize_track_b_fixture_runner_outputs(
     tmp_path: Path,
+    *,
+    code_version: str = "fixture-sha",
 ) -> tuple[Path, Path, Path, dict[str, object]]:
     snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
     cohort_labels_file = tmp_path / "cohort_labels.csv"
@@ -144,7 +170,7 @@ def _materialize_track_b_fixture_runner_outputs(
         output_dir=runner_output_dir,
         bootstrap_iterations=25,
         deterministic_test_mode=True,
-        code_version="fixture-sha",
+        code_version=code_version,
         execution_timestamp="2026-04-05T00:00:00Z",
     )
     return (
@@ -730,6 +756,7 @@ def test_materialize_benchmark_reporting_rejects_tampered_track_b_input_artifact
         _,
     ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
 
+    run_id = _track_b_run_id_by_baseline(runner_output_dir)["track_b_structural_current"]
     run_manifest_path = next(
         path
         for path in (runner_output_dir / "run_manifests").glob("*.json")
@@ -848,33 +875,281 @@ def test_materialize_benchmark_reporting_rejects_tampered_track_b_manifest_only_
         json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    for folder_name in ("track_b_case_outputs", "track_b_confusion_summaries"):
-        payload_path = runner_output_dir / folder_name / f"{run_id}.json"
-        payload = json.loads(payload_path.read_text(encoding="utf-8"))
-        payload["run_id"] = new_run_id
-        payload_path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-    for folder_name in ("metric_payloads", "confidence_interval_payloads"):
-        payload_dir = (
-            runner_output_dir
-            / folder_name
-            / run_id
-            / "intervention_object"
-            / "structural_replay"
-        )
-        for payload_path in payload_dir.glob("*.json"):
-            payload = json.loads(payload_path.read_text(encoding="utf-8"))
-            payload["run_id"] = new_run_id
-            payload_path.write_text(
-                json.dumps(payload, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
+    _rewrite_track_b_run_id_references(
+        runner_output_dir,
+        old_run_id=run_id,
+        new_run_id=new_run_id,
+    )
 
     with pytest.raises(
         ValueError,
         match="Track B run manifest parameterization track_b_casebook_sha256 does not match the pinned Track B casebook",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+@pytest.mark.parametrize(
+    ("artifact_kind", "field_name", "tampered_value"),
+    (
+        ("run_manifest", "schema_name", "tampered_schema"),
+        ("metric_payload", "schema_name", "tampered_schema"),
+        ("confidence_interval", "schema_name", "tampered_schema"),
+        ("confidence_interval", "schema_version", "v999"),
+        ("case_output", "schema_name", "tampered_schema"),
+        ("confusion_summary", "schema_name", "tampered_schema"),
+    ),
+)
+def test_materialize_benchmark_reporting_rejects_track_b_schema_identity_tampering(
+    tmp_path: Path,
+    artifact_kind: str,
+    field_name: str,
+    tampered_value: str,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    if artifact_kind == "run_manifest":
+        artifact_path = next(
+            path
+            for path in (runner_output_dir / "run_manifests").glob("*.json")
+            if "track_b_structural_current" in path.name
+        )
+    elif artifact_kind == "metric_payload":
+        artifact_path = next((runner_output_dir / "metric_payloads").rglob("*.json"))
+    elif artifact_kind == "confidence_interval":
+        artifact_path = next(
+            (runner_output_dir / "confidence_interval_payloads").rglob("*.json")
+        )
+    elif artifact_kind == "case_output":
+        artifact_path = next((runner_output_dir / "track_b_case_outputs").glob("*.json"))
+    else:
+        artifact_path = next(
+            (runner_output_dir / "track_b_confusion_summaries").glob("*.json")
+        )
+
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload[field_name] = tampered_value
+    artifact_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"schema_(name|version) must be"):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_track_b_code_version_same_prefix_tampering(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(
+        tmp_path,
+        code_version="1234567890ab-original",
+    )
+
+    run_manifest_path = next(
+        path
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    run_manifest_payload["code_version"] = "1234567890ab-forged"
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B run manifest run_id does not match its baseline/code_version/parameterization contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_unexpected_track_b_parameterization_keys(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    run_id = _track_b_run_id_by_baseline(runner_output_dir)["track_b_structural_current"]
+    run_manifest_path = next(
+        path
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    run_manifest_payload["parameterization"]["unexpected_public_key"] = "poison"
+    run_manifest_payload["run_id"] = _track_b_run_id_from_manifest_payload(
+        run_manifest_payload
+    )
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    _rewrite_track_b_run_id_references(
+        runner_output_dir,
+        old_run_id=run_id,
+        new_run_id=str(run_manifest_payload["run_id"]),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B run manifest parameterization does not match the exact reporting contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "tampered_value", "error_fragment"),
+    (
+        ("track_b_case_count", 6.9, "track_b_case_count must be an integer"),
+        ("random_seed", "17", "random_seed must be an integer"),
+        (
+            "bootstrap_confidence_level",
+            "0.95",
+            "bootstrap_confidence_level must be a float",
+        ),
+    ),
+)
+def test_materialize_benchmark_reporting_rejects_typed_track_b_parameterization_tampering(
+    tmp_path: Path,
+    field_name: str,
+    tampered_value: object,
+    error_fragment: str,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    run_manifest_path = next(
+        path
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    run_manifest_payload["parameterization"][field_name] = tampered_value
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=error_fragment):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_tampered_track_b_metric_unit(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    for metric_path in (runner_output_dir / "metric_payloads").rglob("*.json"):
+        payload = json.loads(metric_path.read_text(encoding="utf-8"))
+        payload["metric_unit"] = "percent"
+        metric_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B metric payload metric_unit does not match the Track B metric contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_duplicate_track_b_input_artifact_names(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    run_manifest_path = next(
+        path
+        for path in (runner_output_dir / "run_manifests").glob("*.json")
+        if "track_b_structural_current" in path.name
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    duplicated_artifact = next(
+        artifact
+        for artifact in run_manifest_payload["input_artifacts"]
+        if artifact["artifact_name"] == "track_b_casebook"
+    )
+    run_manifest_payload["input_artifacts"].append(dict(duplicated_artifact))
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Track B run manifest input_artifacts .* duplicate artifact_name entries",
     ):
         materialize_benchmark_reporting(
             manifest_file=snapshot_manifest_file,

@@ -38,12 +38,17 @@ Reporting now also treats the emitted runner outputs as one owned Track B bundle
 - all four expected Track B baselines must be present
 - run manifests, case outputs, confusion summaries, metric payloads, and
   confidence-interval payloads must all belong to the same validated run and
-  baseline contract
+  baseline contract, and each must keep its canonical schema identity
 - public provenance is rebuilt from the validated snapshot/cohort bundle and the
   pinned auxiliary source artifacts in this fixture, not copied from mutable run
   manifests
-- interval seeds, casebook SHA, and case count are validated against the pinned
-  fixture bundle before any public Track B payload is written
+- Track B run manifests must keep the exact allowed parameterization keys, and
+  public report cards republish only those validated fields
+- the Track B `run_id` binds the full published `code_version`, not just its
+  first 12 characters
+- metric units, interval seeds, casebook SHA, case count, and duplicate
+  `artifact_name` entries are all validated against the pinned fixture bundle
+  before any public Track B payload is written
 
 The casebook is intentionally small and structural. It is meant to expose:
 

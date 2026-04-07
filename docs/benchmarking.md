@@ -223,17 +223,29 @@ public payloads:
 
 - the exact expected `available_now` Track B baseline set must be present, so a
   deleted baseline bundle cannot silently shrink the leaderboard
+- run manifests, metric payloads, confidence-interval payloads, case-output
+  payloads, and confusion summaries must all keep their canonical schema
+  identity; reporting rejects tampered `schema_name` or `schema_version`
 - run manifests, case outputs, confusion summaries, metric payloads, and
   confidence-interval payloads must all agree on the owning run, baseline,
   snapshot, suite/task/question surface, and Track B horizon
+- Track B run manifests must keep the exact allowed `run_parameterization`
+  shape, and public report cards republish only those validated fields
 - public `evaluation_input_artifacts` are rebuilt from the validated
   `benchmark_snapshot_manifest`, materialized cohort bundle, and pinned Track B
   auxiliary source artifacts rather than copied from `run_manifest.input_artifacts`
+- Track B `run_id` binds the public `code_version` surface to the full contract:
+  snapshot id, baseline id, `code_version[:12]`, a digest of the full
+  `code_version`, and the Track B parameterization digest
 - interval provenance is bound to the run-manifest parameterization, including
   the deterministic per-baseline seed derived from the base seed plus
   `baseline_id` / `structural_replay`
+- Track B metric payloads must keep the shipped metric-unit contract, currently
+  `fraction` for all four structural replay metrics
 - manifest-only provenance fields such as `track_b_case_count` and
   `track_b_casebook_sha256` must match the pinned casebook and emitted case set
+- duplicate `artifact_name` entries in consumed Track B input-artifact
+  provenance fail closed instead of being collapsed by name
 
 Track B reporting still does not rerun model inference. It does revalidate the
 full Track B bundle by recomputing structural metrics, confusion summaries, and

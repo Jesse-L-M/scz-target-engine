@@ -64,6 +64,22 @@ TRACK_B_METRIC_NAMES = (
     "what_must_differ_checklist_f1",
     "replay_status_exact_match",
 )
+TRACK_B_METRIC_UNITS = {
+    metric_name: "fraction" for metric_name in TRACK_B_METRIC_NAMES
+}
+TRACK_B_RUN_PARAMETERIZATION_FIELDS = (
+    "benchmark_question_id",
+    "bootstrap_confidence_level",
+    "bootstrap_iterations",
+    "deterministic_test_mode",
+    "interval_method",
+    "random_seed",
+    "resample_unit",
+    "track_b_casebook_sha256",
+    "track_b_horizon",
+    "track_b_case_count",
+    "track_b_baseline_mode",
+)
 TRACK_B_RETRIEVAL_LIMIT = 3
 
 
@@ -381,6 +397,24 @@ class TrackBCaseOutputPayload:
     schema_name: str = TRACK_B_CASE_OUTPUT_SCHEMA_NAME
     schema_version: str = TRACK_B_CASE_OUTPUT_SCHEMA_VERSION
 
+    def __post_init__(self) -> None:
+        _require_text(self.run_id, "run_id")
+        _require_text(self.baseline_id, "baseline_id")
+        _require_text(self.snapshot_id, "snapshot_id")
+        _require_text(self.as_of_date, "as_of_date")
+        _require_text(self.schema_name, "schema_name")
+        _require_text(self.schema_version, "schema_version")
+        if self.schema_name != TRACK_B_CASE_OUTPUT_SCHEMA_NAME:
+            raise ValueError(
+                f"{TRACK_B_CASE_OUTPUT_SCHEMA_NAME} schema_name must be "
+                f"{TRACK_B_CASE_OUTPUT_SCHEMA_NAME}"
+            )
+        if self.schema_version != TRACK_B_CASE_OUTPUT_SCHEMA_VERSION:
+            raise ValueError(
+                f"{TRACK_B_CASE_OUTPUT_SCHEMA_NAME} schema_version must be "
+                f"{TRACK_B_CASE_OUTPUT_SCHEMA_VERSION}"
+            )
+
     def to_dict(self) -> dict[str, object]:
         return {
             "schema_name": self.schema_name,
@@ -463,6 +497,23 @@ class TrackBConfusionSummary:
     checklist_false_negatives: tuple[TrackBCountRow, ...]
     schema_name: str = TRACK_B_CONFUSION_SCHEMA_NAME
     schema_version: str = TRACK_B_CONFUSION_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        _require_text(self.run_id, "run_id")
+        _require_text(self.baseline_id, "baseline_id")
+        _require_text(self.snapshot_id, "snapshot_id")
+        _require_text(self.schema_name, "schema_name")
+        _require_text(self.schema_version, "schema_version")
+        if self.schema_name != TRACK_B_CONFUSION_SCHEMA_NAME:
+            raise ValueError(
+                f"{TRACK_B_CONFUSION_SCHEMA_NAME} schema_name must be "
+                f"{TRACK_B_CONFUSION_SCHEMA_NAME}"
+            )
+        if self.schema_version != TRACK_B_CONFUSION_SCHEMA_VERSION:
+            raise ValueError(
+                f"{TRACK_B_CONFUSION_SCHEMA_NAME} schema_version must be "
+                f"{TRACK_B_CONFUSION_SCHEMA_VERSION}"
+            )
 
     def to_dict(self) -> dict[str, object]:
         return {

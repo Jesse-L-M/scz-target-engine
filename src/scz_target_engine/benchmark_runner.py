@@ -153,6 +153,10 @@ def _parameter_digest(payload: dict[str, object]) -> str:
     return sha256(encoded).hexdigest()[:8]
 
 
+def _code_version_digest(code_version: str) -> str:
+    return sha256(code_version.encode("utf-8")).hexdigest()[:8]
+
+
 def derive_track_b_slice_random_seed(
     *,
     base_random_seed: int,
@@ -248,6 +252,16 @@ class BenchmarkModelRunManifest:
             _require_text(self.benchmark_task_id, "benchmark_task_id")
         _require_text(self.schema_name, "schema_name")
         _require_text(self.schema_version, "schema_version")
+        if self.schema_name != RUN_MANIFEST_SCHEMA_NAME:
+            raise ValueError(
+                f"{RUN_MANIFEST_SCHEMA_NAME} schema_name must be "
+                f"{RUN_MANIFEST_SCHEMA_NAME}"
+            )
+        if self.schema_version != RUN_MANIFEST_SCHEMA_VERSION:
+            raise ValueError(
+                f"{RUN_MANIFEST_SCHEMA_NAME} schema_version must be "
+                f"{RUN_MANIFEST_SCHEMA_VERSION}"
+            )
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -1219,6 +1233,23 @@ def _build_run_id(
     return "__".join(component for component in components if component)
 
 
+def build_track_b_run_id(
+    *,
+    snapshot_id: str,
+    baseline_id: str,
+    code_version: str,
+    parameterization: dict[str, object],
+) -> str:
+    components = [
+        _normalize_component(snapshot_id),
+        _normalize_component(baseline_id),
+        _normalize_component(code_version[:12]),
+        _code_version_digest(code_version),
+        _parameter_digest(parameterization),
+    ]
+    return "__".join(component for component in components if component)
+
+
 def _track_b_metric_slice_notes(
     *,
     case_count: int,
@@ -1488,7 +1519,7 @@ def _run_track_b_benchmark(
             "track_b_case_count": case_count,
             "track_b_baseline_mode": baseline_id,
         }
-        run_id = _build_run_id(
+        run_id = build_track_b_run_id(
             snapshot_id=manifest.snapshot_id,
             baseline_id=baseline_id,
             code_version=code_version,
@@ -2073,6 +2104,7 @@ __all__ = [
     "InputArtifactReference",
     "RUN_MANIFEST_SCHEMA_NAME",
     "RUN_MANIFEST_SCHEMA_VERSION",
+    "build_track_b_run_id",
     "materialize_benchmark_run",
     "read_benchmark_model_run_manifest",
     "run_benchmark",

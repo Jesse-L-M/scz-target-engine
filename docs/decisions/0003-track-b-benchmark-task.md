@@ -89,8 +89,12 @@ The strict no-fallback archive rule remains unchanged.
   schema families remain task-agnostic
 - Track B reporting now has a stricter fail-closed contract:
   the full expected baseline set must be present, interval provenance is bound
-  to the run-manifest seed contract, and public provenance is reconstructed from
-  the validated cohort bundle plus pinned source artifacts
+  to the run-manifest seed contract, public provenance is reconstructed from
+  the validated cohort bundle plus pinned source artifacts, schema identity is
+  enforced on every reporting-consumed runner artifact, `run_id` binds the full
+  published `code_version`, unexpected Track B parameterization keys are
+  rejected, metric units are pinned to the Track B metric definitions, and
+  duplicate input-artifact names fail closed
 
 ## Affected Specs
 

@@ -35,6 +35,7 @@ from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 from scz_target_engine.benchmark_runner import (
     BenchmarkModelRunManifest,
     InputArtifactReference,
+    build_track_b_run_id,
     derive_track_b_slice_random_seed,
     read_benchmark_model_run_manifest,
 )
@@ -43,9 +44,13 @@ from scz_target_engine.benchmark_snapshots import (
     read_benchmark_snapshot_manifest,
 )
 from scz_target_engine.benchmark_track_b import (
+    TRACK_B_CASE_OUTPUT_SCHEMA_NAME,
+    TRACK_B_CONFUSION_SCHEMA_NAME,
     TRACK_B_ENTITY_TYPE,
     TRACK_B_HORIZON,
     TRACK_B_METRIC_NAMES,
+    TRACK_B_METRIC_UNITS,
+    TRACK_B_RUN_PARAMETERIZATION_FIELDS,
     TRACK_B_BOOTSTRAP_RESAMPLE_UNIT,
     build_track_b_case_outputs,
     build_track_b_confusion_summary,
@@ -109,6 +114,26 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _index_artifacts_by_name(
+    artifacts: tuple[InputArtifactReference, ...],
+    *,
+    context: str,
+) -> dict[str, InputArtifactReference]:
+    artifact_index: dict[str, InputArtifactReference] = {}
+    duplicate_names: list[str] = []
+    for artifact in artifacts:
+        if artifact.artifact_name in artifact_index:
+            duplicate_names.append(artifact.artifact_name)
+            continue
+        artifact_index[artifact.artifact_name] = artifact
+    if duplicate_names:
+        raise ValueError(
+            f"{context} contains duplicate artifact_name entries: "
+            + ", ".join(sorted(set(duplicate_names)))
+        )
+    return artifact_index
+
+
 def _build_artifact_reference(
     *,
     artifact_name: str,
@@ -151,12 +176,14 @@ class _ValidatedTrackBRunContract:
     bootstrap_confidence_level: float
     deterministic_test_mode: bool
     slice_random_seed: int
+    validated_parameterization: dict[str, object]
 
 
 @dataclass(frozen=True)
 class _ValidatedTrackBRunBundle:
     run_manifest_path: Path
     run_manifest: BenchmarkModelRunManifest
+    validated_parameterization: dict[str, object]
     metric_items: tuple[tuple[Path, BenchmarkMetricOutputPayload], ...]
     interval_paths_by_metric: dict[str, Path]
     case_output_payload: Any
@@ -183,6 +210,25 @@ def _require_track_b_parameterization_mapping(
         raise ValueError(
             f"Track B run manifest parameterization must be a JSON object for {run_manifest.run_id}"
         )
+    missing_field_names = [
+        field_name
+        for field_name in TRACK_B_RUN_PARAMETERIZATION_FIELDS
+        if field_name not in parameterization
+    ]
+    unexpected_field_names = sorted(
+        set(parameterization).difference(TRACK_B_RUN_PARAMETERIZATION_FIELDS)
+    )
+    if missing_field_names or unexpected_field_names:
+        details: list[str] = []
+        if missing_field_names:
+            details.append("missing=" + ", ".join(missing_field_names))
+        if unexpected_field_names:
+            details.append("unexpected=" + ", ".join(unexpected_field_names))
+        raise ValueError(
+            "Track B run manifest parameterization does not match the exact "
+            f"reporting contract for {run_manifest.run_id}"
+            + (f" ({'; '.join(details)})" if details else "")
+        )
     return parameterization
 
 
@@ -207,16 +253,11 @@ def _require_track_b_parameterization_int(
     run_id: str,
 ) -> int:
     value = parameterization.get(field_name)
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(
             f"Track B run manifest parameterization {field_name} must be an integer for {run_id}"
         )
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(
-            f"Track B run manifest parameterization {field_name} must be an integer for {run_id}"
-        ) from exc
+    return value
 
 
 def _require_track_b_parameterization_float(
@@ -226,12 +267,11 @@ def _require_track_b_parameterization_float(
     run_id: str,
 ) -> float:
     value = parameterization.get(field_name)
-    try:
-        return float(value)
-    except (TypeError, ValueError) as exc:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(
             f"Track B run manifest parameterization {field_name} must be a float for {run_id}"
-        ) from exc
+        )
+    return float(value)
 
 
 def _require_track_b_parameterization_bool(
@@ -255,8 +295,11 @@ def _build_track_b_expected_evaluation_input_artifacts(
     materialized_cohort: MaterializedBenchmarkCohortArtifacts,
 ) -> tuple[InputArtifactReference, ...]:
     source_artifact_index = {
-        str(artifact.artifact_name): Path(str(artifact.artifact_path)).resolve()
-        for artifact in materialized_cohort.auxiliary_source_artifacts
+        artifact_name: Path(str(artifact.artifact_path)).resolve()
+        for artifact_name, artifact in _index_artifacts_by_name(
+            tuple(materialized_cohort.auxiliary_source_artifacts),
+            context="Track B auxiliary source artifacts",
+        ).items()
     }
     expected_artifacts = [
         _build_artifact_reference(
@@ -327,14 +370,17 @@ def _validate_track_b_input_artifact_contract(
     run_manifest: BenchmarkModelRunManifest,
     expected_input_artifacts: tuple[InputArtifactReference, ...],
 ) -> None:
-    expected_by_name = {
-        artifact.artifact_name: artifact
-        for artifact in expected_input_artifacts
-    }
-    observed_by_name = {
-        artifact.artifact_name: artifact
-        for artifact in run_manifest.input_artifacts
-    }
+    expected_by_name = _index_artifacts_by_name(
+        expected_input_artifacts,
+        context="Track B expected evaluation_input_artifacts",
+    )
+    observed_by_name = _index_artifacts_by_name(
+        run_manifest.input_artifacts,
+        context=(
+            "Track B run manifest input_artifacts"
+            f" for {run_manifest.run_id}"
+        ),
+    )
     missing_names = sorted(set(expected_by_name).difference(observed_by_name))
     unexpected_names = sorted(set(observed_by_name).difference(expected_by_name))
     if missing_names or unexpected_names:
@@ -398,19 +444,32 @@ def _validate_track_b_run_manifest_ownership(
             f"Track B run manifest model_family does not match the baseline contract for {run_manifest.run_id}"
         )
     parameterization = _require_track_b_parameterization_mapping(run_manifest)
-    if parameterization.get("track_b_baseline_mode") != run_manifest.baseline_id:
+    benchmark_question_id = _require_track_b_parameterization_text(
+        parameterization,
+        field_name="benchmark_question_id",
+        run_id=run_manifest.run_id,
+    )
+    if benchmark_question_id != str(getattr(manifest, "benchmark_question_id")):
+        raise ValueError(
+            "Track B run manifest benchmark_question_id does not match snapshot "
+            f"for {run_manifest.run_id}"
+        )
+    track_b_baseline_mode = _require_track_b_parameterization_text(
+        parameterization,
+        field_name="track_b_baseline_mode",
+        run_id=run_manifest.run_id,
+    )
+    if track_b_baseline_mode != run_manifest.baseline_id:
         raise ValueError(
             "Track B run manifest baseline_id does not match track_b_baseline_mode "
             f"for {run_manifest.run_id}"
         )
-    if parameterization.get("benchmark_question_id") != str(
-        getattr(manifest, "benchmark_question_id")
-    ):
-        raise ValueError(
-            "Track B run manifest benchmark_question_id does not match snapshot "
-            f"manifest for {run_manifest.run_id}"
-        )
-    if parameterization.get("track_b_horizon") != TRACK_B_HORIZON:
+    track_b_horizon = _require_track_b_parameterization_text(
+        parameterization,
+        field_name="track_b_horizon",
+        run_id=run_manifest.run_id,
+    )
+    if track_b_horizon != TRACK_B_HORIZON:
         raise ValueError(
             "Track B run manifest track_b_horizon does not match the Track B "
             f"reporting surface for {run_manifest.run_id}"
@@ -464,33 +523,44 @@ def _validate_track_b_run_manifest_ownership(
         field_name="deterministic_test_mode",
         run_id=run_manifest.run_id,
     )
-    if _require_track_b_parameterization_int(
+    track_b_case_count = _require_track_b_parameterization_int(
         parameterization,
         field_name="track_b_case_count",
         run_id=run_manifest.run_id,
-    ) != expected_case_count:
+    )
+    if track_b_case_count != expected_case_count:
         raise ValueError(
             "Track B run manifest parameterization track_b_case_count does not match "
             f"the pinned Track B casebook for {run_manifest.run_id}"
         )
-    if _require_track_b_parameterization_text(
+    track_b_casebook_sha256 = _require_track_b_parameterization_text(
         parameterization,
         field_name="track_b_casebook_sha256",
         run_id=run_manifest.run_id,
-    ) != expected_casebook_sha256:
+    )
+    if track_b_casebook_sha256 != expected_casebook_sha256:
         raise ValueError(
             "Track B run manifest parameterization track_b_casebook_sha256 does not "
             f"match the pinned Track B casebook for {run_manifest.run_id}"
         )
-    expected_run_id = "__".join(
-        component
-        for component in (
-            _normalize_component(run_manifest.snapshot_id),
-            _normalize_component(run_manifest.baseline_id),
-            _normalize_component(run_manifest.code_version[:12]),
-            _parameter_digest(parameterization),
-        )
-        if component
+    validated_parameterization = {
+        "benchmark_question_id": benchmark_question_id,
+        "bootstrap_confidence_level": bootstrap_confidence_level,
+        "bootstrap_iterations": bootstrap_iterations,
+        "deterministic_test_mode": deterministic_test_mode,
+        "interval_method": interval_method,
+        "random_seed": base_random_seed,
+        "resample_unit": resample_unit,
+        "track_b_casebook_sha256": track_b_casebook_sha256,
+        "track_b_horizon": track_b_horizon,
+        "track_b_case_count": track_b_case_count,
+        "track_b_baseline_mode": track_b_baseline_mode,
+    }
+    expected_run_id = build_track_b_run_id(
+        snapshot_id=run_manifest.snapshot_id,
+        baseline_id=run_manifest.baseline_id,
+        code_version=run_manifest.code_version,
+        parameterization=validated_parameterization,
     )
     if run_manifest.run_id != expected_run_id:
         raise ValueError(
@@ -505,6 +575,7 @@ def _validate_track_b_run_manifest_ownership(
             base_random_seed=base_random_seed,
             baseline_id=run_manifest.baseline_id,
         ),
+        validated_parameterization=validated_parameterization,
     )
 
 
@@ -1623,6 +1694,12 @@ def _validate_track_b_runner_outputs(
             raise ValueError(
                 f"Track B metric payload baseline_id does not match runner case outputs for {run_id}"
             )
+        expected_metric_unit = TRACK_B_METRIC_UNITS[metric_payload.metric_name]
+        if metric_payload.metric_unit != expected_metric_unit:
+            raise ValueError(
+                "Track B metric payload metric_unit does not match the Track B "
+                f"metric contract for {run_id}/{metric_payload.metric_name}"
+            )
         if metric_payload.metric_value != expected_metric_values[metric_payload.metric_name]:
             raise ValueError(
                 "Track B metric payload does not match runner case outputs for "
@@ -1737,8 +1814,11 @@ def _validate_track_b_reporting_bundle(
         materialized_cohort=materialized_cohort,
     )
     source_artifact_index = {
-        artifact.artifact_name: Path(artifact.artifact_path).resolve()
-        for artifact in materialized_cohort.auxiliary_source_artifacts
+        artifact_name: Path(artifact.artifact_path).resolve()
+        for artifact_name, artifact in _index_artifacts_by_name(
+            tuple(materialized_cohort.auxiliary_source_artifacts),
+            context="Track B auxiliary source artifacts",
+        ).items()
     }
     expected_cases = load_track_b_casebook(
         source_artifact_index["track_b_casebook"],
@@ -1931,6 +2011,7 @@ def _validate_track_b_reporting_bundle(
         validated_runs_by_run_id[run_manifest.run_id] = _ValidatedTrackBRunBundle(
             run_manifest_path=run_manifest_path,
             run_manifest=run_manifest,
+            validated_parameterization=validated_run_contract.validated_parameterization,
             metric_items=tuple(
                 sorted(metric_items, key=lambda item: item[1].metric_name)
             ),
@@ -2123,6 +2204,7 @@ def _materialize_track_b_reporting(
             _build_artifact_reference(
                 artifact_name="track_b_case_output_payload",
                 path=case_output_payload_path,
+                schema_name=TRACK_B_CASE_OUTPUT_SCHEMA_NAME,
                 notes="Structured per-case Track B runner outputs.",
             )
         )
@@ -2130,6 +2212,7 @@ def _materialize_track_b_reporting(
             _build_artifact_reference(
                 artifact_name="track_b_confusion_summary",
                 path=confusion_summary_path,
+                schema_name=TRACK_B_CONFUSION_SCHEMA_NAME,
                 notes="Track B confusion summary derived directly from the runner case outputs.",
             )
         )
@@ -2160,7 +2243,7 @@ def _materialize_track_b_reporting(
             evaluation_input_artifacts=validated_bundle.evaluation_input_artifacts,
             derived_from_artifacts=tuple(derived_from_artifacts),
             slices=(slice_report,),
-            run_parameterization=run_manifest.parameterization,
+            run_parameterization=validated_run.validated_parameterization,
             run_notes=run_manifest.notes,
             notes=(
                 "Derived from Track B runner artifacts without rerunning structural replay scoring."

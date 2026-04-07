@@ -14,6 +14,7 @@ from scz_target_engine.benchmark_labels import (
 from scz_target_engine.benchmark_leaderboard import (
     LEADERBOARD_SCHEMA_NAME,
     REPORT_CARD_SCHEMA_NAME,
+    TRACK_B_PUBLIC_CODE_VERSION,
     materialize_benchmark_reporting,
     read_benchmark_leaderboard_payload,
     read_benchmark_report_card_payload,
@@ -93,6 +94,26 @@ def _rewrite_track_b_run_id_references(
                 json.dumps(payload, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+
+
+def _rename_track_b_run_bundle_paths(
+    runner_output_dir: Path,
+    *,
+    old_run_id: str,
+    new_run_id: str,
+) -> None:
+    for folder_name in (
+        "run_manifests",
+        "track_b_case_outputs",
+        "track_b_confusion_summaries",
+    ):
+        source_path = runner_output_dir / folder_name / f"{old_run_id}.json"
+        target_path = runner_output_dir / folder_name / f"{new_run_id}.json"
+        source_path.rename(target_path)
+    for folder_name in ("metric_payloads", "confidence_interval_payloads"):
+        source_dir = runner_output_dir / folder_name / old_run_id
+        target_dir = runner_output_dir / folder_name / new_run_id
+        source_dir.rename(target_dir)
 
 
 def _track_b_run_id_by_baseline(runner_output_dir: Path) -> dict[str, str]:
@@ -340,6 +361,7 @@ def test_materialize_benchmark_reporting_keeps_track_b_metrics_scoped_per_run(
     report_card_replay_status_by_baseline = {}
     for report_card_path in reporting_result["report_card_files"]:
         report_card = read_benchmark_report_card_payload(Path(report_card_path))
+        assert report_card.code_version == TRACK_B_PUBLIC_CODE_VERSION
         metric_summary = next(
             metric
             for metric in report_card.slices[0].metrics
@@ -360,6 +382,10 @@ def test_materialize_benchmark_reporting_keeps_track_b_metrics_scoped_per_run(
         entry.baseline_id: entry.metric_value
         for entry in replay_status_leaderboard.entries
     }
+    assert all(
+        entry.code_version == TRACK_B_PUBLIC_CODE_VERSION
+        for entry in replay_status_leaderboard.entries
+    )
 
     for baseline_id in (
         "track_b_nearest_history",
@@ -994,6 +1020,82 @@ def test_materialize_benchmark_reporting_rejects_track_b_code_version_same_prefi
         )
 
 
+def test_materialize_benchmark_reporting_redacts_forged_track_b_code_version_after_bundle_rewrite(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(
+        tmp_path,
+        code_version="1234567890ab-original",
+    )
+
+    old_run_id = _track_b_run_id_by_baseline(runner_output_dir)[
+        "track_b_structural_current"
+    ]
+    run_manifest_path = runner_output_dir / "run_manifests" / f"{old_run_id}.json"
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    forged_code_version = "1234567890ab-forged"
+    run_manifest_payload["code_version"] = forged_code_version
+    new_run_id = _track_b_run_id_from_manifest_payload(run_manifest_payload)
+    run_manifest_payload["run_id"] = new_run_id
+    run_manifest_path.write_text(
+        json.dumps(run_manifest_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    _rewrite_track_b_run_id_references(
+        runner_output_dir,
+        old_run_id=old_run_id,
+        new_run_id=new_run_id,
+    )
+    _rename_track_b_run_bundle_paths(
+        runner_output_dir,
+        old_run_id=old_run_id,
+        new_run_id=new_run_id,
+    )
+
+    reporting_result = materialize_benchmark_reporting(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        runner_output_dir=runner_output_dir,
+        output_dir=reporting_output_dir,
+        generated_at="2026-04-05T12:00:00Z",
+    )
+
+    report_cards = [
+        read_benchmark_report_card_payload(Path(path))
+        for path in reporting_result["report_card_files"]
+    ]
+    structural_report_card = next(
+        report_card
+        for report_card in report_cards
+        if report_card.baseline_id == "track_b_structural_current"
+    )
+    assert structural_report_card.run_id == new_run_id
+    assert structural_report_card.code_version == TRACK_B_PUBLIC_CODE_VERSION
+    assert structural_report_card.code_version != forged_code_version
+
+    replay_status_leaderboard = read_benchmark_leaderboard_payload(
+        next(
+            Path(path)
+            for path in reporting_result["leaderboard_payload_files"]
+            if path.endswith("replay_status_exact_match.json")
+        )
+    )
+    structural_entry = next(
+        entry
+        for entry in replay_status_leaderboard.entries
+        if entry.baseline_id == "track_b_structural_current"
+    )
+    assert structural_entry.run_id == new_run_id
+    assert structural_entry.code_version == TRACK_B_PUBLIC_CODE_VERSION
+    assert structural_entry.code_version != forged_code_version
+
+
 def test_materialize_benchmark_reporting_rejects_unexpected_track_b_parameterization_keys(
     tmp_path: Path,
 ) -> None:
@@ -1109,6 +1211,38 @@ def test_materialize_benchmark_reporting_rejects_tampered_track_b_metric_unit(
     with pytest.raises(
         ValueError,
         match="Track B metric payload metric_unit does not match the Track B metric contract",
+    ):
+        materialize_benchmark_reporting(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            runner_output_dir=runner_output_dir,
+            output_dir=reporting_output_dir,
+            generated_at="2026-04-05T12:00:00Z",
+        )
+
+
+def test_materialize_benchmark_reporting_rejects_omitted_track_b_metric_unit(
+    tmp_path: Path,
+) -> None:
+    reporting_output_dir = tmp_path / "public_payloads"
+    (
+        snapshot_manifest_file,
+        cohort_labels_file,
+        runner_output_dir,
+        _,
+    ) = _materialize_track_b_fixture_runner_outputs(tmp_path)
+
+    metric_path = next((runner_output_dir / "metric_payloads").rglob("*.json"))
+    payload = json.loads(metric_path.read_text(encoding="utf-8"))
+    payload.pop("metric_unit")
+    metric_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="benchmark_metric_output_payload metric_unit is required",
     ):
         materialize_benchmark_reporting(
             manifest_file=snapshot_manifest_file,

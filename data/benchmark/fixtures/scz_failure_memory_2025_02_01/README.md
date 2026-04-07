@@ -44,10 +44,14 @@ Reporting now also treats the emitted runner outputs as one owned Track B bundle
   manifests
 - Track B run manifests must keep the exact allowed parameterization keys, and
   public report cards republish only those validated fields
-- the Track B `run_id` binds the full published `code_version`, not just its
-  first 12 characters
-- metric units, interval seeds, casebook SHA, case count, and duplicate
-  `artifact_name` entries are all validated against the pinned fixture bundle
+- public Track B report cards and leaderboards publish
+  `code_version = redacted_untrusted_runner_code_version`; the runner-emitted
+  full `code_version` is not treated as trustworthy public provenance
+- the Track B `run_id` still validates bundle self-consistency, but it is not a
+  public code-provenance claim
+- explicit metric units, interval seeds, casebook SHA, case count, and
+  duplicate `artifact_name` entries are all validated against the pinned
+  fixture bundle
   before any public Track B payload is written
 
 The casebook is intentionally small and structural. It is meant to expose:

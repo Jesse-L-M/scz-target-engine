@@ -90,9 +90,10 @@ This fixture flow proves the benchmark path end to end:
 - Track B reporting additionally revalidates one complete owned reporting bundle:
   exact expected baseline set, canonical schema identity for every
   reporting-consumed runner artifact, exact Track B run-parameterization shape,
-  run-id binding for the full published code version, pinned source-artifact
-  provenance, manifest-only casebook/count provenance, pinned metric units,
-  duplicate-artifact rejection, and deterministic interval-seed provenance
+  redacted public `code_version`, internal run-id consistency only, pinned
+  source-artifact provenance, manifest-only casebook/count provenance, explicit
+  pinned metric units, duplicate-artifact rejection, and deterministic
+  interval-seed provenance
 - when replaying intervention-object public slices, it also emits an explicit snapshot-side feature bundle, baseline projection sidecars, and markdown error-analysis outputs only for evaluable principal-horizon slices
 
 Track B uses the same four commands with the checked-in failure-memory fixture:
@@ -134,8 +135,9 @@ That Track B flow keeps the benchmark artifact families unchanged while adding:
 - reporting-side markdown case reviews under `public_payloads/error_analysis/`
 - fail-closed reporting validation for missing baselines, bundle swaps,
   tampered manifest input artifacts, tampered schema identity, forged
-  same-prefix code provenance, extra Track B parameterization keys, tampered
-  metric units, duplicate input-artifact names, tampered interval seeds, and
+  same-prefix code provenance, rewritten-bundle full code-version forgery,
+  extra Track B parameterization keys, tampered metric units, omitted
+  `metric_unit`, duplicate input-artifact names, tampered interval seeds, and
   tampered Track B casebook/count provenance
 
 Public slices keep the same registry-driven task contract while changing only the

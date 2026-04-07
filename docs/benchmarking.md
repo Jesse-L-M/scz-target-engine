@@ -234,14 +234,20 @@ public payloads:
 - public `evaluation_input_artifacts` are rebuilt from the validated
   `benchmark_snapshot_manifest`, materialized cohort bundle, and pinned Track B
   auxiliary source artifacts rather than copied from `run_manifest.input_artifacts`
-- Track B `run_id` binds the public `code_version` surface to the full contract:
-  snapshot id, baseline id, `code_version[:12]`, a digest of the full
-  `code_version`, and the Track B parameterization digest
+- public Track B report cards and leaderboard entries publish
+  `code_version = redacted_untrusted_runner_code_version`; reporting does not
+  treat the runner-emitted full `code_version` as trustworthy public
+  provenance because it has no immutable source outside the mutable runner
+  bundle
+- Track B `run_id` still validates the runner bundle's internal
+  baseline/`code_version`/parameterization self-consistency, but public
+  provenance does not rely on that mutable field
 - interval provenance is bound to the run-manifest parameterization, including
   the deterministic per-baseline seed derived from the base seed plus
   `baseline_id` / `structural_replay`
-- Track B metric payloads must keep the shipped metric-unit contract, currently
-  `fraction` for all four structural replay metrics
+- Track B metric payloads must include explicit `metric_unit` and keep the
+  shipped metric-unit contract, currently `fraction` for all four structural
+  replay metrics
 - manifest-only provenance fields such as `track_b_case_count` and
   `track_b_casebook_sha256` must match the pinned casebook and emitted case set
 - duplicate `artifact_name` entries in consumed Track B input-artifact

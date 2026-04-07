@@ -93,6 +93,10 @@ is truly different."
 - Track B public `evaluation_input_artifacts` are reconstructed from the
   validated snapshot/cohort bundle and pinned source artifacts, not copied from
   unchecked `run_manifest.input_artifacts`
+- public Track B report cards and leaderboards must publish
+  `code_version = redacted_untrusted_runner_code_version`; reporting does not
+  treat the runner-emitted full `code_version` as trustworthy public provenance
+  because it has no immutable source outside the mutable runner bundle
 
 ## Inputs
 
@@ -151,14 +155,15 @@ Track B reporting is now fail-closed on one bundle contract:
   unexpected keys fail closed instead of surviving into public provenance
 - public provenance must be derived from the validated snapshot/cohort bundle
   plus pinned auxiliary source artifacts, not from mutable run-manifest inputs
-- `run_id` now binds public code provenance to the full Track B contract:
-  snapshot id, baseline id, `code_version[:12]`, a digest of the full
-  `code_version`, and the parameterization digest
+- `run_id` still validates the runner bundle's internal
+  baseline/`code_version`/parameterization self-consistency, but public Track B
+  provenance does not rely on that mutable field
 - confidence-interval provenance must bind to the run manifest parameterization:
   bootstrap iterations, confidence level, resample unit, and the deterministic
   per-baseline seed derived from the base seed plus `baseline_id` / horizon salt
-- Track B metric payloads must use the frozen metric-unit contract for each
-  structural metric, which is currently `fraction` for all four shipped metrics
+- Track B metric payloads must include explicit `metric_unit` and use the
+  frozen metric-unit contract for each structural metric, which is currently
+  `fraction` for all four shipped metrics
 - manifest-only Track B provenance fields such as `track_b_case_count` and
   `track_b_casebook_sha256` must match the pinned casebook and emitted case set
 - duplicate `artifact_name` entries in any consumed Track B input-artifact
@@ -232,9 +237,11 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
   add adversarial tests for missing baseline bundles, cross-baseline artifact
   swaps, tampered manifest input artifacts, tampered interval seed provenance,
   tampered schema identity on reporting-consumed runner artifacts, forged
-  same-prefix `code_version` provenance, unexpected Track B parameterization
-  keys, metric-unit tampering, duplicate input-artifact names, and tampered
-  manifest-only casebook/count provenance
+  same-prefix `code_version` provenance, full `code_version` forgery with a
+  recomputed `run_id` plus rewritten bundle references, unexpected Track B
+  parameterization keys, metric-unit tampering, omitted `metric_unit`,
+  duplicate input-artifact names, and tampered manifest-only casebook/count
+  provenance
 - Integration:
   run one Track B slice end to end from frozen snapshot to case-review output
   and assert the same six ids flow through cohort labels, runner outputs, and

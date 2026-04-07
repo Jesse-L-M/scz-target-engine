@@ -91,10 +91,12 @@ The strict no-fallback archive rule remains unchanged.
   the full expected baseline set must be present, interval provenance is bound
   to the run-manifest seed contract, public provenance is reconstructed from
   the validated cohort bundle plus pinned source artifacts, schema identity is
-  enforced on every reporting-consumed runner artifact, `run_id` binds the full
-  published `code_version`, unexpected Track B parameterization keys are
-  rejected, metric units are pinned to the Track B metric definitions, and
-  duplicate input-artifact names fail closed
+  enforced on every reporting-consumed runner artifact, public Track B outputs
+  redact `code_version` as `redacted_untrusted_runner_code_version`, `run_id`
+  stays only an internal bundle-consistency check, unexpected Track B
+  parameterization keys are rejected, metric units are explicit and pinned to
+  the Track B metric definitions, and duplicate input-artifact names fail
+  closed
 
 ## Affected Specs
 

@@ -85,6 +85,7 @@ _SLICE_NOTES_PATTERN = re.compile(
     r"(?:;\s*deterministic_test_mode=true)?$"
 )
 _INTERVAL_METHOD_PATTERN = re.compile(r"method=(?P<method>[a-z_]+);")
+TRACK_B_PUBLIC_CODE_VERSION = "redacted_untrusted_runner_code_version"
 
 
 def _require_text(value: str, field_name: str) -> str:
@@ -2231,7 +2232,7 @@ def _materialize_track_b_reporting(
             baseline_status=baseline.status,
             baseline_coverage_rule=baseline.coverage_rule,
             baseline_description=baseline.description,
-            code_version=run_manifest.code_version,
+            code_version=TRACK_B_PUBLIC_CODE_VERSION,
             started_at=run_manifest.started_at,
             completed_at=run_manifest.completed_at,
             generated_at=resolved_generated_at,
@@ -2246,7 +2247,9 @@ def _materialize_track_b_reporting(
             run_parameterization=validated_run.validated_parameterization,
             run_notes=run_manifest.notes,
             notes=(
-                "Derived from Track B runner artifacts without rerunning structural replay scoring."
+                "Derived from Track B runner artifacts without rerunning structural "
+                "replay scoring. Public Track B outputs redact the runner-reported "
+                "code_version because reporting cannot independently attest it."
             ),
         )
         report_card_path = _build_report_card_path(
@@ -3045,6 +3048,7 @@ __all__ = [
     "LEADERBOARD_SCHEMA_VERSION",
     "REPORT_CARD_SCHEMA_NAME",
     "REPORT_CARD_SCHEMA_VERSION",
+    "TRACK_B_PUBLIC_CODE_VERSION",
     "materialize_benchmark_reporting",
     "read_benchmark_leaderboard_payload",
     "read_benchmark_report_card_payload",

@@ -81,6 +81,7 @@ class BenchmarkMetricOutputPayload:
         _require_text(self.entity_type, "entity_type")
         _require_text(self.horizon, "horizon")
         _require_text(self.metric_name, "metric_name")
+        _require_text(self.metric_unit, "metric_unit")
         _require_text(self.schema_name, "schema_name")
         _require_text(self.schema_version, "schema_version")
         if self.schema_name != METRIC_PAYLOAD_SCHEMA_NAME:
@@ -114,6 +115,9 @@ class BenchmarkMetricOutputPayload:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkMetricOutputPayload:
+        metric_unit = payload.get("metric_unit")
+        if metric_unit is None:
+            raise ValueError(f"{METRIC_PAYLOAD_SCHEMA_NAME} metric_unit is required")
         return cls(
             schema_name=str(payload["schema_name"]),
             schema_version=str(payload["schema_version"]),
@@ -124,7 +128,7 @@ class BenchmarkMetricOutputPayload:
             horizon=str(payload["horizon"]),
             metric_name=str(payload["metric_name"]),
             metric_value=float(payload["metric_value"]),
-            metric_unit=str(payload.get("metric_unit", "fraction")),
+            metric_unit=str(metric_unit),
             cohort_size=int(payload["cohort_size"]),
             notes=str(payload.get("notes", "")),
         )

@@ -53,6 +53,12 @@ def _require_text(value: str, field_name: str) -> str:
     return value
 
 
+def _require_explicit_bool(value: Any, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be an explicit boolean")
+    return value
+
+
 def _require_non_empty_tuple(values: tuple[str, ...], field_name: str) -> None:
     if not values:
         raise ValueError(f"{field_name} must contain at least one value")
@@ -150,6 +156,13 @@ class LeakageControls:
     internal_state_policy: str = "protocol_only_decoupled_from_head_internals"
 
     def __post_init__(self) -> None:
+        for field_name in (
+            "require_snapshot_manifest",
+            "forbid_future_evidence",
+            "forbid_future_outcome_labels_in_inputs",
+            "require_precutoff_materialization",
+        ):
+            _require_explicit_bool(getattr(self, field_name), field_name)
         if self.mode != STRICT_NO_LEAKAGE_MODE:
             raise ValueError("mode must remain strict_no_leakage for benchmark snapshots")
         if not self.require_snapshot_manifest:
@@ -188,13 +201,21 @@ class LeakageControls:
     def from_dict(cls, payload: dict[str, Any]) -> LeakageControls:
         return cls(
             mode=str(payload["mode"]),
-            require_snapshot_manifest=bool(payload["require_snapshot_manifest"]),
-            forbid_future_evidence=bool(payload["forbid_future_evidence"]),
-            forbid_future_outcome_labels_in_inputs=bool(
-                payload["forbid_future_outcome_labels_in_inputs"]
+            require_snapshot_manifest=_require_explicit_bool(
+                payload["require_snapshot_manifest"],
+                "require_snapshot_manifest",
             ),
-            require_precutoff_materialization=bool(
-                payload["require_precutoff_materialization"]
+            forbid_future_evidence=_require_explicit_bool(
+                payload["forbid_future_evidence"],
+                "forbid_future_evidence",
+            ),
+            forbid_future_outcome_labels_in_inputs=_require_explicit_bool(
+                payload["forbid_future_outcome_labels_in_inputs"],
+                "forbid_future_outcome_labels_in_inputs",
+            ),
+            require_precutoff_materialization=_require_explicit_bool(
+                payload["require_precutoff_materialization"],
+                "require_precutoff_materialization",
             ),
             undated_source_policy=str(payload["undated_source_policy"]),
             missing_cutoff_policy=str(payload["missing_cutoff_policy"]),
@@ -597,6 +618,7 @@ class ArtifactField:
     def __post_init__(self) -> None:
         _require_text(self.name, "name")
         _require_text(self.field_type, "field_type")
+        _require_explicit_bool(self.required, "required")
         _require_text(self.description, "description")
 
     def to_dict(self) -> dict[str, object]:
@@ -612,7 +634,7 @@ class ArtifactField:
         return cls(
             name=str(payload["name"]),
             field_type=str(payload["field_type"]),
-            required=bool(payload["required"]),
+            required=_require_explicit_bool(payload["required"], "required"),
             description=str(payload["description"]),
         )
 
@@ -1786,8 +1808,8 @@ BENCHMARK_ARTIFACT_SCHEMAS_V1 = (
             ArtifactField(
                 name="metric_unit",
                 field_type="string",
-                required=False,
-                description="Optional unit or denominator label for the metric.",
+                required=True,
+                description="Unit or denominator label for the metric.",
             ),
             ArtifactField(
                 name="cohort_size",

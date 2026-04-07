@@ -15,6 +15,7 @@ from scz_target_engine.benchmark_protocol import (
     SOURCE_CUTOFF_RULES_V1,
     SOURCE_RELEASE_CUTOFF,
     TRACK_B_BENCHMARK_PROTOCOL,
+    ArtifactField,
     BenchmarkSnapshotManifest,
     BaselineDefinition,
     SourceSnapshot,
@@ -291,6 +292,49 @@ def test_leakage_controls_reject_loose_configuration() -> None:
         match="forbid_future_outcome_labels_in_inputs must remain enabled",
     ):
         LeakageControls(forbid_future_outcome_labels_in_inputs=False)
+
+
+def test_metric_payload_schema_requires_metric_unit() -> None:
+    metric_schema = next(
+        schema
+        for schema in FROZEN_BENCHMARK_PROTOCOL.artifact_schemas
+        if schema.artifact_name == "benchmark_metric_output_payload"
+    )
+    metric_unit_field = next(
+        field for field in metric_schema.fields if field.name == "metric_unit"
+    )
+
+    assert metric_unit_field.required is True
+    assert "Optional" not in metric_unit_field.description
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    (
+        "require_snapshot_manifest",
+        "forbid_future_evidence",
+        "forbid_future_outcome_labels_in_inputs",
+        "require_precutoff_materialization",
+    ),
+)
+def test_leakage_controls_from_dict_rejects_non_boolean_flags(field_name: str) -> None:
+    payload = LeakageControls().to_dict()
+    payload[field_name] = "false"
+
+    with pytest.raises(ValueError, match="must be an explicit boolean"):
+        LeakageControls.from_dict(payload)
+
+
+def test_artifact_field_from_dict_rejects_non_boolean_required() -> None:
+    with pytest.raises(ValueError, match="required must be an explicit boolean"):
+        ArtifactField.from_dict(
+            {
+                "name": "metric_unit",
+                "field_type": "string",
+                "required": "false",
+                "description": "forged",
+            }
+        )
 
 
 def test_snapshot_allows_post_cutoff_materialization_from_precutoff_archive() -> None:

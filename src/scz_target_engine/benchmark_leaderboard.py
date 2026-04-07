@@ -251,6 +251,180 @@ def _build_track_b_public_derived_artifact_path(
     raise ValueError(f"unsupported Track B public derived artifact {artifact_name}")
 
 
+def _build_leaderboard_id(
+    *,
+    benchmark_suite_id: str,
+    benchmark_task_id: str,
+    snapshot_id: str,
+    entity_type: str,
+    horizon: str,
+    metric_name: str,
+) -> str:
+    return "__".join(
+        (
+            _normalize_component(benchmark_suite_id),
+            _normalize_component(benchmark_task_id),
+            _normalize_component(snapshot_id),
+            _normalize_component(entity_type),
+            _normalize_component(horizon),
+            _normalize_component(metric_name),
+        )
+    )
+
+
+def _track_b_public_derived_artifact_notes(artifact_name: str) -> str:
+    if artifact_name == "benchmark_model_run_manifest":
+        return "Runner-emitted baseline manifest consumed for Track B reporting."
+    if artifact_name == "track_b_case_output_payload":
+        return "Structured per-case Track B runner outputs."
+    if artifact_name == "track_b_confusion_summary":
+        return "Track B confusion summary derived directly from the runner case outputs."
+    return ""
+
+
+def _build_track_b_expected_public_derived_artifact_contract(
+    *,
+    public_id: str,
+    metric_names: tuple[str, ...],
+) -> tuple[tuple[str, str, str, str], ...]:
+    expected_artifacts = [
+        (
+            "benchmark_model_run_manifest",
+            _build_track_b_public_derived_artifact_path(
+                public_id,
+                artifact_name="benchmark_model_run_manifest",
+            ),
+            "benchmark_model_run_manifest",
+            _track_b_public_derived_artifact_notes("benchmark_model_run_manifest"),
+        ),
+        (
+            "track_b_case_output_payload",
+            _build_track_b_public_derived_artifact_path(
+                public_id,
+                artifact_name="track_b_case_output_payload",
+            ),
+            TRACK_B_CASE_OUTPUT_SCHEMA_NAME,
+            _track_b_public_derived_artifact_notes("track_b_case_output_payload"),
+        ),
+        (
+            "track_b_confusion_summary",
+            _build_track_b_public_derived_artifact_path(
+                public_id,
+                artifact_name="track_b_confusion_summary",
+            ),
+            TRACK_B_CONFUSION_SCHEMA_NAME,
+            _track_b_public_derived_artifact_notes("track_b_confusion_summary"),
+        ),
+    ]
+    for metric_name in metric_names:
+        expected_artifacts.append(
+            (
+                "benchmark_metric_output_payload",
+                _build_track_b_public_derived_artifact_path(
+                    public_id,
+                    artifact_name="benchmark_metric_output_payload",
+                    metric_name=metric_name,
+                ),
+                "benchmark_metric_output_payload",
+                "",
+            )
+        )
+        expected_artifacts.append(
+            (
+                "benchmark_confidence_interval_payload",
+                _build_track_b_public_derived_artifact_path(
+                    public_id,
+                    artifact_name="benchmark_confidence_interval_payload",
+                    metric_name=metric_name,
+                ),
+                "benchmark_confidence_interval_payload",
+                "",
+            )
+        )
+    return tuple(expected_artifacts)
+
+
+def _sort_artifact_references(
+    artifacts: tuple[InputArtifactReference, ...],
+) -> tuple[InputArtifactReference, ...]:
+    return tuple(
+        sorted(
+            artifacts,
+            key=lambda artifact: (
+                artifact.artifact_name,
+                artifact.source_name,
+                artifact.artifact_path,
+                artifact.schema_name,
+                artifact.sha256,
+                artifact.notes,
+            ),
+        )
+    )
+
+
+def _reporting_output_root_from_payload_path(
+    path: Path,
+    *,
+    anchor_dir_name: str,
+) -> Path:
+    resolved_path = path.resolve()
+    for index, part in enumerate(resolved_path.parts):
+        if part == anchor_dir_name:
+            return Path(*resolved_path.parts[:index])
+    raise ValueError(
+        f"expected {anchor_dir_name} in reporting payload path: {resolved_path}"
+    )
+
+
+def _resolve_report_card_reference_path(
+    path_text: str,
+    *,
+    anchor_path: Path,
+) -> Path:
+    path = Path(path_text)
+    if path.is_absolute():
+        return path.resolve()
+    return (anchor_path.parent / path).resolve()
+
+
+def _materialize_track_b_public_bundle_file(
+    *,
+    output_dir: Path,
+    public_id: str,
+    source_path: Path,
+    artifact_name: str,
+    metric_name: str | None = None,
+) -> Path:
+    destination = output_dir / _build_track_b_public_derived_artifact_path(
+        public_id,
+        artifact_name=artifact_name,
+        metric_name=metric_name,
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_path.resolve(), destination)
+    return destination
+
+
+def _clear_track_b_public_bundle_outputs(
+    output_dir: Path,
+    *,
+    snapshot_id: str,
+) -> None:
+    bundle_root = output_dir / TRACK_B_PUBLIC_DERIVED_ARTIFACT_ROOT
+    if not bundle_root.exists():
+        return
+    public_snapshot_prefix = (
+        f"{TRACK_B_PUBLIC_ID_PREFIX}__{_normalize_component(snapshot_id)}__"
+    )
+    for child in bundle_root.iterdir():
+        if not child.name.startswith(public_snapshot_prefix):
+            continue
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+
+
 def _validate_track_b_public_parameterization(
     parameterization: object,
     *,
@@ -1883,57 +2057,29 @@ def _validate_track_b_public_report_card(
         raise ValueError(
             "Track B public report card metrics do not match the Track B public contract"
         )
-    expected_artifacts = [
-        (
-            "benchmark_model_run_manifest",
-            _build_track_b_public_derived_artifact_path(
-                expected_public_id,
-                artifact_name="benchmark_model_run_manifest",
-            ),
-            "benchmark_model_run_manifest",
-        ),
-        (
-            "track_b_case_output_payload",
-            _build_track_b_public_derived_artifact_path(
-                expected_public_id,
-                artifact_name="track_b_case_output_payload",
-            ),
-            TRACK_B_CASE_OUTPUT_SCHEMA_NAME,
-        ),
-        (
-            "track_b_confusion_summary",
-            _build_track_b_public_derived_artifact_path(
-                expected_public_id,
-                artifact_name="track_b_confusion_summary",
-            ),
-            TRACK_B_CONFUSION_SCHEMA_NAME,
-        ),
-    ]
-    for metric_name in metric_names:
-        expected_artifacts.append(
-            (
-                "benchmark_metric_output_payload",
-                _build_track_b_public_derived_artifact_path(
-                    expected_public_id,
-                    artifact_name="benchmark_metric_output_payload",
-                    metric_name=metric_name,
-                ),
-                "benchmark_metric_output_payload",
+    for metric_summary in slice_report.metrics:
+        expected_metric_unit = TRACK_B_METRIC_UNITS.get(metric_summary.metric_name)
+        if expected_metric_unit is None:
+            raise ValueError(
+                "Track B public report card metric_name is not supported: "
+                f"{metric_summary.metric_name}"
             )
-        )
-        expected_artifacts.append(
-            (
-                "benchmark_confidence_interval_payload",
-                _build_track_b_public_derived_artifact_path(
-                    expected_public_id,
-                    artifact_name="benchmark_confidence_interval_payload",
-                    metric_name=metric_name,
-                ),
-                "benchmark_confidence_interval_payload",
+        if metric_summary.metric_unit != expected_metric_unit:
+            raise ValueError(
+                "Track B public report card metric_unit does not match the Track B "
+                f"metric contract for {metric_summary.metric_name}"
             )
-        )
+    expected_artifacts = _build_track_b_expected_public_derived_artifact_contract(
+        public_id=expected_public_id,
+        metric_names=tuple(metric_names),
+    )
     actual_artifacts = [
-        (artifact.artifact_name, artifact.artifact_path, artifact.schema_name)
+        (
+            artifact.artifact_name,
+            artifact.artifact_path,
+            artifact.schema_name,
+            artifact.notes,
+        )
         for artifact in report_card.derived_from_artifacts
     ]
     if sorted(actual_artifacts) != sorted(expected_artifacts):
@@ -1958,6 +2104,19 @@ def _validate_track_b_public_leaderboard(
     if leaderboard.horizon != TRACK_B_HORIZON:
         raise ValueError(
             f"Track B public leaderboard horizon must be {TRACK_B_HORIZON}"
+        )
+    expected_leaderboard_id = _build_leaderboard_id(
+        benchmark_suite_id=leaderboard.benchmark_suite_id,
+        benchmark_task_id=leaderboard.benchmark_task_id,
+        snapshot_id=leaderboard.snapshot_id,
+        entity_type=leaderboard.entity_type,
+        horizon=leaderboard.horizon,
+        metric_name=leaderboard.metric_name,
+    )
+    if leaderboard.leaderboard_id != expected_leaderboard_id:
+        raise ValueError(
+            "Track B public leaderboard leaderboard_id does not match the stable "
+            "public contract"
         )
     if leaderboard.metric_unit != expected_metric_unit:
         raise ValueError(
@@ -2045,7 +2204,106 @@ def read_benchmark_report_card_payload(path: Path) -> BenchmarkReportCardPayload
     payload = _require_json_mapping(path)
     report_card = BenchmarkReportCardPayload.from_dict(payload)
     _validate_report_card_file_path(path, report_card)
+    if is_track_b_task(report_card.benchmark_task_id):
+        _validate_track_b_public_report_card_provenance(path, report_card)
     return report_card
+
+
+def _validate_track_b_public_report_card_provenance(
+    path: Path,
+    report_card: BenchmarkReportCardPayload,
+) -> None:
+    evaluation_input_artifact_index = _index_artifacts_by_name(
+        report_card.evaluation_input_artifacts,
+        context="Track B public report card evaluation_input_artifacts",
+    )
+    snapshot_manifest_artifact = evaluation_input_artifact_index.get(
+        "benchmark_snapshot_manifest"
+    )
+    if snapshot_manifest_artifact is None:
+        raise ValueError(
+            "Track B public report card evaluation_input_artifacts must include "
+            "benchmark_snapshot_manifest"
+        )
+    cohort_labels_artifact = evaluation_input_artifact_index.get("benchmark_cohort_labels")
+    if cohort_labels_artifact is None:
+        raise ValueError(
+            "Track B public report card evaluation_input_artifacts must include "
+            "benchmark_cohort_labels"
+        )
+    snapshot_manifest_path = _resolve_report_card_reference_path(
+        snapshot_manifest_artifact.artifact_path,
+        anchor_path=path,
+    )
+    cohort_labels_path = _resolve_report_card_reference_path(
+        cohort_labels_artifact.artifact_path,
+        anchor_path=path,
+    )
+    snapshot_manifest = read_benchmark_snapshot_manifest(snapshot_manifest_path)
+    if tuple(snapshot_manifest.source_snapshots) != tuple(report_card.source_snapshots):
+        raise ValueError(
+            "Track B public report card source_snapshots do not match the pinned "
+            "benchmark_snapshot_manifest"
+        )
+    materialized_cohort = load_materialized_benchmark_cohort_artifacts(
+        snapshot_manifest=snapshot_manifest,
+        snapshot_manifest_file=snapshot_manifest_path,
+        cohort_labels_file=cohort_labels_path,
+    )
+    expected_input_artifacts = _build_track_b_expected_evaluation_input_artifacts(
+        manifest_file=snapshot_manifest_path,
+        cohort_labels_file=cohort_labels_path,
+        materialized_cohort=materialized_cohort,
+    )
+    if _sort_artifact_references(report_card.evaluation_input_artifacts) != (
+        _sort_artifact_references(expected_input_artifacts)
+    ):
+        raise ValueError(
+            "Track B public report card evaluation_input_artifacts do not match the "
+            "pinned cohort/source artifact contract"
+        )
+    output_root = _reporting_output_root_from_payload_path(
+        path,
+        anchor_dir_name="report_cards",
+    )
+    metric_names = tuple(
+        sorted(
+            {
+                metric.metric_name
+                for slice_report in report_card.slices
+                for metric in slice_report.metrics
+            }
+        )
+    )
+    expected_derived_artifacts: list[InputArtifactReference] = []
+    for artifact_name, artifact_path, schema_name, notes in (
+        _build_track_b_expected_public_derived_artifact_contract(
+            public_id=report_card.report_card_id,
+            metric_names=metric_names,
+        )
+    ):
+        resolved_public_artifact_path = (output_root / artifact_path).resolve()
+        if not resolved_public_artifact_path.exists():
+            raise ValueError(
+                "Track B public report card derived artifact path does not exist: "
+                f"{artifact_path}"
+            )
+        expected_derived_artifacts.append(
+            InputArtifactReference(
+                artifact_name=artifact_name,
+                artifact_path=artifact_path,
+                sha256=_file_sha256(resolved_public_artifact_path),
+                schema_name=schema_name,
+                notes=notes,
+            )
+        )
+    if _sort_artifact_references(report_card.derived_from_artifacts) != (
+        _sort_artifact_references(tuple(expected_derived_artifacts))
+    ):
+        raise ValueError(
+            "Track B public report card derived_from_artifacts do not match the "
+            "materialized public runner bundle"
+        )
 
 
 def write_benchmark_leaderboard_payload(
@@ -2608,6 +2866,10 @@ def _materialize_track_b_reporting(
         benchmark_task_id=benchmark_task_id,
         snapshot_id=str(getattr(manifest, "snapshot_id")),
     )
+    _clear_track_b_public_bundle_outputs(
+        resolved_output_dir,
+        snapshot_id=str(getattr(manifest, "snapshot_id")),
+    )
 
     report_card_records: list[tuple[BenchmarkReportCardPayload, Path]] = []
     report_card_files: list[str] = []
@@ -2684,13 +2946,37 @@ def _materialize_track_b_reporting(
             baseline_id=run_manifest.baseline_id,
             run_parameterization=validated_run.validated_parameterization,
         )
+        _materialize_track_b_public_bundle_file(
+            output_dir=resolved_output_dir,
+            public_id=public_run_id,
+            source_path=run_manifest_path,
+            artifact_name="benchmark_model_run_manifest",
+        )
+        for path in sorted(metric_paths_for_run):
+            _materialize_track_b_public_bundle_file(
+                output_dir=resolved_output_dir,
+                public_id=public_run_id,
+                source_path=path,
+                artifact_name="benchmark_metric_output_payload",
+                metric_name=path.stem,
+            )
+        for path in sorted(interval_paths_for_run):
+            _materialize_track_b_public_bundle_file(
+                output_dir=resolved_output_dir,
+                public_id=public_run_id,
+                source_path=path,
+                artifact_name="benchmark_confidence_interval_payload",
+                metric_name=path.stem,
+            )
 
         derived_from_artifacts = [
             _build_artifact_reference(
                 artifact_name="benchmark_model_run_manifest",
                 path=run_manifest_path,
                 schema_name="benchmark_model_run_manifest",
-                notes="Runner-emitted baseline manifest consumed for Track B reporting.",
+                notes=_track_b_public_derived_artifact_notes(
+                    "benchmark_model_run_manifest"
+                ),
                 artifact_path_override=_build_track_b_public_derived_artifact_path(
                     public_run_id,
                     artifact_name="benchmark_model_run_manifest",
@@ -2733,12 +3019,26 @@ def _materialize_track_b_reporting(
             resolved_runner_output_dir,
             run_id=run_id,
         )
+        _materialize_track_b_public_bundle_file(
+            output_dir=resolved_output_dir,
+            public_id=public_run_id,
+            source_path=case_output_payload_path,
+            artifact_name="track_b_case_output_payload",
+        )
+        _materialize_track_b_public_bundle_file(
+            output_dir=resolved_output_dir,
+            public_id=public_run_id,
+            source_path=confusion_summary_path,
+            artifact_name="track_b_confusion_summary",
+        )
         derived_from_artifacts.append(
             _build_artifact_reference(
                 artifact_name="track_b_case_output_payload",
                 path=case_output_payload_path,
                 schema_name=TRACK_B_CASE_OUTPUT_SCHEMA_NAME,
-                notes="Structured per-case Track B runner outputs.",
+                notes=_track_b_public_derived_artifact_notes(
+                    "track_b_case_output_payload"
+                ),
                 artifact_path_override=_build_track_b_public_derived_artifact_path(
                     public_run_id,
                     artifact_name="track_b_case_output_payload",
@@ -2750,7 +3050,9 @@ def _materialize_track_b_reporting(
                 artifact_name="track_b_confusion_summary",
                 path=confusion_summary_path,
                 schema_name=TRACK_B_CONFUSION_SCHEMA_NAME,
-                notes="Track B confusion summary derived directly from the runner case outputs.",
+                notes=_track_b_public_derived_artifact_notes(
+                    "track_b_confusion_summary"
+                ),
                 artifact_path_override=_build_track_b_public_derived_artifact_path(
                     public_run_id,
                     artifact_name="track_b_confusion_summary",
@@ -2940,15 +3242,13 @@ def _materialize_track_b_reporting(
                 )
             )
         leaderboard_payload = BenchmarkLeaderboardPayload(
-            leaderboard_id="__".join(
-                (
-                    _normalize_component(benchmark_suite_id),
-                    _normalize_component(benchmark_task_id),
-                    _normalize_component(str(getattr(manifest, "snapshot_id"))),
-                    _normalize_component(entity_type),
-                    _normalize_component(horizon),
-                    _normalize_component(metric_name),
-                )
+            leaderboard_id=_build_leaderboard_id(
+                benchmark_suite_id=benchmark_suite_id,
+                benchmark_task_id=benchmark_task_id,
+                snapshot_id=str(getattr(manifest, "snapshot_id")),
+                entity_type=entity_type,
+                horizon=horizon,
+                metric_name=metric_name,
             ),
             benchmark_suite_id=benchmark_suite_id,
             benchmark_task_id=benchmark_task_id,
@@ -3515,15 +3815,13 @@ def materialize_benchmark_reporting(
             )
 
         leaderboard_payload = BenchmarkLeaderboardPayload(
-            leaderboard_id="__".join(
-                (
-                    _normalize_component(benchmark_suite_id),
-                    _normalize_component(benchmark_task_id),
-                    _normalize_component(manifest.snapshot_id),
-                    _normalize_component(entity_type),
-                    _normalize_component(horizon),
-                    _normalize_component(metric_name),
-                )
+            leaderboard_id=_build_leaderboard_id(
+                benchmark_suite_id=benchmark_suite_id,
+                benchmark_task_id=benchmark_task_id,
+                snapshot_id=manifest.snapshot_id,
+                entity_type=entity_type,
+                horizon=horizon,
+                metric_name=metric_name,
             ),
             benchmark_suite_id=benchmark_suite_id,
             benchmark_task_id=benchmark_task_id,

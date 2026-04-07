@@ -169,12 +169,28 @@ Track B reporting is now fail-closed on one bundle contract:
 - public `derived_from_artifacts[].artifact_path` values use stable public
   logical paths rooted at `validated_track_b_runner_bundle/<track_b_public_id>/...`
   instead of leaking internal runner filesystem paths or mutable runner IDs
+- reporting must materialize that advertised
+  `validated_track_b_runner_bundle/<track_b_public_id>/...` tree exactly as
+  published, and public readers must reject any missing advertised file
+- public readers reload the pinned `benchmark_snapshot_manifest` plus the
+  cohort bundle from `evaluation_input_artifacts`, then fail closed if
+  `source_snapshots` or rebuilt `evaluation_input_artifacts` differ from the
+  trusted files on disk
+- public readers pin `derived_from_artifacts` end to end, including stable
+  `notes` strings plus the materialized file `sha256` digests, instead of
+  trusting only artifact name/path/schema triples
+- public `leaderboard_id` is recomputed from
+  `(benchmark_suite_id, benchmark_task_id, snapshot_id, entity_type, horizon, metric_name)`
+  and must match exactly on read
 - confidence-interval provenance must bind to the run manifest parameterization:
   bootstrap iterations, confidence level, resample unit, and the deterministic
   per-baseline seed derived from the base seed plus `baseline_id` / horizon salt
 - Track B metric payloads must include explicit `metric_unit` and use the
   frozen metric-unit contract for each structural metric, which is currently
   `fraction` for all four shipped metrics
+- public Track B report-card metric summaries must also validate `metric_unit`
+  against that frozen per-metric contract instead of accepting any non-empty
+  string
 - public report-card and leaderboard readers fail closed on schema identity,
   redacted Track B provenance fields, missing `run_parameterization`, and nested
   `SourceSnapshot.included` flags that are missing or not literal booleans
@@ -255,8 +271,13 @@ PROGRAM MEMORY V2 + COVERAGE AUDIT + SNAPSHOT CUTS
   recomputed `run_id` plus rewritten bundle references, unexpected Track B
   parameterization keys, metric-unit tampering, omitted `metric_unit`,
   duplicate input-artifact names, tampered public Track B schema identity,
-  non-redacted public Track B provenance fields, and nested
-  `SourceSnapshot.included` coercion or omission in public payload readers
+  non-redacted public Track B provenance fields, forged
+  `source_snapshots` or `evaluation_input_artifacts`, tampered public
+  `derived_from_artifacts.sha256` or `derived_from_artifacts.notes`,
+  missing materialized `validated_track_b_runner_bundle/<track_b_public_id>/...`
+  files, tampered public `leaderboard_id`, tampered public report-card
+  `metric_unit`, and nested `SourceSnapshot.included` coercion or omission in
+  public payload readers
 - Integration:
   run one Track B slice end to end from frozen snapshot to case-review output
   and assert the same six ids flow through cohort labels, runner outputs, and

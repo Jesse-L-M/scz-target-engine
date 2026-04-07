@@ -70,15 +70,15 @@
       "field_type": "integer",
       "required": true,
       "description": "Evaluated cohort size."
-    }
-  ],
-  "optional_fields": [
+    },
     {
       "name": "metric_unit",
       "field_type": "string",
-      "required": false,
-      "description": "Optional metric unit label."
-    },
+      "required": true,
+      "description": "Metric unit label."
+    }
+  ],
+  "optional_fields": [
     {
       "name": "notes",
       "field_type": "string",

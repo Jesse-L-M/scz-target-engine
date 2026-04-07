@@ -28,6 +28,24 @@ DEFAULT_RESCUE_TASK_REGISTRY = (
 )
 
 
+def _require_text(value: object, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} is required")
+    return value
+
+
+def _require_mapping(value: object, field_name: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{field_name} must be a JSON object")
+    return value
+
+
+def _require_list(value: object, field_name: str) -> list[object]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a JSON array")
+    return value
+
+
 @dataclass(frozen=True)
 class PublicSliceSummary:
     slice_id: str
@@ -60,30 +78,58 @@ def load_public_slice_catalog(
     resolved = (catalog_path or DEFAULT_PUBLIC_SLICES_CATALOG).resolve()
     if not resolved.exists():
         return None
-    payload = read_json(resolved)
-    if not isinstance(payload, dict):
-        return None
+    payload = _require_mapping(read_json(resolved), "public slice catalog")
     slices: list[PublicSliceSummary] = []
-    for entry in payload.get("slices", []):
+    for index, entry_value in enumerate(_require_list(payload.get("slices", []), "slices")):
+        entry = _require_mapping(entry_value, f"slices[{index}]")
         excluded_names = tuple(
-            str(exc.get("source_name", ""))
-            for exc in entry.get("excluded_sources", [])
+            _require_text(
+                _require_mapping(exc, f"slices[{index}].excluded_sources[{exc_index}]").get(
+                    "source_name"
+                ),
+                f"slices[{index}].excluded_sources[{exc_index}].source_name",
+            )
+            for exc_index, exc in enumerate(
+                _require_list(
+                    entry.get("excluded_sources", []),
+                    f"slices[{index}].excluded_sources",
+                )
+            )
+        )
+        included_sources = tuple(
+            _require_text(
+                source_name,
+                f"slices[{index}].included_sources[{source_index}]",
+            )
+            for source_index, source_name in enumerate(
+                _require_list(
+                    entry.get("included_sources", []),
+                    f"slices[{index}].included_sources",
+                )
+            )
         )
         slices.append(
             PublicSliceSummary(
-                slice_id=str(entry["slice_id"]),
-                as_of_date=str(entry["as_of_date"]),
-                included_sources=tuple(
-                    str(s) for s in entry.get("included_sources", [])
+                slice_id=_require_text(entry.get("slice_id"), f"slices[{index}].slice_id"),
+                as_of_date=_require_text(
+                    entry.get("as_of_date"),
+                    f"slices[{index}].as_of_date",
                 ),
+                included_sources=included_sources,
                 excluded_source_names=excluded_names,
-                slice_dir=str(entry.get("slice_dir", "")),
+                slice_dir=_require_text(entry.get("slice_dir"), f"slices[{index}].slice_dir"),
                 notes=str(entry.get("notes", "")),
             )
         )
     return PublicSliceCatalog(
-        benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
-        benchmark_task_id=str(payload.get("benchmark_task_id", "")),
+        benchmark_suite_id=_require_text(
+            payload.get("benchmark_suite_id"),
+            "benchmark_suite_id",
+        ),
+        benchmark_task_id=_require_text(
+            payload.get("benchmark_task_id"),
+            "benchmark_task_id",
+        ),
         slices=tuple(slices),
         catalog_path=str(resolved),
     )

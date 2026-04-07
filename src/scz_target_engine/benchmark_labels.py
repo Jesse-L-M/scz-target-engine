@@ -12,6 +12,7 @@ from scz_target_engine.benchmark_protocol import (
     BENCHMARK_EVALUATION_HORIZONS,
     BENCHMARK_LABEL_NAMES,
     BENCHMARK_QUESTION_V1,
+    TRACK_B_BENCHMARK_PROTOCOL,
     BenchmarkSnapshotManifest,
     VALID_ENTITY_TYPES,
 )
@@ -32,6 +33,13 @@ from scz_target_engine.benchmark_track_b import (
     validate_track_b_casebook_against_cohort_members,
 )
 from scz_target_engine.io import read_csv_rows, read_json, write_csv, write_json
+from scz_target_engine.json_contract import (
+    require_json_int,
+    require_json_list,
+    require_json_mapping,
+    require_json_text,
+    require_optional_json_string,
+)
 
 
 BENCHMARK_COHORT_MEMBERS_FIELDNAMES = [
@@ -194,6 +202,14 @@ def _resolve_task_contract_for_manifest(
     )
 
 
+def _manifest_uses_track_b_protocol(manifest: BenchmarkSnapshotManifest) -> bool:
+    benchmark_task_id = getattr(manifest, "benchmark_task_id", "")
+    benchmark_question_id = getattr(manifest, "benchmark_question_id", "")
+    return is_track_b_task(benchmark_task_id) or (
+        benchmark_question_id == TRACK_B_BENCHMARK_PROTOCOL.question.question_id
+    )
+
+
 @dataclass(frozen=True)
 class CohortMember:
     entity_type: str
@@ -208,10 +224,11 @@ class CohortMember:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> CohortMember:
+        mapping = require_json_mapping(payload, "cohort member")
         return cls(
-            entity_type=str(payload["entity_type"]),
-            entity_id=str(payload["entity_id"]),
-            entity_label=str(payload["entity_label"]),
+            entity_type=require_json_text(mapping.get("entity_type"), "entity_type"),
+            entity_id=require_json_text(mapping.get("entity_id"), "entity_id"),
+            entity_label=require_json_text(mapping.get("entity_label"), "entity_label"),
         )
 
 
@@ -237,13 +254,23 @@ class FutureOutcomeRecord:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> FutureOutcomeRecord:
+        mapping = require_json_mapping(payload, "future outcome record")
         return cls(
-            entity_type=str(payload["entity_type"]),
-            entity_id=str(payload["entity_id"]),
-            outcome_label=str(payload["outcome_label"]),
-            outcome_date=str(payload["outcome_date"]),
-            label_source=str(payload["label_source"]),
-            label_notes=str(payload.get("label_notes", "")),
+            entity_type=require_json_text(mapping.get("entity_type"), "entity_type"),
+            entity_id=require_json_text(mapping.get("entity_id"), "entity_id"),
+            outcome_label=require_json_text(
+                mapping.get("outcome_label"),
+                "outcome_label",
+            ),
+            outcome_date=require_json_text(mapping.get("outcome_date"), "outcome_date"),
+            label_source=require_json_text(
+                mapping.get("label_source"),
+                "label_source",
+            ),
+            label_notes=require_optional_json_string(
+                mapping.get("label_notes"),
+                "label_notes",
+            ),
         )
 
 
@@ -295,18 +322,28 @@ class BenchmarkCohortLabel:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkCohortLabel:
+        mapping = require_json_mapping(payload, "benchmark cohort label")
         return cls(
-            cohort_id=str(payload["cohort_id"]),
-            snapshot_id=str(payload["snapshot_id"]),
-            entity_type=str(payload["entity_type"]),
-            entity_id=str(payload["entity_id"]),
-            entity_label=str(payload["entity_label"]),
-            label_name=str(payload["label_name"]),
-            label_value=str(payload["label_value"]),
-            horizon=str(payload["horizon"]),
-            outcome_date=str(payload.get("outcome_date", "")),
-            label_source=str(payload["label_source"]),
-            label_notes=str(payload.get("label_notes", "")),
+            cohort_id=require_json_text(mapping.get("cohort_id"), "cohort_id"),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            entity_type=require_json_text(mapping.get("entity_type"), "entity_type"),
+            entity_id=require_json_text(mapping.get("entity_id"), "entity_id"),
+            entity_label=require_json_text(mapping.get("entity_label"), "entity_label"),
+            label_name=require_json_text(mapping.get("label_name"), "label_name"),
+            label_value=require_json_text(mapping.get("label_value"), "label_value"),
+            horizon=require_json_text(mapping.get("horizon"), "horizon"),
+            outcome_date=require_optional_json_string(
+                mapping.get("outcome_date"),
+                "outcome_date",
+            ),
+            label_source=require_json_text(
+                mapping.get("label_source"),
+                "label_source",
+            ),
+            label_notes=require_optional_json_string(
+                mapping.get("label_notes"),
+                "label_notes",
+            ),
         )
 
 
@@ -330,10 +367,20 @@ class CohortSourceArtifact:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "CohortSourceArtifact":
+        mapping = require_json_mapping(payload, "cohort source artifact")
         return cls(
-            artifact_name=str(payload["artifact_name"]),
-            artifact_path=str(payload["artifact_path"]),
-            artifact_sha256=str(payload["artifact_sha256"]),
+            artifact_name=require_json_text(
+                mapping.get("artifact_name"),
+                "artifact_name",
+            ),
+            artifact_path=require_json_text(
+                mapping.get("artifact_path"),
+                "artifact_path",
+            ),
+            artifact_sha256=require_json_text(
+                mapping.get("artifact_sha256"),
+                "artifact_sha256",
+            ),
         )
 
 
@@ -481,51 +528,122 @@ class BenchmarkCohortManifest:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkCohortManifest:
-        try:
-            return cls(
-                schema_name=str(payload["schema_name"]),
-                schema_version=str(payload["schema_version"]),
-                snapshot_id=str(payload["snapshot_id"]),
-                cohort_id=str(payload["cohort_id"]),
-                benchmark_question_id=str(payload["benchmark_question_id"]),
-                as_of_date=str(payload["as_of_date"]),
-                outcome_observation_closed_at=str(
-                    payload["outcome_observation_closed_at"]
-                ),
-                entity_types=tuple(str(item) for item in payload["entity_types"]),
-                benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
-                benchmark_task_id=str(payload.get("benchmark_task_id", "")),
-                snapshot_manifest_artifact_path=str(
-                    payload["snapshot_manifest_artifact_path"]
-                ),
-                snapshot_manifest_artifact_sha256=str(
-                    payload["snapshot_manifest_artifact_sha256"]
-                ),
-                cohort_members_artifact_path=str(payload["cohort_members_artifact_path"]),
-                cohort_members_artifact_sha256=str(
-                    payload["cohort_members_artifact_sha256"]
-                ),
-                cohort_labels_artifact_path=str(payload["cohort_labels_artifact_path"]),
-                cohort_labels_artifact_sha256=str(
-                    payload["cohort_labels_artifact_sha256"]
-                ),
-                source_cohort_members_path=str(payload["source_cohort_members_path"]),
-                source_cohort_members_sha256=str(payload["source_cohort_members_sha256"]),
-                source_future_outcomes_path=str(payload["source_future_outcomes_path"]),
-                source_future_outcomes_sha256=str(payload["source_future_outcomes_sha256"]),
-                auxiliary_source_artifacts=tuple(
-                    CohortSourceArtifact.from_dict(item)
-                    for item in payload.get("auxiliary_source_artifacts", [])
-                ),
-                entity_count=int(payload["entity_count"]),
-                label_row_count=int(payload["label_row_count"]),
-                observed_label_row_count=int(payload["observed_label_row_count"]),
-                notes=str(payload.get("notes", "")),
-            )
-        except KeyError as exc:
-            raise ValueError(
-                f"benchmark cohort manifest is missing required field: {exc.args[0]}"
-            ) from exc
+        mapping = require_json_mapping(payload, "benchmark cohort manifest")
+        required_fields = (
+            "schema_name",
+            "schema_version",
+            "snapshot_id",
+            "cohort_id",
+            "benchmark_question_id",
+            "as_of_date",
+            "outcome_observation_closed_at",
+            "entity_types",
+            "snapshot_manifest_artifact_path",
+            "snapshot_manifest_artifact_sha256",
+            "cohort_members_artifact_path",
+            "cohort_members_artifact_sha256",
+            "cohort_labels_artifact_path",
+            "cohort_labels_artifact_sha256",
+            "source_cohort_members_path",
+            "source_cohort_members_sha256",
+            "source_future_outcomes_path",
+            "source_future_outcomes_sha256",
+            "entity_count",
+            "label_row_count",
+            "observed_label_row_count",
+        )
+        for field_name in required_fields:
+            if field_name not in mapping:
+                raise ValueError(
+                    f"benchmark cohort manifest is missing required field: {field_name}"
+                )
+        return cls(
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            cohort_id=require_json_text(mapping.get("cohort_id"), "cohort_id"),
+            benchmark_question_id=require_json_text(
+                mapping.get("benchmark_question_id"),
+                "benchmark_question_id",
+            ),
+            as_of_date=require_json_text(mapping.get("as_of_date"), "as_of_date"),
+            outcome_observation_closed_at=require_json_text(
+                mapping.get("outcome_observation_closed_at"),
+                "outcome_observation_closed_at",
+            ),
+            entity_types=tuple(
+                require_json_text(item, "entity_types[]")
+                for item in require_json_list(mapping.get("entity_types"), "entity_types")
+            ),
+            benchmark_suite_id=require_optional_json_string(
+                mapping.get("benchmark_suite_id"),
+                "benchmark_suite_id",
+            ),
+            benchmark_task_id=require_optional_json_string(
+                mapping.get("benchmark_task_id"),
+                "benchmark_task_id",
+            ),
+            snapshot_manifest_artifact_path=require_json_text(
+                mapping.get("snapshot_manifest_artifact_path"),
+                "snapshot_manifest_artifact_path",
+            ),
+            snapshot_manifest_artifact_sha256=require_json_text(
+                mapping.get("snapshot_manifest_artifact_sha256"),
+                "snapshot_manifest_artifact_sha256",
+            ),
+            cohort_members_artifact_path=require_json_text(
+                mapping.get("cohort_members_artifact_path"),
+                "cohort_members_artifact_path",
+            ),
+            cohort_members_artifact_sha256=require_json_text(
+                mapping.get("cohort_members_artifact_sha256"),
+                "cohort_members_artifact_sha256",
+            ),
+            cohort_labels_artifact_path=require_json_text(
+                mapping.get("cohort_labels_artifact_path"),
+                "cohort_labels_artifact_path",
+            ),
+            cohort_labels_artifact_sha256=require_json_text(
+                mapping.get("cohort_labels_artifact_sha256"),
+                "cohort_labels_artifact_sha256",
+            ),
+            source_cohort_members_path=require_json_text(
+                mapping.get("source_cohort_members_path"),
+                "source_cohort_members_path",
+            ),
+            source_cohort_members_sha256=require_json_text(
+                mapping.get("source_cohort_members_sha256"),
+                "source_cohort_members_sha256",
+            ),
+            source_future_outcomes_path=require_json_text(
+                mapping.get("source_future_outcomes_path"),
+                "source_future_outcomes_path",
+            ),
+            source_future_outcomes_sha256=require_json_text(
+                mapping.get("source_future_outcomes_sha256"),
+                "source_future_outcomes_sha256",
+            ),
+            auxiliary_source_artifacts=tuple(
+                CohortSourceArtifact.from_dict(item)
+                for item in require_json_list(
+                    mapping.get("auxiliary_source_artifacts", []),
+                    "auxiliary_source_artifacts",
+                )
+            ),
+            entity_count=require_json_int(mapping.get("entity_count"), "entity_count"),
+            label_row_count=require_json_int(
+                mapping.get("label_row_count"),
+                "label_row_count",
+            ),
+            observed_label_row_count=require_json_int(
+                mapping.get("observed_label_row_count"),
+                "observed_label_row_count",
+            ),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
+        )
 
 
 @dataclass(frozen=True)
@@ -764,8 +882,11 @@ def validate_benchmark_cohort_labels_against_manifest(
     *,
     cohort_members: tuple[CohortMember, ...],
 ) -> None:
-    task_contract = _resolve_task_contract_for_manifest(manifest)
-    question = task_contract.protocol.question
+    question = (
+        TRACK_B_BENCHMARK_PROTOCOL.question
+        if _manifest_uses_track_b_protocol(manifest)
+        else _resolve_task_contract_for_manifest(manifest).protocol.question
+    )
     if not cohort_labels:
         raise ValueError("benchmark cohort labels must contain at least one row")
     validate_benchmark_cohort_members_against_manifest(manifest, cohort_members)
@@ -1149,7 +1270,7 @@ def load_materialized_benchmark_cohort_artifacts(
                 artifact_sha256=artifact.artifact_sha256,
             )
         )
-    if is_track_b_task(_resolve_task_contract_for_manifest(snapshot_manifest).task_id):
+    if _manifest_uses_track_b_protocol(snapshot_manifest):
         _validate_track_b_auxiliary_source_artifacts(
             auxiliary_source_artifacts=tuple(auxiliary_source_artifacts),
             cohort_labels_file=resolved_cohort_labels_file,
@@ -1396,12 +1517,7 @@ def build_benchmark_cohort_labels(
     task_registry_path: Path | None = None,
     cohort_members_file: Path | None = None,
 ) -> tuple[BenchmarkCohortLabel, ...]:
-    task_contract = _resolve_task_contract_for_manifest(
-        manifest,
-        task_registry_path=task_registry_path,
-    )
-    question = task_contract.protocol.question
-    if is_track_b_task(task_contract.task_id):
+    if _manifest_uses_track_b_protocol(manifest):
         if cohort_members_file is None:
             raise ValueError(
                 "Track B cohort label materialization requires cohort_members_file"
@@ -1411,8 +1527,12 @@ def build_benchmark_cohort_labels(
             cohort_members=cohort_members,
             cohort_members_file=cohort_members_file,
             future_outcomes=future_outcomes,
-            question=question,
+            question=TRACK_B_BENCHMARK_PROTOCOL.question,
         )
+    question = _resolve_task_contract_for_manifest(
+        manifest,
+        task_registry_path=task_registry_path,
+    ).protocol.question
     as_of_date = _parse_iso_date(manifest.as_of_date, "as_of_date")
     outcome_closed_at = _parse_iso_date(
         manifest.outcome_observation_closed_at,
@@ -1600,12 +1720,8 @@ def materialize_benchmark_cohort_labels(
             resolved_output_file
         ),
     )
-    task_contract = _resolve_task_contract_for_manifest(
-        manifest,
-        task_registry_path=task_registry_path,
-    )
     auxiliary_source_artifact_files: tuple[tuple[str, Path], ...] = ()
-    if is_track_b_task(task_contract.task_id):
+    if _manifest_uses_track_b_protocol(manifest):
         auxiliary_source_artifact_files = _materialize_track_b_source_artifacts(
             cohort_members_file=resolved_cohort_members_file,
             labels_file=resolved_output_file,

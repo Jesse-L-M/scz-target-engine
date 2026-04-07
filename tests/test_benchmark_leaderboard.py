@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from hashlib import sha256
 from pathlib import Path
@@ -196,6 +197,78 @@ def _refresh_track_b_public_derived_artifact_sha(
     )
     artifact["sha256"] = sha256(artifact_path.read_bytes()).hexdigest()
     _write_json_payload(report_card_path, payload)
+
+
+def _track_b_public_input_artifact_path(
+    report_card_path: Path,
+    *,
+    artifact_name: str,
+) -> Path:
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    artifact_path = next(
+        item["artifact_path"]
+        for item in payload["evaluation_input_artifacts"]
+        if item["artifact_name"] == artifact_name
+    )
+    return (report_card_path.parent / artifact_path).resolve()
+
+
+def _refresh_track_b_public_input_artifact_sha(
+    report_card_path: Path,
+    reporting_output_dir: Path,
+    *,
+    artifact_name: str,
+    artifact_path: Path,
+) -> None:
+    artifact_sha = sha256(artifact_path.read_bytes()).hexdigest()
+    report_card_payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    report_card_artifact = next(
+        item
+        for item in report_card_payload["evaluation_input_artifacts"]
+        if item["artifact_name"] == artifact_name
+    )
+    report_card_artifact["sha256"] = artifact_sha
+    _write_json_payload(report_card_path, report_card_payload)
+
+    run_manifest_path = next(
+        reporting_output_dir / item["artifact_path"]
+        for item in report_card_payload["derived_from_artifacts"]
+        if item["artifact_name"] == "benchmark_model_run_manifest"
+    )
+    run_manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    run_manifest_artifact = next(
+        item
+        for item in run_manifest_payload["input_artifacts"]
+        if item["artifact_name"] == artifact_name
+    )
+    run_manifest_artifact["sha256"] = artifact_sha
+    _write_json_payload(run_manifest_path, run_manifest_payload)
+
+
+def _write_track_b_registry_variant(
+    tmp_path: Path,
+    *,
+    supported_baseline_ids: tuple[str, ...],
+) -> Path:
+    source_registry_path = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "curated"
+        / "rescue_tasks"
+        / "task_registry.csv"
+    )
+    rows = list(
+        csv.DictReader(source_registry_path.read_text(encoding="utf-8").splitlines())
+    )
+    for row in rows:
+        if row["task_id"] == "scz_failure_memory_track_b_task":
+            row["supported_baseline_ids"] = "|".join(supported_baseline_ids)
+    output_path = tmp_path / "track_b_task_registry.csv"
+    with output_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    return output_path
 
 
 def _materialize_fixture_runner_outputs(
@@ -1659,6 +1732,96 @@ def test_read_track_b_report_card_rejects_absolute_evaluation_input_artifact_pat
         read_benchmark_report_card_payload(report_card_path)
 
 
+def test_read_track_b_report_card_rejects_escaped_public_input_artifact_paths(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = _track_b_public_report_card_path(
+        reporting_result,
+        baseline_id="track_b_structural_current",
+    )
+    payload = json.loads(report_card_path.read_text(encoding="utf-8"))
+    payload["evaluation_input_artifacts"][0]["artifact_path"] = (
+        "../../../../../forged_snapshot_manifest.json"
+    )
+    _write_json_payload(report_card_path, payload)
+
+    with pytest.raises(
+        ValueError,
+        match="must stay within the Track B public payload root",
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_read_track_b_report_card_rejects_off_tree_nested_cohort_manifest_reference(
+    tmp_path: Path,
+) -> None:
+    (
+        _,
+        _,
+        _,
+        reporting_output_dir,
+        reporting_result,
+    ) = _materialize_track_b_public_payloads(tmp_path)
+
+    report_card_path = _track_b_public_report_card_path(
+        reporting_result,
+        baseline_id="track_b_structural_current",
+    )
+    cohort_manifest_path = _track_b_public_input_artifact_path(
+        report_card_path,
+        artifact_name="benchmark_cohort_manifest",
+    )
+    cohort_manifest_payload = json.loads(
+        cohort_manifest_path.read_text(encoding="utf-8")
+    )
+    cohort_manifest_payload["source_cohort_members_path"] = "../forged_source.csv"
+    _write_json_payload(cohort_manifest_path, cohort_manifest_payload)
+    _refresh_track_b_public_input_artifact_sha(
+        report_card_path,
+        reporting_output_dir,
+        artifact_name="benchmark_cohort_manifest",
+        artifact_path=cohort_manifest_path,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "benchmark cohort manifest must point to the canonical "
+            "benchmark_source_cohort_members artifact"
+        ),
+    ):
+        read_benchmark_report_card_payload(report_card_path)
+
+
+def test_read_track_b_report_card_ignores_external_shadow_source_artifacts(
+    tmp_path: Path,
+) -> None:
+    (
+        _,
+        _,
+        _,
+        _,
+        reporting_result,
+    ) = _materialize_track_b_public_payloads(tmp_path)
+
+    external_events_path = tmp_path / "events.csv"
+    external_events_path.write_text(
+        "totally,forged,content\n",
+        encoding="utf-8",
+    )
+
+    report_card = read_benchmark_report_card_payload(
+        _track_b_public_report_card_path(
+            reporting_result,
+            baseline_id="track_b_structural_current",
+        )
+    )
+
+    assert report_card.baseline_id == "track_b_structural_current"
+
+
 @pytest.mark.parametrize(
     ("mutator", "error_fragment"),
     (
@@ -2125,6 +2288,110 @@ def test_read_track_b_leaderboard_rejects_absolute_public_report_card_paths(
     _write_json_payload(leaderboard_path, payload)
 
     with pytest.raises(ValueError, match=error_fragment):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+def test_read_track_b_leaderboard_rejects_escaped_public_report_card_paths(
+    tmp_path: Path,
+) -> None:
+    _, _, _, _, reporting_result = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    escaped_path = "../../../../../" + payload["report_card_files"][0]
+    payload["report_card_files"][0] = escaped_path
+    payload["entries"][0]["report_card_path"] = escaped_path
+    _write_json_payload(leaderboard_path, payload)
+
+    with pytest.raises(
+        ValueError,
+        match="must stay within the Track B public payload root",
+    ):
+        read_benchmark_leaderboard_payload(leaderboard_path)
+
+
+def test_read_track_b_leaderboard_ignores_registry_redirection_when_validating_baseline_set(
+    tmp_path: Path,
+) -> None:
+    (
+        _,
+        _,
+        _,
+        reporting_output_dir,
+        reporting_result,
+    ) = _materialize_track_b_public_payloads(tmp_path)
+
+    leaderboard_path = next(
+        Path(path)
+        for path in reporting_result["leaderboard_payload_files"]
+        if path.endswith("replay_status_exact_match.json")
+    )
+    report_card_path = _track_b_public_report_card_path(
+        reporting_result,
+        baseline_id="track_b_structural_current",
+    )
+    snapshot_manifest_path = _track_b_public_input_artifact_path(
+        report_card_path,
+        artifact_name="benchmark_snapshot_manifest",
+    )
+    registry_path = _write_track_b_registry_variant(
+        tmp_path,
+        supported_baseline_ids=("track_b_structural_current",),
+    )
+    snapshot_manifest_payload = json.loads(
+        snapshot_manifest_path.read_text(encoding="utf-8")
+    )
+    snapshot_manifest_payload["task_registry_path"] = str(registry_path)
+    snapshot_manifest_payload["baseline_ids"] = ["track_b_structural_current"]
+    _write_json_payload(snapshot_manifest_path, snapshot_manifest_payload)
+    _refresh_track_b_public_input_artifact_sha(
+        report_card_path,
+        reporting_output_dir,
+        artifact_name="benchmark_snapshot_manifest",
+        artifact_path=snapshot_manifest_path,
+    )
+    cohort_manifest_path = _track_b_public_input_artifact_path(
+        report_card_path,
+        artifact_name="benchmark_cohort_manifest",
+    )
+    cohort_manifest_payload = json.loads(
+        cohort_manifest_path.read_text(encoding="utf-8")
+    )
+    cohort_manifest_payload["snapshot_manifest_artifact_sha256"] = sha256(
+        snapshot_manifest_path.read_bytes()
+    ).hexdigest()
+    _write_json_payload(cohort_manifest_path, cohort_manifest_payload)
+    _refresh_track_b_public_input_artifact_sha(
+        report_card_path,
+        reporting_output_dir,
+        artifact_name="benchmark_cohort_manifest",
+        artifact_path=cohort_manifest_path,
+    )
+
+    leaderboard_payload = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    leaderboard_payload["report_card_files"] = tuple(
+        path_text
+        for path_text in leaderboard_payload["report_card_files"]
+        if "track_b_structural_current" in path_text
+    )
+    leaderboard_payload["entries"] = [
+        entry
+        for entry in leaderboard_payload["entries"]
+        if entry["baseline_id"] == "track_b_structural_current"
+    ]
+    _write_json_payload(leaderboard_path, leaderboard_payload)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Track B public report card snapshot manifest baseline_ids must match "
+            "the full frozen Track B available_now baseline set"
+        ),
+    ):
         read_benchmark_leaderboard_payload(leaderboard_path)
 
 

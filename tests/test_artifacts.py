@@ -146,6 +146,30 @@ def test_load_artifact_rejects_schema_with_string_required_flag(
         )
 
 
+def test_list_artifact_schemas_rejects_required_fields_marked_optional(
+    tmp_path: Path,
+) -> None:
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    schema_path = schema_dir / "benchmark_snapshot_manifest.json"
+    _write_schema_file(
+        schema_path,
+        artifact_name="benchmark_snapshot_manifest",
+    )
+    payload = json.loads(schema_path.read_text(encoding="utf-8"))
+    payload["required_fields"][0]["required"] = False
+    schema_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"required_fields\[0\]\.required must be true",
+    ):
+        list_artifact_schemas(schema_dir=schema_dir)
+
+
 def test_load_artifact_rejects_non_string_metric_unit(tmp_path: Path) -> None:
     metric_path = tmp_path / "metric.json"
     metric_path.write_text(
@@ -488,7 +512,7 @@ def test_benchmark_source_future_outcomes_artifact_rejects_malformed_rows(
 
     with pytest.raises(
         ValueError,
-        match="outcome_date must be an ISO date in YYYY-MM-DD format",
+        match=r"outcome_date (is required|must be an ISO date in YYYY-MM-DD format)",
     ):
         load_artifact(
             malformed_path,

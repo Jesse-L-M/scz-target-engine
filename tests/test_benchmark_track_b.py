@@ -598,12 +598,20 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
         if artifact.artifact_name == "track_b_casebook"
     )
     assert not Path(track_b_casebook_input.artifact_path).is_absolute()
-    assert (Path(reporting_result["report_card_files"][0]).parent / Path(track_b_casebook_input.artifact_path)).resolve() == (
-        benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
-            cohort_labels_file,
-            artifact_name="track_b_casebook",
-        )
+    public_casebook_path = (
+        Path(reporting_result["report_card_files"][0]).parent
+        / Path(track_b_casebook_input.artifact_path)
+    ).resolve()
+    bundled_casebook_path = benchmark_track_b_auxiliary_source_artifact_path_for_labels_file(
+        cohort_labels_file,
+        artifact_name="track_b_casebook",
     )
+    assert public_casebook_path != bundled_casebook_path
+    assert public_casebook_path.name == "track_b_casebook.csv"
+    assert {"validated_track_b_runner_bundle", "inputs"}.issubset(
+        set(public_casebook_path.parts)
+    )
+    assert public_casebook_path.read_bytes() == bundled_casebook_path.read_bytes()
     assert len(report_card.slices) == 1
     assert report_card.run_parameterization is not None
     assert set(report_card.run_parameterization) == set(
@@ -753,7 +761,7 @@ def test_track_b_fixture_runs_snapshot_to_reporting(tmp_path: Path) -> None:
     assert run_id_by_baseline["track_b_nearest_history"] not in nearest_history_error_analysis
 
 
-def test_track_b_cohort_materialization_preserves_auxiliary_sources_without_task_id(
+def test_track_b_cohort_materialization_preserves_auxiliary_sources_but_runner_requires_task_id(
     tmp_path: Path,
 ) -> None:
     snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
@@ -797,17 +805,20 @@ def test_track_b_cohort_materialization_preserves_auxiliary_sources_without_task
         "program_memory_directionality_hypotheses",
     }
 
-    run_result = materialize_benchmark_run(
-        manifest_file=snapshot_manifest_file,
-        cohort_labels_file=cohort_labels_file,
-        archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
-        output_dir=runner_output_dir,
-        bootstrap_iterations=25,
-        deterministic_test_mode=True,
-        code_version="fixture-sha",
-        execution_timestamp="2026-04-05T00:00:00Z",
-    )
-    assert run_result["benchmark_question_id"] == "scz_failure_memory_track_b_v1"
+    with pytest.raises(
+        ValueError,
+        match="Track B snapshot manifests must pin benchmark_suite_id and benchmark_task_id",
+    ):
+        materialize_benchmark_run(
+            manifest_file=snapshot_manifest_file,
+            cohort_labels_file=cohort_labels_file,
+            archive_index_file=TRACK_B_FIXTURE_DIR / "source_archives.json",
+            output_dir=runner_output_dir,
+            bootstrap_iterations=25,
+            deterministic_test_mode=True,
+            code_version="fixture-sha",
+            execution_timestamp="2026-04-05T00:00:00Z",
+        )
 
 
 def test_track_b_reporting_ignores_mutated_original_source_fixture(

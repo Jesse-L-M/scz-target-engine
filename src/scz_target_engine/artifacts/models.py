@@ -76,6 +76,24 @@ class ArtifactFieldDefinition:
         )
 
 
+def _load_artifact_field_definitions(
+    field_values: object,
+    field_name: str,
+    *,
+    required: bool,
+) -> tuple[ArtifactFieldDefinition, ...]:
+    fields: list[ArtifactFieldDefinition] = []
+    for index, item in enumerate(require_json_list(field_values, field_name)):
+        field = ArtifactFieldDefinition.from_dict(
+            require_json_mapping(item, f"{field_name}[{index}]")
+        )
+        if field.required is not required:
+            state = "true" if required else "false"
+            raise ValueError(f"{field_name}[{index}].required must be {state}")
+        fields.append(field)
+    return tuple(fields)
+
+
 @dataclass(frozen=True)
 class ArtifactSchemaDefinition:
     artifact_name: str
@@ -128,17 +146,15 @@ class ArtifactSchemaDefinition:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ArtifactSchemaDefinition:
         mapping = require_json_mapping(payload, "artifact schema definition")
-        required_fields = require_json_list(
+        required_fields = _load_artifact_field_definitions(
             mapping.get("required_fields"),
             "required_fields",
+            required=True,
         )
-        optional_fields = require_json_list(
+        optional_fields = _load_artifact_field_definitions(
             mapping.get("optional_fields"),
             "optional_fields",
-        )
-        fields = tuple(
-            ArtifactFieldDefinition.from_dict(item)
-            for item in required_fields + optional_fields
+            required=False,
         )
         return cls(
             artifact_name=require_json_text(
@@ -155,7 +171,7 @@ class ArtifactSchemaDefinition:
                 require_json_text(item, "key_fields[]")
                 for item in require_json_list(mapping.get("key_fields"), "key_fields")
             ),
-            fields=fields,
+            fields=required_fields + optional_fields,
         )
 
 

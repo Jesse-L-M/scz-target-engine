@@ -79,9 +79,33 @@ def test_load_hypothesis_packets_missing_file(tmp_path: Path) -> None:
     assert load_hypothesis_packets(missing) is None
 
 
+def test_load_hypothesis_packets_rejects_malformed_existing_json(tmp_path: Path) -> None:
+    malformed = tmp_path / "malformed_packets.json"
+    malformed.write_text("[1, 2, 3]\n", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="hypothesis packets file must contain a JSON object",
+    ):
+        load_hypothesis_packets(malformed)
+
+
 def test_load_rescue_augmented_packets_missing_file(tmp_path: Path) -> None:
     missing = tmp_path / "nonexistent.json"
     assert load_rescue_augmented_packets(missing) is None
+
+
+def test_load_rescue_augmented_packets_rejects_malformed_existing_json(
+    tmp_path: Path,
+) -> None:
+    malformed = tmp_path / "malformed_augmented.json"
+    malformed.write_text("[1, 2, 3]\n", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="rescue-augmented packets file must contain a JSON object",
+    ):
+        load_rescue_augmented_packets(malformed)
 
 
 def test_load_rescue_augmented_packets_plain_file_returns_none() -> None:

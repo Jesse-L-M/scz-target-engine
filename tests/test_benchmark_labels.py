@@ -214,6 +214,51 @@ def test_materialize_benchmark_cohort_labels_accepts_header_only_future_outcomes
     )
 
 
+def test_read_benchmark_cohort_manifest_rejects_non_integer_counts(
+    tmp_path: Path,
+) -> None:
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    output_file = tmp_path / "cohort_labels.csv"
+    materialize_benchmark_snapshot_manifest(
+        request_file=FIXTURE_DIR / "snapshot_request.json",
+        archive_index_file=FIXTURE_DIR / "source_archives.json",
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-03",
+    )
+    manifest = read_benchmark_snapshot_manifest(snapshot_manifest_file)
+    materialize_benchmark_cohort_labels(
+        manifest=manifest,
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=FIXTURE_DIR / "cohort_members.csv",
+        future_outcomes_file=FIXTURE_DIR / "future_outcomes.csv",
+        output_file=output_file,
+    )
+    cohort_manifest_file = benchmark_cohort_manifest_path_for_labels_file(output_file)
+    payload = json.loads(cohort_manifest_file.read_text(encoding="utf-8"))
+    payload["entity_count"] = "3"
+    cohort_manifest_file.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="entity_count must be an integer"):
+        read_benchmark_cohort_manifest(cohort_manifest_file)
+
+
+def test_future_outcome_record_from_dict_rejects_non_string_entity_type() -> None:
+    with pytest.raises(ValueError, match="entity_type must be a string"):
+        FutureOutcomeRecord.from_dict(
+            {
+                "entity_type": False,
+                "entity_id": "ENSG00000162946",
+                "outcome_label": "future_schizophrenia_program_started",
+                "outcome_date": "2025-01-01",
+                "label_source": "manual",
+                "label_notes": "",
+            }
+        )
+
+
 def test_materialize_benchmark_cohort_labels_requires_manifest_file(
     tmp_path: Path,
 ) -> None:

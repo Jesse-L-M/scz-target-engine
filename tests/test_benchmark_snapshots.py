@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -139,6 +140,63 @@ def test_snapshot_build_request_reports_invalid_baseline_ids_before_registry_loo
             entity_types=("gene",),
             baseline_ids=("not_a_real_baseline",),
         )
+
+
+def test_load_snapshot_build_request_rejects_non_list_entity_types(tmp_path: Path) -> None:
+    request_path = tmp_path / "snapshot_request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "snapshot_id": "scz_fixture_2024_06_30",
+                "cohort_id": "scz_fixture_small",
+                "benchmark_question_id": "scz_translational_ranking_v1",
+                "as_of_date": "2024-06-30",
+                "outcome_observation_closed_at": "2029-06-30",
+                "entity_types": True,
+                "baseline_ids": ["pgc_only"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="entity_types must be a JSON array"):
+        load_snapshot_build_request(request_path)
+
+
+def test_load_source_archive_descriptors_rejects_non_string_archive_file(
+    tmp_path: Path,
+) -> None:
+    archive_index_path = tmp_path / "source_archives.json"
+    archive_index_path.write_text(
+        json.dumps(
+            {
+                "archives": [
+                    {
+                        "source_name": "PGC",
+                        "source_version": "scz2022_fixture",
+                        "archive_file": False,
+                        "archive_format": "csv",
+                        "allowed_data_through": "2024-06-15",
+                        "evidence_frozen_at": "2024-06-15",
+                        "sha256": (
+                            "0123456789abcdef0123456789abcdef"
+                            "0123456789abcdef0123456789abcdef"
+                        ),
+                    }
+                ]
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="archive_file must be a string"):
+        load_source_archive_descriptors(archive_index_path)
 
 
 def test_snapshot_builder_rejects_ambiguous_same_date_descriptors() -> None:

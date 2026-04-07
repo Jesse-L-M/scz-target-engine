@@ -312,19 +312,38 @@ class SourceCutoffRule:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> SourceCutoffRule:
+        mapping = require_json_mapping(payload, "source cutoff rule")
         return cls(
-            source_name=str(payload["source_name"]),
-            cutoff_mode=str(payload["cutoff_mode"]),
-            cutoff_reference=str(payload["cutoff_reference"]),
+            source_name=require_json_text(mapping.get("source_name"), "source_name"),
+            cutoff_mode=require_json_text(mapping.get("cutoff_mode"), "cutoff_mode"),
+            cutoff_reference=require_json_text(
+                mapping.get("cutoff_reference"),
+                "cutoff_reference",
+            ),
             evidence_timestamp_field=(
                 None
-                if payload.get("evidence_timestamp_field") in {None, ""}
-                else str(payload["evidence_timestamp_field"])
+                if not require_optional_json_string(
+                    mapping.get("evidence_timestamp_field"),
+                    "evidence_timestamp_field",
+                ).strip()
+                else require_optional_json_string(
+                    mapping.get("evidence_timestamp_field"),
+                    "evidence_timestamp_field",
+                )
             ),
-            missing_date_policy=str(payload["missing_date_policy"]),
-            future_record_policy=str(payload["future_record_policy"]),
-            historical_backfill_policy=str(payload["historical_backfill_policy"]),
-            notes=str(payload["notes"]),
+            missing_date_policy=require_json_text(
+                mapping.get("missing_date_policy"),
+                "missing_date_policy",
+            ),
+            future_record_policy=require_json_text(
+                mapping.get("future_record_policy"),
+                "future_record_policy",
+            ),
+            historical_backfill_policy=require_json_text(
+                mapping.get("historical_backfill_policy"),
+                "historical_backfill_policy",
+            ),
+            notes=require_json_text(mapping.get("notes"), "notes"),
         )
 
 
@@ -737,12 +756,31 @@ class ArtifactField:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ArtifactField:
+        mapping = require_json_mapping(payload, "artifact field")
         return cls(
-            name=str(payload["name"]),
-            field_type=str(payload["field_type"]),
-            required=_require_explicit_bool(payload["required"], "required"),
-            description=str(payload["description"]),
+            name=require_json_text(mapping.get("name"), "name"),
+            field_type=require_json_text(mapping.get("field_type"), "field_type"),
+            required=_require_explicit_bool(mapping.get("required"), "required"),
+            description=require_json_text(mapping.get("description"), "description"),
         )
+
+
+def _load_artifact_fields(
+    field_values: object,
+    field_name: str,
+    *,
+    required: bool,
+) -> tuple[ArtifactField, ...]:
+    fields: list[ArtifactField] = []
+    for index, item in enumerate(require_json_list(field_values, field_name)):
+        field = ArtifactField.from_dict(
+            require_json_mapping(item, f"{field_name}[{index}]")
+        )
+        if field.required is not required:
+            state = "true" if required else "false"
+            raise ValueError(f"{field_name}[{index}].required must be {state}")
+        fields.append(field)
+    return tuple(fields)
 
 
 @dataclass(frozen=True)
@@ -785,17 +823,33 @@ class ArtifactSchema:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ArtifactSchema:
-        fields = tuple(
-            ArtifactField.from_dict(item)
-            for item in payload["required_fields"] + payload["optional_fields"]
+        mapping = require_json_mapping(payload, "artifact schema")
+        required_fields = _load_artifact_fields(
+            mapping.get("required_fields"),
+            "required_fields",
+            required=True,
+        )
+        optional_fields = _load_artifact_fields(
+            mapping.get("optional_fields"),
+            "optional_fields",
+            required=False,
         )
         return cls(
-            artifact_name=str(payload["artifact_name"]),
-            schema_version=str(payload["schema_version"]),
-            file_format=str(payload["file_format"]),
-            description=str(payload["description"]),
-            key_fields=tuple(str(item) for item in payload["key_fields"]),
-            fields=fields,
+            artifact_name=require_json_text(
+                mapping.get("artifact_name"),
+                "artifact_name",
+            ),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            file_format=require_json_text(mapping.get("file_format"), "file_format"),
+            description=require_json_text(mapping.get("description"), "description"),
+            key_fields=tuple(
+                require_json_text(item, "key_fields[]")
+                for item in require_json_list(mapping.get("key_fields"), "key_fields")
+            ),
+            fields=required_fields + optional_fields,
         )
 
 
@@ -838,15 +892,31 @@ class BaselineDefinition:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BaselineDefinition:
+        mapping = require_json_mapping(payload, "baseline definition")
         return cls(
-            baseline_id=str(payload["baseline_id"]),
-            label=str(payload["label"]),
-            family=str(payload["family"]),
-            entity_types=tuple(str(item) for item in payload["entity_types"]),
-            required_inputs=tuple(str(item) for item in payload["required_inputs"]),
-            coverage_rule=str(payload["coverage_rule"]),
-            status=str(payload["status"]),
-            description=str(payload["description"]),
+            baseline_id=require_json_text(mapping.get("baseline_id"), "baseline_id"),
+            label=require_json_text(mapping.get("label"), "label"),
+            family=require_json_text(mapping.get("family"), "family"),
+            entity_types=tuple(
+                require_json_text(item, "entity_types[]")
+                for item in require_json_list(mapping.get("entity_types"), "entity_types")
+            ),
+            required_inputs=tuple(
+                require_json_text(item, "required_inputs[]")
+                for item in require_json_list(
+                    mapping.get("required_inputs"),
+                    "required_inputs",
+                )
+            ),
+            coverage_rule=require_json_text(
+                mapping.get("coverage_rule"),
+                "coverage_rule",
+            ),
+            status=require_json_text(mapping.get("status"), "status"),
+            description=require_json_text(
+                mapping.get("description"),
+                "description",
+            ),
         )
 
 
@@ -900,20 +970,39 @@ class BenchmarkProtocol:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> BenchmarkProtocol:
+        mapping = require_json_mapping(payload, "benchmark protocol")
         return cls(
-            schema_name=str(payload["schema_name"]),
-            schema_version=str(payload["schema_version"]),
-            question=BenchmarkQuestion.from_dict(payload["question"]),
-            leakage_controls=LeakageControls.from_dict(payload["leakage_controls"]),
+            schema_name=require_json_text(mapping.get("schema_name"), "schema_name"),
+            schema_version=require_json_text(
+                mapping.get("schema_version"),
+                "schema_version",
+            ),
+            question=BenchmarkQuestion.from_dict(
+                require_json_mapping(mapping.get("question"), "question")
+            ),
+            leakage_controls=LeakageControls.from_dict(
+                require_json_mapping(
+                    mapping.get("leakage_controls"),
+                    "leakage_controls",
+                )
+            ),
             source_cutoff_rules=tuple(
                 SourceCutoffRule.from_dict(item)
-                for item in payload["source_cutoff_rules"]
+                for item in require_json_list(
+                    mapping.get("source_cutoff_rules"),
+                    "source_cutoff_rules",
+                )
             ),
             baselines=tuple(
-                BaselineDefinition.from_dict(item) for item in payload["baselines"]
+                BaselineDefinition.from_dict(item)
+                for item in require_json_list(mapping.get("baselines"), "baselines")
             ),
             artifact_schemas=tuple(
-                ArtifactSchema.from_dict(item) for item in payload["artifact_schemas"]
+                ArtifactSchema.from_dict(item)
+                for item in require_json_list(
+                    mapping.get("artifact_schemas"),
+                    "artifact_schemas",
+                )
             ),
         )
 

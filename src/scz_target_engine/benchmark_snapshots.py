@@ -23,6 +23,13 @@ from scz_target_engine.benchmark_protocol import (
 )
 from scz_target_engine.benchmark_registry import resolve_benchmark_task_contract
 from scz_target_engine.io import read_json, write_json
+from scz_target_engine.json_contract import (
+    require_json_list,
+    require_json_mapping,
+    require_json_text,
+    require_optional_json_string,
+    require_optional_json_text,
+)
 
 
 SNAPSHOT_MANIFEST_SCHEMA_NAME = "benchmark_snapshot_manifest"
@@ -188,31 +195,59 @@ class SnapshotBuildRequest:
         task_registry_path: Path | None = None,
         base_dir: Path | None = None,
     ) -> SnapshotBuildRequest:
+        mapping = require_json_mapping(payload, "snapshot build request")
         return cls(
-            snapshot_id=str(payload["snapshot_id"]),
-            cohort_id=str(payload["cohort_id"]),
-            benchmark_question_id=str(payload["benchmark_question_id"]),
-            as_of_date=str(payload["as_of_date"]),
-            outcome_observation_closed_at=str(payload["outcome_observation_closed_at"]),
-            entity_types=tuple(str(item) for item in payload["entity_types"]),
-            baseline_ids=tuple(str(item) for item in payload["baseline_ids"]),
-            notes=str(payload.get("notes", "")),
-            benchmark_suite_id=str(payload.get("benchmark_suite_id", "")),
-            benchmark_task_id=str(payload.get("benchmark_task_id", "")),
+            snapshot_id=require_json_text(mapping.get("snapshot_id"), "snapshot_id"),
+            cohort_id=require_json_text(mapping.get("cohort_id"), "cohort_id"),
+            benchmark_question_id=require_json_text(
+                mapping.get("benchmark_question_id"),
+                "benchmark_question_id",
+            ),
+            as_of_date=require_json_text(mapping.get("as_of_date"), "as_of_date"),
+            outcome_observation_closed_at=require_json_text(
+                mapping.get("outcome_observation_closed_at"),
+                "outcome_observation_closed_at",
+            ),
+            entity_types=tuple(
+                require_json_text(item, "entity_types[]")
+                for item in require_json_list(mapping.get("entity_types"), "entity_types")
+            ),
+            baseline_ids=tuple(
+                require_json_text(item, "baseline_ids[]")
+                for item in require_json_list(mapping.get("baseline_ids"), "baseline_ids")
+            ),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
+            benchmark_suite_id=require_optional_json_string(
+                mapping.get("benchmark_suite_id"),
+                "benchmark_suite_id",
+            ),
+            benchmark_task_id=require_optional_json_string(
+                mapping.get("benchmark_task_id"),
+                "benchmark_task_id",
+            ),
             task_registry_path=(
                 str(task_registry_path.resolve())
                 if task_registry_path is not None
                 else _resolve_optional_path(
-                    payload.get("task_registry_path"),
+                    require_optional_json_text(
+                        mapping.get("task_registry_path"),
+                        "task_registry_path",
+                    ),
                     base_dir=base_dir,
                 )
             ),
             program_universe_file=_resolve_optional_path(
-                payload.get("program_universe_file"),
+                require_optional_json_text(
+                    mapping.get("program_universe_file"),
+                    "program_universe_file",
+                ),
                 base_dir=base_dir,
             ),
             program_history_events_file=_resolve_optional_path(
-                payload.get("program_history_events_file"),
+                require_optional_json_text(
+                    mapping.get("program_history_events_file"),
+                    "program_history_events_file",
+                ),
                 base_dir=base_dir,
             ),
         )
@@ -260,18 +295,33 @@ class SourceArchiveDescriptor:
         *,
         base_dir: Path,
     ) -> SourceArchiveDescriptor:
-        archive_file = Path(str(payload["archive_file"]))
+        mapping = require_json_mapping(payload, "source archive descriptor")
+        archive_file = Path(
+            require_json_text(mapping.get("archive_file"), "archive_file")
+        )
         if not archive_file.is_absolute():
             archive_file = (base_dir / archive_file).resolve()
         return cls(
-            source_name=str(payload["source_name"]),
-            source_version=str(payload["source_version"]),
+            source_name=require_json_text(mapping.get("source_name"), "source_name"),
+            source_version=require_json_text(
+                mapping.get("source_version"),
+                "source_version",
+            ),
             archive_file=str(archive_file),
-            archive_format=str(payload["archive_format"]),
-            allowed_data_through=str(payload["allowed_data_through"]),
-            evidence_frozen_at=str(payload["evidence_frozen_at"]),
-            sha256=str(payload["sha256"]),
-            notes=str(payload.get("notes", "")),
+            archive_format=require_json_text(
+                mapping.get("archive_format"),
+                "archive_format",
+            ),
+            allowed_data_through=require_json_text(
+                mapping.get("allowed_data_through"),
+                "allowed_data_through",
+            ),
+            evidence_frozen_at=require_json_text(
+                mapping.get("evidence_frozen_at"),
+                "evidence_frozen_at",
+            ),
+            sha256=require_json_text(mapping.get("sha256"), "sha256"),
+            notes=require_optional_json_string(mapping.get("notes"), "notes"),
         )
 
 

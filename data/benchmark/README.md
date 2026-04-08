@@ -190,13 +190,12 @@ checked-in catalog at `2024-06-15`, `2024-06-18`, `2024-06-20`, `2024-07-15`,
 positive intervention-object each, while the later five remain non-evaluable after
 the positive approval boundary and subsequent misses land.
 
-The real `v0_current` / `v1_current` stop-go comparison is now honestly
-unblocked. This Track A stop-go comparison is now honestly unblocked on the
-principal checked-in replay slice. On `scz_translational_2024_09_25`,
-`random_with_coverage` covers `8/8` intervention objects, `v0_current`
-covers `4/8`, and `v1_current` covers `5/8` after the default public-slice
-backfill moved onto the dedicated `fixtures/scz_track_a_historical_replay/`
-archive surface.
+The Track A stop-go comparison was executed on 2026-04-08 and the result is
+**HOLD**: no challenger baselines exist for the `intervention_object` entity
+type. Both `v0_current` and `v1_current` score AP = 0.125 on all five
+evaluable slices. On `scz_translational_2024_09_25`, `random_with_coverage`
+covers `8/8` intervention objects, `v0_current` covers `4/8`, and
+`v1_current` covers `5/8`. See `docs/decisions/0005-track-a-pr3-stop-go.md`.
 
 Current boundary:
 

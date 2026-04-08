@@ -4,6 +4,25 @@
       {
         "complete_policy_vector": true,
         "dominated_by_count": 0,
+        "dominates_count": 23,
+        "entity_id": "ENSG00000149295",
+        "entity_label": "DRD2",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 5,
+        "heuristic_score_v0": 0.360249,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 1,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.756205,
+          "refractory_discovery_upside_v1": 0.438947
+        },
+        "warning_count": 1,
+        "warning_severity": "high"
+      },
+      {
+        "complete_policy_vector": true,
+        "dominated_by_count": 0,
         "dominates_count": 24,
         "entity_id": "ENSG00000183454",
         "entity_label": "GRIN2A",
@@ -19,25 +38,6 @@
         },
         "warning_count": 0,
         "warning_severity": "none"
-      },
-      {
-        "complete_policy_vector": true,
-        "dominated_by_count": 0,
-        "dominates_count": 18,
-        "entity_id": "ENSG00000149295",
-        "entity_label": "DRD2",
-        "entity_type": "gene",
-        "heuristic_rank_v0": 5,
-        "heuristic_score_v0": 0.360249,
-        "heuristic_stable_v0": true,
-        "missing_policy_score_count": 0,
-        "pareto_front": 1,
-        "policy_scores": {
-          "acute_translation_guardrails_v1": 0.302454,
-          "refractory_discovery_upside_v1": 0.464572
-        },
-        "warning_count": 1,
-        "warning_severity": "high"
       },
       {
         "complete_policy_vector": true,
@@ -60,7 +60,7 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 2,
+        "dominated_by_count": 3,
         "dominates_count": 22,
         "entity_id": "ENSG00000117020",
         "entity_label": "AKT3",
@@ -79,8 +79,8 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 3,
-        "dominates_count": 20,
+        "dominated_by_count": 4,
+        "dominates_count": 21,
         "entity_id": "ENSG00000140564",
         "entity_label": "FURIN",
         "entity_type": "gene",
@@ -98,27 +98,8 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 3,
-        "dominates_count": 20,
-        "entity_id": "ENSG00000198822",
-        "entity_label": "GRM3",
-        "entity_type": "gene",
-        "heuristic_rank_v0": 8,
-        "heuristic_score_v0": 0.326635,
-        "heuristic_stable_v0": true,
-        "missing_policy_score_count": 0,
-        "pareto_front": 4,
-        "policy_scores": {
-          "acute_translation_guardrails_v1": 0.354437,
-          "refractory_discovery_upside_v1": 0.377831
-        },
-        "warning_count": 0,
-        "warning_severity": "none"
-      },
-      {
-        "complete_policy_vector": true,
         "dominated_by_count": 5,
-        "dominates_count": 19,
+        "dominates_count": 20,
         "entity_id": "ENSG00000065609",
         "entity_label": "SNAP91",
         "entity_type": "gene",
@@ -137,7 +118,7 @@
       {
         "complete_policy_vector": true,
         "dominated_by_count": 6,
-        "dominates_count": 18,
+        "dominates_count": 19,
         "entity_id": "ENSG00000151067",
         "entity_label": "CACNA1C",
         "entity_type": "gene",
@@ -155,8 +136,8 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 8,
-        "dominates_count": 16,
+        "dominated_by_count": 7,
+        "dominates_count": 17,
         "entity_id": "ENSG00000170396",
         "entity_label": "ZNF804A",
         "entity_type": "gene",
@@ -174,7 +155,7 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 8,
+        "dominated_by_count": 7,
         "dominates_count": 15,
         "entity_id": "ENSG00000109572",
         "entity_label": "CLCN3",
@@ -193,7 +174,7 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 10,
+        "dominated_by_count": 9,
         "dominates_count": 13,
         "entity_id": "ENSG00000164588",
         "entity_label": "HCN1",
@@ -212,6 +193,25 @@
       },
       {
         "complete_policy_vector": true,
+        "dominated_by_count": 8,
+        "dominates_count": 13,
+        "entity_id": "ENSG00000198822",
+        "entity_label": "GRM3",
+        "entity_type": "gene",
+        "heuristic_rank_v0": 8,
+        "heuristic_score_v0": 0.326635,
+        "heuristic_stable_v0": true,
+        "missing_policy_score_count": 0,
+        "pareto_front": 8,
+        "policy_scores": {
+          "acute_translation_guardrails_v1": 0.266437,
+          "refractory_discovery_upside_v1": 0.337831
+        },
+        "warning_count": 0,
+        "warning_severity": "none"
+      },
+      {
+        "complete_policy_vector": true,
         "dominated_by_count": 9,
         "dominates_count": 12,
         "entity_id": "ENSG00000157103",
@@ -221,7 +221,7 @@
         "heuristic_score_v0": 0.385576,
         "heuristic_stable_v0": true,
         "missing_policy_score_count": 0,
-        "pareto_front": 8,
+        "pareto_front": 9,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.265573,
           "refractory_discovery_upside_v1": 0.336812
@@ -231,7 +231,7 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 11,
+        "dominated_by_count": 10,
         "dominates_count": 10,
         "entity_id": "ENSG00000105866",
         "entity_label": "SP4",
@@ -250,7 +250,7 @@
       },
       {
         "complete_policy_vector": true,
-        "dominated_by_count": 11,
+        "dominated_by_count": 10,
         "dominates_count": 10,
         "entity_id": "ENSG00000155511",
         "entity_label": "GRIA1",
@@ -278,7 +278,7 @@
         "heuristic_score_v0": 0.218248,
         "heuristic_stable_v0": true,
         "missing_policy_score_count": 0,
-        "pareto_front": 9,
+        "pareto_front": 10,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.259664,
           "refractory_discovery_upside_v1": 0.327589
@@ -297,7 +297,7 @@
         "heuristic_score_v0": 0.204129,
         "heuristic_stable_v0": false,
         "missing_policy_score_count": 0,
-        "pareto_front": 9,
+        "pareto_front": 10,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.25621,
           "refractory_discovery_upside_v1": 0.330628
@@ -316,7 +316,7 @@
         "heuristic_score_v0": 0.197032,
         "heuristic_stable_v0": false,
         "missing_policy_score_count": 0,
-        "pareto_front": 10,
+        "pareto_front": 11,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.243033,
           "refractory_discovery_upside_v1": 0.31407
@@ -335,7 +335,7 @@
         "heuristic_score_v0": null,
         "heuristic_stable_v0": false,
         "missing_policy_score_count": 0,
-        "pareto_front": 10,
+        "pareto_front": 11,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.244328,
           "refractory_discovery_upside_v1": 0.207341
@@ -354,7 +354,7 @@
         "heuristic_score_v0": 0.221696,
         "heuristic_stable_v0": true,
         "missing_policy_score_count": 0,
-        "pareto_front": 11,
+        "pareto_front": 12,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.225064,
           "refractory_discovery_upside_v1": 0.308059
@@ -373,7 +373,7 @@
         "heuristic_score_v0": 0.279768,
         "heuristic_stable_v0": true,
         "missing_policy_score_count": 0,
-        "pareto_front": 11,
+        "pareto_front": 12,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.212497,
           "refractory_discovery_upside_v1": 0.309542
@@ -392,7 +392,7 @@
         "heuristic_score_v0": 0.317031,
         "heuristic_stable_v0": true,
         "missing_policy_score_count": 0,
-        "pareto_front": 11,
+        "pareto_front": 12,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.229029,
           "refractory_discovery_upside_v1": 0.285963
@@ -411,7 +411,7 @@
         "heuristic_score_v0": 0.280036,
         "heuristic_stable_v0": true,
         "missing_policy_score_count": 0,
-        "pareto_front": 12,
+        "pareto_front": 13,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.206327,
           "refractory_discovery_upside_v1": 0.301281
@@ -430,7 +430,7 @@
         "heuristic_score_v0": 0.197845,
         "heuristic_stable_v0": false,
         "missing_policy_score_count": 0,
-        "pareto_front": 13,
+        "pareto_front": 14,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.201566,
           "refractory_discovery_upside_v1": 0.272547
@@ -449,7 +449,7 @@
         "heuristic_score_v0": 0.206138,
         "heuristic_stable_v0": true,
         "missing_policy_score_count": 0,
-        "pareto_front": 13,
+        "pareto_front": 14,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.173642,
           "refractory_discovery_upside_v1": 0.276106
@@ -468,7 +468,7 @@
         "heuristic_score_v0": 0.120093,
         "heuristic_stable_v0": false,
         "missing_policy_score_count": 0,
-        "pareto_front": 14,
+        "pareto_front": 15,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.116395,
           "refractory_discovery_upside_v1": 0.216355
@@ -487,7 +487,7 @@
         "heuristic_score_v0": null,
         "heuristic_stable_v0": false,
         "missing_policy_score_count": 0,
-        "pareto_front": 15,
+        "pareto_front": 16,
         "policy_scores": {
           "acute_translation_guardrails_v1": 0.0,
           "refractory_discovery_upside_v1": 0.103018

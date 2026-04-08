@@ -497,6 +497,9 @@ def test_checked_in_ledger_loader_resolves_v2_compatibility_view() -> None:
         Path("data/curated/program_history/programs.csv")
     )
 
-    assert len(program_history) == 7
-    assert program_history[0].program_id == "clozapine-clozaril-trs-approval-us-1989"
-    assert program_history[1].molecule == "xanomeline + trospium"
+    assert len(program_history) == 32
+    assert any(
+        event.program_id == "clozapine-clozaril-trs-approval-us-1989"
+        for event in program_history
+    )
+    assert any(event.molecule == "xanomeline + trospium" for event in program_history)

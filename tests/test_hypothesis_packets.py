@@ -100,15 +100,17 @@ def test_hypothesis_packets_preserve_contradictions_and_failure_escape_logic(
     assert drd2_acute["contradiction_handling"]["contradiction_conditions"] == [
         "A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case."
     ]
-    assert drd2_acute["failure_memory"]["replay_risk"]["status"] == "replay_inconclusive"
-    assert drd2_acute["failure_escape_logic"] == {
-        "status": "escape_unresolved",
-        "escape_routes": [],
-        "next_evidence": [
-            "Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
-            "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
-        ],
-    }
+    assert drd2_acute["failure_memory"]["replay_risk"]["status"] == "replay_not_supported"
+    assert drd2_acute["failure_escape_logic"]["status"] == "escape_evidence_present"
+    assert (
+        "Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit."
+        in drd2_acute["failure_escape_logic"]["next_evidence"]
+    )
+    assert any(
+        route["event_id"] == "cariprazine-vraylar-schizophrenia-approval-us-2015"
+        and route["route_kind"] == "offsetting_reason"
+        for route in drd2_acute["failure_escape_logic"]["escape_routes"]
+    )
     assert drd2_acute["traceability"]["source_artifacts"] == {
         "policy_decision_vectors_v2": "policy_decision_vectors_v2.json",
         "gene_target_ledgers": "gene_target_ledgers.json",
@@ -119,7 +121,9 @@ def test_hypothesis_packets_preserve_contradictions_and_failure_escape_logic(
     )
     assert drd2_acute["traceability"]["ledger_target_pointer"].startswith("/targets/")
     assert drd2_acute["traceability"]["structural_failure_program_ids"]
-    assert drd2_acute["traceability"]["replay_reason_event_ids"] == []
+    assert "cariprazine-vraylar-schizophrenia-approval-us-2015" in drd2_acute[
+        "traceability"
+    ]["replay_reason_event_ids"]
 
     chrm4_acute = _find_packet(
         payload,

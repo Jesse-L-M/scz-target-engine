@@ -694,7 +694,9 @@ def test_build_benchmark_cohort_labels_supports_intervention_object_public_slice
         if member.entity_label.startswith("ulotaront | ")
     )
 
-    assert len(labels) == 30
+    label_matrix = {(label.horizon, label.label_name) for label in labels}
+    assert len(label_matrix) > 0
+    assert len(labels) == len(cohort_members) * len(label_matrix)
     assert {label.entity_id for label in labels} == {
         member.entity_id for member in cohort_members
     }

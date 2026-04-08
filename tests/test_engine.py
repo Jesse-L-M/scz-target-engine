@@ -200,7 +200,7 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
         ),
     }
     assert ledger_payload["target_count"] == 26
-    assert ledger_payload["targets_with_program_history"] == 2
+    assert ledger_payload["targets_with_program_history"] == 3
     assert ledger_payload["targets_with_curated_directionality"] == 4
     assert any(ledger["entity_label"] == "C4A" for ledger in ledger_payload["targets"])
 
@@ -301,7 +301,7 @@ def test_build_outputs_writes_expected_files(tmp_path: Path) -> None:
         and row["domain_slug"] == "treatment_resistant_schizophrenia"
     )
     assert drd2_negative["subgroup_resolution_score"] == "0.3"
-    assert drd2_trs["subgroup_resolution_score"] == "0.9"
+    assert drd2_trs["subgroup_resolution_score"] == "0.8"
 
     chrm4_acute = next(
         row
@@ -387,13 +387,13 @@ def test_build_outputs_emits_policy_vectors_and_pareto_fronts(tmp_path: Path) ->
     )
     assert (
         drd2["policy_vector"]["acute_translation_guardrails_v1"]["score"]
-        < drd2["policy_vector"]["refractory_discovery_upside_v1"]["score"]
+        > drd2["policy_vector"]["refractory_discovery_upside_v1"]["score"]
     )
     assert (
         drd2["policy_vector"]["acute_translation_guardrails_v1"]["uncertainty_context"][
             "replay_risk"
         ]["status"]
-        == "replay_inconclusive"
+        == "replay_not_supported"
     )
     assert (
         drd2["policy_vector"]["refractory_discovery_upside_v1"]["uncertainty_context"][

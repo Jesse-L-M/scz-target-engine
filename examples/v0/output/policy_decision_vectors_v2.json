@@ -2351,31 +2351,47 @@
               },
               {
                 "adjustment_id": "replay_status_adjustment",
-                "delta": -0.08,
+                "delta": 0.04,
                 "evidence": {
-                  "replay_status": "replay_inconclusive"
+                  "replay_status": "replay_not_supported"
                 },
                 "label": "Replay-risk status adjustment"
               },
               {
-                "adjustment_id": "replay_uncertainty_flag_penalty",
-                "delta": -0.02,
+                "adjustment_id": "replay_offsetting_reason_bonus",
+                "delta": 0.33,
                 "evidence": {
-                  "uncertainty_flag_count": 2
+                  "offsetting_reason_count": 22
+                },
+                "label": "Replay offsetting-anchor bonus"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
+                "delta": -0.01,
+                "evidence": {
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "delta": -0.01,
+                "evidence": {
+                  "uncertainty_flag_count": 1
                 },
                 "label": "Replay uncertainty-flag penalty"
               }
             ],
-            "base_score": 0.462454,
+            "base_score": 0.466205,
             "coverage_weight_fraction": 1.0,
             "description": "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
             "domain_contributions": [
               {
-                "contribution": 0.175283,
+                "contribution": 0.187283,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "acute_positive_symptoms",
                 "label": "Acute positive symptoms",
-                "score": 0.438208,
+                "score": 0.468208,
                 "status": "available",
                 "weight": 0.4
               },
@@ -2389,11 +2405,11 @@
                 "weight": 0.25
               },
               {
-                "contribution": 0.057149,
+                "contribution": 0.048899,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "treatment_resistant_schizophrenia",
                 "label": "Treatment-resistant schizophrenia",
-                "score": 0.571489,
+                "score": 0.488989,
                 "status": "available",
                 "weight": 0.1
               },
@@ -2437,10 +2453,10 @@
             "label": "Acute translation guardrails",
             "policy_id": "acute_translation_guardrails_v1",
             "primary_domain_slug": "acute_positive_symptoms",
-            "score": 0.302454,
-            "score_before_clamp": 0.302454,
+            "score": 0.756205,
+            "score_before_clamp": 0.756205,
             "status": "available",
-            "uncertainty_adjustment_total": -0.16,
+            "uncertainty_adjustment_total": 0.29,
             "uncertainty_context": {
               "directionality_contradiction_count": 1,
               "directionality_falsification_count": 1,
@@ -2453,32 +2469,168 @@
                   "Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
                   "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ],
-                "offsetting_reason_count": 0,
-                "offsetting_reasons": [],
+                "offsetting_reason_count": 22,
+                "offsetting_reasons": [
+                  {
+                    "event_id": "olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021",
+                    "explanation": "olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism with opioid antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "lumateperone-caplyta-schizophrenia-approval-us-2019",
+                    "explanation": "lumateperone-caplyta-schizophrenia-approval-us-2019 is a checked-in nonfailure anchor in the same biological neighborhood (multi-pathway atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "cariprazine-vraylar-schizophrenia-approval-us-2015",
+                    "explanation": "cariprazine-vraylar-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "brexpiprazole-rexulti-schizophrenia-approval-us-2015",
+                    "explanation": "brexpiprazole-rexulti-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "lurasidone-latuda-schizophrenia-approval-us-2010",
+                    "explanation": "lurasidone-latuda-schizophrenia-approval-us-2010 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "asenapine-saphris-schizophrenia-approval-us-2009",
+                    "explanation": "asenapine-saphris-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "iloperidone-fanapt-schizophrenia-approval-us-2009",
+                    "explanation": "iloperidone-fanapt-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "paliperidone-invega-schizophrenia-approval-us-2006",
+                    "explanation": "paliperidone-invega-schizophrenia-approval-us-2006 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "aripiprazole-abilify-schizophrenia-approval-us-2002",
+                    "explanation": "aripiprazole-abilify-schizophrenia-approval-us-2002 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "ziprasidone-geodon-schizophrenia-approval-us-2001",
+                    "explanation": "ziprasidone-geodon-schizophrenia-approval-us-2001 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "quetiapine-seroquel-schizophrenia-approval-us-1997",
+                    "explanation": "quetiapine-seroquel-schizophrenia-approval-us-1997 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "olanzapine-zyprexa-schizophrenia-approval-us-1996",
+                    "explanation": "olanzapine-zyprexa-schizophrenia-approval-us-1996 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "risperidone-risperdal-schizophrenia-approval-us-1993",
+                    "explanation": "risperidone-risperdal-schizophrenia-approval-us-1993 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "loxapine-loxitane-schizophrenia-approval-us-1975",
+                    "explanation": "loxapine-loxitane-schizophrenia-approval-us-1975 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "molindone-moban-schizophrenia-approval-us-1974",
+                    "explanation": "molindone-moban-schizophrenia-approval-us-1974 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "thiothixene-navane-schizophrenia-approval-us-1967",
+                    "explanation": "thiothixene-navane-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "haloperidol-haldol-schizophrenia-approval-us-1967",
+                    "explanation": "haloperidol-haldol-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "thioridazine-mellaril-schizophrenia-approval-us-1962",
+                    "explanation": "thioridazine-mellaril-schizophrenia-approval-us-1962 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "fluphenazine-prolixin-schizophrenia-approval-us-1959",
+                    "explanation": "fluphenazine-prolixin-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "trifluoperazine-stelazine-schizophrenia-approval-us-1959",
+                    "explanation": "trifluoperazine-stelazine-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "chlorpromazine-thorazine-schizophrenia-approval-us-1957",
+                    "explanation": "chlorpromazine-thorazine-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "perphenazine-trilafon-schizophrenia-approval-us-1957",
+                    "explanation": "perphenazine-trilafon-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  }
+                ],
                 "proposal": {
                   "domain": "acute_positive_symptoms",
                   "entity_id": "ENSG00000149295",
                   "mono_or_adjunct": "monotherapy",
-                  "population": "severely ill adults with schizophrenia after inadequate response to standard antipsychotics",
+                  "population": "",
                   "target_symbol": "DRD2"
                 },
-                "status": "replay_inconclusive",
-                "summary": "Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
+                "status": "replay_not_supported",
+                "summary": "Checked-in history does not support calling this proposal a replay: 22 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
-                "uncertainty_flag_count": 2,
+                "uncertainty_flag_count": 1,
                 "uncertainty_flags": [
                   {
-                    "code": "sparse_history",
-                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
-                  },
-                  {
-                    "code": "replay_inconclusive",
-                    "explanation": "Checked-in history contains biologically relevant analogs, but the current failure scopes do not defend a clean replay claim."
+                    "code": "mixed_history",
+                    "explanation": "Checked-in history contains both failure and nonfailure analogs."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "lu-af35700-trs-phase-3-results-2022",
+                    "explanation": "lu-af35700-trs-phase-3-results-2022 is in treatment_resistant_schizophrenia, which differs from the proposal domain, so it is not a clean replay analog.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 1,
               "warning_severity": "high"
@@ -2536,6 +2688,14 @@
                 "label": "Replay offsetting-anchor bonus"
               },
               {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
+                "delta": -0.005,
+                "evidence": {
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
                 "adjustment_id": "replay_uncertainty_flag_penalty",
                 "delta": -0.005,
                 "evidence": {
@@ -2544,16 +2704,16 @@
                 "label": "Replay uncertainty-flag penalty"
               }
             ],
-            "base_score": 0.469572,
+            "base_score": 0.448947,
             "coverage_weight_fraction": 1.0,
             "description": "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties.",
             "domain_contributions": [
               {
-                "contribution": 0.142872,
+                "contribution": 0.122247,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "treatment_resistant_schizophrenia",
                 "label": "Treatment-resistant schizophrenia",
-                "score": 0.571489,
+                "score": 0.488989,
                 "status": "available",
                 "weight": 0.25
               },
@@ -2606,10 +2766,10 @@
             "label": "Refractory discovery upside",
             "policy_id": "refractory_discovery_upside_v1",
             "primary_domain_slug": "treatment_resistant_schizophrenia",
-            "score": 0.464572,
-            "score_before_clamp": 0.464572,
+            "score": 0.438947,
+            "score_before_clamp": 0.438947,
             "status": "available",
-            "uncertainty_adjustment_total": -0.005,
+            "uncertainty_adjustment_total": -0.01,
             "uncertainty_context": {
               "directionality_contradiction_count": 1,
               "directionality_falsification_count": 1,
@@ -2635,22 +2795,29 @@
                   "domain": "treatment_resistant_schizophrenia",
                   "entity_id": "ENSG00000149295",
                   "mono_or_adjunct": "monotherapy",
-                  "population": "severely ill adults with schizophrenia after inadequate response to standard antipsychotics",
+                  "population": "",
                   "target_symbol": "DRD2"
                 },
                 "status": "replay_not_supported",
-                "summary": "Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (0 remain cautionary).",
+                "summary": "Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
                 "uncertainty_flag_count": 1,
                 "uncertainty_flags": [
                   {
-                    "code": "sparse_history",
-                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
+                    "code": "mixed_history",
+                    "explanation": "Checked-in history contains both failure and nonfailure analogs."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "lu-af35700-trs-phase-3-results-2022",
+                    "explanation": "lu-af35700-trs-phase-3-results-2022 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 1,
               "warning_severity": "high"
@@ -2695,31 +2862,47 @@
               },
               {
                 "adjustment_id": "replay_status_adjustment",
-                "delta": -0.08,
+                "delta": 0.04,
                 "evidence": {
-                  "replay_status": "replay_inconclusive"
+                  "replay_status": "replay_not_supported"
                 },
                 "label": "Replay-risk status adjustment"
               },
               {
-                "adjustment_id": "replay_uncertainty_flag_penalty",
-                "delta": -0.02,
+                "adjustment_id": "replay_offsetting_reason_bonus",
+                "delta": 0.33,
                 "evidence": {
-                  "uncertainty_flag_count": 2
+                  "offsetting_reason_count": 22
+                },
+                "label": "Replay offsetting-anchor bonus"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
+                "delta": -0.01,
+                "evidence": {
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "delta": -0.01,
+                "evidence": {
+                  "uncertainty_flag_count": 1
                 },
                 "label": "Replay uncertainty-flag penalty"
               }
             ],
-            "base_score": 0.462454,
+            "base_score": 0.466205,
             "coverage_weight_fraction": 1.0,
             "description": "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
             "domain_contributions": [
               {
-                "contribution": 0.175283,
+                "contribution": 0.187283,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "acute_positive_symptoms",
                 "label": "Acute positive symptoms",
-                "score": 0.438208,
+                "score": 0.468208,
                 "status": "available",
                 "weight": 0.4
               },
@@ -2733,11 +2916,11 @@
                 "weight": 0.25
               },
               {
-                "contribution": 0.057149,
+                "contribution": 0.048899,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "treatment_resistant_schizophrenia",
                 "label": "Treatment-resistant schizophrenia",
-                "score": 0.571489,
+                "score": 0.488989,
                 "status": "available",
                 "weight": 0.1
               },
@@ -2781,10 +2964,10 @@
             "label": "Acute translation guardrails",
             "policy_id": "acute_translation_guardrails_v1",
             "primary_domain_slug": "acute_positive_symptoms",
-            "score": 0.302454,
-            "score_before_clamp": 0.302454,
+            "score": 0.756205,
+            "score_before_clamp": 0.756205,
             "status": "available",
-            "uncertainty_adjustment_total": -0.16,
+            "uncertainty_adjustment_total": 0.29,
             "uncertainty_context": {
               "directionality_contradiction_count": 1,
               "directionality_falsification_count": 1,
@@ -2797,32 +2980,168 @@
                   "Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
                   "Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ],
-                "offsetting_reason_count": 0,
-                "offsetting_reasons": [],
+                "offsetting_reason_count": 22,
+                "offsetting_reasons": [
+                  {
+                    "event_id": "olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021",
+                    "explanation": "olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism with opioid antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "lumateperone-caplyta-schizophrenia-approval-us-2019",
+                    "explanation": "lumateperone-caplyta-schizophrenia-approval-us-2019 is a checked-in nonfailure anchor in the same biological neighborhood (multi-pathway atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "cariprazine-vraylar-schizophrenia-approval-us-2015",
+                    "explanation": "cariprazine-vraylar-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "brexpiprazole-rexulti-schizophrenia-approval-us-2015",
+                    "explanation": "brexpiprazole-rexulti-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "lurasidone-latuda-schizophrenia-approval-us-2010",
+                    "explanation": "lurasidone-latuda-schizophrenia-approval-us-2010 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "asenapine-saphris-schizophrenia-approval-us-2009",
+                    "explanation": "asenapine-saphris-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "iloperidone-fanapt-schizophrenia-approval-us-2009",
+                    "explanation": "iloperidone-fanapt-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "paliperidone-invega-schizophrenia-approval-us-2006",
+                    "explanation": "paliperidone-invega-schizophrenia-approval-us-2006 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "aripiprazole-abilify-schizophrenia-approval-us-2002",
+                    "explanation": "aripiprazole-abilify-schizophrenia-approval-us-2002 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "ziprasidone-geodon-schizophrenia-approval-us-2001",
+                    "explanation": "ziprasidone-geodon-schizophrenia-approval-us-2001 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "quetiapine-seroquel-schizophrenia-approval-us-1997",
+                    "explanation": "quetiapine-seroquel-schizophrenia-approval-us-1997 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "olanzapine-zyprexa-schizophrenia-approval-us-1996",
+                    "explanation": "olanzapine-zyprexa-schizophrenia-approval-us-1996 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "risperidone-risperdal-schizophrenia-approval-us-1993",
+                    "explanation": "risperidone-risperdal-schizophrenia-approval-us-1993 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "loxapine-loxitane-schizophrenia-approval-us-1975",
+                    "explanation": "loxapine-loxitane-schizophrenia-approval-us-1975 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "molindone-moban-schizophrenia-approval-us-1974",
+                    "explanation": "molindone-moban-schizophrenia-approval-us-1974 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "thiothixene-navane-schizophrenia-approval-us-1967",
+                    "explanation": "thiothixene-navane-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "haloperidol-haldol-schizophrenia-approval-us-1967",
+                    "explanation": "haloperidol-haldol-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "thioridazine-mellaril-schizophrenia-approval-us-1962",
+                    "explanation": "thioridazine-mellaril-schizophrenia-approval-us-1962 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "fluphenazine-prolixin-schizophrenia-approval-us-1959",
+                    "explanation": "fluphenazine-prolixin-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "trifluoperazine-stelazine-schizophrenia-approval-us-1959",
+                    "explanation": "trifluoperazine-stelazine-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "chlorpromazine-thorazine-schizophrenia-approval-us-1957",
+                    "explanation": "chlorpromazine-thorazine-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  },
+                  {
+                    "event_id": "perphenazine-trilafon-schizophrenia-approval-us-1957",
+                    "explanation": "perphenazine-trilafon-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                    "failure_scope": "nonfailure",
+                    "relation": "argues_against_replay"
+                  }
+                ],
                 "proposal": {
                   "domain": "acute_positive_symptoms",
                   "entity_id": "ENSG00000149295",
                   "mono_or_adjunct": "monotherapy",
-                  "population": "severely ill adults with schizophrenia after inadequate response to standard antipsychotics",
+                  "population": "",
                   "target_symbol": "DRD2"
                 },
-                "status": "replay_inconclusive",
-                "summary": "Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
+                "status": "replay_not_supported",
+                "summary": "Checked-in history does not support calling this proposal a replay: 22 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
-                "uncertainty_flag_count": 2,
+                "uncertainty_flag_count": 1,
                 "uncertainty_flags": [
                   {
-                    "code": "sparse_history",
-                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
-                  },
-                  {
-                    "code": "replay_inconclusive",
-                    "explanation": "Checked-in history contains biologically relevant analogs, but the current failure scopes do not defend a clean replay claim."
+                    "code": "mixed_history",
+                    "explanation": "Checked-in history contains both failure and nonfailure analogs."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "lu-af35700-trs-phase-3-results-2022",
+                    "explanation": "lu-af35700-trs-phase-3-results-2022 is in treatment_resistant_schizophrenia, which differs from the proposal domain, so it is not a clean replay analog.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 1,
               "warning_severity": "high"
@@ -2880,6 +3199,14 @@
                 "label": "Replay offsetting-anchor bonus"
               },
               {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
+                "delta": -0.005,
+                "evidence": {
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
                 "adjustment_id": "replay_uncertainty_flag_penalty",
                 "delta": -0.005,
                 "evidence": {
@@ -2888,16 +3215,16 @@
                 "label": "Replay uncertainty-flag penalty"
               }
             ],
-            "base_score": 0.469572,
+            "base_score": 0.448947,
             "coverage_weight_fraction": 1.0,
             "description": "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties.",
             "domain_contributions": [
               {
-                "contribution": 0.142872,
+                "contribution": 0.122247,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "treatment_resistant_schizophrenia",
                 "label": "Treatment-resistant schizophrenia",
-                "score": 0.571489,
+                "score": 0.488989,
                 "status": "available",
                 "weight": 0.25
               },
@@ -2950,10 +3277,10 @@
             "label": "Refractory discovery upside",
             "policy_id": "refractory_discovery_upside_v1",
             "primary_domain_slug": "treatment_resistant_schizophrenia",
-            "score": 0.464572,
-            "score_before_clamp": 0.464572,
+            "score": 0.438947,
+            "score_before_clamp": 0.438947,
             "status": "available",
-            "uncertainty_adjustment_total": -0.005,
+            "uncertainty_adjustment_total": -0.01,
             "uncertainty_context": {
               "directionality_contradiction_count": 1,
               "directionality_falsification_count": 1,
@@ -2979,22 +3306,29 @@
                   "domain": "treatment_resistant_schizophrenia",
                   "entity_id": "ENSG00000149295",
                   "mono_or_adjunct": "monotherapy",
-                  "population": "severely ill adults with schizophrenia after inadequate response to standard antipsychotics",
+                  "population": "",
                   "target_symbol": "DRD2"
                 },
                 "status": "replay_not_supported",
-                "summary": "Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (0 remain cautionary).",
+                "summary": "Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
                 "uncertainty_flag_count": 1,
                 "uncertainty_flags": [
                   {
-                    "code": "sparse_history",
-                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
+                    "code": "mixed_history",
+                    "explanation": "Checked-in history contains both failure and nonfailure analogs."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "lu-af35700-trs-phase-3-results-2022",
+                    "explanation": "lu-af35700-trs-phase-3-results-2022 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 1,
               "warning_severity": "high"
@@ -4142,24 +4476,40 @@
                 "label": "Directionality open-risk penalty"
               },
               {
-                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "adjustment_id": "replay_status_adjustment",
+                "delta": -0.08,
+                "evidence": {
+                  "replay_status": "replay_inconclusive"
+                },
+                "label": "Replay-risk status adjustment"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
                 "delta": -0.01,
                 "evidence": {
-                  "uncertainty_flag_count": 1
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "delta": -0.02,
+                "evidence": {
+                  "uncertainty_flag_count": 2
                 },
                 "label": "Replay uncertainty-flag penalty"
               }
             ],
-            "base_score": 0.374437,
+            "base_score": 0.386437,
             "coverage_weight_fraction": 1.0,
             "description": "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
             "domain_contributions": [
               {
-                "contribution": 0.133596,
+                "contribution": 0.145596,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "acute_positive_symptoms",
                 "label": "Acute positive symptoms",
-                "score": 0.333989,
+                "score": 0.363989,
                 "status": "available",
                 "weight": 0.4
               },
@@ -4221,10 +4571,10 @@
             "label": "Acute translation guardrails",
             "policy_id": "acute_translation_guardrails_v1",
             "primary_domain_slug": "acute_positive_symptoms",
-            "score": 0.354437,
-            "score_before_clamp": 0.354437,
+            "score": 0.266437,
+            "score_before_clamp": 0.266437,
             "status": "available",
-            "uncertainty_adjustment_total": -0.02,
+            "uncertainty_adjustment_total": -0.12,
             "uncertainty_context": {
               "directionality_contradiction_count": 0,
               "directionality_falsification_count": 0,
@@ -4241,23 +4591,34 @@
                 "proposal": {
                   "domain": "acute_positive_symptoms",
                   "entity_id": "ENSG00000198822",
-                  "mono_or_adjunct": "",
-                  "population": "",
+                  "mono_or_adjunct": "monotherapy",
+                  "population": "adults with schizophrenia",
                   "target_symbol": "GRM3"
                 },
-                "status": "insufficient_history",
-                "summary": "No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                "status": "replay_inconclusive",
+                "summary": "Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
-                "uncertainty_flag_count": 1,
+                "uncertainty_flag_count": 2,
                 "uncertainty_flags": [
                   {
-                    "code": "no_checked_in_analogs",
-                    "explanation": "The checked-in program-memory substrate does not yet contain a biologically anchored analog for this proposal."
+                    "code": "sparse_history",
+                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
+                  },
+                  {
+                    "code": "replay_inconclusive",
+                    "explanation": "Checked-in history contains biologically relevant analogs, but the current failure scopes do not defend a clean replay claim."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014",
+                    "explanation": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 0,
               "warning_severity": "none"
@@ -4274,10 +4635,26 @@
                 "label": "Directionality open-risk penalty"
               },
               {
-                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "adjustment_id": "replay_status_adjustment",
+                "delta": -0.03,
+                "evidence": {
+                  "replay_status": "replay_inconclusive"
+                },
+                "label": "Replay-risk status adjustment"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
                 "delta": -0.005,
                 "evidence": {
-                  "uncertainty_flag_count": 1
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "delta": -0.01,
+                "evidence": {
+                  "uncertainty_flag_count": 2
                 },
                 "label": "Replay uncertainty-flag penalty"
               }
@@ -4344,10 +4721,10 @@
             "label": "Refractory discovery upside",
             "policy_id": "refractory_discovery_upside_v1",
             "primary_domain_slug": "treatment_resistant_schizophrenia",
-            "score": 0.377831,
-            "score_before_clamp": 0.377831,
+            "score": 0.337831,
+            "score_before_clamp": 0.337831,
             "status": "available",
-            "uncertainty_adjustment_total": -0.01,
+            "uncertainty_adjustment_total": -0.05,
             "uncertainty_context": {
               "directionality_contradiction_count": 0,
               "directionality_falsification_count": 0,
@@ -4364,23 +4741,34 @@
                 "proposal": {
                   "domain": "treatment_resistant_schizophrenia",
                   "entity_id": "ENSG00000198822",
-                  "mono_or_adjunct": "",
-                  "population": "",
+                  "mono_or_adjunct": "monotherapy",
+                  "population": "adults with schizophrenia",
                   "target_symbol": "GRM3"
                 },
-                "status": "insufficient_history",
-                "summary": "No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                "status": "replay_inconclusive",
+                "summary": "Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
-                "uncertainty_flag_count": 1,
+                "uncertainty_flag_count": 2,
                 "uncertainty_flags": [
                   {
-                    "code": "no_checked_in_analogs",
-                    "explanation": "The checked-in program-memory substrate does not yet contain a biologically anchored analog for this proposal."
+                    "code": "sparse_history",
+                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
+                  },
+                  {
+                    "code": "replay_inconclusive",
+                    "explanation": "Checked-in history contains biologically relevant analogs, but the current failure scopes do not defend a clean replay claim."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014",
+                    "explanation": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014 is in acute_positive_symptoms, which differs from the proposal domain, so it is not a clean replay analog.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 0,
               "warning_severity": "none"
@@ -4399,24 +4787,40 @@
                 "label": "Directionality open-risk penalty"
               },
               {
-                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "adjustment_id": "replay_status_adjustment",
+                "delta": -0.08,
+                "evidence": {
+                  "replay_status": "replay_inconclusive"
+                },
+                "label": "Replay-risk status adjustment"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
                 "delta": -0.01,
                 "evidence": {
-                  "uncertainty_flag_count": 1
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "delta": -0.02,
+                "evidence": {
+                  "uncertainty_flag_count": 2
                 },
                 "label": "Replay uncertainty-flag penalty"
               }
             ],
-            "base_score": 0.374437,
+            "base_score": 0.386437,
             "coverage_weight_fraction": 1.0,
             "description": "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
             "domain_contributions": [
               {
-                "contribution": 0.133596,
+                "contribution": 0.145596,
                 "domain_coverage_weight_fraction": 1.0,
                 "domain_slug": "acute_positive_symptoms",
                 "label": "Acute positive symptoms",
-                "score": 0.333989,
+                "score": 0.363989,
                 "status": "available",
                 "weight": 0.4
               },
@@ -4478,10 +4882,10 @@
             "label": "Acute translation guardrails",
             "policy_id": "acute_translation_guardrails_v1",
             "primary_domain_slug": "acute_positive_symptoms",
-            "score": 0.354437,
-            "score_before_clamp": 0.354437,
+            "score": 0.266437,
+            "score_before_clamp": 0.266437,
             "status": "available",
-            "uncertainty_adjustment_total": -0.02,
+            "uncertainty_adjustment_total": -0.12,
             "uncertainty_context": {
               "directionality_contradiction_count": 0,
               "directionality_falsification_count": 0,
@@ -4498,23 +4902,34 @@
                 "proposal": {
                   "domain": "acute_positive_symptoms",
                   "entity_id": "ENSG00000198822",
-                  "mono_or_adjunct": "",
-                  "population": "",
+                  "mono_or_adjunct": "monotherapy",
+                  "population": "adults with schizophrenia",
                   "target_symbol": "GRM3"
                 },
-                "status": "insufficient_history",
-                "summary": "No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                "status": "replay_inconclusive",
+                "summary": "Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
-                "uncertainty_flag_count": 1,
+                "uncertainty_flag_count": 2,
                 "uncertainty_flags": [
                   {
-                    "code": "no_checked_in_analogs",
-                    "explanation": "The checked-in program-memory substrate does not yet contain a biologically anchored analog for this proposal."
+                    "code": "sparse_history",
+                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
+                  },
+                  {
+                    "code": "replay_inconclusive",
+                    "explanation": "Checked-in history contains biologically relevant analogs, but the current failure scopes do not defend a clean replay claim."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014",
+                    "explanation": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 0,
               "warning_severity": "none"
@@ -4531,10 +4946,26 @@
                 "label": "Directionality open-risk penalty"
               },
               {
-                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "adjustment_id": "replay_status_adjustment",
+                "delta": -0.03,
+                "evidence": {
+                  "replay_status": "replay_inconclusive"
+                },
+                "label": "Replay-risk status adjustment"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_reason_penalty",
                 "delta": -0.005,
                 "evidence": {
-                  "uncertainty_flag_count": 1
+                  "uncertainty_reason_count": 1
+                },
+                "label": "Replay uncertainty-reason penalty"
+              },
+              {
+                "adjustment_id": "replay_uncertainty_flag_penalty",
+                "delta": -0.01,
+                "evidence": {
+                  "uncertainty_flag_count": 2
                 },
                 "label": "Replay uncertainty-flag penalty"
               }
@@ -4601,10 +5032,10 @@
             "label": "Refractory discovery upside",
             "policy_id": "refractory_discovery_upside_v1",
             "primary_domain_slug": "treatment_resistant_schizophrenia",
-            "score": 0.377831,
-            "score_before_clamp": 0.377831,
+            "score": 0.337831,
+            "score_before_clamp": 0.337831,
             "status": "available",
-            "uncertainty_adjustment_total": -0.01,
+            "uncertainty_adjustment_total": -0.05,
             "uncertainty_context": {
               "directionality_contradiction_count": 0,
               "directionality_falsification_count": 0,
@@ -4621,23 +5052,34 @@
                 "proposal": {
                   "domain": "treatment_resistant_schizophrenia",
                   "entity_id": "ENSG00000198822",
-                  "mono_or_adjunct": "",
-                  "population": "",
+                  "mono_or_adjunct": "monotherapy",
+                  "population": "adults with schizophrenia",
                   "target_symbol": "GRM3"
                 },
-                "status": "insufficient_history",
-                "summary": "No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                "status": "replay_inconclusive",
+                "summary": "Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
                 "supporting_reason_count": 0,
                 "supporting_reasons": [],
-                "uncertainty_flag_count": 1,
+                "uncertainty_flag_count": 2,
                 "uncertainty_flags": [
                   {
-                    "code": "no_checked_in_analogs",
-                    "explanation": "The checked-in program-memory substrate does not yet contain a biologically anchored analog for this proposal."
+                    "code": "sparse_history",
+                    "explanation": "Only one checked-in analog matched, so replay reasoning is still history-sparse."
+                  },
+                  {
+                    "code": "replay_inconclusive",
+                    "explanation": "Checked-in history contains biologically relevant analogs, but the current failure scopes do not defend a clean replay claim."
                   }
                 ],
-                "uncertainty_reason_count": 0,
-                "uncertainty_reasons": []
+                "uncertainty_reason_count": 1,
+                "uncertainty_reasons": [
+                  {
+                    "event_id": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014",
+                    "explanation": "pomaglumetad-methionil-acute-scz-phase-3-comparison-2014 is in acute_positive_symptoms, which differs from the proposal domain, so it is not a clean replay analog.",
+                    "failure_scope": "unresolved",
+                    "relation": "raises_uncertainty"
+                  }
+                ]
               },
               "warning_count": 0,
               "warning_severity": "none"

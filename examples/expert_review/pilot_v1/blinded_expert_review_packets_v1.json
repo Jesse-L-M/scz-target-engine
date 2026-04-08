@@ -48,7 +48,7 @@
         },
         {
           "blind_id": "comparison_001_B",
-          "content_sha256": "97e11cfa456299bd0576e0cb46c9c4825a2c91b7c1d1b8c4d2340dcffe8844c5",
+          "content_sha256": "2f97dbbd1efb518f640d307e727d3503954f892894283d8ec4e615a51f706a39",
           "review_packet": {
             "sections": [
               {
@@ -57,7 +57,9 @@
                   "Target: CHRM4",
                   "Policy: Acute translation guardrails",
                   "Priority domain: acute_positive_symptoms",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should CHRM4 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Acute translation guardrails scored 0.244 (available); contradiction status contradicted; replay status replay_not_supported."
                 ]
               },
               {
@@ -80,8 +82,30 @@
               {
                 "heading": "Evidence anchors",
                 "lines": [
+                  "Anchor coverage: evidence_anchors_present",
+                  "Program history coverage: program_history_present",
                   "supporting_program: cobenfy-xanomeline-trospium-approval-us-2024 (regulatory_approval, approved_for_adults_with_schizophrenia) - Landmark non-dopaminergic approval relevant to later class-baggage reasoning.",
-                  "supporting_program: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication."
+                  "supporting_program: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication.",
+                  "offsetting_reason: cobenfy-xanomeline-trospium-approval-us-2024 (regulatory_approval, approved_for_adults_with_schizophrenia) - cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample.",
+                  "uncertainty_reason: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - emraclidine-empower-acute-scz-topline-2024 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
+                  "Main contradiction: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+                  "Risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+                  "Risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: escape_evidence_present",
+                  "Escape route: cobenfy-xanomeline-trospium-approval-us-2024 - cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample."
                 ]
               },
               {
@@ -95,15 +119,6 @@
                   "Open risk: medium | Missing source-backed biological support; matched SCHEMA rare-variant support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support and PsychENCODE biological support.",
                   "Open risk: medium | Selective CHRM4 may not capture the broader muscarinic signal seen with xanomeline-based combinations.",
                   "Open risk: medium | Tolerability and engagement windows can still distort target-readout interpretation."
-                ]
-              },
-              {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: escape_evidence_present",
-                  "Escape route: cobenfy-xanomeline-trospium-approval-us-2024 - cobenfy-xanomeline-trospium-approval-us-2024 is a checked-in nonfailure anchor in the same biological neighborhood (muscarinic cholinergic modulation). It is not a perfectly clean single-target counterexample.",
-                  "Needed evidence: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ]
               },
               {
@@ -132,7 +147,7 @@
       "variants": [
         {
           "blind_id": "comparison_002_A",
-          "content_sha256": "19508873f1767c15fe5ccfb6acb5cf62c191dc710a11ea431955f8f3ebbdaf3d",
+          "content_sha256": "b0e290cfeea510e88d534e74245e30b67cd94141b79549b59d07c49a1ed895bd",
           "review_packet": {
             "sections": [
               {
@@ -141,7 +156,9 @@
                   "Target: CHRM4",
                   "Policy: Refractory discovery upside",
                   "Priority domain: treatment_resistant_schizophrenia",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should CHRM4 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Refractory discovery upside scored 0.207 (available); contradiction status contradicted; replay status replay_inconclusive."
                 ]
               },
               {
@@ -164,8 +181,28 @@
               {
                 "heading": "Evidence anchors",
                 "lines": [
+                  "Anchor coverage: evidence_anchors_present",
+                  "Program history coverage: program_history_present",
                   "supporting_program: cobenfy-xanomeline-trospium-approval-us-2024 (regulatory_approval, approved_for_adults_with_schizophrenia) - Landmark non-dopaminergic approval relevant to later class-baggage reasoning.",
-                  "supporting_program: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication."
+                  "supporting_program: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - Current seed evidence supports recording the miss and keeping muscarinic biology live, but it does not yet justify a molecule-level failure adjudication.",
+                  "uncertainty_reason: emraclidine-empower-acute-scz-topline-2024 (topline_readout, did_not_meet_primary_endpoint) - emraclidine-empower-acute-scz-topline-2024 is in acute_positive_symptoms, which differs from the proposal domain, so it is not a clean replay analog."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: Replay remains inconclusive: 2 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk.",
+                  "Main contradiction: Repeated adequately engaged selective CHRM4 failures in aligned acute-schizophrenia populations.",
+                  "Risk: high | Missing required layer groups: biological support (cell_state_support or developmental_regulatory_support). Entity is ineligible for composite ranking until they are sourced.",
+                  "Risk: medium | Muscarinic relevance is plausible but target-level direction is not yet cleanly pinned down here."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: escape_unresolved"
                 ]
               },
               {
@@ -179,14 +216,6 @@
                   "Open risk: medium | Missing source-backed biological support; matched SCHEMA rare-variant support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support and PsychENCODE biological support.",
                   "Open risk: medium | Selective CHRM4 may not capture the broader muscarinic signal seen with xanomeline-based combinations.",
                   "Open risk: medium | Tolerability and engagement windows can still distort target-readout interpretation."
-                ]
-              },
-              {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: escape_unresolved",
-                  "Needed evidence: A well-engaged selective CHRM4 program repeatedly fails while broader muscarinic benefit does not reproduce.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ]
               },
               {
@@ -249,7 +278,7 @@
       "variants": [
         {
           "blind_id": "comparison_003_A",
-          "content_sha256": "94e3c3c7aab7133c26626bd265c44ecf35dde4d87daa8db89e66acbeb578ae6a",
+          "content_sha256": "1ddfb1630f3c119887cf513e66d850ba0e9578558af550b8a4e1ab049b6ecf04",
           "review_packet": {
             "sections": [
               {
@@ -258,7 +287,9 @@
                   "Target: DRD2",
                   "Policy: Acute translation guardrails",
                   "Priority domain: acute_positive_symptoms",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should DRD2 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Acute translation guardrails scored 0.756 (available); contradiction status contradicted; replay status replay_not_supported."
                 ]
               },
               {
@@ -273,15 +304,79 @@
               {
                 "heading": "Why it made the packet",
                 "lines": [
-                  "Policy signal: Acute translation guardrails scored 0.302 (available) with base 0.462.",
+                  "Policy signal: Acute translation guardrails scored 0.756 (available) with base 0.466.",
                   "Prioritize acute- and relapse-facing domain profiles while penalizing replay risk, coverage gaps, and unresolved directionality more aggressively.",
-                  "Replay summary: Replay remains inconclusive: 1 checked-in analog(s) exist, but the current failure scopes do not cleanly establish or dismiss replay risk."
+                  "Replay summary: Checked-in history does not support calling this proposal a replay: 22 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary)."
                 ]
               },
               {
                 "heading": "Evidence anchors",
                 "lines": [
-                  "supporting_program: clozapine-clozaril-trs-approval-us-1989 (regulatory_approval, approved_for_treatment_resistant_schizophrenia) - TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels."
+                  "Anchor coverage: evidence_anchors_present",
+                  "Program history coverage: program_history_present",
+                  "supporting_program: clozapine-clozaril-trs-approval-us-1989 (regulatory_approval, approved_for_treatment_resistant_schizophrenia) - TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels.",
+                  "offsetting_reason: olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021 (regulatory_approval, approved_for_adults_with_schizophrenia) - olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism with opioid antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: lumateperone-caplyta-schizophrenia-approval-us-2019 (regulatory_approval, approved_for_adults_with_schizophrenia) - lumateperone-caplyta-schizophrenia-approval-us-2019 is a checked-in nonfailure anchor in the same biological neighborhood (multi-pathway atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: cariprazine-vraylar-schizophrenia-approval-us-2015 (regulatory_approval, approved_for_adults_with_schizophrenia) - cariprazine-vraylar-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: brexpiprazole-rexulti-schizophrenia-approval-us-2015 (regulatory_approval, approved_for_adults_with_schizophrenia) - brexpiprazole-rexulti-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: lurasidone-latuda-schizophrenia-approval-us-2010 (regulatory_approval, approved_for_adults_with_schizophrenia) - lurasidone-latuda-schizophrenia-approval-us-2010 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: asenapine-saphris-schizophrenia-approval-us-2009 (regulatory_approval, approved_for_adults_with_schizophrenia) - asenapine-saphris-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: iloperidone-fanapt-schizophrenia-approval-us-2009 (regulatory_approval, approved_for_adults_with_schizophrenia) - iloperidone-fanapt-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: paliperidone-invega-schizophrenia-approval-us-2006 (regulatory_approval, approved_for_adults_with_schizophrenia) - paliperidone-invega-schizophrenia-approval-us-2006 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: aripiprazole-abilify-schizophrenia-approval-us-2002 (regulatory_approval, approved_for_adults_with_schizophrenia) - aripiprazole-abilify-schizophrenia-approval-us-2002 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: ziprasidone-geodon-schizophrenia-approval-us-2001 (regulatory_approval, approved_for_adults_with_schizophrenia) - ziprasidone-geodon-schizophrenia-approval-us-2001 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: quetiapine-seroquel-schizophrenia-approval-us-1997 (regulatory_approval, approved_for_adults_with_schizophrenia) - quetiapine-seroquel-schizophrenia-approval-us-1997 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: olanzapine-zyprexa-schizophrenia-approval-us-1996 (regulatory_approval, approved_for_adults_with_schizophrenia) - olanzapine-zyprexa-schizophrenia-approval-us-1996 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: risperidone-risperdal-schizophrenia-approval-us-1993 (regulatory_approval, approved_for_adults_with_schizophrenia) - risperidone-risperdal-schizophrenia-approval-us-1993 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: loxapine-loxitane-schizophrenia-approval-us-1975 (regulatory_approval, approved_for_adults_with_schizophrenia) - loxapine-loxitane-schizophrenia-approval-us-1975 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: molindone-moban-schizophrenia-approval-us-1974 (regulatory_approval, approved_for_adults_with_schizophrenia) - molindone-moban-schizophrenia-approval-us-1974 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "offsetting_reason: thiothixene-navane-schizophrenia-approval-us-1967 (regulatory_approval, approved_for_adults_with_schizophrenia) - thiothixene-navane-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "offsetting_reason: haloperidol-haldol-schizophrenia-approval-us-1967 (regulatory_approval, approved_for_adults_with_schizophrenia) - haloperidol-haldol-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "offsetting_reason: thioridazine-mellaril-schizophrenia-approval-us-1962 (regulatory_approval, approved_for_adults_with_schizophrenia) - thioridazine-mellaril-schizophrenia-approval-us-1962 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: fluphenazine-prolixin-schizophrenia-approval-us-1959 (regulatory_approval, approved_for_adults_with_schizophrenia) - fluphenazine-prolixin-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "offsetting_reason: trifluoperazine-stelazine-schizophrenia-approval-us-1959 (regulatory_approval, approved_for_adults_with_schizophrenia) - trifluoperazine-stelazine-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "offsetting_reason: chlorpromazine-thorazine-schizophrenia-approval-us-1957 (regulatory_approval, approved_for_adults_with_schizophrenia) - chlorpromazine-thorazine-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                  "offsetting_reason: perphenazine-trilafon-schizophrenia-approval-us-1957 (regulatory_approval, approved_for_adults_with_schizophrenia) - perphenazine-trilafon-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "uncertainty_reason: lu-af35700-trs-phase-3-results-2022 (peer_reviewed_primary_results, did_not_demonstrate_superiority_to_active_control) - lu-af35700-trs-phase-3-results-2022 is in treatment_resistant_schizophrenia, which differs from the proposal domain, so it is not a clean replay analog."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: Checked-in history does not support calling this proposal a replay: 22 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
+                  "Main contradiction: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+                  "Risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+                  "Risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: escape_evidence_present",
+                  "Escape route: olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021 - olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism with opioid antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: lumateperone-caplyta-schizophrenia-approval-us-2019 - lumateperone-caplyta-schizophrenia-approval-us-2019 is a checked-in nonfailure anchor in the same biological neighborhood (multi-pathway atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: cariprazine-vraylar-schizophrenia-approval-us-2015 - cariprazine-vraylar-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: brexpiprazole-rexulti-schizophrenia-approval-us-2015 - brexpiprazole-rexulti-schizophrenia-approval-us-2015 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: lurasidone-latuda-schizophrenia-approval-us-2010 - lurasidone-latuda-schizophrenia-approval-us-2010 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: asenapine-saphris-schizophrenia-approval-us-2009 - asenapine-saphris-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: iloperidone-fanapt-schizophrenia-approval-us-2009 - iloperidone-fanapt-schizophrenia-approval-us-2009 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: paliperidone-invega-schizophrenia-approval-us-2006 - paliperidone-invega-schizophrenia-approval-us-2006 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: aripiprazole-abilify-schizophrenia-approval-us-2002 - aripiprazole-abilify-schizophrenia-approval-us-2002 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine-serotonin partial agonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: ziprasidone-geodon-schizophrenia-approval-us-2001 - ziprasidone-geodon-schizophrenia-approval-us-2001 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: quetiapine-seroquel-schizophrenia-approval-us-1997 - quetiapine-seroquel-schizophrenia-approval-us-1997 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: olanzapine-zyprexa-schizophrenia-approval-us-1996 - olanzapine-zyprexa-schizophrenia-approval-us-1996 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: risperidone-risperdal-schizophrenia-approval-us-1993 - risperidone-risperdal-schizophrenia-approval-us-1993 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: loxapine-loxitane-schizophrenia-approval-us-1975 - loxapine-loxitane-schizophrenia-approval-us-1975 is a checked-in nonfailure anchor in the same biological neighborhood (serotonin-dopamine antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: molindone-moban-schizophrenia-approval-us-1974 - molindone-moban-schizophrenia-approval-us-1974 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "Escape route: thiothixene-navane-schizophrenia-approval-us-1967 - thiothixene-navane-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "Escape route: haloperidol-haldol-schizophrenia-approval-us-1967 - haloperidol-haldol-schizophrenia-approval-us-1967 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "Escape route: thioridazine-mellaril-schizophrenia-approval-us-1962 - thioridazine-mellaril-schizophrenia-approval-us-1962 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: fluphenazine-prolixin-schizophrenia-approval-us-1959 - fluphenazine-prolixin-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "Escape route: trifluoperazine-stelazine-schizophrenia-approval-us-1959 - trifluoperazine-stelazine-schizophrenia-approval-us-1959 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism).",
+                  "Escape route: chlorpromazine-thorazine-schizophrenia-approval-us-1957 - chlorpromazine-thorazine-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism). It is not a perfectly clean single-target counterexample.",
+                  "Escape route: perphenazine-trilafon-schizophrenia-approval-us-1957 - perphenazine-trilafon-schizophrenia-approval-us-1957 is a checked-in nonfailure anchor in the same biological neighborhood (dopamine D2 antagonism)."
                 ]
               },
               {
@@ -295,20 +390,12 @@
                 ]
               },
               {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: escape_unresolved",
-                  "Needed evidence: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
-                ]
-              },
-              {
                 "heading": "Traceability",
                 "lines": [
                   "Source packet id: ENSG00000149295__acute_translation_guardrails_v1",
                   "Policy pointer: /entities/gene/4 -> /entities/gene/4/policy_scores/0",
                   "Ledger pointer: /targets/4",
-                  "Replay event ids: none"
+                  "Replay event ids: olanzapine-samidorphan-lybalvi-schizophrenia-approval-us-2021, lumateperone-caplyta-schizophrenia-approval-us-2019, cariprazine-vraylar-schizophrenia-approval-us-2015, brexpiprazole-rexulti-schizophrenia-approval-us-2015, lurasidone-latuda-schizophrenia-approval-us-2010, asenapine-saphris-schizophrenia-approval-us-2009, iloperidone-fanapt-schizophrenia-approval-us-2009, paliperidone-invega-schizophrenia-approval-us-2006, aripiprazole-abilify-schizophrenia-approval-us-2002, ziprasidone-geodon-schizophrenia-approval-us-2001, quetiapine-seroquel-schizophrenia-approval-us-1997, olanzapine-zyprexa-schizophrenia-approval-us-1996, risperidone-risperdal-schizophrenia-approval-us-1993, loxapine-loxitane-schizophrenia-approval-us-1975, molindone-moban-schizophrenia-approval-us-1974, thiothixene-navane-schizophrenia-approval-us-1967, haloperidol-haldol-schizophrenia-approval-us-1967, thioridazine-mellaril-schizophrenia-approval-us-1962, fluphenazine-prolixin-schizophrenia-approval-us-1959, trifluoperazine-stelazine-schizophrenia-approval-us-1959, chlorpromazine-thorazine-schizophrenia-approval-us-1957, perphenazine-trilafon-schizophrenia-approval-us-1957, lu-af35700-trs-phase-3-results-2022"
                 ]
               }
             ],
@@ -317,7 +404,7 @@
         },
         {
           "blind_id": "comparison_003_B",
-          "content_sha256": "bd55fdf5db446a19576f684ccd13f21a98b4b6b6e69d1597ef94b57d54b9d0b6",
+          "content_sha256": "9053cc9624328ef52ccb01cbc30000c3719d2fcab9e776c10c33edc8ea13a691",
           "review_packet": {
             "sections": [
               {
@@ -325,7 +412,7 @@
                 "lines": [
                   "DRD2 | Acute translation guardrails | acute_positive_symptoms",
                   "Test decrease_activity DRD2 via d2_antagonism_or_partial_agonism (small_molecule) in acute_positive_symptoms.",
-                  "Policy score: 0.302 (available)"
+                  "Policy score: 0.756 (available)"
                 ]
               },
               {
@@ -339,7 +426,7 @@
                 "heading": "Risks",
                 "lines": [
                   "Contradiction status: contradicted",
-                  "Replay status: replay_inconclusive",
+                  "Replay status: replay_not_supported",
                   "Main contradiction: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
                   "Risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
                   "Risk: high | Class baggage around tolerability and limited disease modification remains substantial."
@@ -362,7 +449,7 @@
       "variants": [
         {
           "blind_id": "comparison_004_A",
-          "content_sha256": "9bf6f98a8c4f59059824cc29dd7e30f5839b6212458e689f4a718ba948729b52",
+          "content_sha256": "de37cfe5af900053f567176e4314b71c31006b6ae40e542625383701760467b4",
           "review_packet": {
             "sections": [
               {
@@ -370,7 +457,7 @@
                 "lines": [
                   "DRD2 | Refractory discovery upside | treatment_resistant_schizophrenia",
                   "Test decrease_activity DRD2 via d2_antagonism_or_partial_agonism (small_molecule) in treatment_resistant_schizophrenia.",
-                  "Policy score: 0.465 (available)"
+                  "Policy score: 0.439 (available)"
                 ]
               },
               {
@@ -396,7 +483,7 @@
         },
         {
           "blind_id": "comparison_004_B",
-          "content_sha256": "dcde0baf9c90fd2b8b51017c3e9e2f2b6f0419c4688fa63e3a841827910f2edd",
+          "content_sha256": "f12e7b54f454bf7cb73e76f5b60800c5708fe89005fddc7bf0af30759ba47b6d",
           "review_packet": {
             "sections": [
               {
@@ -405,7 +492,9 @@
                   "Target: DRD2",
                   "Policy: Refractory discovery upside",
                   "Priority domain: treatment_resistant_schizophrenia",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should DRD2 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Refractory discovery upside scored 0.439 (available); contradiction status contradicted; replay status replay_not_supported."
                 ]
               },
               {
@@ -420,15 +509,37 @@
               {
                 "heading": "Why it made the packet",
                 "lines": [
-                  "Policy signal: Refractory discovery upside scored 0.465 (available) with base 0.470.",
+                  "Policy signal: Refractory discovery upside scored 0.439 (available) with base 0.449.",
                   "Lean toward negative-symptom, cognition, and refractory-population upside while treating replay and uncertainty as visible but less decisive penalties.",
-                  "Replay summary: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (0 remain cautionary)."
+                  "Replay summary: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary)."
                 ]
               },
               {
                 "heading": "Evidence anchors",
                 "lines": [
-                  "supporting_program: clozapine-clozaril-trs-approval-us-1989 (regulatory_approval, approved_for_treatment_resistant_schizophrenia) - TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels."
+                  "Anchor coverage: evidence_anchors_present",
+                  "Program history coverage: program_history_present",
+                  "supporting_program: clozapine-clozaril-trs-approval-us-1989 (regulatory_approval, approved_for_treatment_resistant_schizophrenia) - TRS anchor; later curation should treat clozapine exposure as a key boundary for narrower resistant-population labels.",
+                  "offsetting_reason: clozapine-clozaril-trs-approval-us-1989 (regulatory_approval, approved_for_treatment_resistant_schizophrenia) - clozapine-clozaril-trs-approval-us-1989 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
+                  "uncertainty_reason: lu-af35700-trs-phase-3-results-2022 (peer_reviewed_primary_results, did_not_demonstrate_superiority_to_active_control) - lu-af35700-trs-phase-3-results-2022 is recorded as an unresolved miss, so it cannot by itself establish that the proposal replays a defended prior failure scope."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: Checked-in history does not support calling this proposal a replay: 1 nonfailure anchor(s) offset the currently available failure analogs (1 remain cautionary).",
+                  "Main contradiction: A clinically credible schizophrenia program demonstrates benefit from sustained net DRD2 activation in the same use case.",
+                  "Risk: high | Historically important target class but broad mechanistic baggage and limited disease-modifying evidence.",
+                  "Risk: high | Class baggage around tolerability and limited disease modification remains substantial."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: escape_evidence_present",
+                  "Escape route: clozapine-clozaril-trs-approval-us-1989 - clozapine-clozaril-trs-approval-us-1989 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample."
                 ]
               },
               {
@@ -442,21 +553,12 @@
                 ]
               },
               {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: escape_evidence_present",
-                  "Escape route: clozapine-clozaril-trs-approval-us-1989 - clozapine-clozaril-trs-approval-us-1989 is a checked-in nonfailure anchor in the same biological neighborhood (multireceptor atypical antipsychotic). It is not a perfectly clean single-target counterexample.",
-                  "Needed evidence: Robust efficacy without net DRD2 dampening becomes the dominant replicated path for acute antipsychotic benefit.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
-                ]
-              },
-              {
                 "heading": "Traceability",
                 "lines": [
                   "Source packet id: ENSG00000149295__refractory_discovery_upside_v1",
                   "Policy pointer: /entities/gene/4 -> /entities/gene/4/policy_scores/1",
                   "Ledger pointer: /targets/4",
-                  "Replay event ids: clozapine-clozaril-trs-approval-us-1989"
+                  "Replay event ids: clozapine-clozaril-trs-approval-us-1989, lu-af35700-trs-phase-3-results-2022"
                 ]
               }
             ],
@@ -509,7 +611,7 @@
         },
         {
           "blind_id": "comparison_005_B",
-          "content_sha256": "d38204f89873c394cd1daef099480e0af2589cebc401ff5af67b1c7a0ea36b05",
+          "content_sha256": "8ad3dacf80a75b40f366a7e41740247daea0aa4e705e77c32cafc07ebf730e2b",
           "review_packet": {
             "sections": [
               {
@@ -518,7 +620,9 @@
                   "Target: SLC39A8",
                   "Policy: Acute translation guardrails",
                   "Priority domain: acute_positive_symptoms",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should SLC39A8 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Acute translation guardrails scored 0.256 (available); contradiction status contradicted; replay status insufficient_history."
                 ]
               },
               {
@@ -541,7 +645,25 @@
               {
                 "heading": "Evidence anchors",
                 "lines": [
-                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                  "Anchor coverage: no_evidence_anchors",
+                  "Program history coverage: no_direct_program_history",
+                  "No evidence anchors were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                  "Main contradiction: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+                  "Risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: history_insufficient"
                 ]
               },
               {
@@ -551,14 +673,6 @@
                   "Contradiction condition: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
                   "Falsification condition: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
                   "Open risk: low | Perturbation direction may be context dependent and could require subgroup selection."
-                ]
-              },
-              {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: history_insufficient",
-                  "Needed evidence: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ]
               },
               {
@@ -620,7 +734,7 @@
         },
         {
           "blind_id": "comparison_006_B",
-          "content_sha256": "ebf5a804453944a57664f8cdc5df1fb84328811a56efc9225d98485e12a31928",
+          "content_sha256": "9cbbdd97636bd3c49db63a3a639140afe9e40e9db0aa29ff57dc6e92e7af583a",
           "review_packet": {
             "sections": [
               {
@@ -629,7 +743,9 @@
                   "Target: SLC39A8",
                   "Policy: Refractory discovery upside",
                   "Priority domain: treatment_resistant_schizophrenia",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should SLC39A8 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Refractory discovery upside scored 0.331 (available); contradiction status contradicted; replay status insufficient_history."
                 ]
               },
               {
@@ -652,7 +768,25 @@
               {
                 "heading": "Evidence anchors",
                 "lines": [
-                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                  "Anchor coverage: no_evidence_anchors",
+                  "Program history coverage: no_direct_program_history",
+                  "No evidence anchors were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                  "Main contradiction: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
+                  "Risk: low | Perturbation direction may be context dependent and could require subgroup selection."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: history_insufficient"
                 ]
               },
               {
@@ -662,14 +796,6 @@
                   "Contradiction condition: A replicated intervention signal consistently benefits from pushing this transporter further away from homeostatic activity.",
                   "Falsification condition: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
                   "Open risk: low | Perturbation direction may be context dependent and could require subgroup selection."
-                ]
-              },
-              {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: history_insufficient",
-                  "Needed evidence: Controlled perturbation shows that restoring transporter-linked biology does not improve aligned schizophrenia-relevant readouts.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ]
               },
               {
@@ -732,7 +858,7 @@
         },
         {
           "blind_id": "comparison_007_B",
-          "content_sha256": "872cf0d86fdf493df7f6d889ab473a071e657b621a5c41ed157e78693bdcfcfe",
+          "content_sha256": "9a83a04292ad313051807e3398d8dc696094126fa3dcce77e712d3f27ffdddcf",
           "review_packet": {
             "sections": [
               {
@@ -741,7 +867,9 @@
                   "Target: SLC6A1",
                   "Policy: Acute translation guardrails",
                   "Priority domain: acute_positive_symptoms",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should SLC6A1 advance, hold, or kill for Acute translation guardrails in acute_positive_symptoms?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Acute translation guardrails scored 0.266 (available); contradiction status contradicted; replay status insufficient_history."
                 ]
               },
               {
@@ -764,7 +892,26 @@
               {
                 "heading": "Evidence anchors",
                 "lines": [
-                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                  "Anchor coverage: no_evidence_anchors",
+                  "Program history coverage: no_direct_program_history",
+                  "No evidence anchors were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                  "Main contradiction: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+                  "Risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+                  "Risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: history_insufficient"
                 ]
               },
               {
@@ -775,14 +922,6 @@
                   "Falsification condition: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
                   "Open risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
                   "Open risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
-                ]
-              },
-              {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: history_insufficient",
-                  "Needed evidence: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ]
               },
               {
@@ -811,7 +950,7 @@
       "variants": [
         {
           "blind_id": "comparison_008_A",
-          "content_sha256": "83b55427503e84e1a50748101a292a0cdb0e19236bd311beb552d7969978c0de",
+          "content_sha256": "8ccff2ec830806f4e13dddb98ddb556bad9579a5f34a362c9d47455fccbcd00d",
           "review_packet": {
             "sections": [
               {
@@ -820,7 +959,9 @@
                   "Target: SLC6A1",
                   "Policy: Refractory discovery upside",
                   "Priority domain: treatment_resistant_schizophrenia",
-                  "Decision ask: Decide whether this hypothesis is reviewable enough to advance, hold, or kill."
+                  "Review question: Should SLC6A1 advance, hold, or kill for Refractory discovery upside in treatment_resistant_schizophrenia?",
+                  "Decision options: advance, hold, kill",
+                  "Current readout: Refractory discovery upside scored 0.337 (available); contradiction status contradicted; replay status insufficient_history."
                 ]
               },
               {
@@ -843,7 +984,26 @@
               {
                 "heading": "Evidence anchors",
                 "lines": [
-                  "No supporting_program_ids or replay_reason_event_ids were emitted for this packet."
+                  "Anchor coverage: no_evidence_anchors",
+                  "Program history coverage: no_direct_program_history",
+                  "No evidence anchors were emitted for this packet."
+                ]
+              },
+              {
+                "heading": "Risk digest",
+                "lines": [
+                  "Replay: No checked-in analogs matched this proposal, so the repository cannot yet call it a replay.",
+                  "Main contradiction: Repeated schizophrenia programs show benefit from reducing rather than increasing GABA tone at this node.",
+                  "Risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
+                  "Risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
+                ]
+              },
+              {
+                "heading": "Change-my-mind evidence",
+                "lines": [
+                  "Needed next: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
+                  "Needed next: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim.",
+                  "Escape status: history_insufficient"
                 ]
               },
               {
@@ -854,14 +1014,6 @@
                   "Falsification condition: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
                   "Open risk: low | Source coverage is partial; matched SCHEMA rare-variant support, PsychENCODE biological support, ChEMBL tractability support, and Open Targets baseline context; missing PGC common-variant support.",
                   "Open risk: low | Directionality is still weakly anchored because the repo lacks a direct schizophrenia program-history event for SLC6A1."
-                ]
-              },
-              {
-                "heading": "Change-my-mind evidence",
-                "lines": [
-                  "Escape status: history_insufficient",
-                  "Needed evidence: Adequately engaged GABA-tone-increasing programs repeatedly fail in aligned schizophrenia populations.",
-                  "Needed evidence: Repeated adequately engaged failures in the same target and domain context would strengthen the replay claim."
                 ]
               },
               {

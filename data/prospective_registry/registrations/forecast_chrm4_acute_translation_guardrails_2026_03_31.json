@@ -511,7 +511,7 @@
   "notes": "Checked-in example prospective forecast registered from the shipped hypothesis packet artifact.",
   "packet_artifact": {
     "artifact_path": "../../../examples/v0/output/hypothesis_packets_v1.json",
-    "artifact_sha256": "ee33f6cbf7325744cecd955a421eedba22882c17c8cbc1b7bf3465b009641907",
+    "artifact_sha256": "bd3e427dd77fbca43aa5b0d835d5d1624f158dbd1039f107c4471943786e31bb",
     "packet_id": "ENSG00000180720__acute_translation_guardrails_v1",
     "packet_pointer": "/packets/0",
     "schema_name": "hypothesis_packets_v1",

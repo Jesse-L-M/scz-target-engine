@@ -12,6 +12,10 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - `v0` turns curated evidence tables into explicit weighted rankings, sensitivity checks, and warning-rich reports.
 - `heuristic_stable` means an entity was rank-eligible and survived at least the configured share of `v0` sensitivity runs.
 - `v1` is an additive multi-head decision-vector layer that exposes separate domain/stage profiles without changing the underlying `v0` numbers.
+- the checked-in program-memory release now includes a real schizophrenia molecular-
+  program denominator with effectively complete approved coverage, near-exhaustive
+  phase 2/3 coverage, and explicit `included` / `unresolved` / `duplicate` /
+  `excluded` / `out_of_scope` accounting
 - the benchmark path is now runnable end to end from frozen snapshot, cohort, and runner artifacts
 - the Milestone 0 compatibility surface is now frozen through
   `docs/intervention_object_compatibility.md`, six registered release-manifest
@@ -25,6 +29,8 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - `v0` now has a non-seed candidate-registry ingest path, but the checked-in example scoring workflow still relies on curated shortlists and source-specific harmonization.
 - atlas raw-source staging now exists for selected adapter-backed pulls, but it is still not raw consortium-dump ingestion and it does not replace the current scoring inputs
 - the benchmark path is not a production-scale historical replay system
+- the benchmark path does not yet inherit the full checked-in denominator into a real
+  replay backfill archive set
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
 - `intervention_object_id` is not yet the shipped replacement key for the current
   gene, module, policy, or packet artifacts during the dual-write period
@@ -48,6 +54,9 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 ## Current Release Limitations
 
 - historical benchmark archives are fixture-scale and currently checked in only for `data/benchmark/fixtures/scz_small/`
+- replay public slices and frozen archives remain much smaller than the now-expanded
+  program-memory denominator, so denominator completeness should not be read as replay
+  completeness
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
 

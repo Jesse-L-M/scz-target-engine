@@ -1,15 +1,17 @@
 # program-memory-denominator-v1
 
 Status: implemented
-Owner branch: Jesse-L-M/fix-pm-denominator
+Owner branch: Jesse-L-M/real-scz-denom
 Depends on: docs/designs/contracts-and-compat-v2.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-02
+Last updated: 2026-04-08
 
 ## Objective
 
-Make program-memory coverage explicit instead of implied.
+Make schizophrenia program-memory coverage explicit instead of implied, and move the
+checked-in denominator from a fixture-scale example to the real approved plus near-
+exhaustive phase 2/3 molecular-program boundary that replay will later inherit.
 
 The checked-in event tables under `data/curated/program_history/v2/` remain the
 authoritative substrate for included schizophrenia program history, but coverage now
@@ -21,17 +23,25 @@ flows through a checked-in denominator artifact:
 - Every tracked schizophrenia molecular program opportunity in the denominator has an
   explicit `coverage_state` and `coverage_reason`.
 - Included denominator rows map to one or more checked-in `events.csv` rows.
+- Approved schizophrenia molecular programs are effectively complete and explicitly
+  represented in the denominator.
+- Phase 2/3 schizophrenia molecular programs are near-exhaustive, with unresolved,
+  duplicate, excluded, and out-of-scope rows listed explicitly rather than omitted.
 - The coverage audit emits deterministic manifest, summary, and gap artifacts from
   the denominator plus the included-event substrate.
 
 ## Scope
 
 - materialize `program_universe.csv` at program-opportunity grain
+- expand the checked-in denominator to the real schizophrenia molecular-program
+  release instead of a state-machine example set
 - define and validate allowed `included`, `unresolved`, `excluded`, `duplicate`, and
   `out_of_scope` states plus reasons
 - tighten asset and target-class lineage IDs plus alias handling
 - integrate ClinicalTrials.gov as discovery and provenance support for denominator
   rows
+- use direct regulatory, peer-reviewed, and company sources where available so
+  included and unresolved rows carry reviewable provenance
 - keep `program_history/v2` authoritative for included events while denominator
   accounting stays additive
 
@@ -174,14 +184,33 @@ the adjudicated included-event tables.
 
 ## Implementation Reality
 
-- the checked-in denominator now points the unresolved brilaroxazine schizophrenia row
-  at `NCT05184335` and the out-of-scope KarXT Alzheimer agitation row at
-  `NCT07011732`, matching the official ClinicalTrials.gov records
+- the checked-in denominator is no longer a 14-row fixture; it now contains 59 rows:
+  31 `included`, 15 `unresolved`, 11 `duplicate`, 1 `excluded`, and 1
+  `out_of_scope`
+- the checked-in release is effectively complete for approved schizophrenia molecular
+  programs and near-exhaustive for phase 2/3 schizophrenia molecular programs, with
+  unresolved rows kept explicit instead of silently omitted
+- every `included` denominator row maps to checked-in event history; the current
+  release carries 32 mapped event rows across the 31 included denominator rows
+- unresolved rows are partitioned explicitly by reason: 6
+  `ctgov_candidate_pending_adjudication` rows and 9 `needs_direct_source_recovery`
+  rows
+- direct-source provenance for the expanded denominator now spans regulatory approval
+  records, peer-reviewed primary results, company press releases, and
+  ClinicalTrials.gov candidate studies
 - `assets.csv` now carries `asset_lineage_id`, `asset_aliases_json`,
   `target_class_lineage_id`, and `target_class_aliases_json`
 - `coverage_evidence.csv` now carries lineage IDs for included-event evidence rows
-- alias rows such as `KarXT`, `SEP-363856`, `BI 425809`, and `MIN-101` are explicit
-  denominator duplicates instead of silently doubling coverage
+- alias rows such as `KarXT`, `SEP-363856`, `BI 425809`, `MIN-101`, `RP5063`,
+  `LY2140023`, `RO4917838`, and `ACP-103` are explicit denominator duplicates instead
+  of silently doubling coverage
+- the checked-in denominator now points unresolved late-stage candidates such as
+  brilaroxazine, roluperidone, evenamide, NBI-1117568, LB-102, encenicline, and
+  valbenazine at explicit ClinicalTrials.gov or direct-source provenance surfaces
+- approved anchors now include first-generation, second-generation, and newer
+  schizophrenia approvals such as chlorpromazine, haloperidol, clozapine,
+  risperidone, olanzapine, quetiapine, aripiprazole, lumateperone, Lybalvi, and
+  Cobenfy through checked-in event history plus regulatory provenance
 - denominator rows are explicit under
   `coverage_denominator_summary.csv` / `coverage_denominator_gaps.csv`, while the
   legacy `coverage_summary.csv` / `coverage_gaps.csv` scope surfaces remain
@@ -192,8 +221,8 @@ the adjudicated included-event tables.
 - legacy pre-contract 4-file v2 proposal slices still load as scope-only datasets by
   schema fallback, while denominator-aware checked-in-style v2 surfaces fail closed if
   `program_universe.csv` is missing
-- the current checked-in denominator includes included, unresolved, excluded,
-  duplicate, and out-of-scope examples so the state machine is exercised in-repo
+- the current checked-in denominator release keeps the full state machine in-repo
+  without pretending unresolved late-stage rows are already adjudicated event history
 - machine-readable coverage-audit outputs keep the pre-hotfix absolute-path
   `dataset_dir` contract instead of silently switching existing fields to repo-relative
 
@@ -201,7 +230,7 @@ the adjudicated included-event tables.
 
 ```bash
 uv run --group dev pytest
-uv run --group dev pytest tests/test_program_memory_coverage.py tests/test_program_memory_adjudication.py tests/test_program_memory_harvest.py
+uv run --group dev pytest tests/test_program_memory_coverage.py tests/test_program_memory_adjudication.py tests/test_program_memory_harvest.py tests/test_curation_assistant.py
 uv run scz-target-engine program-memory coverage-audit --output-dir .context/program_memory_coverage_audit
 ./scripts/run_contract_smoke_path.sh
 ```
@@ -222,8 +251,9 @@ uv run scz-target-engine program-memory coverage-audit --output-dir .context/pro
 - the PR1 frozen smoke path must stay green
 - preserve machine-readable `dataset_dir` compatibility so downstream replay work does
   not build on a silently changed path surface
-- if replay or rescue later want to reuse the implemented domain-in-grain rule as a
-  shared identity contract, promote that choice into a dedicated decision record
+- replay must inherit the checked-in denominator boundary and explicit non-included
+  row accounting instead of rebuilding proposal universes ad hoc from later slice
+  generation logic
 
 ## Commands
 
@@ -231,4 +261,5 @@ uv run scz-target-engine program-memory coverage-audit --output-dir .context/pro
 uv run scz-target-engine program-memory harvest --input-file .context/program_memory/raw_harvest.json --output-file .context/program_memory/harvest.json --harvest-id example-curation --harvester llm-assist --created-at 2026-03-30 --review-file .context/program_memory/review_queue.csv
 uv run scz-target-engine program-memory adjudicate --harvest-file .context/program_memory/harvest.json --decisions-file .context/program_memory/decisions.json --output-dir .context/program_memory/adjudicated --adjudication-id example-curation-review --reviewer curator@example.com --reviewed-at 2026-03-30
 uv run scz-target-engine program-memory coverage-audit --output-dir .context/program_memory_coverage_audit
+uv run --group dev pytest tests/test_program_memory_coverage.py tests/test_program_memory_adjudication.py tests/test_program_memory_harvest.py tests/test_curation_assistant.py
 ```

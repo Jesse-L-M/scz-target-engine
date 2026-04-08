@@ -5,8 +5,9 @@ registry-backed `scz_translational_task`.
 
 The shipped public slices are now the Track A intervention-object replay fixtures.
 They keep the frozen benchmark question and leakage controls, but they materialize
-`entity_type = intervention_object` and execute only `v0_current`,
-`v1_current`, and `random_with_coverage`.
+`entity_type = intervention_object` and execute the full available-now baseline
+set: `pgc_only`, `schema_only`, `opentargets_only`, `v0_current`,
+`v1_current`, `chembl_only`, and `random_with_coverage`.
 
 Current checked-in slices:
 
@@ -25,11 +26,13 @@ Current checked-in slices:
   principal `3y` horizon with one positive intervention object each. The later five
   remain honest but non-evaluable after the positive approval boundary and subsequent
   misses cross the cutoff.
-- Those five evaluable slices now have non-zero honest `v0_current` /
-  `v1_current` coverage because the default backfill path consumes the separate
-  checked-in `scz_track_a_historical_replay` archive surface. On the principal
-  `2024-09-25` slice, `random_with_coverage` covers `8/8` intervention objects,
-  `v0_current` covers `4/8`, and `v1_current` covers `5/8`.
+- Those five evaluable slices now have honest challenger and control coverage
+  because the default backfill path consumes the separate checked-in
+  `scz_track_a_historical_replay` archive surface. On the principal
+  `2024-09-25` slice, `random_with_coverage`, `schema_only`,
+  `opentargets_only`, and `v1_current` each cover `8/8` intervention objects,
+  `v0_current` covers `5/8`, `pgc_only` covers `4/8`, and `chembl_only`
+  covers `0/8`.
 
 The catalog at `catalog.json` records the explicit source inclusions and exclusions
 for each cutoff. The slice builder is:

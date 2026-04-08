@@ -136,7 +136,7 @@ Notes:
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` stay frozen as protocol comparison labels across the PR8.1 transition
 - `chembl_only` applies only where tractability context exists and is not a module baseline
 - `v0_current` and `v1_current` now also apply to `intervention_object` slices by writing explicit projection sidecars from archived gene/module baseline outputs through the checked-in compatibility contract
-- on the current checked-in Track A slices, that compatibility contract now maps a non-zero intervention-object universe. The Track A stop-go comparison was executed on 2026-04-08 and the result is **HOLD**: no challenger baselines exist for the `intervention_object` entity type (see `docs/decisions/0005-track-a-pr3-stop-go.md`)
+- the projected single-source challengers `pgc_only`, `schema_only`, `opentargets_only`, and `chembl_only` now also apply to `intervention_object` slices through that same compatibility contract. The Track A stop-go rerun executed on 2026-04-08 still ended in **HOLD** because no challenger has a bootstrap-backed material win on the principal slice, even though `schema_only` and `opentargets_only` now beat the control point estimates (see `docs/decisions/0005-track-a-pr3-stop-go.md`)
 - `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines, including intervention-object public slices
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest
 
@@ -546,8 +546,9 @@ Current honest public slices from the checked-in archive catalog:
 - `scz_translational_2025_01_15`
 - `scz_translational_2025_01_16`
 - As of April 8, 2026, the first five checked-in slices through `scz_translational_2024_09_25` are evaluable on the principal `3y` horizon with one positive intervention-object each. The later five remain non-evaluable after the positive approval boundary and subsequent misses cross the cutoff.
-- The Track A stop-go comparison was executed on 2026-04-08 and the result is **HOLD**: both `v0_current` and `v1_current` score AP = 0.125 on all five evaluable slices (95% CI [0.0, 0.276]), with no challenger baselines available for the `intervention_object` entity type. See `docs/decisions/0005-track-a-pr3-stop-go.md`.
-- On `scz_translational_2024_09_25`, `random_with_coverage` covers `8/8` admissible intervention objects, `v0_current` reaches `covered_entity_count = 4`, and `v1_current` reaches `covered_entity_count = 5`.
+- The shipped Track A public-slice path now executes the full available-now intervention-object subset `pgc_only`, `schema_only`, `opentargets_only`, `v0_current`, `v1_current`, `chembl_only`, and `random_with_coverage`.
+- The Track A stop-go comparison was executed on 2026-04-08 and still ended in **HOLD**: `schema_only` reaches AP = 0.500 (95% CI [0.0, 1.0]) and `opentargets_only` reaches AP = 0.333 (95% CI [0.0, 1.0]) on the principal slice, but neither delivers a bootstrap-backed material win over `v0_current` at 0.125 (95% CI [0.0, 0.276]) and `v1_current` at 0.167 (95% CI [0.0, 0.325]). See `docs/decisions/0005-track-a-pr3-stop-go.md`.
+- On `scz_translational_2024_09_25`, `schema_only`, `opentargets_only`, `v1_current`, and `random_with_coverage` all cover `8/8` admissible intervention objects, `v0_current` covers `5/8`, `pgc_only` covers `4/8`, and `chembl_only` covers `0/8`.
 
 Each slice directory contains:
 

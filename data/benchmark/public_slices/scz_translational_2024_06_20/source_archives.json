@@ -12,13 +12,13 @@
     },
     {
       "allowed_data_through": "2024-06-20",
-      "archive_file": "archives/opentargets/24_03_fixture.csv",
+      "archive_file": "archives/schema/schema_2021_track_a_replay.csv",
       "archive_format": "csv",
       "evidence_frozen_at": "2024-06-20",
-      "notes": "Fixture Open Targets archived pull used for deterministic snapshot tests.",
-      "sha256": "08bd5918a2a573f86d6d7cc8cf804d97ab1e47f1153f8027f5cd0fc66436e815",
-      "source_name": "Open Targets",
-      "source_version": "24.03_fixture"
+      "notes": "Frozen public SCHEMA gene-results extract widened for Track A replay target overlap.",
+      "sha256": "5bfc1300f3c29d192d600bd4126c08bb88bf7d20071fbfeb33a1a789bdef0568",
+      "source_name": "SCHEMA",
+      "source_version": "schema_2021_track_a_replay"
     },
     {
       "allowed_data_through": "2024-06-18",
@@ -29,6 +29,16 @@
       "sha256": "3a2a70c72204a9d35df7c65624817753b830a12ef6ea66c6869502b845142790",
       "source_name": "PsychENCODE",
       "source_version": "brainscope_track_a_replay"
+    },
+    {
+      "allowed_data_through": "2024-06-20",
+      "archive_file": "archives/opentargets/24_03_track_a_replay.csv",
+      "archive_format": "csv",
+      "evidence_frozen_at": "2024-06-20",
+      "notes": "Frozen Open Targets 24.03 extract widened for Track A replay target overlap.",
+      "sha256": "241a66371a3dc280f094d9545447a42726cbb812c50fa558d36525d56da222d1",
+      "source_name": "Open Targets",
+      "source_version": "24.03_track_a_replay"
     }
   ]
 }

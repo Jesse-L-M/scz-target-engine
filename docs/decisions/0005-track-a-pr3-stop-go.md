@@ -9,12 +9,15 @@ Decision: **HOLD**
 PR2 (denominator recovery) and PR3 (replay-surface recovery) are merged. The
 Track A replay path now ships ten honest replayable public slices, five of which
 are principal-`3y` evaluable with one positive intervention object each. The
-hard gate from `deep-scz-validate-calibrate.md` requires:
+hard gate from `deep-scz-validate-calibrate.md` remains:
 
 > "at least one new layer materially beats `v0_current` and `v1_current` on a
 > predeclared principal slice with bootstrap CIs and explicit failure analysis."
 
-This decision record documents the PR3 stop/go run executed on 2026-04-08.
+This decision record documents the rerun executed on 2026-04-08 after enabling
+available-now intervention-object challengers through the checked-in projection
+contract and widening the honest replay archive surface where archived
+pre-cutoff source evidence existed.
 
 ## Predeclared Setup
 
@@ -24,130 +27,157 @@ This decision record documents the PR3 stop/go run executed on 2026-04-08.
 | Principal horizon | `3y` |
 | Principal metric | `average_precision_any_positive_outcome` |
 | Control baselines | `v0_current`, `v1_current` |
+| Available-now challengers | `pgc_only`, `schema_only`, `opentargets_only`, `chembl_only` |
 | Sanity baseline | `random_with_coverage` |
-| Code version | `fc1ae4df147d962d420e06696b593d396b89957f` |
-| Bootstrap iterations | 100 (deterministic test mode) |
+| Code version | `b7e14fb401e007f3084756f3da747599e6f38033` |
+| Bootstrap iterations | 100 (`deterministic_test_mode=true`) |
 | Bootstrap confidence | 0.95 |
 | Resample unit | entity |
 
-## Challenger Discovery
+## Challenger Enablement
 
-No challenger baselines qualify for intervention-object entity type on Track A:
+The Track A benchmark contract now admits projected intervention-object
+execution for these available-now challenger baselines:
 
-- `pgc_only`, `schema_only`, `opentargets_only`, `chembl_only`: entity_types = `(gene,)` only
-- `v1_pre_numeric_pr7_heads`, `v1_post_numeric_pr7_heads`: status = `protocol_only`, entity_types = `(gene, module)` only
-- Track B baselines: different protocol (`track_b_structural_replay_protocol_v1`)
+- `pgc_only`
+- `schema_only`
+- `opentargets_only`
+- `chembl_only`
 
-The only baselines that can run on `intervention_object` with `available_now`
-status are the three already in the public-slice contract: `v0_current`,
-`v1_current`, `random_with_coverage`.
+Implementation remained inside the frozen compatibility path:
 
-**The challenger set is empty. The gate cannot be passed.**
+- `pgc_only`, `schema_only`, `opentargets_only`, and `chembl_only` now declare
+  `entity_types = (gene, intervention_object)` in the frozen baseline matrix.
+- The runner reuses the same intervention-object projection contract already
+  used for `v0_current` and `v1_current`; no ad hoc scorer or hand-authored
+  projection was introduced.
 
-## Principal Slice Result (scz_translational_2024_09_25)
+Honest replay archive widening was required and was limited to the source
+families that had archived pre-cutoff support for the Track A denominator:
+
+- `SCHEMA`: added a replay extract from the public gene-results release,
+  including `CHRM1`, `CHRM4`, `DRD1`, `DRD2`, `GRM2`, `GRM3`, `HTR1A`,
+  `HTR2A`, `SLC6A9`, and `TAAR1`
+- `Open Targets`: widened the checked-in 24.03 replay extract to the same target
+  set except `TAAR1`, which had no schizophrenia direct-association row in the
+  archived 24.03 release
+- `PGC`, `PsychENCODE`, and `ChEMBL`: kept their existing replay roles
+
+The widened archive surface activates challengers on public slices dated
+2024-06-20 and later. The earlier 2024-06-15 and 2024-06-18 slices remain
+honest but challenger-sparse because those replay archives were not yet
+available at those cutoffs.
+
+## Principal Slice Result (`scz_translational_2024_09_25`)
 
 | Baseline | AP (3y) | 95% CI | Covered | Admissible | Positives |
 |---|---|---|---|---|---|
+| `pgc_only` | 0.1250 | [0.000, 0.238] | 4/8 | 8 | 1 |
+| `schema_only` | 0.5000 | [0.000, 1.000] | 8/8 | 8 | 1 |
+| `opentargets_only` | 0.3333 | [0.000, 1.000] | 8/8 | 8 | 1 |
+| `v0_current` | 0.1250 | [0.000, 0.276] | 5/8 | 8 | 1 |
+| `v1_current` | 0.1667 | [0.000, 0.325] | 8/8 | 8 | 1 |
+| `chembl_only` | 0.1250 | [0.000, 0.238] | 0/8 | 8 | 1 |
 | `random_with_coverage` | 0.5000 | [0.000, 1.000] | 8/8 | 8 | 1 |
-| `v0_current` | 0.1250 | [0.000, 0.276] | 4/8 | 8 | 1 |
-| `v1_current` | 0.1250 | [0.000, 0.276] | 5/8 | 8 | 1 |
 
-### Error Analysis
+## Principal Failure Analysis
 
-The single positive entity is **xanomeline + trospium | acute positive symptoms |
-phase_3_or_registration** (CHRM1 / CHRM4).
+The single positive entity remains:
 
-- `v0_current`: positive entity has rank=None, score=None (not in covered set).
-  Top-ranked entities are bitopertin (SLC6A9), iclepertin (SLC6A9), pomaglumetad
-  methionil (GRM2/GRM3), Lu AF35700 (DRD1/DRD2) — all false positives.
-- `v1_current`: positive entity has rank=None, score=None (not in covered set).
-  Top-ranked entities are pomaglumetad methionil (GRM2/GRM3), pimavanserin
-  (HTR2A), bitopertin (SLC6A9), iclepertin (SLC6A9), Lu AF35700 (DRD1/DRD2) —
-  all false positives.
+- `xanomeline + trospium | acute positive symptoms | phase_3_or_registration`
+  via `CHRM1` / `CHRM4`
 
-Both controls place the positive at rank 8/8 (AP = 1/8 = 0.125) because it
-falls outside their projection coverage. The CIs span [0.0, 0.276], confirming
-the result is uninformative noise on a cohort with only 1 positive out of 8.
+What changed:
+
+- `schema_only` now covers the positive via `CHRM1` and `CHRM4` and ranks it
+  `2/8` (AP = 0.500). It still ranks `emraclidine` first because the replay
+  SCHEMA signal is even more concentrated on `CHRM4`.
+- `opentargets_only` now covers the positive via `CHRM1` and `CHRM4` and ranks
+  it `3/8` (AP = 0.333). It still over-ranks `pimavanserin` and `Lu AF35700`
+  because archived Open Targets schizophrenia scores remain larger for `HTR2A`
+  and `DRD1`/`DRD2`.
+- `v1_current` now covers the positive via `CHRM1` and `CHRM4` and ranks it
+  `6/8` (AP = 0.1667), but its additive output still prefers glutamatergic,
+  glycinergic, dopaminergic, and serotonergic assets above the muscarinic
+  approval.
+- `v0_current` still does not cover the positive. The muscarinic genes are now
+  present in the archive surface, but the current v0 composite still does not
+  make them eligible enough to survive into the projected ranked set.
+- `pgc_only` and `chembl_only` do not cover the positive on the principal slice.
+
+Why the gate still fails:
+
+- The best challenger point estimate (`schema_only`, AP = 0.500) does beat
+  `v0_current` and `v1_current` on the principal slice.
+- The bootstrap interval for that challenger is still `[0.0, 1.0]`, and
+  `opentargets_only` is also `[0.0, 1.0]`.
+- With only 1 positive out of 8 admissible entities, the replay remains too thin
+  to support a defensible claim of a material bootstrap-backed win.
 
 ## Secondary Evaluable Slices
 
-| Slice | v0 AP | v0 Covered | v1 AP | v1 Covered | random AP | random Covered |
-|---|---|---|---|---|---|---|
-| `2024-06-15` | 0.125 | 0/8 | 0.125 | 4/8 | 1.000 | 8/8 |
-| `2024-06-18` | 0.125 | 4/8 | 0.125 | 5/8 | 0.167 | 8/8 |
-| `2024-06-20` | 0.125 | 4/8 | 0.125 | 5/8 | 0.200 | 8/8 |
-| `2024-07-15` | 0.125 | 4/8 | 0.125 | 5/8 | 0.333 | 8/8 |
-| `2024-09-25` (principal) | 0.125 | 4/8 | 0.125 | 5/8 | 0.500 | 8/8 |
+| Slice | Schema AP / Covered | Open Targets AP / Covered | v0 AP / Covered | v1 AP / Covered |
+|---|---|---|---|---|
+| `2024-06-15` | 0.125 / 0 | 0.125 / 0 | 0.125 / 0 | 0.125 / 4 |
+| `2024-06-18` | 0.125 / 0 | 0.125 / 0 | 0.125 / 4 | 0.125 / 5 |
+| `2024-06-20` | 0.500 / 8 | 0.333 / 8 | 0.125 / 5 | 0.167 / 8 |
+| `2024-07-15` | 0.500 / 8 | 0.333 / 8 | 0.125 / 5 | 0.167 / 8 |
 
-All secondary slices show the same pattern: v0 and v1 score identically
-(AP = 0.125), CIs span [0.0, 0.276], each slice has exactly 1 positive out of
-8 admissible entities. The random baseline varies between 0.167 and 1.0 due to
-seed-dependent rank assignment with only 1 positive, with CIs spanning [0.0, 1.0].
+The four secondary summaries show the same boundary:
+
+- before 2024-06-20, the replay surface does not yet honestly include the
+  widened `SCHEMA` and `Open Targets` challenger archives
+- from 2024-06-20 onward, `schema_only` and `opentargets_only` both achieve
+  non-zero honest challenger lift, but the cohort still has only one positive
+  and the intervals stay too wide to clear the gate
 
 ## Decision
 
-**HOLD.** Track A does not pass the PR3 gate.
+**HOLD.** Track A still does not pass the PR3 gate.
 
 ### Primary reason
 
-No challenger baselines exist that support the `intervention_object` entity type
-with `available_now` status. The single-source ablation baselines (`pgc_only`,
-`schema_only`, `opentargets_only`, `chembl_only`) only support `gene` entity
-type. The v1 PR7 variants are protocol-only. Without a challenger, the gate
-condition — "at least one new layer materially beats `v0_current` and
-`v1_current`" — cannot be satisfied.
+Available-now challengers now exist and run honestly at
+`intervention_object` grain, but none materially beats both `v0_current` and
+`v1_current` on the principal slice with bootstrap support. The point-estimate
+lift is real; the evidence is still too noisy.
 
-### Secondary observations
+### One-Sentence Decision Reason
 
-Even if a challenger existed, the evaluation surface is too thin to produce
-meaningful signal:
-
-1. Each evaluable slice has only 1 positive out of 8 entities.
-2. The single positive (xanomeline + trospium, CHRM1/CHRM4) is not covered by
-   either v0 or v1 projections on the principal slice.
-3. Bootstrap CIs span most of the [0, 1] range for all baselines.
-4. v0 and v1 are indistinguishable (identical AP on all 5 slices).
-
-## Next Blocker
-
-To unblock Track A, at least one of:
-
-1. **Implement an intervention-object-native challenger baseline** that goes
-   beyond projecting current gene/module outputs. This would require adding a
-   new baseline definition with `entity_types = (intervention_object,)` and
-   `status = available_now`, registering it in the task registry, and
-   implementing execution logic in the benchmark runner.
-2. **Expand the evaluable cohort** so that evaluation surfaces have more than
-   1 positive entity per slice. The current denominator and outcome set produce
-   extremely noisy estimates.
-3. **Enable single-source ablations for intervention objects** by extending
-   `pgc_only`, `schema_only`, `opentargets_only`, and `chembl_only` to support
-   the `intervention_object` entity type through the projection compatibility
-   layer. This would allow testing whether individual source contributions
-   provide uplift, though per the judgment rules, single-source ablations alone
-   do not count as milestone-clearing new layers.
+`schema_only` and `opentargets_only` now cover the muscarinic approval and beat
+the control point estimates on `scz_translational_2024_09_25`, but with only 1
+positive in the cohort their 95% bootstrap intervals remain too wide to justify
+`GO`.
 
 ## Consequences
 
 ### Good
 
-- The benchmark infrastructure is verified end-to-end: snapshot, cohort, runner,
-  reporting, leaderboard, and error analysis all produce valid outputs on all 5
-  evaluable slices.
-- The gap is clearly identified: no intervention-object-native challenger
-  baseline exists yet.
-- The result is documented honestly rather than deferred or wordsmithed.
+- Track A now has genuine available-now challengers at
+  `intervention_object` grain.
+- The principal positive is now honestly covered by challengers through archived
+  `CHRM1` / `CHRM4` source evidence.
+- The benchmark stack remains fully replayable end to end on the five evaluable
+  slices with explicit source provenance.
 
 ### Cost
 
-- Track A cannot advance to later translation milestones until the next blocker
-  is resolved.
-- The replay investment in PR2 and PR3 produced working infrastructure but no
-  scientific signal yet.
+- The milestone gate still cannot advance because the replay surface has only
+  one positive per evaluable slice.
+- The current replay shows directionally useful challenger lift, but not a
+  robust enough estimate to claim calibration success.
+
+## Next Blocker
+
+To turn this into a `GO`, the replay surface needs more evaluable positive
+signal, not merely more legal baselines. The next unblocker is to expand the
+honest evaluable cohort or otherwise predeclare a richer principal surface that
+can yield narrower bootstrap intervals.
 
 ## Affected Specs
 
 - `docs/designs/replay-track-a-v1.md`
 - `docs/designs/deep-scz-validate-calibrate.md`
+- `docs/benchmarking.md`
 - `docs/claim.md`
 - `README.md`

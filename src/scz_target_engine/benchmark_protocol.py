@@ -1182,10 +1182,12 @@ FROZEN_RANKING_BASELINE_MATRIX = (
         baseline_id="pgc_only",
         label="PGC only",
         family="source_only",
-        entity_types=(GENE_ENTITY_TYPE,),
+        entity_types=(GENE_ENTITY_TYPE, INTERVENTION_OBJECT_ENTITY_TYPE),
         required_inputs=("common_variant_support",),
         coverage_rule=(
-            "Score only genes with non-null PGC common-variant support at the snapshot cutoff."
+            "Score only genes with non-null PGC common-variant support at the snapshot "
+            "cutoff, then project those archived gene scores onto intervention objects "
+            "through the frozen compatibility contract when requested."
         ),
         status=AVAILABLE_NOW_STATUS,
         description="Common-variant-only schizophrenia gene ranking baseline.",
@@ -1194,10 +1196,12 @@ FROZEN_RANKING_BASELINE_MATRIX = (
         baseline_id="schema_only",
         label="SCHEMA only",
         family="source_only",
-        entity_types=(GENE_ENTITY_TYPE,),
+        entity_types=(GENE_ENTITY_TYPE, INTERVENTION_OBJECT_ENTITY_TYPE),
         required_inputs=("rare_variant_support",),
         coverage_rule=(
-            "Score only genes with non-null SCHEMA rare-variant support at the snapshot cutoff."
+            "Score only genes with non-null SCHEMA rare-variant support at the snapshot "
+            "cutoff, then project those archived gene scores onto intervention objects "
+            "through the frozen compatibility contract when requested."
         ),
         status=AVAILABLE_NOW_STATUS,
         description="Rare-variant-only schizophrenia gene ranking baseline.",
@@ -1206,10 +1210,12 @@ FROZEN_RANKING_BASELINE_MATRIX = (
         baseline_id="opentargets_only",
         label="Open Targets baseline only",
         family="source_only",
-        entity_types=(GENE_ENTITY_TYPE,),
+        entity_types=(GENE_ENTITY_TYPE, INTERVENTION_OBJECT_ENTITY_TYPE),
         required_inputs=("generic_platform_baseline",),
         coverage_rule=(
-            "Score only genes with non-null Open Targets baseline context from the same snapshot."
+            "Score only genes with non-null Open Targets baseline context from the same "
+            "snapshot, then project those archived gene scores onto intervention "
+            "objects through the frozen compatibility contract when requested."
         ),
         status=AVAILABLE_NOW_STATUS,
         description="Generic-platform baseline comparator sourced from Open Targets only.",
@@ -1278,10 +1284,12 @@ FROZEN_RANKING_BASELINE_MATRIX = (
         baseline_id="chembl_only",
         label="ChEMBL only",
         family="source_only",
-        entity_types=(GENE_ENTITY_TYPE,),
+        entity_types=(GENE_ENTITY_TYPE, INTERVENTION_OBJECT_ENTITY_TYPE),
         required_inputs=("tractability_compoundability",),
         coverage_rule=(
-            "Score only genes with tractability_compoundability present; modules are out of scope."
+            "Score only genes with tractability_compoundability present, then project "
+            "those archived gene scores onto intervention objects through the frozen "
+            "compatibility contract when requested; modules remain out of scope."
         ),
         status=AVAILABLE_NOW_STATUS,
         description="Target tractability-only comparator where applicable.",

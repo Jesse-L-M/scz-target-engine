@@ -1,8 +1,12 @@
 {
   "as_of_date": "2024-06-20",
   "baseline_ids": [
+    "pgc_only",
+    "schema_only",
+    "opentargets_only",
     "v0_current",
     "v1_current",
+    "chembl_only",
     "random_with_coverage"
   ],
   "benchmark_question_id": "scz_translational_ranking_v1",

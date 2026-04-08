@@ -52,7 +52,15 @@ DEFAULT_TRACK_A_HISTORICAL_REPLAY_FIXTURE_DIR = (
 DEFAULT_PUBLIC_SLICE_TASK_ID = "scz_translational_task"
 PUBLIC_SLICE_CATALOG_FILE_NAME = "catalog.json"
 PUBLIC_SLICE_ENTITY_TYPES = (INTERVENTION_OBJECT_ENTITY_TYPE,)
-PUBLIC_SLICE_BASELINE_IDS = ("v0_current", "v1_current", "random_with_coverage")
+PUBLIC_SLICE_BASELINE_IDS = (
+    "pgc_only",
+    "schema_only",
+    "opentargets_only",
+    "v0_current",
+    "v1_current",
+    "chembl_only",
+    "random_with_coverage",
+)
 PUBLIC_SLICE_PRINCIPAL_HORIZON = "3y"
 PUBLIC_SLICE_PROGRAM_UNIVERSE_FILE_NAME = "program_universe.csv"
 PUBLIC_SLICE_PROGRAM_HISTORY_EVENTS_FILE_NAME = "events.csv"

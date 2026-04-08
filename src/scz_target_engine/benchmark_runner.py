@@ -1046,6 +1046,28 @@ def _prediction_rows_from_projection_payload(
     return _sort_prediction_candidates(candidates)
 
 
+def _project_gene_predictions_onto_intervention_objects(
+    *,
+    baseline_id: str,
+    context: BenchmarkExecutionContext,
+    gene_predictions: tuple[PredictionRow, ...],
+) -> tuple[tuple[PredictionRow, ...], dict[str, object] | None]:
+    if not context.intervention_object_bundle_rows:
+        return (), None
+    projection_payload = build_intervention_object_projection_payload(
+        baseline_id=baseline_id,
+        bundle_rows=context.intervention_object_bundle_rows,
+        gene_predictions=gene_predictions,
+    )
+    return (
+        _with_entity_type(
+            INTERVENTION_OBJECT_ENTITY_TYPE,
+            _prediction_rows_from_projection_payload(projection_payload),
+        ),
+        projection_payload,
+    )
+
+
 def _execute_baseline_predictions(
     context: BenchmarkExecutionContext,
     baseline: BaselineDefinition,
@@ -1060,37 +1082,89 @@ def _execute_baseline_predictions(
     predictions_by_type: dict[str, tuple[PredictionRow, ...]] = {}
     projection_payloads: dict[str, dict[str, object]] = {}
     if baseline.baseline_id == "pgc_only":
-        predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
+        gene_predictions = _with_entity_type(
             GENE_ENTITY_TYPE,
             _execute_source_only_baseline(
                 context.gene_records,
                 field_name="common_variant_support",
             ),
         )
+        predictions_by_type[GENE_ENTITY_TYPE] = gene_predictions
+        intervention_object_predictions, projection_payload = (
+            _project_gene_predictions_onto_intervention_objects(
+                baseline_id=baseline.baseline_id,
+                context=context,
+                gene_predictions=gene_predictions,
+            )
+        )
+        if projection_payload is not None:
+            projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE] = projection_payload
+            predictions_by_type[INTERVENTION_OBJECT_ENTITY_TYPE] = (
+                intervention_object_predictions
+            )
     elif baseline.baseline_id == "schema_only":
-        predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
+        gene_predictions = _with_entity_type(
             GENE_ENTITY_TYPE,
             _execute_source_only_baseline(
                 context.gene_records,
                 field_name="rare_variant_support",
             ),
         )
+        predictions_by_type[GENE_ENTITY_TYPE] = gene_predictions
+        intervention_object_predictions, projection_payload = (
+            _project_gene_predictions_onto_intervention_objects(
+                baseline_id=baseline.baseline_id,
+                context=context,
+                gene_predictions=gene_predictions,
+            )
+        )
+        if projection_payload is not None:
+            projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE] = projection_payload
+            predictions_by_type[INTERVENTION_OBJECT_ENTITY_TYPE] = (
+                intervention_object_predictions
+            )
     elif baseline.baseline_id == "opentargets_only":
-        predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
+        gene_predictions = _with_entity_type(
             GENE_ENTITY_TYPE,
             _execute_source_only_baseline(
                 context.gene_records,
                 field_name="generic_platform_baseline",
             ),
         )
+        predictions_by_type[GENE_ENTITY_TYPE] = gene_predictions
+        intervention_object_predictions, projection_payload = (
+            _project_gene_predictions_onto_intervention_objects(
+                baseline_id=baseline.baseline_id,
+                context=context,
+                gene_predictions=gene_predictions,
+            )
+        )
+        if projection_payload is not None:
+            projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE] = projection_payload
+            predictions_by_type[INTERVENTION_OBJECT_ENTITY_TYPE] = (
+                intervention_object_predictions
+            )
     elif baseline.baseline_id == "chembl_only":
-        predictions_by_type[GENE_ENTITY_TYPE] = _with_entity_type(
+        gene_predictions = _with_entity_type(
             GENE_ENTITY_TYPE,
             _execute_source_only_baseline(
                 context.gene_records,
                 field_name="tractability_compoundability",
             ),
         )
+        predictions_by_type[GENE_ENTITY_TYPE] = gene_predictions
+        intervention_object_predictions, projection_payload = (
+            _project_gene_predictions_onto_intervention_objects(
+                baseline_id=baseline.baseline_id,
+                context=context,
+                gene_predictions=gene_predictions,
+            )
+        )
+        if projection_payload is not None:
+            projection_payloads[INTERVENTION_OBJECT_ENTITY_TYPE] = projection_payload
+            predictions_by_type[INTERVENTION_OBJECT_ENTITY_TYPE] = (
+                intervention_object_predictions
+            )
     elif baseline.baseline_id == "v0_current":
         gene_predictions = _with_entity_type(
             GENE_ENTITY_TYPE,
@@ -1942,7 +2016,7 @@ def run_benchmark(
                     schema_name="benchmark_intervention_object_baseline_projection",
                     notes=(
                         "Explicit intervention-object projection artifact built from "
-                        "archived current gene/module baseline outputs via the "
+                        "archived baseline outputs via the "
                         "checked-in compatibility contract"
                     ),
                 )

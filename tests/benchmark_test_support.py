@@ -37,14 +37,18 @@ class InterventionObjectSliceFixture:
     cohort_id: str
 
 
-def _write_local_archive_fixture(fixture_dir: Path) -> Path:
+def _write_local_archive_fixture(
+    fixture_dir: Path,
+    *,
+    source_fixture_dir: Path = FIXTURE_DIR,
+) -> Path:
     source_archives_payload = json.loads(
-        (FIXTURE_DIR / "source_archives.json").read_text(encoding="utf-8")
+        (source_fixture_dir / "source_archives.json").read_text(encoding="utf-8")
     )
     archives_dir = fixture_dir / "archives"
     for archive in source_archives_payload.get("archives", []):
         archive_file = Path(str(archive["archive_file"]))
-        source_path = (FIXTURE_DIR / archive_file).resolve()
+        source_path = (source_fixture_dir / archive_file).resolve()
         destination_path = (fixture_dir / archive_file).resolve()
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_path, destination_path)
@@ -58,10 +62,16 @@ def _write_local_archive_fixture(fixture_dir: Path) -> Path:
 
 def write_intervention_object_slice_fixture(
     tmp_path: Path,
+    *,
+    baseline_ids: list[str] | None = None,
+    source_fixture_dir: Path = FIXTURE_DIR,
 ) -> InterventionObjectSliceFixture:
     fixture_dir = tmp_path / "synthetic_intervention_object_slice"
     fixture_dir.mkdir(parents=True, exist_ok=True)
-    source_archives_file = _write_local_archive_fixture(fixture_dir)
+    source_archives_file = _write_local_archive_fixture(
+        fixture_dir,
+        source_fixture_dir=source_fixture_dir,
+    )
     program_universe_file = fixture_dir / "program_universe.csv"
     program_history_events_file = fixture_dir / "events.csv"
     shutil.copy2(
@@ -99,7 +109,8 @@ def write_intervention_object_slice_fixture(
                 "as_of_date": "2024-06-20",
                 "outcome_observation_closed_at": "2025-06-30",
                 "entity_types": ["intervention_object"],
-                "baseline_ids": ["v0_current", "v1_current", "random_with_coverage"],
+                "baseline_ids": baseline_ids
+                or ["v0_current", "v1_current", "random_with_coverage"],
                 "program_universe_file": program_universe_file.name,
                 "program_history_events_file": program_history_events_file.name,
                 "notes": "Synthetic intervention-object benchmark slice for tests.",

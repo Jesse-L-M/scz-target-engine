@@ -8,6 +8,9 @@ import pytest
 from pyarrow import Table
 from pyarrow import parquet as pq
 
+from scz_target_engine.benchmark_intervention_objects import (
+    intervention_object_projection_path,
+)
 from scz_target_engine.benchmark_labels import (
     BenchmarkCohortLabel,
     build_benchmark_cohort_manifest,
@@ -65,7 +68,23 @@ TRACK_B_FIXTURE_DIR = (
     / "fixtures"
     / "scz_failure_memory_2025_02_01"
 )
+TRACK_A_REPLAY_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "data"
+    / "benchmark"
+    / "fixtures"
+    / "scz_track_a_historical_replay"
+)
 AVAILABLE_NOW_GENE_BASELINES = [
+    "pgc_only",
+    "schema_only",
+    "opentargets_only",
+    "v0_current",
+    "v1_current",
+    "chembl_only",
+    "random_with_coverage",
+]
+AVAILABLE_NOW_INTERVENTION_OBJECT_BASELINES = [
     "pgc_only",
     "schema_only",
     "opentargets_only",
@@ -400,6 +419,82 @@ def test_materialize_benchmark_run_projects_current_baselines_onto_intervention_
     metric_payload_index = _load_metric_payload_index(result["metric_payload_files"])
     assert (
         "v0_current",
+        "intervention_object",
+        "3y",
+        "average_precision_any_positive_outcome",
+    ) in metric_payload_index
+
+
+def test_materialize_benchmark_run_projects_source_only_baselines_onto_intervention_objects(
+    tmp_path: Path,
+) -> None:
+    public_slice = write_intervention_object_slice_fixture(
+        tmp_path,
+        baseline_ids=AVAILABLE_NOW_INTERVENTION_OBJECT_BASELINES,
+        source_fixture_dir=TRACK_A_REPLAY_FIXTURE_DIR,
+    )
+    snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
+    cohort_labels_file = tmp_path / "cohort_labels.csv"
+    runner_output_dir = tmp_path / "runner_outputs"
+
+    materialize_benchmark_snapshot_manifest(
+        request_file=public_slice.snapshot_request_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_file=snapshot_manifest_file,
+        materialized_at="2026-04-02",
+    )
+    materialize_benchmark_cohort_labels(
+        manifest=read_benchmark_snapshot_manifest(snapshot_manifest_file),
+        manifest_file=snapshot_manifest_file,
+        cohort_members_file=public_slice.cohort_members_file,
+        future_outcomes_file=public_slice.future_outcomes_file,
+        output_file=cohort_labels_file,
+    )
+    result = materialize_benchmark_run(
+        manifest_file=snapshot_manifest_file,
+        cohort_labels_file=cohort_labels_file,
+        archive_index_file=public_slice.source_archives_file,
+        output_dir=runner_output_dir,
+        bootstrap_iterations=25,
+        deterministic_test_mode=True,
+        code_version="fixture-sha",
+        execution_timestamp="2026-04-02T00:00:00Z",
+    )
+
+    assert result["executed_baselines"] == AVAILABLE_NOW_INTERVENTION_OBJECT_BASELINES
+    schema_manifest = read_benchmark_model_run_manifest(
+        next(
+            Path(path)
+            for path in result["run_manifest_files"]
+            if "schema_only" in path
+        )
+    )
+    assert {
+        artifact.artifact_name for artifact in schema_manifest.input_artifacts
+    } >= {
+        "intervention_object_feature_bundle",
+        "benchmark_intervention_object_baseline_projection",
+        "source_archive",
+    }
+    schema_projection = json.loads(
+        intervention_object_projection_path(
+            output_dir=runner_output_dir,
+            baseline_id="schema_only",
+        ).read_text(encoding="utf-8")
+    )
+    ulotaront_row = next(
+        row
+        for row in schema_projection["rows"]
+        if row["entity_label"].startswith("ulotaront | ")
+    )
+    assert ulotaront_row["covered"] is True
+    assert {
+        contributor["entity_label"]
+        for contributor in ulotaront_row["contributing_legacy_entities"]
+    } >= {"HTR1A", "TAAR1"}
+    metric_payload_index = _load_metric_payload_index(result["metric_payload_files"])
+    assert (
+        "schema_only",
         "intervention_object",
         "3y",
         "average_precision_any_positive_outcome",

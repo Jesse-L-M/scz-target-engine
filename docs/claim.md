@@ -38,6 +38,12 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
   the principal AP to 0.500 and `opentargets_only` improves it to 0.333, yet the
   intervals remain too wide to justify `GO`. See
   `docs/decisions/0005-track-a-pr3-stop-go.md`
+- a feasibility audit on 2026-04-08 determined the Track A PR3 gate is **infeasible**
+  with the current honest archive universe: the entire schizophrenia late-stage replay
+  window contains exactly 1 independent positive event (the Cobenfy approval), so the
+  AP + bootstrap gate can never produce non-degenerate confidence intervals regardless
+  of challenger quality. No honest alternative surface exists. See
+  `docs/decisions/0006-track-a-pr3-feasibility.md`
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
 - `intervention_object_id` is not yet the shipped replacement key for the current
   gene, module, policy, or packet artifacts during the dual-write period

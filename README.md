@@ -64,10 +64,16 @@ eligible for ranking. The engine then runs 70+ sensitivity perturbations
 
 This is infrastructure, not a validated decision system. The v0 scores do not
 justify advancing or killing any program. The benchmark archives are
-fixture-scale. The Track A historical replay gate is currently **infeasible** —
-the entire honest schizophrenia late-stage replay window contains exactly 1
-independent positive event (the xanomeline-trospium / Cobenfy approval), which
-is too few for meaningful statistical comparison.
+fixture-scale. Benchmark breadth is still limited to the frozen schizophrenia
+question and the current baseline subset. Calibration work, decision-threshold
+setting, and broader operating-point evaluation remain future work.
+
+The Track A historical replay gate is currently **infeasible** — the entire
+honest schizophrenia late-stage replay window contains exactly 1 independent
+positive event (the xanomeline-trospium / Cobenfy approval), which is too few
+for meaningful statistical comparison. The stop-go comparison was executed on
+2026-04-08 and the result is **HOLD**. Five checked-in cutoffs are evaluable on the principal `3y` horizon with one positive intervention object each. Replay
+slices do not fall back to live source data.
 
 See [docs/claim.md](docs/claim.md) for the full claim boundary.
 
@@ -205,6 +211,130 @@ scripts/run_contract_smoke_path.sh  # CI-executed contract verifier
 | [docs/rescue_tasks.md](docs/rescue_tasks.md) | Rescue task governance and contracts |
 | [docs/roadmap.md](docs/roadmap.md) | Strategy and milestone sequencing |
 | [docs/artifact_schemas.md](docs/artifact_schemas.md) | Registered output schemas and validation |
+
+## Contract-Frozen Smoke Path
+
+The smoke path rebuilds frozen example outputs into a temporary directory and
+fails on drift from the checked-in `examples/v0/output/` contract surface.
+CI runs this exact sequence:
+
+```bash
+./scripts/run_contract_smoke_path.sh
+
+uv run scz-target-engine build --config config/v0.toml --input-dir examples/v0/input --output-dir examples/v0/output
+uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/fixtures/scz_small/snapshot_request.json --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json --output-file data/benchmark/generated/scz_small/snapshot_manifest.json --materialized-at 2026-03-28
+uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv --output-file data/benchmark/generated/scz_small/cohort_labels.csv
+uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json --output-dir data/benchmark/generated/scz_small/runner_outputs --config config/v0.toml --deterministic-test-mode
+uv run python -m scz_target_engine.cli rescue compare baselines --output-dir .context/rescue-baseline-suite
+PYTHONPATH=src python3 -m scz_target_engine.cli build-hypothesis-packets --policy-artifact examples/v0/output/policy_decision_vectors_v2.json --ledger-artifact examples/v0/output/gene_target_ledgers.json --output-file .context/hypothesis_packets_v1.json
+```
+
+## Contract-Frozen Compatibility Surface
+
+Future intervention-object-native work must project back through the checked-in
+matrix in [docs/intervention_object_compatibility.md](docs/intervention_object_compatibility.md).
+Projection multiplicity must be explicit, and silent legacy-consumer collisions
+are forbidden during the dual-write period.
+
+Current shipped consumer surfaces: `gene_target_ledgers`, `decision_vectors_v1`,
+`domain_head_rankings_v1`, `policy_decision_vectors_v2`, `policy_pareto_fronts_v1`,
+and `hypothesis_packets_v1`.
+
+Release bundles freeze file membership, SHA256 digests, and expected_schema_version
+through the registered `program_memory_release`, `benchmark_release`,
+`rescue_release`, `variant_context_release`, `policy_release`, and
+`hypothesis_release` manifest families. Cohort digests fail closed on drift.
+See [docs/decisions/0002-release-manifest-contract.md](docs/decisions/0002-release-manifest-contract.md).
+
+## Canonical Benchmark Workflow
+
+The suite/task contract source of truth lives in
+`data/curated/rescue_tasks/task_registry.csv`. Each `benchmark_task_id` maps to
+a checked-in fixture set.
+
+```bash
+uv run scz-target-engine build-benchmark-snapshot \
+  --request-file data/benchmark/fixtures/scz_small/snapshot_request.json \
+  --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json \
+  --output-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --materialized-at 2026-03-28
+
+uv run scz-target-engine build-benchmark-cohort \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-members-file data/benchmark/fixtures/scz_small/cohort_members.csv \
+  --future-outcomes-file data/benchmark/fixtures/scz_small/future_outcomes.csv \
+  --output-file data/benchmark/generated/scz_small/cohort_labels.csv
+
+uv run scz-target-engine run-benchmark \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
+  --archive-index-file data/benchmark/fixtures/scz_small/source_archives.json \
+  --output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --config config/v0.toml \
+  --deterministic-test-mode
+
+uv run scz-target-engine build-benchmark-reporting \
+  --manifest-file data/benchmark/generated/scz_small/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/scz_small/cohort_labels.csv \
+  --runner-output-dir data/benchmark/generated/scz_small/runner_outputs \
+  --output-dir data/benchmark/generated/scz_small/public_payloads
+```
+
+Key generated artifacts:
+
+- `data/benchmark/generated/scz_small/snapshot_manifest.json` — `benchmark_snapshot_manifest`
+- `data/benchmark/generated/scz_small/cohort_labels.csv` — `benchmark_cohort_labels`
+- `data/benchmark/generated/scz_small/runner_outputs/run_manifests/` — `benchmark_model_run_manifest` files
+- `data/benchmark/generated/scz_small/runner_outputs/metric_payloads/` — `benchmark_metric_output_payload` files
+- `data/benchmark/generated/scz_small/runner_outputs/confidence_interval_payloads/` — `benchmark_confidence_interval_payload` files
+- `data/benchmark/generated/scz_small/public_payloads/report_cards/` — derived public report cards
+- `data/benchmark/generated/scz_small/public_payloads/leaderboards/` — derived leaderboard payloads
+
+Backfill Track A public slices:
+
+```bash
+uv run scz-target-engine backfill-benchmark-public-slices \
+  --output-dir data/benchmark/public_slices \
+  --benchmark-task-id scz_translational_task
+
+uv run scz-target-engine benchmark backfill public-slices \
+  --output-dir data/benchmark/public_slices \
+  --benchmark-task-id scz_translational_task
+```
+
+The checked-in slice catalog lives at `data/benchmark/public_slices/catalog.json`.
+Write local replay outputs under
+`data/benchmark/generated/public_slices/scz_translational_2024_09_25/` or another
+checked-in slice id from the catalog.
+
+## Artifact Schemas
+
+Registered artifact families under `schemas/artifact_schemas/` are validated at
+runtime through `scz_target_engine.artifacts`:
+
+- `benchmark_snapshot_manifest`, `benchmark_cohort_labels`, `benchmark_model_run_manifest`
+- `benchmark_metric_output_payload`, `benchmark_confidence_interval_payload`
+- `gene_target_ledgers`, `decision_vectors_v1`, `domain_head_rankings_v1`
+- `policy_decision_vectors_v2`, `policy_pareto_fronts_v1`
+- `rescue_task_contract`
+
+Emitted snapshot and run manifests carry `benchmark_suite_id` and `benchmark_task_id`
+as provenance fields. See [docs/artifact_schemas.md](docs/artifact_schemas.md).
+
+## CLI Namespaces
+
+Legacy flat commands remain supported. The namespaced routes are additive aliases:
+
+- `engine validate`, `engine build`
+- `sources opentargets`, `sources chembl`, `sources pgc scz2022`
+- `sources schema`, `sources psychencode support`, `sources psychencode modules`
+- `registry build`, `registry refresh`
+- `prepare gene-table`, `prepare example-gene-table`, `prepare example-inputs`
+- `benchmark snapshot`, `benchmark cohort`, `benchmark run`, `benchmark reporting`
+- `hidden-eval task-package`, `hidden-eval simulate`
+
+`config/v0.toml` remains the canonical path. `config/engine/v0.toml` is the
+mirrored namespaced path.
 
 ## Design Principle
 

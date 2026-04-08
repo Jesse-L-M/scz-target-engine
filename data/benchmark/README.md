@@ -11,6 +11,7 @@ workflow shipped on `main`.
 - `fixtures/scz_small/archives/`: small fixture-scale archived source extracts
 - `fixtures/scz_small/cohort_members.csv`: admissible ranking cohort
 - `fixtures/scz_small/future_outcomes.csv`: post-cutoff label adjudication input
+- `fixtures/scz_track_a_historical_replay/`: checked-in Track A replay archive surface consumed by the default public-slice backfill path without widening `scz_small`
 - `fixtures/scz_failure_memory_2025_02_01/`: checked-in Track B fixture with explicit structural replay question `scz_failure_memory_track_b_v1`, `snapshot_request.json`, `source_archives.json`, `track_b_casebook.csv`, pinned local `assets.csv`, `events.csv`, `event_provenance.csv`, `directionality_hypotheses.csv`, `program_universe.csv`, `cohort_members.csv`, and placeholder `future_outcomes.csv`
 - `public_slices/catalog.json`: checked-in catalog of honest public historical slices derived from the registry-backed fixture task, including principal-horizon evaluability metadata
 
@@ -158,6 +159,7 @@ routes to the same builder and flags as the flat command above.
 Current replay split:
 
 - `fixtures/scz_small/` remains the canonical gene/module regression path, with the restored minimal pre-Track-A archive surface
+- `fixtures/scz_track_a_historical_replay/` is the checked-in Track A historical archive surface used only for default public-slice replay and catalog backfill
 - `fixtures/scz_failure_memory_2025_02_01/` is the checked-in Track B structural replay slice, pinned to the 2025-02-01 cutoff with a frozen `track_b_casebook.csv`
 - that Track B fixture requires `track_b_casebook.csv`, `program_universe.csv`, `events.csv`, `assets.csv`, `event_provenance.csv`, and `directionality_hypotheses.csv` beside `source_archives.json`, and snapshot build validates that contract up front
 - `cohort_members.csv` in the Track B fixture uses the same six proposal ids as the casebook, and `build-benchmark-cohort` fails closed if they diverge
@@ -188,11 +190,13 @@ checked-in catalog at `2024-06-15`, `2024-06-18`, `2024-06-20`, `2024-07-15`,
 positive intervention-object each, while the later five remain non-evaluable after
 the positive approval boundary and subsequent misses land.
 
-The real `v0_current` / `v1_current` stop-go comparison remains blocked. On
-`scz_translational_2024_09_25`, `random_with_coverage` covers `8/8`
-intervention objects, while `v0_current` and `v1_current` both cover `0/8`
-because the checked-in legacy archives only expose `DISC1`, `CACNA1C`, and one
-unmatched module.
+The real `v0_current` / `v1_current` stop-go comparison is now honestly
+unblocked. This Track A stop-go comparison is now honestly unblocked on the
+principal checked-in replay slice. On `scz_translational_2024_09_25`,
+`random_with_coverage` covers `8/8` intervention objects, `v0_current`
+covers `4/8`, and `v1_current` covers `5/8` after the default public-slice
+backfill moved onto the dedicated `fixtures/scz_track_a_historical_replay/`
+archive surface.
 
 Current boundary:
 

@@ -1,0 +1,21 @@
+{
+  "as_of_date": "2024-06-30",
+  "baseline_ids": [
+    "pgc_only",
+    "opentargets_only",
+    "v0_current",
+    "v1_current",
+    "random_with_coverage"
+  ],
+  "benchmark_suite_id": "scz_translational_suite",
+  "benchmark_task_id": "scz_translational_task",
+  "benchmark_question_id": "scz_translational_ranking_v1",
+  "cohort_id": "scz_fixture_small",
+  "entity_types": [
+    "gene",
+    "module"
+  ],
+  "notes": "Deterministic PR9B fixture snapshot with explicit source inclusions and exclusions.",
+  "outcome_observation_closed_at": "2029-06-30",
+  "snapshot_id": "scz_fixture_2024_06_30"
+}

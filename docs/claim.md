@@ -31,9 +31,10 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - the benchmark path is not a production-scale historical replay system
 - the benchmark path now backfills ten checked-in Track A public slices with
   slice-local `program_universe.csv` and `events.csv`, and five of those cutoffs
-  are now principal-`3y` evaluable, but the benchmark path is still fixture-scale,
-  keeps zero `v0_current` / `v1_current` coverage on every evaluable slice, and
-  therefore does not yet unblock the real Track A stop-go comparison
+  are now principal-`3y` evaluable. The benchmark path is still fixture-scale,
+  but the real Track A `v0_current` / `v1_current` stop-go comparison is now
+  honestly unblocked on those evaluable slices by the checked-in
+  `scz_track_a_historical_replay` archive surface
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
 - `intervention_object_id` is not yet the shipped replacement key for the current
   gene, module, policy, or packet artifacts during the dual-write period
@@ -56,13 +57,13 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 
 ## Current Release Limitations
 
-- historical benchmark archives are fixture-scale and currently checked in only for `data/benchmark/fixtures/scz_small/`
+- historical benchmark archives are fixture-scale and currently checked in for `data/benchmark/fixtures/scz_small/` plus the dedicated Track A replay archive surface at `data/benchmark/fixtures/scz_track_a_historical_replay/`
 - replay public slices now cover ten honest Track A cutoffs with pinned local
   denominator inputs; five checked-in slices are principal-`3y` evaluable with one
   positive intervention-object each, while the later five still have zero positives
-- current `v0_current` and `v1_current` intervention-object projections still cover
-  zero entities on those evaluable slices because the checked-in benchmark archives
-  only contain `DISC1`, `CACNA1C`, and one unmatched module
+- on the principal `2024-09-25` slice, `random_with_coverage` covers `8/8`
+  admissible intervention objects, `v0_current` covers `4/8`, and `v1_current`
+  covers `5/8`
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
 

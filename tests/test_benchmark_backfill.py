@@ -32,6 +32,13 @@ FIXTURE_DIR = (
     / "fixtures"
     / "scz_small"
 )
+TRACK_A_REPLAY_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "data"
+    / "benchmark"
+    / "fixtures"
+    / "scz_track_a_historical_replay"
+)
 
 
 def _sha256_for_text(text: str) -> str:
@@ -227,6 +234,7 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
 
     assert plan.benchmark_suite_id == "scz_translational_suite"
     assert plan.benchmark_task_id == "scz_translational_task"
+    assert plan.source_fixture_dir == TRACK_A_REPLAY_FIXTURE_DIR
     assert [slice_spec.slice_id for slice_spec in plan.slices] == [
         "scz_translational_2024_06_15",
         "scz_translational_2024_06_18",
@@ -252,18 +260,18 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
         0,
     ]
     assert [slice_spec.principal_current_baseline_compatible_entity_count for slice_spec in plan.slices] == [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
     ]
-    assert "none are honestly comparable for v0_current/v1_current" in plan.coverage_limitation
+    assert plan.coverage_limitation == ""
 
 
 def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
@@ -305,11 +313,13 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
         "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
     ]
-    assert "none are honestly comparable for v0_current/v1_current" in result["coverage_limitation"]
+    assert "coverage_limitation" not in result
+    assert result["source_fixture_dir"] == "data/benchmark/fixtures/scz_track_a_historical_replay"
     catalog_file = output_dir / "catalog.json"
     assert catalog_file.exists()
     catalog_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
     assert catalog_payload["public_slice_ids"] == result["public_slice_ids"]
+    assert catalog_payload["source_fixture_dir"] == "data/benchmark/fixtures/scz_track_a_historical_replay"
 
     early_slice_dir = output_dir / "scz_translational_2024_06_15"
     early_archive_payload = json.loads(
@@ -318,6 +328,7 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
     assert [archive["source_name"] for archive in early_archive_payload["archives"]] == [
         "PGC"
     ]
+    assert early_archive_payload["archives"][0]["source_version"] == "scz2022_track_a_replay"
     snapshot_request_payload = json.loads(
         (early_slice_dir / "snapshot_request.json").read_text(encoding="utf-8")
     )
@@ -379,7 +390,7 @@ def test_regenerating_with_smaller_plan_prunes_obsolete_sibling_slice_dirs(
         "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
     ]
-    assert "none are honestly comparable for v0_current/v1_current" in result["coverage_limitation"]
+    assert "coverage_limitation" not in result
     assert not (output_dir / "sparse_fixture_2024_06_15").exists()
 
 
@@ -489,6 +500,7 @@ def test_default_track_a_planner_considers_program_history_cutoffs_between_archi
 
     slice_specs = _build_public_slice_specs(_default_track_a_contract(fixture_dir))
 
+    assert all(slice_spec.source_fixture_dir == fixture_dir for slice_spec in slice_specs)
     assert [slice_spec.slice_id for slice_spec in slice_specs] == [
         "scz_translational_2024_06_15",
         "scz_translational_2024_06_16",
@@ -515,6 +527,7 @@ def test_custom_registry_with_default_task_id_preserves_registry_contract(
     )
 
     assert [slice_spec.slice_id for slice_spec in plan.slices] == ["scz_translational_2024_06_15"]
+    assert plan.source_fixture_dir == _fixture_dir
     assert plan.slices[0].snapshot_request.entity_types == ("gene",)
     assert plan.slices[0].snapshot_request.baseline_ids == (
         "pgc_only",
@@ -541,6 +554,7 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
         "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
     ]
+    assert plan.source_fixture_dir == TRACK_A_REPLAY_FIXTURE_DIR
     assert plan.slices[0].snapshot_request.entity_types == ("intervention_object",)
     assert plan.slices[0].snapshot_request.baseline_ids == (
         "v0_current",

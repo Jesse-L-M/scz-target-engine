@@ -1,0 +1,5 @@
+entity_id,entity_label,gene_biotype,common_variant_support,pgc_scz2022_prioritised,pgc_scz2022_priority_index_snp_count,pgc_scz2022_priority_index_snps_json,pgc_scz2022_FINEMAP.priority.gene,pgc_scz2022_SMR.priority.gene,pgc_scz2022_FINEMAPk3.5,pgc_scz2022_nonsynPP0.10,pgc_scz2022_UTRPP0.10,pgc_scz2022_k3.5singleGene,pgc_scz2022_SMRpsych,pgc_scz2022_SMRfetal,pgc_scz2022_SMRblood,pgc_scz2022_SMRmap,pgc_scz2022_SMRsingleGene,pgc_scz2022_HI.C.SMR,pgc_scz2022_sig.adultFUSION,pgc_scz2022_sig.fetalFUSION,pgc_scz2022_sig.EpiXcan.gene.filtered,pgc_scz2022_sig.EpiXcan.trans.filtered
+ENSG00000151067,CACNA1C,protein_coding,0.1875,1,1,"[""rs10774034""]",1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0
+ENSG00000149295,DRD2,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0
+ENSG00000198822,GRM3,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0
+ENSG00000196517,SLC6A9,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0

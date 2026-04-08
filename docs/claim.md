@@ -31,10 +31,11 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - the benchmark path is not a production-scale historical replay system
 - the benchmark path now backfills ten checked-in Track A public slices with
   slice-local `program_universe.csv` and `events.csv`, and five of those cutoffs
-  are now principal-`3y` evaluable. The benchmark path is still fixture-scale,
-  but the real Track A `v0_current` / `v1_current` stop-go comparison is now
-  honestly unblocked on those evaluable slices by the checked-in
-  `scz_track_a_historical_replay` archive surface
+  are now principal-`3y` evaluable. The PR3 stop/go decision run was executed on
+  2026-04-08 and the result is **HOLD**: no challenger baselines exist for the
+  `intervention_object` entity type, so the gate condition cannot be satisfied.
+  Both `v0_current` and `v1_current` score AP = 0.125 on all five evaluable
+  slices. See `docs/decisions/0005-track-a-pr3-stop-go.md`
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
 - `intervention_object_id` is not yet the shipped replacement key for the current
   gene, module, policy, or packet artifacts during the dual-write period
@@ -63,7 +64,8 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
   positive intervention-object each, while the later five still have zero positives
 - on the principal `2024-09-25` slice, `random_with_coverage` covers `8/8`
   admissible intervention objects, `v0_current` covers `4/8`, and `v1_current`
-  covers `5/8`
+  covers `5/8`. The PR3 decision run confirmed both controls score AP = 0.125
+  (95% CI [0.0, 0.276]) with the single positive outside their coverage
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
 

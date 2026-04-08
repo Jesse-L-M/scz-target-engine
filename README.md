@@ -84,13 +84,15 @@ foundation still does not implement consortium-dump parsing.
 - Track A public slices now pin the checked-in denominator locally via
   `program_universe.csv` and `events.csv`. As of April 8, 2026, the first five
   checked-in cutoffs through `2024-09-25` are principal-`3y` evaluable with one
-  honest positive intervention object each, and the real `v0_current` /
-  `v1_current` stop-go comparison is now honestly unblocked because the checked-in
-  Track A replay archive universe yields non-zero current-baseline coverage on every
-  evaluable slice. On the principal `2024-09-25` replay, `random_with_coverage`
-  covers `8/8` intervention objects, `v0_current` covers `4/8`, and `v1_current`
-  covers `5/8`. The later five cutoffs remain non-evaluable after the positive
-  approval boundary lands.
+  honest positive intervention object each. The PR3 stop/go decision run was
+  executed and the result is **HOLD**: no challenger baselines exist for the
+  `intervention_object` entity type (single-source ablations only support `gene`),
+  so the gate condition cannot be satisfied. Both `v0_current` and `v1_current`
+  score AP = 0.125 on all five evaluable slices (95% CI [0.0, 0.276]), with the
+  single positive entity outside both baselines' projection coverage. See
+  `docs/decisions/0005-track-a-pr3-stop-go.md` for the full decision record. The
+  later five cutoffs remain non-evaluable after the positive approval boundary
+  lands.
 - Benchmark breadth is still limited to the frozen schizophrenia question, a small deterministic cohort, and the current `available_now` baseline subset.
 - Benchmark outputs are diagnostic artifacts. They are not proof of calibration, threshold quality, or deployment readiness.
 - Calibration work, decision-threshold setting, and broader operating-point evaluation remain future work.
@@ -445,7 +447,7 @@ Operator notes:
 - The Track B fixture pins its replay substrate locally via `program_universe.csv` and `events.csv`, and it keeps the same strict rule that missing historical archives do not fall back to live source data.
 - Snapshot build validates the full Track B sibling-file contract up front, and Track B runner manifests no longer record `engine_config` because the structural replay baselines do not consume it.
 - As of April 8, 2026, the checked-in Track A catalog contains honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`, `2024-07-15`, `2024-09-25`, `2024-09-26`, `2024-11-10`, `2024-11-11`, `2025-01-15`, and `2025-01-16`. The first five are evaluable on the principal `3y` horizon with one positive intervention object each; the later five remain non-evaluable after the xanomeline approval boundary and subsequent misses land.
-- The real Track A stop-go comparison is now honestly unblocked. On the principal `2024-09-25` replay, `random_with_coverage` covers `8/8` intervention objects, `v0_current` covers `4/8`, and `v1_current` covers `5/8` after switching public-slice replay to the checked-in `scz_track_a_historical_replay` archive surface.
+- The Track A stop-go comparison was executed on 2026-04-08 and the result is **HOLD** (see `docs/decisions/0005-track-a-pr3-stop-go.md`). On the principal `2024-09-25` replay, `random_with_coverage` covers `8/8` intervention objects, `v0_current` covers `4/8`, and `v1_current` covers `5/8`. Both controls score AP = 0.125 with no challenger baselines available for the `intervention_object` entity type.
 - Track A public slices pin their program-history replay inputs locally via `program_universe.csv` and `events.csv` inside each slice directory, so replay does not depend on repo-global denominator files at execution time.
 - Write local replay outputs under `data/benchmark/generated/public_slices/scz_translational_2024_09_25/` or another checked-in slice id from `catalog.json`.
 - Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs under `data/benchmark/fixtures/` and `data/benchmark/public_slices/`, not the generated benchmark outputs.

@@ -177,13 +177,17 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
   principal `3y` horizon with one honest positive intervention object each. The later
   five remain non-evaluable after the positive approval crosses the cutoff boundary and
   only negative or no future outcomes remain.
-- PR3 is now honestly unblocked for the real `v0_current` / `v1_current` stop-go
-  comparison. The default public-slice backfill path reads archived source
-  descriptors from the checked-in `scz_track_a_historical_replay` fixture surface,
-  which raises `principal_current_baseline_compatible_entity_count` to `4` on
-  `2024-06-15` and `5` on the other four evaluable slices through `2024-09-25`.
-  On the principal `2024-09-25` replay, `random_with_coverage` covers `8/8`
-  intervention objects, `v0_current` covers `4/8`, and `v1_current` covers `5/8`.
+- The PR3 stop/go decision run was executed on 2026-04-08 and the result is
+  **HOLD**. No challenger baselines exist that support the `intervention_object`
+  entity type with `available_now` status. The single-source ablations
+  (`pgc_only`, `schema_only`, `opentargets_only`, `chembl_only`) only support
+  `gene` entity type; the v1 PR7 variants are `protocol_only`. Both `v0_current`
+  and `v1_current` score AP = 0.125 on all five evaluable slices (95% CI
+  [0.0, 0.276]), with the single positive entity (xanomeline + trospium,
+  CHRM1/CHRM4) outside both baselines' projection coverage on the principal
+  slice. See `docs/decisions/0005-track-a-pr3-stop-go.md` for the full decision
+  record. Next blocker: implement an intervention-object-native challenger
+  baseline or expand the evaluable cohort beyond 1 positive per slice.
 - Track A now admits `coverage_state = included` denominator rows whose first checked-
   in mapped event lands after the cutoff, but it does so conservatively: pre-approval
   rows rewind to `phase_3_or_registration`, while future-only unresolved rows still do

@@ -83,7 +83,7 @@ def test_release_docs_cover_public_slice_backfill_and_replay() -> None:
         "benchmark backfill public-slices",
         "data/benchmark/public_slices/catalog.json",
         "none are evaluable on the principal `3y` horizon",
-        "data/benchmark/generated/public_slices/scz_translational_2024_06_20/",
+        "data/benchmark/generated/public_slices/scz_translational_2025_01_16/",
         "fall back to live source data",
     ]
     _assert_contains("README.md", snippets)

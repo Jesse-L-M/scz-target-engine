@@ -1,0 +1,20 @@
+{
+  "as_of_date": "2024-11-11",
+  "baseline_ids": [
+    "v0_current",
+    "v1_current",
+    "random_with_coverage"
+  ],
+  "benchmark_question_id": "scz_translational_ranking_v1",
+  "benchmark_suite_id": "scz_translational_suite",
+  "benchmark_task_id": "scz_translational_task",
+  "cohort_id": "scz_translational_2024_11_11_cohort",
+  "entity_types": [
+    "intervention_object"
+  ],
+  "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-11-11. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
+  "outcome_observation_closed_at": "2029-06-30",
+  "program_history_events_file": "events.csv",
+  "program_universe_file": "program_universe.csv",
+  "snapshot_id": "scz_translational_2024_11_11"
+}

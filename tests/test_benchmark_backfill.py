@@ -230,8 +230,14 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
         "scz_translational_2024_06_15",
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
+        "scz_translational_2024_07_15",
+        "scz_translational_2024_11_11",
+        "scz_translational_2025_01_16",
     ]
     assert [slice_spec.principal_positive_entity_count for slice_spec in plan.slices] == [
+        0,
+        0,
+        0,
         0,
         0,
         0,
@@ -269,6 +275,9 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
         "scz_translational_2024_06_15",
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
+        "scz_translational_2024_07_15",
+        "scz_translational_2024_11_11",
+        "scz_translational_2025_01_16",
     ]
     assert "none are evaluable on the principal 3y horizon" in result["coverage_limitation"]
     catalog_file = output_dir / "catalog.json"
@@ -335,6 +344,9 @@ def test_regenerating_with_smaller_plan_prunes_obsolete_sibling_slice_dirs(
         "scz_translational_2024_06_15",
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
+        "scz_translational_2024_07_15",
+        "scz_translational_2024_11_11",
+        "scz_translational_2025_01_16",
     ]
     assert "none are evaluable on the principal 3y horizon" in result["coverage_limitation"]
     assert not (output_dir / "sparse_fixture_2024_06_15").exists()
@@ -487,6 +499,9 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
         "scz_translational_2024_06_15",
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
+        "scz_translational_2024_07_15",
+        "scz_translational_2024_11_11",
+        "scz_translational_2025_01_16",
     ]
     assert plan.slices[0].snapshot_request.entity_types == ("intervention_object",)
     assert plan.slices[0].snapshot_request.baseline_ids == (
@@ -496,6 +511,7 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
     )
     assert plan.slices[0].snapshot_request.program_universe_file == "program_universe.csv"
     assert plan.slices[0].snapshot_request.program_history_events_file == "events.csv"
+    assert plan.slices[-1].as_of_date == "2025-01-16"
 
 
 def test_custom_intervention_object_task_uses_fixture_rows_not_repo_replay(

@@ -29,8 +29,9 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - `v0` now has a non-seed candidate-registry ingest path, but the checked-in example scoring workflow still relies on curated shortlists and source-specific harmonization.
 - atlas raw-source staging now exists for selected adapter-backed pulls, but it is still not raw consortium-dump ingestion and it does not replace the current scoring inputs
 - the benchmark path is not a production-scale historical replay system
-- the benchmark path does not yet inherit the full checked-in denominator into a real
-  replay backfill archive set
+- the benchmark path now backfills six checked-in Track A public slices with
+  slice-local `program_universe.csv` and `events.csv`, but it still does not
+  provide a principal-`3y`-evaluable stop/go replay surface
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
 - `intervention_object_id` is not yet the shipped replacement key for the current
   gene, module, policy, or packet artifacts during the dual-write period
@@ -54,9 +55,9 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 ## Current Release Limitations
 
 - historical benchmark archives are fixture-scale and currently checked in only for `data/benchmark/fixtures/scz_small/`
-- replay public slices and frozen archives remain much smaller than the now-expanded
-  program-memory denominator, so denominator completeness should not be read as replay
-  completeness
+- replay public slices now cover six honest Track A cutoffs with pinned local
+  denominator inputs, but every checked-in slice still has zero positive
+  intervention-object outcomes on the principal `3y` horizon
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
 

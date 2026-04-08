@@ -178,16 +178,18 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
   five remain non-evaluable after the positive approval crosses the cutoff boundary and
   only negative or no future outcomes remain.
 - The PR3 stop/go decision run was executed on 2026-04-08 and the result is
-  **HOLD**. No challenger baselines exist that support the `intervention_object`
-  entity type with `available_now` status. The single-source ablations
-  (`pgc_only`, `schema_only`, `opentargets_only`, `chembl_only`) only support
-  `gene` entity type; the v1 PR7 variants are `protocol_only`. Both `v0_current`
-  and `v1_current` score AP = 0.125 on all five evaluable slices (95% CI
-  [0.0, 0.276]), with the single positive entity (xanomeline + trospium,
-  CHRM1/CHRM4) outside both baselines' projection coverage on the principal
-  slice. See `docs/decisions/0005-track-a-pr3-stop-go.md` for the full decision
-  record. Next blocker: implement an intervention-object-native challenger
-  baseline or expand the evaluable cohort beyond 1 positive per slice.
+  **HOLD**. Available-now intervention-object challengers now include projected
+  `pgc_only`, `schema_only`, `opentargets_only`, and `chembl_only`, with honest
+  replay archive widening limited to `SCHEMA` and `Open Targets`. On the
+  principal `2024-09-25` slice, `schema_only` reaches AP = 0.500 (95% CI
+  [0.0, 1.0]) and `opentargets_only` reaches AP = 0.333 (95% CI [0.0, 1.0])
+  against `v0_current` at 0.125 (95% CI [0.0, 0.276]) and `v1_current` at
+  0.167 (95% CI [0.0, 0.325]), but the challenger intervals remain too wide to
+  count as a material bootstrap-backed win. The single positive entity
+  (xanomeline + trospium, `CHRM1` / `CHRM4`) is now covered by `schema_only`,
+  `opentargets_only`, and `v1_current`, while `v0_current`, `pgc_only`, and
+  `chembl_only` still miss it. See `docs/decisions/0005-track-a-pr3-stop-go.md`
+  for the full decision record.
 - Track A now admits `coverage_state = included` denominator rows whose first checked-
   in mapped event lands after the cutoff, but it does so conservatively: pre-approval
   rows rewind to `phase_3_or_registration`, while future-only unresolved rows still do

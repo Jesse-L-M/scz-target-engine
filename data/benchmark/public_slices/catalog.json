@@ -132,13 +132,6 @@
           "allowed_data_through": "2024-06-20",
           "exclusion_reason": "no archived release descriptor available on or before 2024-06-20",
           "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        },
-        {
-          "allowed_data_through": "2024-06-20",
-          "exclusion_reason": "no archived release descriptor available on or before 2024-06-20",
-          "included": false,
           "source_name": "ChEMBL",
           "source_version": "unavailable"
         }
@@ -146,12 +139,13 @@
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_06_20/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-06-20. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": true,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 8,
       "principal_horizon_evaluable": true,
       "principal_positive_entity_count": 1,
       "principal_positive_horizon": "3y",
@@ -170,25 +164,18 @@
       "benchmark_task_id": "scz_translational_task",
       "cohort_id": "scz_translational_2024_07_15_cohort",
       "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_07_15/cohort_members.csv",
-      "excluded_sources": [
-        {
-          "allowed_data_through": "2024-07-15",
-          "exclusion_reason": "no archived release descriptor available on or before 2024-07-15",
-          "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        }
-      ],
+      "excluded_sources": [],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_07_15/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets",
         "ChEMBL"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-07-15. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": true,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 8,
       "principal_horizon_evaluable": true,
       "principal_positive_entity_count": 1,
       "principal_positive_horizon": "3y",
@@ -207,25 +194,18 @@
       "benchmark_task_id": "scz_translational_task",
       "cohort_id": "scz_translational_2024_09_25_cohort",
       "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_09_25/cohort_members.csv",
-      "excluded_sources": [
-        {
-          "allowed_data_through": "2024-09-25",
-          "exclusion_reason": "no archived release descriptor available on or before 2024-09-25",
-          "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        }
-      ],
+      "excluded_sources": [],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_09_25/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets",
         "ChEMBL"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-09-25. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": true,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 8,
       "principal_horizon_evaluable": true,
       "principal_positive_entity_count": 1,
       "principal_positive_horizon": "3y",
@@ -244,25 +224,18 @@
       "benchmark_task_id": "scz_translational_task",
       "cohort_id": "scz_translational_2024_09_26_cohort",
       "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_09_26/cohort_members.csv",
-      "excluded_sources": [
-        {
-          "allowed_data_through": "2024-09-26",
-          "exclusion_reason": "no archived release descriptor available on or before 2024-09-26",
-          "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        }
-      ],
+      "excluded_sources": [],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_09_26/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets",
         "ChEMBL"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-09-26. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": false,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 7,
       "principal_horizon_evaluable": false,
       "principal_positive_entity_count": 0,
       "principal_positive_horizon": "3y",
@@ -281,25 +254,18 @@
       "benchmark_task_id": "scz_translational_task",
       "cohort_id": "scz_translational_2024_11_10_cohort",
       "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_11_10/cohort_members.csv",
-      "excluded_sources": [
-        {
-          "allowed_data_through": "2024-11-10",
-          "exclusion_reason": "no archived release descriptor available on or before 2024-11-10",
-          "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        }
-      ],
+      "excluded_sources": [],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_11_10/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets",
         "ChEMBL"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-11-10. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": false,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 7,
       "principal_horizon_evaluable": false,
       "principal_positive_entity_count": 0,
       "principal_positive_horizon": "3y",
@@ -318,25 +284,18 @@
       "benchmark_task_id": "scz_translational_task",
       "cohort_id": "scz_translational_2024_11_11_cohort",
       "cohort_members_file": "data/benchmark/public_slices/scz_translational_2024_11_11/cohort_members.csv",
-      "excluded_sources": [
-        {
-          "allowed_data_through": "2024-11-11",
-          "exclusion_reason": "no archived release descriptor available on or before 2024-11-11",
-          "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        }
-      ],
+      "excluded_sources": [],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2024_11_11/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets",
         "ChEMBL"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2024-11-11. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": false,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 7,
       "principal_horizon_evaluable": false,
       "principal_positive_entity_count": 0,
       "principal_positive_horizon": "3y",
@@ -355,25 +314,18 @@
       "benchmark_task_id": "scz_translational_task",
       "cohort_id": "scz_translational_2025_01_15_cohort",
       "cohort_members_file": "data/benchmark/public_slices/scz_translational_2025_01_15/cohort_members.csv",
-      "excluded_sources": [
-        {
-          "allowed_data_through": "2025-01-15",
-          "exclusion_reason": "no archived release descriptor available on or before 2025-01-15",
-          "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        }
-      ],
+      "excluded_sources": [],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2025_01_15/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets",
         "ChEMBL"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2025-01-15. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": false,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 7,
       "principal_horizon_evaluable": false,
       "principal_positive_entity_count": 0,
       "principal_positive_horizon": "3y",
@@ -392,25 +344,18 @@
       "benchmark_task_id": "scz_translational_task",
       "cohort_id": "scz_translational_2025_01_16_cohort",
       "cohort_members_file": "data/benchmark/public_slices/scz_translational_2025_01_16/cohort_members.csv",
-      "excluded_sources": [
-        {
-          "allowed_data_through": "2025-01-16",
-          "exclusion_reason": "no archived release descriptor available on or before 2025-01-16",
-          "included": false,
-          "source_name": "SCHEMA",
-          "source_version": "unavailable"
-        }
-      ],
+      "excluded_sources": [],
       "future_outcomes_file": "data/benchmark/public_slices/scz_translational_2025_01_16/future_outcomes.csv",
       "included_sources": [
         "PGC",
+        "SCHEMA",
         "PsychENCODE",
         "Open Targets",
         "ChEMBL"
       ],
       "notes": "Public historical Track A benchmark slice derived from scz_translational_task with cutoff 2025-01-16. Intervention-object cohort rows are derived from pinned program-history inputs and future program-history events while preserving frozen leakage rules and explicit archive exclusions.",
       "principal_current_baseline_comparable": false,
-      "principal_current_baseline_compatible_entity_count": 5,
+      "principal_current_baseline_compatible_entity_count": 7,
       "principal_horizon_evaluable": false,
       "principal_positive_entity_count": 0,
       "principal_positive_horizon": "3y",

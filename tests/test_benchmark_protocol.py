@@ -173,12 +173,19 @@ def test_frozen_protocol_declares_intervention_object_track_a_support() -> None:
         baseline.baseline_id: baseline
         for baseline in FROZEN_BASELINE_MATRIX
     }
-    assert INTERVENTION_OBJECT_ENTITY_TYPE in available_now_baselines["v0_current"].entity_types
-    assert INTERVENTION_OBJECT_ENTITY_TYPE in available_now_baselines["v1_current"].entity_types
-    assert (
-        INTERVENTION_OBJECT_ENTITY_TYPE
-        in available_now_baselines["random_with_coverage"].entity_types
-    )
+    for baseline_id in (
+        "pgc_only",
+        "schema_only",
+        "opentargets_only",
+        "v0_current",
+        "v1_current",
+        "chembl_only",
+        "random_with_coverage",
+    ):
+        assert (
+            INTERVENTION_OBJECT_ENTITY_TYPE
+            in available_now_baselines[baseline_id].entity_types
+        )
 
 
 def test_track_b_protocol_uses_explicit_structural_replay_question() -> None:
@@ -289,12 +296,20 @@ def test_track_a_historical_replay_fixture_expands_overlap_without_repurposing_s
         "0afdd0083c9173b940785ba70a4d00b88f25022bcdcecf61510c4f408bbf6270"
     )
     assert archive_index["PGC"]["source_version"] == "scz2022_track_a_replay"
+    assert archive_index["SCHEMA"]["sha256"] == (
+        "5bfc1300f3c29d192d600bd4126c08bb88bf7d20071fbfeb33a1a789bdef0568"
+    )
+    assert archive_index["SCHEMA"]["source_version"] == "schema_2021_track_a_replay"
     assert archive_index["PsychENCODE"]["sha256"] == (
         "3a2a70c72204a9d35df7c65624817753b830a12ef6ea66c6869502b845142790"
     )
     assert archive_index["PsychENCODE"]["source_version"] == (
         "brainscope_track_a_replay"
     )
+    assert archive_index["Open Targets"]["sha256"] == (
+        "241a66371a3dc280f094d9545447a42726cbb812c50fa558d36525d56da222d1"
+    )
+    assert archive_index["Open Targets"]["source_version"] == "24.03_track_a_replay"
 
     assert (
         (fixture_dir / "archives" / "pgc" / "scz2022_track_a_replay.csv")
@@ -322,6 +337,41 @@ def test_track_a_historical_replay_fixture_expands_overlap_without_repurposing_s
         "ENSG00000149295,DRD2,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0",
         "ENSG00000198822,GRM3,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0",
         "ENSG00000196517,SLC6A9,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0",
+    ]
+    assert (
+        (fixture_dir / "archives" / "schema" / "schema_2021_track_a_replay.csv")
+        .read_text(encoding="utf-8")
+        .strip()
+        .splitlines()
+    ) == [
+        "entity_id,entity_label,rare_variant_support",
+        "ENSG00000168539,CHRM1,0.003867",
+        "ENSG00000180720,CHRM4,0.008879",
+        "ENSG00000184845,DRD1,0.007088",
+        "ENSG00000149295,DRD2,0.000000",
+        "ENSG00000164082,GRM2,0.003927",
+        "ENSG00000198822,GRM3,0.000000",
+        "ENSG00000178394,HTR1A,0.000000",
+        "ENSG00000102468,HTR2A,0.003878",
+        "ENSG00000196517,SLC6A9,0.000000",
+        "ENSG00000146399,TAAR1,0.000000",
+    ]
+    assert (
+        (fixture_dir / "archives" / "opentargets" / "24_03_track_a_replay.csv")
+        .read_text(encoding="utf-8")
+        .strip()
+        .splitlines()
+    ) == [
+        "entity_id,entity_label,generic_platform_baseline",
+        "ENSG00000168539,CHRM1,0.538465375546551",
+        "ENSG00000180720,CHRM4,0.417558025163846",
+        "ENSG00000184845,DRD1,0.507539097817274",
+        "ENSG00000149295,DRD2,0.732020595639183",
+        "ENSG00000164082,GRM2,0.332608472886788",
+        "ENSG00000198822,GRM3,0.583520144519876",
+        "ENSG00000174748,HTR1A,0.0292979297472259",
+        "ENSG00000102468,HTR2A,0.630859696313663",
+        "ENSG00000196517,SLC6A9,0.401465026552174",
     ]
     psychencode_fixture = (
         fixture_dir

@@ -262,14 +262,14 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
     assert [slice_spec.principal_current_baseline_compatible_entity_count for slice_spec in plan.slices] == [
         4,
         5,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5,
+        8,
+        8,
+        8,
+        7,
+        7,
+        7,
+        7,
+        7,
     ]
     assert plan.coverage_limitation == ""
 
@@ -557,8 +557,12 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
     assert plan.source_fixture_dir == TRACK_A_REPLAY_FIXTURE_DIR
     assert plan.slices[0].snapshot_request.entity_types == ("intervention_object",)
     assert plan.slices[0].snapshot_request.baseline_ids == (
+        "pgc_only",
+        "schema_only",
+        "opentargets_only",
         "v0_current",
         "v1_current",
+        "chembl_only",
         "random_with_coverage",
     )
     assert plan.slices[0].snapshot_request.program_universe_file == "program_universe.csv"

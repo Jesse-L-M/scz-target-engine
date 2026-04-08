@@ -164,7 +164,7 @@ Current replay split:
 - that Track B fixture requires `track_b_casebook.csv`, `program_universe.csv`, `events.csv`, `assets.csv`, `event_provenance.csv`, and `directionality_hypotheses.csv` beside `source_archives.json`, and snapshot build validates that contract up front
 - `cohort_members.csv` in the Track B fixture uses the same six proposal ids as the casebook, and `build-benchmark-cohort` fails closed if they diverge
 - `public_slices/` now exercise the shipped Track A intervention-object replay path
-- those intervention-object slices use only `v0_current`, `v1_current`, and `random_with_coverage`
+- those intervention-object slices execute the full available-now baseline set: `pgc_only`, `schema_only`, `opentargets_only`, `v0_current`, `v1_current`, `chembl_only`, and `random_with_coverage`
 - the Track B fixture uses only `track_b_exact_target`, `track_b_target_class`, `track_b_nearest_history`, and `track_b_structural_current`
 - checked-in intervention-object `cohort_members.csv` ids use the full replay grain `asset_lineage_id / target_class_lineage_id / modality / domain / population / regimen / stage_bucket`
 - generated cohort outputs now pin runner/reporting to `benchmark_cohort_members.csv` and `benchmark_cohort_manifest.json`, so downstream scoring does not trust ad hoc edits to `cohort_labels.csv`
@@ -191,11 +191,16 @@ positive intervention-object each, while the later five remain non-evaluable aft
 the positive approval boundary and subsequent misses land.
 
 The Track A stop-go comparison was executed on 2026-04-08 and the result is
-**HOLD**: no challenger baselines exist for the `intervention_object` entity
-type. Both `v0_current` and `v1_current` score AP = 0.125 on all five
-evaluable slices. On `scz_translational_2024_09_25`, `random_with_coverage`
-covers `8/8` intervention objects, `v0_current` covers `4/8`, and
-`v1_current` covers `5/8`. See `docs/decisions/0005-track-a-pr3-stop-go.md`.
+**HOLD**. Available-now challengers now execute honestly at
+`intervention_object` grain on the shipped replay path, and on
+`scz_translational_2024_09_25` `schema_only` scores AP = 0.500 and
+`opentargets_only` scores AP = 0.333 against `v0_current` at AP = 0.125 and
+`v1_current` at AP = 0.167. Coverage on that principal slice is `8/8` for
+`random_with_coverage`, `schema_only`, `opentargets_only`, and `v1_current`,
+`5/8` for `v0_current`, and `0/8` for `chembl_only`. The gate still fails
+because the cohort has only one positive intervention object, so the challenger
+bootstrap intervals remain too wide for `GO`. See
+`docs/decisions/0005-track-a-pr3-stop-go.md`.
 
 Current boundary:
 

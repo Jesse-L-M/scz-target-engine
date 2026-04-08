@@ -136,6 +136,7 @@ Notes:
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` stay frozen as protocol comparison labels across the PR8.1 transition
 - `chembl_only` applies only where tractability context exists and is not a module baseline
 - `v0_current` and `v1_current` now also apply to `intervention_object` slices by writing explicit projection sidecars from archived gene/module baseline outputs through the checked-in compatibility contract
+- on the current checked-in Track A slices, that compatibility contract still maps zero intervention objects, so the real `v0_current` / `v1_current` stop-go comparison remains blocked
 - `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines, including intervention-object public slices
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest
 
@@ -544,8 +545,9 @@ Current honest public slices from the checked-in archive catalog:
 - `scz_translational_2024_11_11`
 - `scz_translational_2025_01_15`
 - `scz_translational_2025_01_16`
-- `scz_translational_2026_06_30`
-- As of April 8, 2026, the first five checked-in slices through `scz_translational_2024_09_25` are evaluable on the principal `3y` horizon with one positive intervention-object each. The later six remain non-evaluable after the positive approval boundary and subsequent misses cross the cutoff.
+- As of April 8, 2026, the first five checked-in slices through `scz_translational_2024_09_25` are evaluable on the principal `3y` horizon with one positive intervention-object each. The later five remain non-evaluable after the positive approval boundary and subsequent misses cross the cutoff.
+- The real `v0_current` / `v1_current` stop-go comparison remains blocked because the checked-in archived compatibility universe maps zero intervention objects on every shipped slice.
+- Those evaluable slices are still not honest current-baseline comparisons. On `scz_translational_2024_09_25`, `random_with_coverage` covers `8/8` admissible intervention objects, while `v0_current` and `v1_current` both remain at `covered_entity_count = 0` because the checked-in legacy archive universe only contains `DISC1`, `CACNA1C`, and one unmatched PsychENCODE module.
 
 Each slice directory contains:
 
@@ -602,7 +604,8 @@ snapshot manifest, explicit projected baseline payloads under
 `runner_outputs/baseline_projections/`, and intervention-object leaderboard
 outputs under `public_payloads/`. Because `scz_translational_2024_09_25` is now
 principal-horizon evaluable, the reporting step also writes Track A error-analysis
-markdown for `v0_current` and `v1_current`.
+markdown for `v0_current` and `v1_current`, but both current baselines still land
+at `covered_entity_count = 0` on that slice.
 
 ## Current Runner Coverage
 

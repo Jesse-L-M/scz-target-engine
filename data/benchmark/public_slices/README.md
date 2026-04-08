@@ -20,12 +20,14 @@ Current checked-in slices:
 - `scz_translational_2024_11_11`
 - `scz_translational_2025_01_15`
 - `scz_translational_2025_01_16`
-- `scz_translational_2026_06_30`
 - As of April 8, 2026, the first five checked-in slices through
   `scz_translational_2024_09_25` are honest, replayable, and evaluable on the
-  principal `3y` horizon with one positive intervention object each. The later six
+  principal `3y` horizon with one positive intervention object each. The later five
   remain honest but non-evaluable after the positive approval boundary and subsequent
   misses cross the cutoff.
+- Those five evaluable slices still have zero honest `v0_current` / `v1_current`
+  coverage because the checked-in archive universe only contains `DISC1`,
+  `CACNA1C`, and one unmatched module.
 
 The catalog at `catalog.json` records the explicit source inclusions and exclusions
 for each cutoff. The slice builder is:

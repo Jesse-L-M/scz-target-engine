@@ -732,6 +732,7 @@ def build_intervention_object_candidate_cutoff_dates(
     minimum_cutoff_date: str,
     program_universe_path: Path = PROGRAM_UNIVERSE_PATH,
     events_path: Path = PROGRAM_HISTORY_EVENTS_PATH,
+    include_maximum_cutoff: bool = True,
 ) -> tuple[str, ...]:
     minimum_cutoff = _parse_iso_date(minimum_cutoff_date, "minimum_cutoff_date")
     maximum_cutoff = _parse_iso_date(as_of_date, "as_of_date")
@@ -739,7 +740,9 @@ def build_intervention_object_candidate_cutoff_dates(
         raise ValueError("minimum_cutoff_date must be on or before as_of_date")
 
     events_by_id = _load_program_history_events(events_path)
-    candidate_dates: set[str] = {maximum_cutoff.isoformat()}
+    candidate_dates: set[str] = set()
+    if include_maximum_cutoff:
+        candidate_dates.add(maximum_cutoff.isoformat())
     for row in _load_program_universe_rows(program_universe_path):
         coverage_state = _clean_text(row.get("coverage_state"))
         if coverage_state not in IN_SCOPE_COVERAGE_STATES:

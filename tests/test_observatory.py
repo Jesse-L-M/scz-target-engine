@@ -57,7 +57,7 @@ def test_load_public_slice_catalog_returns_catalog() -> None:
     assert isinstance(catalog, PublicSliceCatalog)
     assert catalog.benchmark_suite_id == "scz_translational_suite"
     assert catalog.benchmark_task_id == "scz_translational_task"
-    assert len(catalog.slices) == 11
+    assert len(catalog.slices) == 10
 
 
 def test_load_public_slice_catalog_missing_file_returns_none(
@@ -240,7 +240,7 @@ def test_list_benchmark_tasks_unknown_suite() -> None:
 
 def test_list_public_slices() -> None:
     slices = list_public_slices()
-    assert len(slices) == 11
+    assert len(slices) == 10
     assert isinstance(slices[0], PublicSliceSummary)
     slice_ids = {s.slice_id for s in slices}
     assert "scz_translational_2024_06_15" in slice_ids
@@ -253,7 +253,6 @@ def test_list_public_slices() -> None:
     assert "scz_translational_2024_11_11" in slice_ids
     assert "scz_translational_2025_01_15" in slice_ids
     assert "scz_translational_2025_01_16" in slice_ids
-    assert "scz_translational_2026_06_30" in slice_ids
 
 
 def test_list_available_leaderboard_slices_empty(tmp_path: Path) -> None:
@@ -284,7 +283,7 @@ def test_build_observatory_index() -> None:
     assert isinstance(index, ObservatoryIndex)
     assert len(index.suites) >= 1
     assert len(index.tasks) >= 1
-    assert len(index.public_slices) == 11
+    assert len(index.public_slices) == 10
 
 
 def test_format_observatory_index() -> None:
@@ -508,7 +507,7 @@ def test_custom_generated_dir_does_not_mix_with_repo_defaults(
     assert index.suites[0].suite_id == "scz_translational_suite"
     assert len(index.tasks) >= 1
     assert index.tasks[0].task_id == "scz_translational_task"
-    assert len(index.public_slices) == 11
+    assert len(index.public_slices) == 10
 
 
 def test_build_observatory_index_no_data_dir_parameter() -> None:
@@ -534,4 +533,4 @@ def test_empty_generated_dir_shows_zero_counts(tmp_path: Path) -> None:
     assert index.generated_snapshot_count == 0
     # Structural metadata still present from repo.
     assert len(index.suites) >= 1
-    assert len(index.public_slices) == 11
+    assert len(index.public_slices) == 10

@@ -167,16 +167,21 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
 - Reporting now emits one markdown error-analysis file per intervention-object run
   only when the principal `3y` intervention-object slice is actually evaluable.
 - As of April 8, 2026, the checked-in `scz_translational_task` public-slice catalog
-  ships 11 honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`,
+  ships 10 honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`,
   `2024-07-15`, `2024-09-25`, `2024-09-26`, `2024-11-10`, `2024-11-11`,
-  `2025-01-15`, `2025-01-16`, and `2026-06-30`.
+  `2025-01-15`, and `2025-01-16`.
 - Cohort breadth rises from 8 intervention objects on the earliest five evaluable
   cutoffs to 7 after the September 26, 2024 xanomeline approval lands, while every
   slice still inherits pinned local `program_universe.csv` and `events.csv` copies.
 - The first five checked-in slices, through `2024-09-25`, are now evaluable on the
   principal `3y` horizon with one honest positive intervention object each. The later
-  six remain non-evaluable after the positive approval crosses the cutoff boundary and
+  five remain non-evaluable after the positive approval crosses the cutoff boundary and
   only negative or no future outcomes remain.
+- PR3 is still blocked for the real `v0_current` / `v1_current` stop-go comparison.
+  Every evaluable slice has `principal_current_baseline_compatible_entity_count = 0`,
+  because the checked-in legacy archive universe only exposes `DISC1`, `CACNA1C`, and
+  one unmatched module, none of which overlap the Track A intervention-object target
+  symbols on the evaluable public slices.
 - Track A now admits `coverage_state = included` denominator rows whose first checked-
   in mapped event lands after the cutoff, but it does so conservatively: pre-approval
   rows rewind to `phase_3_or_registration`, while future-only unresolved rows still do

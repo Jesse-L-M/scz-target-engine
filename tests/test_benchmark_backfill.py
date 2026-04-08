@@ -221,7 +221,8 @@ def _default_track_a_contract(fixture_dir: Path) -> BenchmarkTaskContract:
 
 def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None:
     plan = plan_public_benchmark_slices(
-        benchmark_task_id="scz_translational_task"
+        benchmark_task_id="scz_translational_task",
+        current_date="2026-04-08",
     )
 
     assert plan.benchmark_suite_id == "scz_translational_suite"
@@ -237,7 +238,6 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
         "scz_translational_2024_11_11",
         "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
-        "scz_translational_2026_06_30",
     ]
     assert [slice_spec.principal_positive_entity_count for slice_spec in plan.slices] == [
         1,
@@ -250,9 +250,20 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
         0,
         0,
         0,
+    ]
+    assert [slice_spec.principal_current_baseline_compatible_entity_count for slice_spec in plan.slices] == [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0,
     ]
-    assert plan.coverage_limitation == ""
+    assert "none are honestly comparable for v0_current/v1_current" in plan.coverage_limitation
 
 
 def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
@@ -279,6 +290,7 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
     result = materialize_public_benchmark_slices(
         output_dir=output_dir,
         benchmark_task_id="scz_translational_task",
+        current_date="2026-04-08",
     )
 
     assert result["public_slice_ids"] == [
@@ -292,9 +304,8 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
         "scz_translational_2024_11_11",
         "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
-        "scz_translational_2026_06_30",
     ]
-    assert "coverage_limitation" not in result
+    assert "none are honestly comparable for v0_current/v1_current" in result["coverage_limitation"]
     catalog_file = output_dir / "catalog.json"
     assert catalog_file.exists()
     catalog_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
@@ -353,6 +364,7 @@ def test_regenerating_with_smaller_plan_prunes_obsolete_sibling_slice_dirs(
     result = materialize_public_benchmark_slices(
         output_dir=output_dir,
         benchmark_task_id="scz_translational_task",
+        current_date="2026-04-08",
     )
 
     assert result["public_slice_ids"] == [
@@ -366,9 +378,8 @@ def test_regenerating_with_smaller_plan_prunes_obsolete_sibling_slice_dirs(
         "scz_translational_2024_11_11",
         "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
-        "scz_translational_2026_06_30",
     ]
-    assert "coverage_limitation" not in result
+    assert "none are honestly comparable for v0_current/v1_current" in result["coverage_limitation"]
     assert not (output_dir / "sparse_fixture_2024_06_15").exists()
 
 
@@ -515,6 +526,7 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
     plan = plan_public_benchmark_slices(
         benchmark_task_id="scz_translational_task",
         task_registry_path=DEFAULT_TASK_REGISTRY_PATH,
+        current_date="2026-04-08",
     )
 
     assert [slice_spec.slice_id for slice_spec in plan.slices] == [
@@ -528,7 +540,6 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
         "scz_translational_2024_11_11",
         "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
-        "scz_translational_2026_06_30",
     ]
     assert plan.slices[0].snapshot_request.entity_types == ("intervention_object",)
     assert plan.slices[0].snapshot_request.baseline_ids == (
@@ -538,7 +549,7 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
     )
     assert plan.slices[0].snapshot_request.program_universe_file == "program_universe.csv"
     assert plan.slices[0].snapshot_request.program_history_events_file == "events.csv"
-    assert plan.slices[-1].as_of_date == "2026-06-30"
+    assert plan.slices[-1].as_of_date == "2025-01-16"
 
 
 def test_custom_intervention_object_task_uses_fixture_rows_not_repo_replay(
@@ -580,7 +591,7 @@ def test_custom_intervention_object_task_uses_fixture_rows_not_repo_replay(
     assert (materialized_slice_dir / "events.csv").exists()
 
 
-def test_track_a_coverage_limitation_clears_when_two_or_more_slices_are_evaluable(
+def test_track_a_coverage_limitation_clears_when_current_baseline_compatibility_exists(
     tmp_path: Path,
 ) -> None:
     fixture_dir = tmp_path / "default_track_a_fixture"
@@ -609,17 +620,17 @@ def test_track_a_coverage_limitation_clears_when_two_or_more_slices_are_evaluabl
     )
     (fixture_dir / "cohort_members.csv").write_text(
         "entity_type,entity_id,entity_label\n"
-        "gene,GENE_A,Gene A\n",
+        "gene,DISC1,DISC1\n",
         encoding="utf-8",
     )
     (fixture_dir / "future_outcomes.csv").write_text(
         "entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes\n"
-        "gene,GENE_A,future_schizophrenia_program_started,2024-12-01,fixture,Fixture outcome\n",
+        "gene,DISC1,future_schizophrenia_program_started,2024-12-01,fixture,Fixture outcome\n",
         encoding="utf-8",
     )
     archive_contents = (
         "entity_id,entity_label,common_variant_support\n"
-        "GENE_A,Gene A,0.9\n"
+        "DISC1,DISC1,0.9\n"
     )
     archive_file = fixture_dir / "archives" / "pgc" / "pgc_fixture.csv"
     archive_file.parent.mkdir(parents=True, exist_ok=True)
@@ -655,7 +666,7 @@ def test_track_a_coverage_limitation_clears_when_two_or_more_slices_are_evaluabl
             "mapped_event_ids_json,duplicate_of_program_universe_id,discovery_source_type,"
             "discovery_source_id,source_candidate_url,notes\n"
             'example-future-stage-phase-3-or-registration,example-asset,Example Asset,asset:example-asset,[],'
-            'GENE_A,"[""GENE_A""]",example class,target-class:example-class,[],'
+            'DISC1,"[""DISC1""]",example class,target-class:example-class,[],'
             "example mechanism,small_molecule,acute_positive_symptoms,adults with schizophrenia,"
             'monotherapy,phase_3_or_registration,included,checked_in_event_history,high,'
             '"[""example-phase-2-2024"", ""example-approval-2024""]",,clinicaltrials_gov,'
@@ -684,6 +695,10 @@ def test_track_a_coverage_limitation_clears_when_two_or_more_slices_are_evaluabl
         1,
         1,
     ]
+    assert [
+        slice_spec.principal_current_baseline_compatible_entity_count
+        for slice_spec in slice_specs
+    ] == [1, 1, 1]
     assert _coverage_limitation(
         slice_specs=slice_specs,
         as_of_date="2024-06-20",

@@ -64,15 +64,15 @@ def test_build_program_memory_coverage_audit_distinguishes_sparse_and_incomplete
     assert target_failure_scope.event_count == 0
     assert target_failure_scope.gap_codes == ("scope_not_yet_adjudicated",)
 
-    assert audit.coverage_manifest["program_universe_row_count"] == 14
+    assert audit.coverage_manifest["program_universe_row_count"] == 59
     assert audit.coverage_manifest["coverage_state_counts"] == {
-        "duplicate": 4,
+        "duplicate": 11,
         "excluded": 1,
-        "included": 6,
+        "included": 31,
         "out_of_scope": 1,
-        "unresolved": 2,
+        "unresolved": 15,
     }
-    assert audit.coverage_manifest["mapped_event_count"] == 7
+    assert audit.coverage_manifest["mapped_event_count"] == 32
     assert any(
         row["program_universe_id"]
         == "roluperidone-negative-symptoms-monotherapy-phase-3-or-registration"
@@ -306,7 +306,7 @@ def test_load_program_memory_dataset_inherits_duplicate_lineage_ids(tmp_path) ->
         dataset_dir,
         require_program_universe=True,
     )
-    assert audit.coverage_manifest["program_universe_row_count"] == 14
+    assert audit.coverage_manifest["program_universe_row_count"] == 59
 
 
 def test_program_memory_cli_coverage_audit_path(tmp_path) -> None:
@@ -334,7 +334,7 @@ def test_program_memory_cli_coverage_audit_path(tmp_path) -> None:
     )
     assert audit_payload["gap_reason_counts"]["curation_incomplete"] >= 1
     assert audit_payload["gap_reason_counts"]["history_sparse"] >= 1
-    assert audit_payload["coverage_manifest"]["program_universe_row_count"] == 14
+    assert audit_payload["coverage_manifest"]["program_universe_row_count"] == 59
     assert any(
         row["dimension"] == "target"
         and row["scope_value"] == "CHRM4"
@@ -363,9 +363,9 @@ def test_program_memory_cli_coverage_audit_path(tmp_path) -> None:
         manifest_payload["dataset_dir"]
         == Path("data/curated/program_history/v2").resolve().as_posix()
     )
-    assert manifest_payload["coverage_state_counts"]["included"] == 6
-    assert manifest_payload["coverage_reason_counts"]["asset_alias_duplicate"] == 4
-    assert manifest_payload["unique_in_scope_program_count"] == 8
+    assert manifest_payload["coverage_state_counts"]["included"] == 31
+    assert manifest_payload["coverage_reason_counts"]["asset_alias_duplicate"] == 11
+    assert manifest_payload["unique_in_scope_program_count"] == 46
 
     focus_payload = read_json(output_dir / "coverage_focus.json")
     assert focus_payload["request"] == {"target": "CHRM4"}
@@ -390,8 +390,8 @@ def test_program_memory_cli_coverage_audit_path(tmp_path) -> None:
         and row["coverage_state"] == "included"
     ]
     assert len(negative_symptom_summary_rows) == 1
-    assert negative_symptom_summary_rows[0]["program_count"] == "1"
-    assert negative_symptom_summary_rows[0]["mapped_event_count"] == "2"
+    assert negative_symptom_summary_rows[0]["program_count"] == "2"
+    assert negative_symptom_summary_rows[0]["mapped_event_count"] == "3"
 
     gap_rows = read_csv_rows(output_dir / "coverage_gaps.csv")
     assert any(
@@ -459,12 +459,12 @@ def test_program_memory_cli_coverage_audit_removes_stale_focus_artifact(
     )
     first_stdout = json.loads(capsys.readouterr().out)
     assert first_stdout["focus_request"] == {"target": "CHRM4"}
-    assert first_stdout["summary_count"] == 26
-    assert first_stdout["gap_count"] == 45
-    assert first_stdout["denominator_summary_count"] == 14
-    assert first_stdout["denominator_gap_count"] == 8
-    assert first_stdout["scope_summary_count"] == 26
-    assert first_stdout["scope_gap_count"] == 45
+    assert first_stdout["summary_count"] == 39
+    assert first_stdout["gap_count"] == 69
+    assert first_stdout["denominator_summary_count"] == 25
+    assert first_stdout["denominator_gap_count"] == 28
+    assert first_stdout["scope_summary_count"] == 39
+    assert first_stdout["scope_gap_count"] == 69
     assert (
         first_stdout["dataset_dir"]
         == Path("data/curated/program_history/v2").resolve().as_posix()
@@ -496,10 +496,10 @@ def test_program_memory_cli_coverage_audit_removes_stale_focus_artifact(
     )
     second_stdout = json.loads(capsys.readouterr().out)
     assert second_stdout["focus_request"] == {}
-    assert second_stdout["summary_count"] == 26
-    assert second_stdout["gap_count"] == 45
-    assert second_stdout["denominator_summary_count"] == 14
-    assert second_stdout["denominator_gap_count"] == 8
+    assert second_stdout["summary_count"] == 39
+    assert second_stdout["gap_count"] == 69
+    assert second_stdout["denominator_summary_count"] == 25
+    assert second_stdout["denominator_gap_count"] == 28
     assert second_stdout["coverage_focus_file"] is None
     assert not (output_dir / "coverage_focus.json").exists()
 
@@ -544,8 +544,8 @@ def test_program_memory_cli_coverage_audit_honors_optional_dataset_contract(
 
     stdout_payload = json.loads(capsys.readouterr().out)
     assert stdout_payload["coverage_manifest_row_count"] == 0
-    assert stdout_payload["summary_count"] == 26
-    assert stdout_payload["gap_count"] == 45
+    assert stdout_payload["summary_count"] == 39
+    assert stdout_payload["gap_count"] == 69
     assert stdout_payload["denominator_summary_count"] == 0
     assert stdout_payload["denominator_gap_count"] == 0
 

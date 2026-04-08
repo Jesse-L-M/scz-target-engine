@@ -11,6 +11,11 @@ shared `v0` numeric outputs stable, adds inspectable `v1` heads without changing
 `v0` scores, and emits benchmark artifacts that can be rerun end to end from checked-in
 fixtures.
 
+`program_history/v2/program_universe.csv` is now a real schizophrenia molecular-
+program denominator release rather than a 14-row example: approved programs are
+effectively complete, phase 2/3 coverage is near-exhaustive, and unresolved,
+duplicate, excluded, and out-of-scope rows are accounted for explicitly.
+
 ## Current Strategy
 
 The shipped code on `main` is still the target-engine / benchmark substrate described
@@ -38,6 +43,9 @@ actually shipped today.
 - A `v0` reference build for schizophrenia gene and module ranking, with sensitivity analysis, markdown/CSV reports, and warning overlays that remain reporting-only
 - Additive `v1` decision vectors plus per-domain/per-stage ranking artifacts
 - PR7 scoring-neutral target ledgers with failure history, directionality hypotheses, and source primitives
+- A checked-in schizophrenia program-memory denominator release with 59 explicit
+  program-opportunity rows, including approved anchors, adjudicated late-stage event
+  history, duplicate alias handling, and unresolved late-stage candidates
 - PR9A/PR9B/PR9C benchmark protocol, snapshot manifests, cohort-member and source-copy artifacts, cohort manifests and labels, runner manifests, metric payloads, and confidence interval payloads
 - A second registry-backed benchmark task, `scz_failure_memory_track_b_task`, that reuses the same snapshot/cohort/runner/reporting stack for structural failure-memory replay with a checked-in `track_b_casebook.csv`
 - A rescue hidden-eval packaging and simulation path for the shipped glutamatergic rescue task, with a public submitter package built from the real governed ranking artifact and an operator-side evaluator that returns only a receipt-style public scorecard while keeping held-out labels and metrics inside operator-only artifacts
@@ -73,6 +81,10 @@ foundation still does not implement consortium-dump parsing.
 ## Current Limitations
 
 - Historical benchmark archives are fixture-scale. The checked-in archive set under `data/benchmark/fixtures/scz_small/` and the derived public slices under `data/benchmark/public_slices/` are small deterministic test paths, not a production backfill catalog.
+- The checked-in program-memory denominator is now materially broader than the frozen
+  replay public slices. Track A replay backfill still needs to inherit this
+  denominator into slice-local archives before the benchmark path can claim real
+  historical breadth.
 - Benchmark breadth is still limited to the frozen schizophrenia question, a small deterministic cohort, and the current `available_now` baseline subset.
 - Benchmark outputs are diagnostic artifacts. They are not proof of calibration, threshold quality, or deployment readiness.
 - Calibration work, decision-threshold setting, and broader operating-point evaluation remain future work.

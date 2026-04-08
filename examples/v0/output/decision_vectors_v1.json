@@ -3064,7 +3064,7 @@
             "label": "Failure burden",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 1.0,
+            "score": 0.55,
             "semantics": "Higher means lower known clinical failure burden: no known structural failure baggage scores highest, while repeated or severe unresolved history scores lower.",
             "status": "available",
             "used_inputs": [
@@ -3104,7 +3104,7 @@
             "label": "Subgroup resolution",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 0.9,
+            "score": 0.7,
             "semantics": "Clarity around the population, illness stage, symptom subgroup, or cell-state context most likely to benefit.",
             "status": "available",
             "used_inputs": [
@@ -3148,10 +3148,10 @@
               ],
               [
                 "subgroup_resolution_score",
-                0.3
+                0.9
               ]
             ],
-            "score": 0.438208,
+            "score": 0.468208,
             "semantics": "Weights near-term human signal and intervention readiness for acute symptom control during active psychosis.",
             "status": "available",
             "total_head_count": 5
@@ -3218,7 +3218,7 @@
               ],
               [
                 "failure_burden_score",
-                1.0
+                0.55
               ],
               [
                 "directionality_confidence",
@@ -3226,10 +3226,10 @@
               ],
               [
                 "subgroup_resolution_score",
-                0.9
+                0.8
               ]
             ],
-            "score": 0.571489,
+            "score": 0.488989,
             "semantics": "Weights biologic plausibility plus future failure and subgroup inputs needed for resistant populations.",
             "status": "available",
             "total_head_count": 6
@@ -3431,9 +3431,9 @@
               "directionality_confidence": 0.7,
               "human_support_score": 0.03125,
               "intervention_readiness_score": 0.890623,
-              "subgroup_resolution_score": 0.3
+              "subgroup_resolution_score": 0.9
             },
-            "score": 0.438208,
+            "score": 0.468208,
             "semantics": "Weights near-term human signal and intervention readiness for acute symptom control during active psychosis.",
             "status": "available",
             "total_head_count": 5
@@ -3565,12 +3565,12 @@
             "projected_head_scores": {
               "biology_context_score": 0.375417,
               "directionality_confidence": 0.7,
-              "failure_burden_score": 1.0,
+              "failure_burden_score": 0.55,
               "human_support_score": 0.03125,
               "intervention_readiness_score": 0.890623,
-              "subgroup_resolution_score": 0.9
+              "subgroup_resolution_score": 0.8
             },
-            "score": 0.571489,
+            "score": 0.488989,
             "semantics": "Weights biologic plausibility plus future failure and subgroup inputs needed for resistant populations.",
             "status": "available",
             "total_head_count": 6
@@ -3580,7 +3580,7 @@
         "entity_id": "ENSG00000149295",
         "entity_label": "DRD2",
         "entity_type": "gene",
-        "failure_burden_score": 1.0,
+        "failure_burden_score": 0.55,
         "failure_burden_score_status": "available",
         "head_scores": [
           {
@@ -3631,7 +3631,7 @@
             "label": "Failure burden",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 1.0,
+            "score": 0.55,
             "semantics": "Higher means lower known clinical failure burden: no known structural failure baggage scores highest, while repeated or severe unresolved history scores lower.",
             "status": "available",
             "used_inputs": [
@@ -3665,7 +3665,7 @@
             "label": "Subgroup resolution",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 0.9,
+            "score": 0.7,
             "semantics": "Clarity around the population, illness stage, symptom subgroup, or cell-state context most likely to benefit.",
             "status": "available",
             "used_inputs": [
@@ -3686,7 +3686,7 @@
         "human_support_score_status": "available",
         "intervention_readiness_score": 0.890623,
         "intervention_readiness_score_status": "available",
-        "subgroup_resolution_score": 0.9,
+        "subgroup_resolution_score": 0.7,
         "subgroup_resolution_score_status": "available",
         "warning_count": 1,
         "warning_severity": "high"
@@ -5067,7 +5067,7 @@
             "label": "Failure burden",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 1.0,
+            "score": 0.55,
             "semantics": "Higher means lower known clinical failure burden: no known structural failure baggage scores highest, while repeated or severe unresolved history scores lower.",
             "status": "available",
             "used_inputs": [
@@ -5107,7 +5107,7 @@
             "label": "Subgroup resolution",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 0.3,
+            "score": 0.9,
             "semantics": "Clarity around the population, illness stage, symptom subgroup, or cell-state context most likely to benefit.",
             "status": "available",
             "used_inputs": [
@@ -5151,10 +5151,10 @@
               ],
               [
                 "subgroup_resolution_score",
-                0.3
+                0.9
               ]
             ],
-            "score": 0.333989,
+            "score": 0.363989,
             "semantics": "Weights near-term human signal and intervention readiness for acute symptom control during active psychosis.",
             "status": "available",
             "total_head_count": 5
@@ -5434,9 +5434,9 @@
               "directionality_confidence": 0.25,
               "human_support_score": 0.03125,
               "intervention_readiness_score": 0.645877,
-              "subgroup_resolution_score": 0.3
+              "subgroup_resolution_score": 0.9
             },
-            "score": 0.333989,
+            "score": 0.363989,
             "semantics": "Weights near-term human signal and intervention readiness for acute symptom control during active psychosis.",
             "status": "available",
             "total_head_count": 5
@@ -5583,7 +5583,7 @@
         "entity_id": "ENSG00000198822",
         "entity_label": "GRM3",
         "entity_type": "gene",
-        "failure_burden_score": 1.0,
+        "failure_burden_score": 0.55,
         "failure_burden_score_status": "available",
         "head_scores": [
           {
@@ -5634,7 +5634,7 @@
             "label": "Failure burden",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 1.0,
+            "score": 0.55,
             "semantics": "Higher means lower known clinical failure burden: no known structural failure baggage scores highest, while repeated or severe unresolved history scores lower.",
             "status": "available",
             "used_inputs": [
@@ -5668,7 +5668,7 @@
             "label": "Subgroup resolution",
             "missing_inputs": [],
             "pending_reason": null,
-            "score": 0.3,
+            "score": 0.9,
             "semantics": "Clarity around the population, illness stage, symptom subgroup, or cell-state context most likely to benefit.",
             "status": "available",
             "used_inputs": [
@@ -5689,7 +5689,7 @@
         "human_support_score_status": "available",
         "intervention_readiness_score": 0.645877,
         "intervention_readiness_score_status": "available",
-        "subgroup_resolution_score": 0.3,
+        "subgroup_resolution_score": 0.9,
         "subgroup_resolution_score_status": "available",
         "warning_count": 0,
         "warning_severity": "none"

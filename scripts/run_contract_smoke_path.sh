@@ -6,6 +6,7 @@ cd "${ROOT_DIR}"
 
 FROZEN_EXAMPLE_OUTPUT_DIR="${ROOT_DIR}/examples/v0/output"
 SMOKE_BUILD_OUTPUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/scz-contract-smoke.XXXXXX")"
+INITIAL_EXAMPLE_OUTPUT_STATUS="$(git status --short --untracked-files=all -- examples/v0/output)"
 
 cleanup() {
   rm -rf "${SMOKE_BUILD_OUTPUT_DIR}"
@@ -67,10 +68,9 @@ uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/
 uv run python -m scz_target_engine.cli rescue compare baselines --output-dir .context/rescue-baseline-suite
 uv run python -m scz_target_engine.cli build-hypothesis-packets --policy-artifact "${SMOKE_BUILD_OUTPUT_DIR}/policy_decision_vectors_v2.json" --ledger-artifact "${SMOKE_BUILD_OUTPUT_DIR}/gene_target_ledgers.json" --output-file .context/hypothesis_packets_v1.json
 
-git diff --exit-code -- examples/v0/output
-
-example_output_status="$(git status --short --untracked-files=all -- examples/v0/output)"
-if [[ -n "${example_output_status}" ]]; then
-  printf '%s\n' "${example_output_status}" >&2
+FINAL_EXAMPLE_OUTPUT_STATUS="$(git status --short --untracked-files=all -- examples/v0/output)"
+if [[ "${FINAL_EXAMPLE_OUTPUT_STATUS}" != "${INITIAL_EXAMPLE_OUTPUT_STATUS}" ]]; then
+  git diff --exit-code -- examples/v0/output || true
+  printf '%s\n' "${FINAL_EXAMPLE_OUTPUT_STATUS}" >&2
   exit 1
 fi

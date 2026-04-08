@@ -14,6 +14,9 @@ outputs unchanged.
 - It still does not adjudicate a full event ledger for every schizophrenia program.
 - Coverage is now measured explicitly through a checked-in denominator instead of being
   implied by the event table alone.
+- The current denominator release is intended to be effectively complete for approved
+  schizophrenia molecular programs and near-exhaustive for phase 2/3 programs, while
+  unresolved rows stay explicit until direct-source adjudication lands.
 
 ## v2 Source Of Truth
 
@@ -74,6 +77,22 @@ Multiple event rows can map to one denominator row when they belong to the same
 opportunity path. The checked-in `pimavanserin` negative-symptom row is the current
 example: one denominator row maps to both the earlier phase 2 signal and the later
 pivotal miss.
+
+## Current Checked-In Denominator Release
+
+As of 2026-04-08, the checked-in denominator contains 59 explicit program-opportunity
+rows:
+
+- 31 `included`
+- 15 `unresolved`
+- 11 `duplicate`
+- 1 `excluded`
+- 1 `out_of_scope`
+
+Those 31 included denominator rows map to 32 checked-in event rows. The current
+unresolved pool is split between 6 `ctgov_candidate_pending_adjudication` rows and 9
+`needs_direct_source_recovery` rows, so reviewers can see exactly what is missing
+instead of inferring completeness from the event table alone.
 
 ## Legacy Compatibility View
 
@@ -141,7 +160,9 @@ Confidence applies to the full curated row, not just to whether the event happen
 6. Keep the legacy compatibility views materializable without semantic drift.
 7. Add a concise `notes` entry whenever the taxonomy assignment is interpretive.
 
-That workflow keeps the checked-in data stable enough for later code without pretending the repo already has a complete historical adjudication layer.
+That workflow keeps the checked-in data stable enough for later code without
+pretending the repo already has a complete event-level adjudication layer for every
+historical schizophrenia program.
 
 ## Assisted Harvesting And Adjudication
 

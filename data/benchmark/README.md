@@ -167,13 +167,14 @@ Current replay split:
 - checked-in intervention-object `cohort_members.csv` ids use the full replay grain `asset_lineage_id / target_class_lineage_id / modality / domain / population / regimen / stage_bucket`
 - generated cohort outputs now pin runner/reporting to `benchmark_cohort_members.csv` and `benchmark_cohort_manifest.json`, so downstream scoring does not trust ad hoc edits to `cohort_labels.csv`
 
-Replay example beyond the original `scz_small` path, using the checked-in `scz_translational_2025_01_16` slice:
+Replay example beyond the original `scz_small` path, using the checked-in evaluable
+`scz_translational_2024_09_25` slice:
 
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
-  --request-file data/benchmark/public_slices/scz_translational_2025_01_16/snapshot_request.json \
-  --archive-index-file data/benchmark/public_slices/scz_translational_2025_01_16/source_archives.json \
-  --output-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/snapshot_manifest.json \
+  --request-file data/benchmark/public_slices/scz_translational_2024_09_25/snapshot_request.json \
+  --archive-index-file data/benchmark/public_slices/scz_translational_2024_09_25/source_archives.json \
+  --output-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json \
   --materialized-at 2026-04-08
 ```
 
@@ -182,9 +183,10 @@ is missing; the slice catalog keeps those sources as explicit exclusions.
 
 As of April 8, 2026, `scz_translational_task` now ships honest public slices in the
 checked-in catalog at `2024-06-15`, `2024-06-18`, `2024-06-20`, `2024-07-15`,
-`2024-11-11`, and `2025-01-16`, but none are evaluable on the principal `3y` horizon
-because every checked-in slice still collapses to zero positive intervention-object
-outcomes after strict replay filtering.
+`2024-09-25`, `2024-09-26`, `2024-11-10`, `2024-11-11`, `2025-01-15`,
+`2025-01-16`, and `2026-06-30`. The first five are evaluable on the principal `3y` horizon
+with one positive intervention-object each, while the later six remain non-evaluable
+after the positive approval boundary and subsequent misses land.
 
 Current boundary:
 

@@ -1,0 +1,10 @@
+{
+  "genes": [
+    {
+      "entity_id": "ENSG00000162946",
+      "entity_label": "DISC1",
+      "tractability_compoundability": 0.41
+    }
+  ],
+  "release_name": "chembl35_fixture"
+}

@@ -471,7 +471,7 @@ def test_intervention_object_replay_rewinds_domain_population_and_regimen(
     assert bundle_rows[0]["regimen"] == "monotherapy"
 
 
-def test_intervention_object_replay_excludes_future_only_program_rows(
+def test_intervention_object_replay_includes_future_only_approval_rows_conservatively(
     tmp_path: Path,
 ) -> None:
     program_universe_path = tmp_path / "program_universe.csv"
@@ -511,8 +511,49 @@ def test_intervention_object_replay_excludes_future_only_program_rows(
         program_universe_path=program_universe_path,
         events_path=events_path,
     )
-    assert cohort_rows == []
-    assert future_outcome_rows == []
+    assert cohort_rows == [
+        {
+            "entity_type": "intervention_object",
+            "entity_id": (
+                "asset-example-asset-target-class-example-class-small-molecule-"
+                "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-"
+                "phase-3-or-registration"
+            ),
+            "entity_label": (
+                "Example Asset | acute positive symptoms | phase_3_or_registration"
+            ),
+        }
+    ]
+    assert future_outcome_rows == [
+        {
+            "entity_type": "intervention_object",
+            "entity_id": (
+                "asset-example-asset-target-class-example-class-small-molecule-"
+                "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-"
+                "phase-3-or-registration"
+            ),
+            "outcome_label": "future_schizophrenia_positive_signal",
+            "outcome_date": "2024-10-01",
+            "label_source": "program_history_v2",
+            "label_notes": (
+                "event_id=example-approval-2024; mapped from regulatory approval"
+            ),
+        },
+        {
+            "entity_type": "intervention_object",
+            "entity_id": (
+                "asset-example-asset-target-class-example-class-small-molecule-"
+                "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-"
+                "phase-3-or-registration"
+            ),
+            "outcome_label": "future_schizophrenia_program_advanced",
+            "outcome_date": "2024-10-01",
+            "label_source": "program_history_v2",
+            "label_notes": (
+                "event_id=example-approval-2024; stage_bucket=approved"
+            ),
+        },
+    ]
 
     bundle_rows = build_intervention_object_bundle_rows(
         as_of_date="2024-06-20",
@@ -521,7 +562,12 @@ def test_intervention_object_replay_excludes_future_only_program_rows(
         program_universe_path=program_universe_path,
         events_path=events_path,
     )
-    assert bundle_rows == []
+    assert bundle_rows[0]["entity_id"] == (
+        "asset-example-asset-target-class-example-class-small-molecule-"
+        "acute-positive-symptoms-adults-with-schizophrenia-monotherapy-"
+        "phase-3-or-registration"
+    )
+    assert bundle_rows[0]["stage_bucket"] == "phase_3_or_registration"
 
 
 def test_intervention_object_replay_rejects_duplicate_replay_entity_ids(

@@ -231,10 +231,20 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
         "scz_translational_2024_07_15",
+        "scz_translational_2024_09_25",
+        "scz_translational_2024_09_26",
+        "scz_translational_2024_11_10",
         "scz_translational_2024_11_11",
+        "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
+        "scz_translational_2026_06_30",
     ]
     assert [slice_spec.principal_positive_entity_count for slice_spec in plan.slices] == [
+        1,
+        1,
+        1,
+        1,
+        1,
         0,
         0,
         0,
@@ -242,7 +252,7 @@ def test_plan_public_benchmark_slices_discovers_honest_fixture_cutoffs() -> None
         0,
         0,
     ]
-    assert "none are evaluable on the principal 3y horizon" in plan.coverage_limitation
+    assert plan.coverage_limitation == ""
 
 
 def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
@@ -276,10 +286,15 @@ def test_early_public_slice_excludes_post_cutoff_archive_entries_and_files(
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
         "scz_translational_2024_07_15",
+        "scz_translational_2024_09_25",
+        "scz_translational_2024_09_26",
+        "scz_translational_2024_11_10",
         "scz_translational_2024_11_11",
+        "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
+        "scz_translational_2026_06_30",
     ]
-    assert "none are evaluable on the principal 3y horizon" in result["coverage_limitation"]
+    assert "coverage_limitation" not in result
     catalog_file = output_dir / "catalog.json"
     assert catalog_file.exists()
     catalog_payload = json.loads(catalog_file.read_text(encoding="utf-8"))
@@ -345,10 +360,15 @@ def test_regenerating_with_smaller_plan_prunes_obsolete_sibling_slice_dirs(
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
         "scz_translational_2024_07_15",
+        "scz_translational_2024_09_25",
+        "scz_translational_2024_09_26",
+        "scz_translational_2024_11_10",
         "scz_translational_2024_11_11",
+        "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
+        "scz_translational_2026_06_30",
     ]
-    assert "none are evaluable on the principal 3y horizon" in result["coverage_limitation"]
+    assert "coverage_limitation" not in result
     assert not (output_dir / "sparse_fixture_2024_06_15").exists()
 
 
@@ -461,9 +481,11 @@ def test_default_track_a_planner_considers_program_history_cutoffs_between_archi
     assert [slice_spec.slice_id for slice_spec in slice_specs] == [
         "scz_translational_2024_06_15",
         "scz_translational_2024_06_16",
+        "scz_translational_2024_06_20",
     ]
     assert [slice_spec.principal_positive_entity_count for slice_spec in slice_specs] == [
-        0,
+        1,
+        1,
         1,
     ]
 
@@ -500,8 +522,13 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
         "scz_translational_2024_06_18",
         "scz_translational_2024_06_20",
         "scz_translational_2024_07_15",
+        "scz_translational_2024_09_25",
+        "scz_translational_2024_09_26",
+        "scz_translational_2024_11_10",
         "scz_translational_2024_11_11",
+        "scz_translational_2025_01_15",
         "scz_translational_2025_01_16",
+        "scz_translational_2026_06_30",
     ]
     assert plan.slices[0].snapshot_request.entity_types == ("intervention_object",)
     assert plan.slices[0].snapshot_request.baseline_ids == (
@@ -511,7 +538,7 @@ def test_explicit_default_registry_path_preserves_track_a_replay() -> None:
     )
     assert plan.slices[0].snapshot_request.program_universe_file == "program_universe.csv"
     assert plan.slices[0].snapshot_request.program_history_events_file == "events.csv"
-    assert plan.slices[-1].as_of_date == "2025-01-16"
+    assert plan.slices[-1].as_of_date == "2026-06-30"
 
 
 def test_custom_intervention_object_task_uses_fixture_rows_not_repo_replay(
@@ -553,7 +580,7 @@ def test_custom_intervention_object_task_uses_fixture_rows_not_repo_replay(
     assert (materialized_slice_dir / "events.csv").exists()
 
 
-def test_track_a_coverage_limitation_warns_when_fewer_than_two_slices_are_evaluable(
+def test_track_a_coverage_limitation_clears_when_two_or_more_slices_are_evaluable(
     tmp_path: Path,
 ) -> None:
     fixture_dir = tmp_path / "default_track_a_fixture"
@@ -653,14 +680,15 @@ def test_track_a_coverage_limitation_warns_when_fewer_than_two_slices_are_evalua
     slice_specs = _build_public_slice_specs(_default_track_a_contract(fixture_dir))
 
     assert [slice_spec.principal_positive_entity_count for slice_spec in slice_specs] == [
-        0,
+        1,
+        1,
         1,
     ]
-    assert "fewer than two are evaluable" in _coverage_limitation(
+    assert _coverage_limitation(
         slice_specs=slice_specs,
         as_of_date="2024-06-20",
         benchmark_task_id="scz_translational_task",
-    )
+    ) == ""
 
 
 def test_track_a_replay_requires_at_least_one_eligible_archive_descriptor(

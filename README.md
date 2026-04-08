@@ -80,12 +80,13 @@ foundation still does not implement consortium-dump parsing.
 
 ## Current Limitations
 
-- Historical benchmark archives are fixture-scale. The checked-in archive set under `data/benchmark/fixtures/scz_small/` is still a small deterministic source surface, while Track A public replay now backfills six honest slice-local intervention-object cuts under `data/benchmark/public_slices/` rather than the earlier three-slice demo.
+- Historical benchmark archives are fixture-scale. The checked-in archive set under `data/benchmark/fixtures/scz_small/` is still a small deterministic source surface, while Track A public replay now backfills eleven honest slice-local intervention-object cuts under `data/benchmark/public_slices/`.
 - Track A public slices now pin the checked-in denominator locally via
-  `program_universe.csv` and `events.csv`, but the current six-slice catalog still
-  has zero principal `3y` positive intervention-object outcomes after strict replay
-  filtering, so the real stop/go comparison against `v0_current` and `v1_current`
-  remains evidence-blocked.
+  `program_universe.csv` and `events.csv`. As of April 8, 2026, the first five
+  checked-in cutoffs through `2024-09-25` are principal-`3y` evaluable with one
+  honest positive intervention object each, so the real stop/go comparison against
+  `v0_current` and `v1_current` is now runnable, even though the later six cutoffs
+  remain non-evaluable after the positive approval boundary lands.
 - Benchmark breadth is still limited to the frozen schizophrenia question, a small deterministic cohort, and the current `available_now` baseline subset.
 - Benchmark outputs are diagnostic artifacts. They are not proof of calibration, threshold quality, or deployment readiness.
 - Calibration work, decision-threshold setting, and broader operating-point evaluation remain future work.
@@ -439,9 +440,9 @@ Operator notes:
 - The canonical `scz_small` path remains a gene/module regression fixture. The checked-in public slices are the shipped Track A intervention-object replay path and currently execute `v0_current`, `v1_current`, and `random_with_coverage`.
 - The Track B fixture pins its replay substrate locally via `program_universe.csv` and `events.csv`, and it keeps the same strict rule that missing historical archives do not fall back to live source data.
 - Snapshot build validates the full Track B sibling-file contract up front, and Track B runner manifests no longer record `engine_config` because the structural replay baselines do not consume it.
-- As of April 8, 2026, the checked-in Track A catalog contains honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`, `2024-07-15`, `2024-11-11`, and `2025-01-16`, but none are evaluable on the principal `3y` horizon because every checked-in slice still yields zero positive intervention-object outcomes after strict replay filtering.
+- As of April 8, 2026, the checked-in Track A catalog contains honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`, `2024-07-15`, `2024-09-25`, `2024-09-26`, `2024-11-10`, `2024-11-11`, `2025-01-15`, `2025-01-16`, and `2026-06-30`. The first five are evaluable on the principal `3y` horizon with one positive intervention object each; the later six remain non-evaluable after the xanomeline approval boundary and subsequent misses land.
 - Track A public slices pin their program-history replay inputs locally via `program_universe.csv` and `events.csv` inside each slice directory, so replay does not depend on repo-global denominator files at execution time.
-- Write local replay outputs under `data/benchmark/generated/public_slices/scz_translational_2025_01_16/` or another checked-in slice id from `catalog.json`.
+- Write local replay outputs under `data/benchmark/generated/public_slices/scz_translational_2024_09_25/` or another checked-in slice id from `catalog.json`.
 - Everything under `data/benchmark/generated/` is locally generated. The repo checks in the fixture inputs under `data/benchmark/fixtures/` and `data/benchmark/public_slices/`, not the generated benchmark outputs.
 
 ## Artifact Schemas

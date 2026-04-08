@@ -418,52 +418,6 @@ def _coverage_limitation(
     return ""
 
 
-def _cohort_members_fingerprint(
-    cohort_members: tuple[CohortMember, ...],
-) -> tuple[tuple[str, str, str], ...]:
-    return tuple(
-        sorted(
-            (
-                member.entity_type,
-                member.entity_id,
-                member.entity_label,
-            )
-            for member in cohort_members
-        )
-    )
-
-
-def _future_outcomes_fingerprint(
-    future_outcomes: tuple[FutureOutcomeRecord, ...],
-) -> tuple[tuple[str, str, str, str, str, str], ...]:
-    return tuple(
-        sorted(
-            (
-                outcome.entity_type,
-                outcome.entity_id,
-                outcome.outcome_label,
-                outcome.outcome_date,
-                outcome.label_source,
-                outcome.label_notes,
-            )
-            for outcome in future_outcomes
-        )
-    )
-
-
-def _public_slice_state_fingerprint(
-    *,
-    source_statuses: tuple[PublicSliceSourceStatus, ...],
-    cohort_members: tuple[CohortMember, ...],
-    future_outcomes: tuple[FutureOutcomeRecord, ...],
-) -> tuple[object, ...]:
-    return (
-        _source_status_fingerprint(source_statuses),
-        _cohort_members_fingerprint(cohort_members),
-        _future_outcomes_fingerprint(future_outcomes),
-    )
-
-
 def _build_slice_request(
     *,
     base_request: SnapshotBuildRequest,
@@ -553,21 +507,6 @@ def _source_statuses_from_manifest(
     )
 
 
-def _source_status_fingerprint(
-    source_statuses: tuple[PublicSliceSourceStatus, ...],
-) -> tuple[tuple[str, bool, str, str, str], ...]:
-    return tuple(
-        (
-            source_status.source_name,
-            source_status.included,
-            source_status.source_version if source_status.included else "",
-            source_status.allowed_data_through if source_status.included else "",
-            source_status.evidence_frozen_at if source_status.included else "",
-        )
-        for source_status in source_statuses
-    )
-
-
 def _load_fixture_inputs(
     task_contract: BenchmarkTaskContract,
     *,
@@ -648,7 +587,6 @@ def _build_public_slice_specs(
         program_universe_path=program_universe_source_path,
         program_history_events_path=program_history_events_source_path,
     )
-    seen_fingerprints: set[tuple[object, ...]] = set()
     slice_specs: list[PublicBenchmarkSliceSpec] = []
 
     for as_of_date in candidate_cutoff_dates:
@@ -687,13 +625,6 @@ def _build_public_slice_specs(
                 FutureOutcomeRecord.from_dict(row) for row in future_outcome_rows
             )
         source_statuses = _source_statuses_from_manifest(manifest)
-        fingerprint = _public_slice_state_fingerprint(
-            source_statuses=source_statuses,
-            cohort_members=resolved_cohort_members,
-            future_outcomes=resolved_future_outcomes,
-        )
-        if fingerprint in seen_fingerprints:
-            continue
         labels = build_benchmark_cohort_labels(
             manifest,
             resolved_cohort_members,
@@ -704,7 +635,6 @@ def _build_public_slice_specs(
             labels,
             entity_types=manifest.entity_types,
         )
-        seen_fingerprints.add(fingerprint)
         slice_specs.append(
             PublicBenchmarkSliceSpec(
                 slice_id=slice_request.snapshot_id,

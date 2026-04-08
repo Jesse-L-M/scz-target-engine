@@ -21,6 +21,7 @@ from scz_target_engine.benchmark_intervention_objects import (
 from scz_target_engine.benchmark_metrics import build_positive_relevance_index
 from scz_target_engine.benchmark_registry import (
     DEFAULT_TASK_REGISTRY_PATH,
+    BenchmarkFixturePaths,
     BenchmarkTaskContract,
     resolve_benchmark_task_contract,
 )
@@ -37,6 +38,16 @@ from scz_target_engine.io import write_csv, write_json
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PUBLIC_SLICE_OUTPUT_DIR = (
     REPO_ROOT / "data" / "benchmark" / "public_slices"
+)
+DEFAULT_TRACK_A_REGRESSION_FIXTURE_DIR = (
+    REPO_ROOT / "data" / "benchmark" / "fixtures" / "scz_small"
+)
+DEFAULT_TRACK_A_HISTORICAL_REPLAY_FIXTURE_DIR = (
+    REPO_ROOT
+    / "data"
+    / "benchmark"
+    / "fixtures"
+    / "scz_track_a_historical_replay"
 )
 DEFAULT_PUBLIC_SLICE_TASK_ID = "scz_translational_task"
 PUBLIC_SLICE_CATALOG_FILE_NAME = "catalog.json"
@@ -322,6 +333,38 @@ def _slice_program_input_source_paths(
     return None, None
 
 
+def _resolved_public_slice_fixture_paths(
+    task_contract: BenchmarkTaskContract,
+    *,
+    task_registry_path: Path | None = None,
+) -> BenchmarkFixturePaths:
+    if not _uses_track_a_public_slice_replay(
+        task_contract=task_contract,
+        task_registry_path=task_registry_path,
+    ):
+        return task_contract.fixture_paths
+    source_fixture_dir = task_contract.fixture_paths.snapshot_request_file.parent.resolve()
+    if source_fixture_dir != DEFAULT_TRACK_A_REGRESSION_FIXTURE_DIR.resolve():
+        return task_contract.fixture_paths
+    return BenchmarkFixturePaths(
+        snapshot_request_file=(
+            DEFAULT_TRACK_A_HISTORICAL_REPLAY_FIXTURE_DIR / "snapshot_request.json"
+        ).resolve(),
+        cohort_members_file=(
+            DEFAULT_TRACK_A_HISTORICAL_REPLAY_FIXTURE_DIR / "cohort_members.csv"
+        ).resolve(),
+        future_outcomes_file=(
+            DEFAULT_TRACK_A_HISTORICAL_REPLAY_FIXTURE_DIR / "future_outcomes.csv"
+        ).resolve(),
+        archive_index_file=(
+            DEFAULT_TRACK_A_HISTORICAL_REPLAY_FIXTURE_DIR / "source_archives.json"
+        ).resolve(),
+        archive_index_sibling_file_names=(
+            task_contract.fixture_paths.archive_index_sibling_file_names
+        ),
+    )
+
+
 def _candidate_cutoff_dates(
     *,
     base_request: SnapshotBuildRequest,
@@ -567,25 +610,26 @@ def _load_fixture_inputs(
     *,
     task_registry_path: Path | None = None,
 ) -> tuple[
+    BenchmarkFixturePaths,
     SnapshotBuildRequest,
     tuple[object, ...],
     tuple[object, ...],
     tuple[object, ...],
 ]:
+    fixture_paths = _resolved_public_slice_fixture_paths(
+        task_contract,
+        task_registry_path=task_registry_path,
+    )
     base_request = load_snapshot_build_request(
-        task_contract.fixture_paths.snapshot_request_file,
+        fixture_paths.snapshot_request_file,
         task_registry_path=task_registry_path,
     )
     archive_descriptors = load_source_archive_descriptors(
-        task_contract.fixture_paths.archive_index_file
+        fixture_paths.archive_index_file
     )
-    cohort_members = tuple(
-        load_cohort_members(task_contract.fixture_paths.cohort_members_file)
-    )
-    future_outcomes = tuple(
-        load_future_outcomes(task_contract.fixture_paths.future_outcomes_file)
-    )
-    return base_request, archive_descriptors, cohort_members, future_outcomes
+    cohort_members = tuple(load_cohort_members(fixture_paths.cohort_members_file))
+    future_outcomes = tuple(load_future_outcomes(fixture_paths.future_outcomes_file))
+    return fixture_paths, base_request, archive_descriptors, cohort_members, future_outcomes
 
 
 def _principal_positive_entity_count(
@@ -612,6 +656,7 @@ def _build_public_slice_specs(
     current_date: str | None = None,
 ) -> tuple[PublicBenchmarkSliceSpec, ...]:
     (
+        fixture_paths,
         base_request,
         archive_descriptors,
         cohort_members,
@@ -627,7 +672,7 @@ def _build_public_slice_specs(
     resolved_task_registry_path = (
         None if task_registry_path is None else task_registry_path.resolve()
     )
-    source_fixture_dir = task_contract.fixture_paths.snapshot_request_file.parent
+    source_fixture_dir = fixture_paths.snapshot_request_file.parent
     (
         program_universe_source_path,
         program_history_events_source_path,
@@ -743,11 +788,13 @@ def plan_public_benchmark_slices(
         task_registry_path=task_registry_path,
         current_date=current_date,
     )
-    source_fixture_dir = (
-        resolved_task_contract.fixture_paths.snapshot_request_file.parent
+    fixture_paths = _resolved_public_slice_fixture_paths(
+        resolved_task_contract,
+        task_registry_path=task_registry_path,
     )
+    source_fixture_dir = fixture_paths.snapshot_request_file.parent
     base_request = load_snapshot_build_request(
-        resolved_task_contract.fixture_paths.snapshot_request_file,
+        fixture_paths.snapshot_request_file,
         task_registry_path=task_registry_path,
     )
     uses_track_a_replay = _uses_track_a_public_slice_replay(
@@ -843,7 +890,11 @@ def materialize_public_benchmark_slices(
         benchmark_task_id=benchmark_task_id or DEFAULT_PUBLIC_SLICE_TASK_ID,
         task_registry_path=task_registry_path,
     )
-    archive_index_base_dir = task_contract.fixture_paths.archive_index_file.parent
+    fixture_paths = _resolved_public_slice_fixture_paths(
+        task_contract,
+        task_registry_path=task_registry_path,
+    )
+    archive_index_base_dir = fixture_paths.archive_index_file.parent
     active_slice_ids = {slice_spec.slice_id for slice_spec in plan.slices}
     _prune_obsolete_slice_dirs(
         output_dir=resolved_output_dir,
@@ -918,11 +969,11 @@ def materialize_public_benchmark_slices(
             )
         else:
             _copy_fixture_file(
-                task_contract.fixture_paths.cohort_members_file,
+                fixture_paths.cohort_members_file,
                 slice_dir / "cohort_members.csv",
             )
             _copy_fixture_file(
-                task_contract.fixture_paths.future_outcomes_file,
+                fixture_paths.future_outcomes_file,
                 slice_dir / "future_outcomes.csv",
             )
         write_json(

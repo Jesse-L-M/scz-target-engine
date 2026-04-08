@@ -1,0 +1,5 @@
+entity_type,entity_id,outcome_label,outcome_date,label_source,label_notes
+gene,ENSG00000162946,future_schizophrenia_program_started,2024-12-01,fixture_program_history,Program start captured in the deterministic fixture ledger
+gene,ENSG00000162946,future_schizophrenia_positive_signal,2026-03-15,fixture_program_history,Positive translational signal captured in the deterministic fixture ledger
+gene,ENSG00000151067,future_schizophrenia_negative_signal,2027-01-10,fixture_program_history,Negative translational signal captured in the deterministic fixture ledger
+module,MOD_DLPFC_GRN,future_schizophrenia_program_advanced,2025-09-20,fixture_module_review,Module advanced in the deterministic fixture follow-up review

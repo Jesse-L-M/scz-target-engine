@@ -270,6 +270,79 @@ def test_scz_small_fixture_remains_minimal_gene_module_regression_surface() -> N
     }
 
 
+def test_track_a_historical_replay_fixture_expands_overlap_without_repurposing_scz_small() -> None:
+    fixture_dir = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "benchmark"
+        / "fixtures"
+        / "scz_track_a_historical_replay"
+    )
+    source_archives = json.loads(
+        (fixture_dir / "source_archives.json").read_text(encoding="utf-8")
+    )
+    archive_index = {
+        archive["source_name"]: archive
+        for archive in source_archives["archives"]
+    }
+    assert archive_index["PGC"]["sha256"] == (
+        "0afdd0083c9173b940785ba70a4d00b88f25022bcdcecf61510c4f408bbf6270"
+    )
+    assert archive_index["PGC"]["source_version"] == "scz2022_track_a_replay"
+    assert archive_index["PsychENCODE"]["sha256"] == (
+        "3a2a70c72204a9d35df7c65624817753b830a12ef6ea66c6869502b845142790"
+    )
+    assert archive_index["PsychENCODE"]["source_version"] == (
+        "brainscope_track_a_replay"
+    )
+
+    assert (
+        (fixture_dir / "archives" / "pgc" / "scz2022_track_a_replay.csv")
+        .read_text(encoding="utf-8")
+        .strip()
+        .splitlines()
+    ) == [
+        (
+            "entity_id,entity_label,gene_biotype,common_variant_support,"
+            "pgc_scz2022_prioritised,pgc_scz2022_priority_index_snp_count,"
+            "pgc_scz2022_priority_index_snps_json,pgc_scz2022_FINEMAP.priority.gene,"
+            "pgc_scz2022_SMR.priority.gene,pgc_scz2022_FINEMAPk3.5,"
+            "pgc_scz2022_nonsynPP0.10,pgc_scz2022_UTRPP0.10,"
+            "pgc_scz2022_k3.5singleGene,pgc_scz2022_SMRpsych,"
+            "pgc_scz2022_SMRfetal,pgc_scz2022_SMRblood,pgc_scz2022_SMRmap,"
+            "pgc_scz2022_SMRsingleGene,pgc_scz2022_HI.C.SMR,"
+            "pgc_scz2022_sig.adultFUSION,pgc_scz2022_sig.fetalFUSION,"
+            "pgc_scz2022_sig.EpiXcan.gene.filtered,"
+            "pgc_scz2022_sig.EpiXcan.trans.filtered"
+        ),
+        (
+            'ENSG00000151067,CACNA1C,protein_coding,0.1875,1,1,"[""rs10774034""]",'
+            "1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0"
+        ),
+        "ENSG00000149295,DRD2,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0",
+        "ENSG00000198822,GRM3,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0",
+        "ENSG00000196517,SLC6A9,protein_coding,0.0625,0,0,[],0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0",
+    ]
+    psychencode_fixture = (
+        fixture_dir
+        / "archives"
+        / "psychencode"
+        / "brainscope_track_a_replay.csv"
+    ).read_text(encoding="utf-8").strip().splitlines()
+    assert psychencode_fixture[0].startswith(
+        "entity_id,entity_label,approved_name,cell_state_support"
+    )
+    assert [row.split(",")[1] for row in psychencode_fixture[1:]] == [
+        "CACNA1C",
+        "DRD1",
+        "DRD2",
+        "GRM2",
+        "GRM3",
+        "HTR2A",
+        "SLC6A9",
+    ]
+
+
 def test_invalid_cutoff_definition_fails_clearly() -> None:
     with pytest.raises(
         ValueError,

@@ -25,9 +25,11 @@ Current checked-in slices:
   principal `3y` horizon with one positive intervention object each. The later five
   remain honest but non-evaluable after the positive approval boundary and subsequent
   misses cross the cutoff.
-- Those five evaluable slices still have zero honest `v0_current` / `v1_current`
-  coverage because the checked-in archive universe only contains `DISC1`,
-  `CACNA1C`, and one unmatched module.
+- Those five evaluable slices now have non-zero honest `v0_current` /
+  `v1_current` coverage because the default backfill path consumes the separate
+  checked-in `scz_track_a_historical_replay` archive surface. On the principal
+  `2024-09-25` slice, `random_with_coverage` covers `8/8` intervention objects,
+  `v0_current` covers `4/8`, and `v1_current` covers `5/8`.
 
 The catalog at `catalog.json` records the explicit source inclusions and exclusions
 for each cutoff. The slice builder is:

@@ -11,7 +11,7 @@ It is not yet a production-scale historical replay system.
 
 ## Current Release Boundary
 
-- historical benchmark archives are fixture-scale and currently checked in for the canonical fixture under `data/benchmark/fixtures/scz_small/` plus derived public slices under `data/benchmark/public_slices/`
+- historical benchmark archives are fixture-scale and currently checked in for the canonical regression fixture under `data/benchmark/fixtures/scz_small/`, the dedicated Track A replay archive surface under `data/benchmark/fixtures/scz_track_a_historical_replay/`, plus derived public slices under `data/benchmark/public_slices/`
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, the ranking task plus one checked-in Track B structural replay task, small deterministic cohorts, and the current `available_now` baseline subset
 - protocol-only baselines remain declared for comparability but are not executed unless later archived artifacts make them runnable
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
@@ -136,7 +136,7 @@ Notes:
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` stay frozen as protocol comparison labels across the PR8.1 transition
 - `chembl_only` applies only where tractability context exists and is not a module baseline
 - `v0_current` and `v1_current` now also apply to `intervention_object` slices by writing explicit projection sidecars from archived gene/module baseline outputs through the checked-in compatibility contract
-- on the current checked-in Track A slices, that compatibility contract still maps zero intervention objects, so the real `v0_current` / `v1_current` stop-go comparison remains blocked
+- on the current checked-in Track A slices, that compatibility contract now maps a non-zero intervention-object universe, so the real `v0_current` / `v1_current` stop-go comparison is now honestly unblocked
 - `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines, including intervention-object public slices
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest
 
@@ -546,8 +546,8 @@ Current honest public slices from the checked-in archive catalog:
 - `scz_translational_2025_01_15`
 - `scz_translational_2025_01_16`
 - As of April 8, 2026, the first five checked-in slices through `scz_translational_2024_09_25` are evaluable on the principal `3y` horizon with one positive intervention-object each. The later five remain non-evaluable after the positive approval boundary and subsequent misses cross the cutoff.
-- The real `v0_current` / `v1_current` stop-go comparison remains blocked because the checked-in archived compatibility universe maps zero intervention objects on every shipped slice.
-- Those evaluable slices are still not honest current-baseline comparisons. On `scz_translational_2024_09_25`, `random_with_coverage` covers `8/8` admissible intervention objects, while `v0_current` and `v1_current` both remain at `covered_entity_count = 0` because the checked-in legacy archive universe only contains `DISC1`, `CACNA1C`, and one unmatched PsychENCODE module.
+- The real `v0_current` / `v1_current` stop-go comparison is now honestly unblocked because the checked-in replay archive surface maps a non-zero intervention-object universe on every shipped evaluable slice.
+- On `scz_translational_2024_09_25`, `random_with_coverage` covers `8/8` admissible intervention objects, `v0_current` reaches `covered_entity_count = 4`, and `v1_current` reaches `covered_entity_count = 5`.
 
 Each slice directory contains:
 
@@ -564,6 +564,10 @@ The canonical `scz_small` fixture remains the regression path for gene/module
 benchmarking. Its checked-in archive contents were restored to the minimal
 pre-Track-A two-gene/one-module surface so public-slice replay work does not
 mutate the legacy gene/module regression path.
+
+The default public-slice backfill path does not widen `scz_small`. It now reads
+historical archive descriptors from the separate checked-in fixture surface at
+`data/benchmark/fixtures/scz_track_a_historical_replay/`.
 
 The slice catalog at `data/benchmark/public_slices/catalog.json` records the exact
 included and excluded sources for each cutoff. Missing historical archives stay explicit

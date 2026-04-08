@@ -2,13 +2,13 @@
   "archives": [
     {
       "allowed_data_through": "2024-06-15",
-      "archive_file": "archives/pgc/scz2022_fixture.csv",
+      "archive_file": "archives/pgc/scz2022_track_a_replay.csv",
       "archive_format": "csv",
       "evidence_frozen_at": "2024-06-15",
-      "notes": "Fixture PGC archived release used for deterministic snapshot tests.",
-      "sha256": "6f471ddec2b00b0ce76c3a5b547c022f4c5ae39b77be6ff437d5b2b1c26d9403",
+      "notes": "Frozen PGC scz2022 extract widened for Track A replay target overlap.",
+      "sha256": "0afdd0083c9173b940785ba70a4d00b88f25022bcdcecf61510c4f408bbf6270",
       "source_name": "PGC",
-      "source_version": "scz2022_fixture"
+      "source_version": "scz2022_track_a_replay"
     }
   ]
 }

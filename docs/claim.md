@@ -61,9 +61,12 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - replay public slices now cover ten honest Track A cutoffs with pinned local
   denominator inputs; five checked-in slices are principal-`3y` evaluable with one
   positive intervention-object each, while the later five still have zero positives
-- on the principal `2024-09-25` slice, `random_with_coverage` covers `8/8`
-  admissible intervention objects, `v0_current` covers `4/8`, and `v1_current`
-  covers `5/8`
+- the real PR3 Track A decision run on April 8, 2026 ended `HOLD`: on the
+  principal `2024-09-25` slice, `random_with_coverage` scored `0.500000` with
+  95% CI `[0.000000, 1.000000]`, while `v0_current` and `v1_current` both
+  scored `0.125000` with 95% CI `[0.000000, 0.275794]`; both control baselines
+  missed the lone principal positive in error review, and the random baseline is
+  a sanity check rather than a milestone-clearing replay layer
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
 

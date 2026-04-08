@@ -60,6 +60,19 @@ def _parse_iso_date(value: str, field_name: str) -> date:
         raise ValueError(f"{field_name} must be an ISO date in YYYY-MM-DD format") from exc
 
 
+def _add_years(value: date, years: int) -> date:
+    try:
+        return value.replace(year=value.year + years)
+    except ValueError:
+        return value.replace(month=2, day=28, year=value.year + years)
+
+
+def _parse_horizon_years(horizon: str) -> int:
+    if not horizon.endswith("y"):
+        raise ValueError(f"unsupported evaluation horizon: {horizon}")
+    return int(horizon.removesuffix("y"))
+
+
 def _date_to_slug(value: str) -> str:
     return value.replace("-", "_")
 
@@ -302,6 +315,16 @@ def _candidate_cutoff_dates(
     program_history_events_path: Path | None,
 ) -> tuple[str, ...]:
     maximum_cutoff = _parse_iso_date(base_request.as_of_date, "as_of_date")
+    if uses_track_a_replay:
+        principal_horizon_years = _parse_horizon_years(PUBLIC_SLICE_PRINCIPAL_HORIZON)
+        principal_horizon_cutoff = _add_years(
+            _parse_iso_date(
+                base_request.outcome_observation_closed_at,
+                "outcome_observation_closed_at",
+            ),
+            -principal_horizon_years,
+        )
+        maximum_cutoff = max(maximum_cutoff, principal_horizon_cutoff)
     archive_cutoff_dates = {
         _archive_activation_date(
             allowed_data_through=descriptor.allowed_data_through,
@@ -325,13 +348,34 @@ def _candidate_cutoff_dates(
             )
         candidate_cutoff_dates.update(
             build_intervention_object_candidate_cutoff_dates(
-                as_of_date=base_request.as_of_date,
+                as_of_date=maximum_cutoff.isoformat(),
                 minimum_cutoff_date=minimum_cutoff_date,
                 program_universe_path=program_universe_path,
                 events_path=program_history_events_path,
             )
         )
     return tuple(sorted(candidate_cutoff_dates))
+
+
+def _public_slice_plan_upper_bound_date(
+    *,
+    base_request: SnapshotBuildRequest,
+    uses_track_a_replay: bool,
+) -> str:
+    if not uses_track_a_replay:
+        return base_request.as_of_date
+    principal_horizon_years = _parse_horizon_years(PUBLIC_SLICE_PRINCIPAL_HORIZON)
+    principal_horizon_cutoff = _add_years(
+        _parse_iso_date(
+            base_request.outcome_observation_closed_at,
+            "outcome_observation_closed_at",
+        ),
+        -principal_horizon_years,
+    )
+    return max(
+        _parse_iso_date(base_request.as_of_date, "as_of_date"),
+        principal_horizon_cutoff,
+    ).isoformat()
 
 
 def _coverage_limitation(
@@ -703,9 +747,16 @@ def plan_public_benchmark_slices(
         resolved_task_contract.fixture_paths.snapshot_request_file,
         task_registry_path=task_registry_path,
     )
+    uses_track_a_replay = _uses_track_a_public_slice_replay(
+        task_contract=resolved_task_contract,
+        task_registry_path=task_registry_path,
+    )
     coverage_limitation = _coverage_limitation(
         slice_specs=slice_specs,
-        as_of_date=base_request.as_of_date,
+        as_of_date=_public_slice_plan_upper_bound_date(
+            base_request=base_request,
+            uses_track_a_replay=uses_track_a_replay,
+        ),
         benchmark_task_id=resolved_task_contract.task_id,
     )
     return PublicBenchmarkSlicePlan(

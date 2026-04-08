@@ -1,11 +1,11 @@
 # replay-track-a-v1
 
 Status: implemented
-Owner branch: Jesse-L-M/track-a-replay-fix
+Owner branch: Jesse-L-M/track-a-replay-gap
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-02
+Last updated: 2026-04-08
 
 ## Objective
 
@@ -166,11 +166,16 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
   scores those sidecars.
 - Reporting now emits one markdown error-analysis file per intervention-object run
   only when the principal `3y` intervention-object slice is actually evaluable.
-- As of April 2, 2026, the checked-in `scz_translational_task` public-slice catalog
-  ships honest replayable slices at `2024-06-15`, `2024-06-18`, and `2024-06-20`,
-  but none are evaluable on the principal `3y` horizon because strict honest replay
-  filtering leaves zero positive intervention-object outcomes for each cutoff, so
-  the shipped reporting flow now skips error-analysis markdown for those slices.
+- As of April 8, 2026, the checked-in `scz_translational_task` public-slice catalog
+  ships honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`,
+  `2024-07-15`, `2024-11-11`, and `2025-01-16`. Cohort breadth rises from 5
+  intervention objects on the earliest four slices to 6 on `2024-11-11` and 7 on
+  `2025-01-16`, while each slice still inherits pinned local `program_universe.csv`
+  and `events.csv` copies.
+- None of those six slices are evaluable on the principal `3y` horizon yet because
+  strict honest replay filtering still leaves zero post-cutoff positive
+  intervention-object outcomes for every checked-in cutoff, so the shipped reporting
+  flow continues to skip Track A error-analysis markdown for the public slices.
 
 ## Implementation Plan
 
@@ -256,7 +261,7 @@ Hotfix coverage added on top of the shipped Track A path:
 ## Commands
 
 ```bash
-uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/public_slices/<slice_id>/snapshot_request.json --archive-index-file data/benchmark/public_slices/<slice_id>/source_archives.json --output-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --materialized-at 2026-04-02
+uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/public_slices/<slice_id>/snapshot_request.json --archive-index-file data/benchmark/public_slices/<slice_id>/source_archives.json --output-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --materialized-at 2026-04-08
 uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --cohort-members-file data/benchmark/public_slices/<slice_id>/cohort_members.csv --future-outcomes-file data/benchmark/public_slices/<slice_id>/future_outcomes.csv --output-file data/benchmark/generated/public_slices/<slice_id>/cohort_labels.csv
 uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/<slice_id>/cohort_labels.csv --archive-index-file data/benchmark/public_slices/<slice_id>/source_archives.json --output-dir data/benchmark/generated/public_slices/<slice_id>/runner_outputs --config config/v0.toml --deterministic-test-mode
 uv run scz-target-engine build-benchmark-reporting --manifest-file data/benchmark/generated/public_slices/<slice_id>/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/<slice_id>/cohort_labels.csv --runner-output-dir data/benchmark/generated/public_slices/<slice_id>/runner_outputs --output-dir data/benchmark/generated/public_slices/<slice_id>/public_payloads

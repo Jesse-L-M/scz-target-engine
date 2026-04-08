@@ -29,6 +29,16 @@
       "sha256": "f030adfdb6aa996d9aa7de873528ab052cd512c696e622fd878a18d62f7ebe2d",
       "source_name": "PsychENCODE",
       "source_version": "brainscope_fixture"
+    },
+    {
+      "allowed_data_through": "2024-07-15",
+      "archive_file": "archives/chembl/chembl35_fixture.json",
+      "archive_format": "json",
+      "evidence_frozen_at": "2024-07-15",
+      "notes": "Future-only ChEMBL archive fixture to prove explicit exclusion before cutoff.",
+      "sha256": "dabda6d9d9170bc4efd8173dfd2e9b64fd6a84af977bca287d5fa580f65eb390",
+      "source_name": "ChEMBL",
+      "source_version": "chembl35_fixture"
     }
   ]
 }

@@ -197,6 +197,16 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
 - Public-slice planning now preserves distinct day-before-event and on-event cutoffs
   instead of collapsing them into one catalog entry, so the checked-in replay surface
   reflects the actual pre/post boundary around each public outcome event.
+- A feasibility audit conducted on 2026-04-08 determined that the PR3 stop/go gate is
+  **infeasible** with the current honest archive universe. The blocker is not the
+  benchmark machinery or challenger availability — it is that the honest schizophrenia
+  late-stage pipeline produced exactly 1 independent positive translational event (the
+  xanomeline-trospium / Cobenfy approval on 2024-09-26) in the replay window. All 5
+  evaluable slices observe this same single event. With 1 positive in 8 admissible
+  entities, the bootstrap CI always includes 0, making the AP + bootstrap gate
+  mathematically impossible to pass. No honest alternative surface (different slice,
+  combined surface, broader cohort, different aggregation, or gene-level evaluation) can
+  add independent positive signal. See `docs/decisions/0006-track-a-pr3-feasibility.md`.
 
 Verified commands for the shipped public replay surface now include:
 

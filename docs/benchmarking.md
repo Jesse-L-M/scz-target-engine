@@ -139,6 +139,7 @@ Notes:
 - the projected single-source challengers `pgc_only`, `schema_only`, `opentargets_only`, and `chembl_only` now also apply to `intervention_object` slices through that same compatibility contract. The Track A stop-go rerun executed on 2026-04-08 still ended in **HOLD** because no challenger has a bootstrap-backed material win on the principal slice, even though `schema_only` and `opentargets_only` now beat the control point estimates (see `docs/decisions/0005-track-a-pr3-stop-go.md`)
 - `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines, including intervention-object public slices
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest
+- a feasibility audit on 2026-04-08 determined the Track A PR3 gate is **infeasible**: the honest archive universe contains exactly 1 independent positive event (xanomeline-trospium approval), and with 1 positive in 8 admissible entities the bootstrap CI always spans [0.0, ~1.0] regardless of challenger quality. No honest reconfiguration of slices, cohort, or aggregation can fix this. See `docs/decisions/0006-track-a-pr3-feasibility.md`
 
 ## Registry-Driven Task Contract
 

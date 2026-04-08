@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 import json
 from pathlib import Path
 import re
@@ -572,6 +572,29 @@ def _stage_bucket_as_of_snapshot(
     if current_stage_bucket in future_stage_buckets and pre_cutoff_stage_buckets:
         return max(pre_cutoff_stage_buckets, key=_stage_bucket_rank)
 
+    if pre_cutoff_stage_buckets:
+        return max(pre_cutoff_stage_buckets, key=_stage_bucket_rank)
+
+    future_events = sorted(
+        (
+            event
+            for event in _mapped_events_for_row(row, events_by_id=events_by_id)
+            if _parse_iso_date(_clean_text(event.get("event_date")), "event_date")
+            > _parse_iso_date(as_of_date, "as_of_date")
+        ),
+        key=_event_sort_key,
+    )
+    if future_events:
+        first_future_event = future_events[0]
+        if (
+            _clean_text(first_future_event.get("event_type")) in APPROVAL_EVENT_TYPES
+            and current_stage_bucket == "approved"
+        ):
+            return "phase_3_or_registration"
+        inferred_stage_bucket = _mapped_event_stage_bucket(first_future_event)
+        if inferred_stage_bucket:
+            return inferred_stage_bucket
+
     return current_stage_bucket
 
 
@@ -654,6 +677,21 @@ def _has_pre_cutoff_stage_state(
     return bool(pre_cutoff_stage_buckets)
 
 
+def _has_future_only_included_visibility(
+    row: dict[str, str],
+    *,
+    events_by_id: dict[str, dict[str, str]],
+    as_of_date: str,
+) -> bool:
+    if _clean_text(row.get("coverage_state")) != "included":
+        return False
+    cutoff = _parse_iso_date(as_of_date, "as_of_date")
+    return any(
+        _parse_iso_date(_clean_text(event.get("event_date")), "event_date") > cutoff
+        for event in _mapped_events_for_row(row, events_by_id=events_by_id)
+    )
+
+
 def _iter_admissible_program_rows(
     *,
     as_of_date: str,
@@ -669,10 +707,17 @@ def _iter_admissible_program_rows(
             continue
         if _clean_text(row.get("duplicate_of_program_universe_id")):
             continue
-        if not _has_pre_cutoff_stage_state(
-            row,
-            events_by_id=events_by_id,
-            as_of_date=as_of_date,
+        if not (
+            _has_pre_cutoff_stage_state(
+                row,
+                events_by_id=events_by_id,
+                as_of_date=as_of_date,
+            )
+            or _has_future_only_included_visibility(
+                row,
+                events_by_id=events_by_id,
+                as_of_date=as_of_date,
+            )
         ):
             continue
         if _has_pre_cutoff_approval(row, events_by_id=events_by_id, as_of_date=as_of_date):
@@ -687,6 +732,7 @@ def build_intervention_object_candidate_cutoff_dates(
     minimum_cutoff_date: str,
     program_universe_path: Path = PROGRAM_UNIVERSE_PATH,
     events_path: Path = PROGRAM_HISTORY_EVENTS_PATH,
+    include_maximum_cutoff: bool = True,
 ) -> tuple[str, ...]:
     minimum_cutoff = _parse_iso_date(minimum_cutoff_date, "minimum_cutoff_date")
     maximum_cutoff = _parse_iso_date(as_of_date, "as_of_date")
@@ -694,7 +740,9 @@ def build_intervention_object_candidate_cutoff_dates(
         raise ValueError("minimum_cutoff_date must be on or before as_of_date")
 
     events_by_id = _load_program_history_events(events_path)
-    candidate_dates: set[str] = {maximum_cutoff.isoformat()}
+    candidate_dates: set[str] = set()
+    if include_maximum_cutoff:
+        candidate_dates.add(maximum_cutoff.isoformat())
     for row in _load_program_universe_rows(program_universe_path):
         coverage_state = _clean_text(row.get("coverage_state"))
         if coverage_state not in IN_SCOPE_COVERAGE_STATES:
@@ -708,6 +756,9 @@ def build_intervention_object_candidate_cutoff_dates(
             )
             if minimum_cutoff <= event_date <= maximum_cutoff:
                 candidate_dates.add(event_date.isoformat())
+            prior_date = event_date - timedelta(days=1)
+            if minimum_cutoff <= prior_date <= maximum_cutoff:
+                candidate_dates.add(prior_date.isoformat())
     return tuple(sorted(candidate_dates))
 
 

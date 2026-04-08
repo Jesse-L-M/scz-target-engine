@@ -1,7 +1,7 @@
 # replay-track-a-v1
 
 Status: implemented
-Owner branch: Jesse-L-M/track-a-replay-gap
+Owner branch: Jesse-L-M/track-a-3y-replays
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md
 Blocked by: -
 Supersedes: -
@@ -167,15 +167,38 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
 - Reporting now emits one markdown error-analysis file per intervention-object run
   only when the principal `3y` intervention-object slice is actually evaluable.
 - As of April 8, 2026, the checked-in `scz_translational_task` public-slice catalog
-  ships honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`,
-  `2024-07-15`, `2024-11-11`, and `2025-01-16`. Cohort breadth rises from 5
-  intervention objects on the earliest four slices to 6 on `2024-11-11` and 7 on
-  `2025-01-16`, while each slice still inherits pinned local `program_universe.csv`
-  and `events.csv` copies.
-- None of those six slices are evaluable on the principal `3y` horizon yet because
-  strict honest replay filtering still leaves zero post-cutoff positive
-  intervention-object outcomes for every checked-in cutoff, so the shipped reporting
-  flow continues to skip Track A error-analysis markdown for the public slices.
+  ships 10 honest replayable slices at `2024-06-15`, `2024-06-18`, `2024-06-20`,
+  `2024-07-15`, `2024-09-25`, `2024-09-26`, `2024-11-10`, `2024-11-11`,
+  `2025-01-15`, and `2025-01-16`.
+- Cohort breadth rises from 8 intervention objects on the earliest five evaluable
+  cutoffs to 7 after the September 26, 2024 xanomeline approval lands, while every
+  slice still inherits pinned local `program_universe.csv` and `events.csv` copies.
+- The first five checked-in slices, through `2024-09-25`, are now evaluable on the
+  principal `3y` horizon with one honest positive intervention object each. The later
+  five remain non-evaluable after the positive approval crosses the cutoff boundary and
+  only negative or no future outcomes remain.
+- PR3 is still blocked for the real `v0_current` / `v1_current` stop-go comparison.
+  Every evaluable slice has `principal_current_baseline_compatible_entity_count = 0`,
+  because the checked-in legacy archive universe only exposes `DISC1`, `CACNA1C`, and
+  one unmatched module, none of which overlap the Track A intervention-object target
+  symbols on the evaluable public slices.
+- Track A now admits `coverage_state = included` denominator rows whose first checked-
+  in mapped event lands after the cutoff, but it does so conservatively: pre-approval
+  rows rewind to `phase_3_or_registration`, while future-only unresolved rows still do
+  not enter the replay denominator.
+- Public-slice planning now preserves distinct day-before-event and on-event cutoffs
+  instead of collapsing them into one catalog entry, so the checked-in replay surface
+  reflects the actual pre/post boundary around each public outcome event.
+
+Verified commands for the shipped public replay surface now include:
+
+```bash
+uv run scz-target-engine backfill-benchmark-public-slices --output-dir data/benchmark/public_slices --benchmark-task-id scz_translational_task
+uv run scz-target-engine build-benchmark-snapshot --request-file data/benchmark/public_slices/scz_translational_2024_09_25/snapshot_request.json --archive-index-file data/benchmark/public_slices/scz_translational_2024_09_25/source_archives.json --output-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json --materialized-at 2026-04-08
+uv run scz-target-engine build-benchmark-cohort --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json --cohort-members-file data/benchmark/public_slices/scz_translational_2024_09_25/cohort_members.csv --future-outcomes-file data/benchmark/public_slices/scz_translational_2024_09_25/future_outcomes.csv --output-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/cohort_labels.csv
+uv run scz-target-engine run-benchmark --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/cohort_labels.csv --archive-index-file data/benchmark/public_slices/scz_translational_2024_09_25/source_archives.json --output-dir data/benchmark/generated/public_slices/scz_translational_2024_09_25/runner_outputs --config config/v0.toml --deterministic-test-mode
+uv run scz-target-engine build-benchmark-reporting --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/cohort_labels.csv --runner-output-dir data/benchmark/generated/public_slices/scz_translational_2024_09_25/runner_outputs --output-dir data/benchmark/generated/public_slices/scz_translational_2024_09_25/public_payloads
+```
 
 ## Implementation Plan
 
@@ -215,6 +238,9 @@ Hotfix coverage added on top of the shipped Track A path:
 
 - duplicate replay `entity_id` rejection in public-slice and feature-bundle
   materialization
+- conservative future-only included-row admission, including pre-approval rewind from
+  `approved` to `phase_3_or_registration`
+- day-before-event public cutoffs preserved in the checked-in replay catalog
 - runner rejection for stale, malformed, or mismatched
   `intervention_object_feature_bundle.parquet` sidecars
 - runner and reporting rejection for mixed-entity cohort-label files
@@ -233,6 +259,10 @@ Hotfix coverage added on top of the shipped Track A path:
 - Failure mode:
   a source archive is missing and the replay still proceeds from current data; the
   snapshot builder must emit explicit exclusion or reject the slice
+- Failure mode:
+  a future-only included denominator row is either dropped entirely or replayed with
+  `stage_bucket = approved` before the approval cutoff; Track A must admit the row
+  without leaking post-approval state
 
 ## Rollout / Compatibility
 

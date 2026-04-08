@@ -29,9 +29,11 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - `v0` now has a non-seed candidate-registry ingest path, but the checked-in example scoring workflow still relies on curated shortlists and source-specific harmonization.
 - atlas raw-source staging now exists for selected adapter-backed pulls, but it is still not raw consortium-dump ingestion and it does not replace the current scoring inputs
 - the benchmark path is not a production-scale historical replay system
-- the benchmark path now backfills six checked-in Track A public slices with
-  slice-local `program_universe.csv` and `events.csv`, but it still does not
-  provide a principal-`3y`-evaluable stop/go replay surface
+- the benchmark path now backfills ten checked-in Track A public slices with
+  slice-local `program_universe.csv` and `events.csv`, and five of those cutoffs
+  are now principal-`3y` evaluable, but the benchmark path is still fixture-scale,
+  keeps zero `v0_current` / `v1_current` coverage on every evaluable slice, and
+  therefore does not yet unblock the real Track A stop-go comparison
 - the benchmark path is not a calibration, threshold-selection, or deployment-readiness claim
 - `intervention_object_id` is not yet the shipped replacement key for the current
   gene, module, policy, or packet artifacts during the dual-write period
@@ -55,9 +57,12 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 ## Current Release Limitations
 
 - historical benchmark archives are fixture-scale and currently checked in only for `data/benchmark/fixtures/scz_small/`
-- replay public slices now cover six honest Track A cutoffs with pinned local
-  denominator inputs, but every checked-in slice still has zero positive
-  intervention-object outcomes on the principal `3y` horizon
+- replay public slices now cover ten honest Track A cutoffs with pinned local
+  denominator inputs; five checked-in slices are principal-`3y` evaluable with one
+  positive intervention-object each, while the later five still have zero positives
+- current `v0_current` and `v1_current` intervention-object projections still cover
+  zero entities on those evaluable slices because the checked-in benchmark archives
+  only contain `DISC1`, `CACNA1C`, and one unmatched module
 - benchmark breadth is still limited to the frozen schizophrenia benchmark question, a small deterministic cohort, and the current `available_now` baseline subset
 - calibration work, decision-threshold setting, and broader operating-point evaluation remain future work
 

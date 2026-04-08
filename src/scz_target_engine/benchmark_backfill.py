@@ -15,6 +15,7 @@ from scz_target_engine.benchmark_labels import (
 from scz_target_engine.benchmark_intervention_objects import (
     INTERVENTION_OBJECT_ENTITY_TYPE,
     build_intervention_object_candidate_cutoff_dates,
+    build_intervention_object_bundle_rows,
     build_intervention_object_public_slice_rows,
 )
 from scz_target_engine.benchmark_metrics import build_positive_relevance_index
@@ -65,6 +66,12 @@ def _add_years(value: date, years: int) -> date:
         return value.replace(year=value.year + years)
     except ValueError:
         return value.replace(month=2, day=28, year=value.year + years)
+
+
+def _resolve_current_date(current_date: str | None) -> date:
+    if current_date is None:
+        return date.today()
+    return _parse_iso_date(current_date, "current_date")
 
 
 def _parse_horizon_years(horizon: str) -> int:
@@ -126,6 +133,7 @@ class PublicBenchmarkSliceSpec:
     archive_descriptors: tuple[SourceArchiveDescriptor, ...]
     source_statuses: tuple[PublicSliceSourceStatus, ...]
     principal_positive_entity_count: int = 0
+    principal_current_baseline_compatible_entity_count: int = 0
     uses_intervention_object_replay: bool = False
     program_universe_source_path: Path | None = None
     program_history_events_source_path: Path | None = None
@@ -178,6 +186,14 @@ class PublicBenchmarkSliceSpec:
             "principal_positive_horizon": PUBLIC_SLICE_PRINCIPAL_HORIZON,
             "principal_positive_entity_count": self.principal_positive_entity_count,
             "principal_horizon_evaluable": self.principal_positive_entity_count > 0,
+            "principal_current_baseline_compatible_entity_count": (
+                self.principal_current_baseline_compatible_entity_count
+            ),
+            "principal_current_baseline_comparable": (
+                self.principal_positive_entity_count > 0
+                and
+                self.principal_current_baseline_compatible_entity_count > 0
+            ),
             "notes": self.notes,
         }
         if self.snapshot_request.program_universe_file:
@@ -313,8 +329,9 @@ def _candidate_cutoff_dates(
     uses_track_a_replay: bool,
     program_universe_path: Path | None,
     program_history_events_path: Path | None,
+    current_date: str | None = None,
 ) -> tuple[str, ...]:
-    maximum_cutoff = _parse_iso_date(base_request.as_of_date, "as_of_date")
+    configured_maximum_cutoff = _parse_iso_date(base_request.as_of_date, "as_of_date")
     if uses_track_a_replay:
         principal_horizon_years = _parse_horizon_years(PUBLIC_SLICE_PRINCIPAL_HORIZON)
         principal_horizon_cutoff = _add_years(
@@ -324,7 +341,14 @@ def _candidate_cutoff_dates(
             ),
             -principal_horizon_years,
         )
-        maximum_cutoff = max(maximum_cutoff, principal_horizon_cutoff)
+        configured_maximum_cutoff = max(
+            configured_maximum_cutoff,
+            principal_horizon_cutoff,
+        )
+    maximum_cutoff = min(
+        configured_maximum_cutoff,
+        _resolve_current_date(current_date),
+    )
     archive_cutoff_dates = {
         _archive_activation_date(
             allowed_data_through=descriptor.allowed_data_through,
@@ -352,6 +376,7 @@ def _candidate_cutoff_dates(
                 minimum_cutoff_date=minimum_cutoff_date,
                 program_universe_path=program_universe_path,
                 events_path=program_history_events_path,
+                include_maximum_cutoff=maximum_cutoff == configured_maximum_cutoff,
             )
         )
     return tuple(sorted(candidate_cutoff_dates))
@@ -361,21 +386,32 @@ def _public_slice_plan_upper_bound_date(
     *,
     base_request: SnapshotBuildRequest,
     uses_track_a_replay: bool,
+    current_date: str | None = None,
 ) -> str:
-    if not uses_track_a_replay:
-        return base_request.as_of_date
-    principal_horizon_years = _parse_horizon_years(PUBLIC_SLICE_PRINCIPAL_HORIZON)
-    principal_horizon_cutoff = _add_years(
-        _parse_iso_date(
-            base_request.outcome_observation_closed_at,
-            "outcome_observation_closed_at",
-        ),
-        -principal_horizon_years,
-    )
-    return max(
-        _parse_iso_date(base_request.as_of_date, "as_of_date"),
-        principal_horizon_cutoff,
-    ).isoformat()
+    maximum_cutoff = _parse_iso_date(base_request.as_of_date, "as_of_date")
+    if uses_track_a_replay:
+        principal_horizon_years = _parse_horizon_years(PUBLIC_SLICE_PRINCIPAL_HORIZON)
+        principal_horizon_cutoff = _add_years(
+            _parse_iso_date(
+                base_request.outcome_observation_closed_at,
+                "outcome_observation_closed_at",
+            ),
+            -principal_horizon_years,
+        )
+        maximum_cutoff = max(maximum_cutoff, principal_horizon_cutoff)
+    return min(maximum_cutoff, _resolve_current_date(current_date)).isoformat()
+
+
+def _current_baseline_compatible_entity_count(
+    bundle_rows: list[dict[str, object]],
+) -> int:
+    compatible_count = 0
+    for row in bundle_rows:
+        matched_gene_ids = str(row.get("matched_gene_entity_ids_json", "[]"))
+        matched_module_ids = str(row.get("matched_module_entity_ids_json", "[]"))
+        if matched_gene_ids != "[]" or matched_module_ids != "[]":
+            compatible_count += 1
+    return compatible_count
 
 
 def _coverage_limitation(
@@ -405,6 +441,25 @@ def _coverage_limitation(
             f"discovered {len(slice_specs)} honest slice(s) on or before "
             f"{as_of_date} for {benchmark_task_id}."
         )
+    comparable_slice_specs = tuple(
+        slice_spec
+        for slice_spec in evaluable_slice_specs
+        if slice_spec.principal_current_baseline_compatible_entity_count > 0
+    )
+    if not comparable_slice_specs:
+        return (
+            "Honest public slices were discovered on or before "
+            f"{as_of_date} for {benchmark_task_id}, and "
+            f"{len(evaluable_slice_specs)} are evaluable on the principal "
+            f"{PUBLIC_SLICE_PRINCIPAL_HORIZON} horizon, but none are honestly "
+            "comparable for v0_current/v1_current because the checked-in legacy "
+            "archive universe maps zero intervention objects: "
+            + ", ".join(
+                f"{slice_spec.slice_id}="
+                f"{slice_spec.principal_current_baseline_compatible_entity_count}"
+                for slice_spec in evaluable_slice_specs
+            )
+        )
     if len(evaluable_slice_specs) < 2:
         return (
             "Honest public slices were discovered on or before "
@@ -416,52 +471,6 @@ def _coverage_limitation(
             )
         )
     return ""
-
-
-def _cohort_members_fingerprint(
-    cohort_members: tuple[CohortMember, ...],
-) -> tuple[tuple[str, str, str], ...]:
-    return tuple(
-        sorted(
-            (
-                member.entity_type,
-                member.entity_id,
-                member.entity_label,
-            )
-            for member in cohort_members
-        )
-    )
-
-
-def _future_outcomes_fingerprint(
-    future_outcomes: tuple[FutureOutcomeRecord, ...],
-) -> tuple[tuple[str, str, str, str, str, str], ...]:
-    return tuple(
-        sorted(
-            (
-                outcome.entity_type,
-                outcome.entity_id,
-                outcome.outcome_label,
-                outcome.outcome_date,
-                outcome.label_source,
-                outcome.label_notes,
-            )
-            for outcome in future_outcomes
-        )
-    )
-
-
-def _public_slice_state_fingerprint(
-    *,
-    source_statuses: tuple[PublicSliceSourceStatus, ...],
-    cohort_members: tuple[CohortMember, ...],
-    future_outcomes: tuple[FutureOutcomeRecord, ...],
-) -> tuple[object, ...]:
-    return (
-        _source_status_fingerprint(source_statuses),
-        _cohort_members_fingerprint(cohort_members),
-        _future_outcomes_fingerprint(future_outcomes),
-    )
 
 
 def _build_slice_request(
@@ -553,21 +562,6 @@ def _source_statuses_from_manifest(
     )
 
 
-def _source_status_fingerprint(
-    source_statuses: tuple[PublicSliceSourceStatus, ...],
-) -> tuple[tuple[str, bool, str, str, str], ...]:
-    return tuple(
-        (
-            source_status.source_name,
-            source_status.included,
-            source_status.source_version if source_status.included else "",
-            source_status.allowed_data_through if source_status.included else "",
-            source_status.evidence_frozen_at if source_status.included else "",
-        )
-        for source_status in source_statuses
-    )
-
-
 def _load_fixture_inputs(
     task_contract: BenchmarkTaskContract,
     *,
@@ -615,6 +609,7 @@ def _build_public_slice_specs(
     task_contract: BenchmarkTaskContract,
     *,
     task_registry_path: Path | None = None,
+    current_date: str | None = None,
 ) -> tuple[PublicBenchmarkSliceSpec, ...]:
     (
         base_request,
@@ -647,8 +642,8 @@ def _build_public_slice_specs(
         uses_track_a_replay=uses_track_a_replay,
         program_universe_path=program_universe_source_path,
         program_history_events_path=program_history_events_source_path,
+        current_date=current_date,
     )
-    seen_fingerprints: set[tuple[object, ...]] = set()
     slice_specs: list[PublicBenchmarkSliceSpec] = []
 
     for as_of_date in candidate_cutoff_dates:
@@ -671,6 +666,7 @@ def _build_public_slice_specs(
         )
         resolved_cohort_members = cohort_members
         resolved_future_outcomes = future_outcomes
+        current_baseline_compatible_entity_count = 0
         if uses_track_a_replay:
             cohort_member_rows, future_outcome_rows = (
                 build_intervention_object_public_slice_rows(
@@ -686,14 +682,17 @@ def _build_public_slice_specs(
             resolved_future_outcomes = tuple(
                 FutureOutcomeRecord.from_dict(row) for row in future_outcome_rows
             )
+            bundle_rows = build_intervention_object_bundle_rows(
+                as_of_date=as_of_date,
+                source_snapshots=manifest.source_snapshots,
+                archive_descriptors=slice_archive_descriptors,
+                program_universe_path=program_universe_source_path,
+                events_path=program_history_events_source_path,
+            )
+            current_baseline_compatible_entity_count = (
+                _current_baseline_compatible_entity_count(bundle_rows)
+            )
         source_statuses = _source_statuses_from_manifest(manifest)
-        fingerprint = _public_slice_state_fingerprint(
-            source_statuses=source_statuses,
-            cohort_members=resolved_cohort_members,
-            future_outcomes=resolved_future_outcomes,
-        )
-        if fingerprint in seen_fingerprints:
-            continue
         labels = build_benchmark_cohort_labels(
             manifest,
             resolved_cohort_members,
@@ -704,7 +703,6 @@ def _build_public_slice_specs(
             labels,
             entity_types=manifest.entity_types,
         )
-        seen_fingerprints.add(fingerprint)
         slice_specs.append(
             PublicBenchmarkSliceSpec(
                 slice_id=slice_request.snapshot_id,
@@ -716,6 +714,9 @@ def _build_public_slice_specs(
                 archive_descriptors=slice_archive_descriptors,
                 source_statuses=source_statuses,
                 principal_positive_entity_count=positive_count,
+                principal_current_baseline_compatible_entity_count=(
+                    current_baseline_compatible_entity_count
+                ),
                 uses_intervention_object_replay=uses_track_a_replay,
                 program_universe_source_path=program_universe_source_path,
                 program_history_events_source_path=program_history_events_source_path,
@@ -731,6 +732,7 @@ def plan_public_benchmark_slices(
     *,
     benchmark_task_id: str | None = None,
     task_registry_path: Path | None = None,
+    current_date: str | None = None,
 ) -> PublicBenchmarkSlicePlan:
     resolved_task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=benchmark_task_id or DEFAULT_PUBLIC_SLICE_TASK_ID,
@@ -739,6 +741,7 @@ def plan_public_benchmark_slices(
     slice_specs = _build_public_slice_specs(
         resolved_task_contract,
         task_registry_path=task_registry_path,
+        current_date=current_date,
     )
     source_fixture_dir = (
         resolved_task_contract.fixture_paths.snapshot_request_file.parent
@@ -756,6 +759,7 @@ def plan_public_benchmark_slices(
         as_of_date=_public_slice_plan_upper_bound_date(
             base_request=base_request,
             uses_track_a_replay=uses_track_a_replay,
+            current_date=current_date,
         ),
         benchmark_task_id=resolved_task_contract.task_id,
     )
@@ -825,6 +829,7 @@ def materialize_public_benchmark_slices(
     output_dir: Path | None = None,
     benchmark_task_id: str | None = None,
     task_registry_path: Path | None = None,
+    current_date: str | None = None,
 ) -> dict[str, object]:
     resolved_output_dir = (
         DEFAULT_PUBLIC_SLICE_OUTPUT_DIR if output_dir is None else output_dir.resolve()
@@ -832,6 +837,7 @@ def materialize_public_benchmark_slices(
     plan = plan_public_benchmark_slices(
         benchmark_task_id=benchmark_task_id,
         task_registry_path=task_registry_path,
+        current_date=current_date,
     )
     task_contract = resolve_benchmark_task_contract(
         benchmark_task_id=benchmark_task_id or DEFAULT_PUBLIC_SLICE_TASK_ID,

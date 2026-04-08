@@ -1,0 +1,21 @@
+{
+  "genes": [
+    {
+      "cell_state_support": 0.77,
+      "entity_id": "ENSG00000162946",
+      "entity_label": "DISC1"
+    },
+    {
+      "cell_state_support": 0.69,
+      "entity_id": "ENSG00000151067",
+      "entity_label": "CACNA1C"
+    }
+  ],
+  "modules": [
+    {
+      "developmental_regulatory_relevance": 0.83,
+      "entity_id": "MOD_DLPFC_GRN",
+      "entity_label": "Deep Layer Cortical GRN"
+    }
+  ]
+}

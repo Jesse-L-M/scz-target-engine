@@ -82,8 +82,9 @@ def test_release_docs_cover_public_slice_backfill_and_replay() -> None:
         "backfill-benchmark-public-slices",
         "benchmark backfill public-slices",
         "data/benchmark/public_slices/catalog.json",
-        "none are evaluable on the principal `3y` horizon",
-        "data/benchmark/generated/public_slices/scz_translational_2025_01_16/",
+        "evaluable on the principal `3y` horizon",
+        "stop-go comparison remains blocked",
+        "data/benchmark/generated/public_slices/scz_translational_2024_09_25/",
         "fall back to live source data",
     ]
     _assert_contains("README.md", snippets)

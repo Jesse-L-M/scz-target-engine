@@ -2705,7 +2705,7 @@ def test_materialize_benchmark_reporting_skips_nonevaluable_public_slice_error_a
         / "data"
         / "benchmark"
         / "public_slices"
-        / "scz_translational_2024_06_20"
+        / "scz_translational_2024_09_26"
     )
     snapshot_manifest_file = tmp_path / "snapshot_manifest.json"
     cohort_labels_file = tmp_path / "cohort_labels.csv"

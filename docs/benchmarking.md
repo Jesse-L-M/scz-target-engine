@@ -136,6 +136,7 @@ Notes:
 - `v1_pre_numeric_pr7_heads` and `v1_post_numeric_pr7_heads` stay frozen as protocol comparison labels across the PR8.1 transition
 - `chembl_only` applies only where tractability context exists and is not a module baseline
 - `v0_current` and `v1_current` now also apply to `intervention_object` slices by writing explicit projection sidecars from archived gene/module baseline outputs through the checked-in compatibility contract
+- on the current checked-in Track A slices, that compatibility contract still maps zero intervention objects, so the real `v0_current` / `v1_current` stop-go comparison remains blocked
 - `random_with_coverage` randomizes across the full admissible cohort and is evaluated with the same full-cohort semantics as the main baselines, including intervention-object public slices
 - a snapshot may list a baseline only if that baseline applies to at least one entity type present in the snapshot manifest
 
@@ -538,9 +539,15 @@ Current honest public slices from the checked-in archive catalog:
 - `scz_translational_2024_06_18`
 - `scz_translational_2024_06_20`
 - `scz_translational_2024_07_15`
+- `scz_translational_2024_09_25`
+- `scz_translational_2024_09_26`
+- `scz_translational_2024_11_10`
 - `scz_translational_2024_11_11`
+- `scz_translational_2025_01_15`
 - `scz_translational_2025_01_16`
-- As of April 8, 2026, none are evaluable on the principal `3y` horizon because each checked-in slice still yields zero positive intervention-object outcomes after strict replay filtering.
+- As of April 8, 2026, the first five checked-in slices through `scz_translational_2024_09_25` are evaluable on the principal `3y` horizon with one positive intervention-object each. The later five remain non-evaluable after the positive approval boundary and subsequent misses cross the cutoff.
+- The real `v0_current` / `v1_current` stop-go comparison remains blocked because the checked-in archived compatibility universe maps zero intervention objects on every shipped slice.
+- Those evaluable slices are still not honest current-baseline comparisons. On `scz_translational_2024_09_25`, `random_with_coverage` covers `8/8` admissible intervention objects, while `v0_current` and `v1_current` both remain at `covered_entity_count = 0` because the checked-in legacy archive universe only contains `DISC1`, `CACNA1C`, and one unmatched PsychENCODE module.
 
 Each slice directory contains:
 
@@ -562,42 +569,43 @@ The slice catalog at `data/benchmark/public_slices/catalog.json` records the exa
 included and excluded sources for each cutoff. Missing historical archives stay explicit
 exclusions; the backfill path does not fall back to live source data.
 
-Replay example on a checked-in public slice such as `scz_translational_2025_01_16`:
+Replay example on a checked-in evaluable public slice such as `scz_translational_2024_09_25`:
 
 ```bash
 uv run scz-target-engine build-benchmark-snapshot \
-  --request-file data/benchmark/public_slices/scz_translational_2025_01_16/snapshot_request.json \
-  --archive-index-file data/benchmark/public_slices/scz_translational_2025_01_16/source_archives.json \
-  --output-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/snapshot_manifest.json \
+  --request-file data/benchmark/public_slices/scz_translational_2024_09_25/snapshot_request.json \
+  --archive-index-file data/benchmark/public_slices/scz_translational_2024_09_25/source_archives.json \
+  --output-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json \
   --materialized-at 2026-04-08
 
 uv run scz-target-engine build-benchmark-cohort \
-  --manifest-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/snapshot_manifest.json \
-  --cohort-members-file data/benchmark/public_slices/scz_translational_2025_01_16/cohort_members.csv \
-  --future-outcomes-file data/benchmark/public_slices/scz_translational_2025_01_16/future_outcomes.csv \
-  --output-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/cohort_labels.csv
+  --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json \
+  --cohort-members-file data/benchmark/public_slices/scz_translational_2024_09_25/cohort_members.csv \
+  --future-outcomes-file data/benchmark/public_slices/scz_translational_2024_09_25/future_outcomes.csv \
+  --output-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/cohort_labels.csv
 
 uv run scz-target-engine run-benchmark \
-  --manifest-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/snapshot_manifest.json \
-  --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/cohort_labels.csv \
-  --archive-index-file data/benchmark/public_slices/scz_translational_2025_01_16/source_archives.json \
-  --output-dir data/benchmark/generated/public_slices/scz_translational_2025_01_16/runner_outputs \
+  --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/cohort_labels.csv \
+  --archive-index-file data/benchmark/public_slices/scz_translational_2024_09_25/source_archives.json \
+  --output-dir data/benchmark/generated/public_slices/scz_translational_2024_09_25/runner_outputs \
   --config config/v0.toml \
   --deterministic-test-mode
 
 uv run scz-target-engine build-benchmark-reporting \
-  --manifest-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/snapshot_manifest.json \
-  --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2025_01_16/cohort_labels.csv \
-  --runner-output-dir data/benchmark/generated/public_slices/scz_translational_2025_01_16/runner_outputs \
-  --output-dir data/benchmark/generated/public_slices/scz_translational_2025_01_16/public_payloads
+  --manifest-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/snapshot_manifest.json \
+  --cohort-labels-file data/benchmark/generated/public_slices/scz_translational_2024_09_25/cohort_labels.csv \
+  --runner-output-dir data/benchmark/generated/public_slices/scz_translational_2024_09_25/runner_outputs \
+  --output-dir data/benchmark/generated/public_slices/scz_translational_2024_09_25/public_payloads
 ```
 
 That replay writes the intervention-object feature bundle beside the generated
 snapshot manifest, explicit projected baseline payloads under
 `runner_outputs/baseline_projections/`, and intervention-object leaderboard
-outputs under `public_payloads/`. Because the shipped checked-in public slices
-have zero principal-horizon positives, the reporting step currently produces no
-error-analysis markdown for them.
+outputs under `public_payloads/`. Because `scz_translational_2024_09_25` is now
+principal-horizon evaluable, the reporting step also writes Track A error-analysis
+markdown for `v0_current` and `v1_current`, but both current baselines still land
+at `covered_entity_count = 0` on that slice.
 
 ## Current Runner Coverage
 

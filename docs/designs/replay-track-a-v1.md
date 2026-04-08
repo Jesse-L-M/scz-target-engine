@@ -29,6 +29,13 @@ It does not cover Track B failure-memory reasoning yet.
   on the principal slice with bootstrap CIs, do not proceed to later translation
   milestones
 
+PR3 decision status as of 2026-04-08: `HOLD`.
+The real five-slice decision run was executed on April 8, 2026. On Track A
+`intervention_object` slices today, the only legal available-now runnable
+baselines are `v0_current`, `v1_current`, and `random_with_coverage`. No genuine
+challenger materially beat both controls on the principal
+`scz_translational_2024_09_25` slice, so the gate did not clear.
+
 ## Scope
 
 - intervention-object replay cohorts and labels
@@ -177,13 +184,23 @@ ARCHIVED SOURCES + PROGRAM MEMORY + CURRENT BASELINES
   principal `3y` horizon with one honest positive intervention object each. The later
   five remain non-evaluable after the positive approval crosses the cutoff boundary and
   only negative or no future outcomes remain.
-- PR3 is now honestly unblocked for the real `v0_current` / `v1_current` stop-go
-  comparison. The default public-slice backfill path reads archived source
-  descriptors from the checked-in `scz_track_a_historical_replay` fixture surface,
-  which raises `principal_current_baseline_compatible_entity_count` to `4` on
-  `2024-06-15` and `5` on the other four evaluable slices through `2024-09-25`.
-  On the principal `2024-09-25` replay, `random_with_coverage` covers `8/8`
-  intervention objects, `v0_current` covers `4/8`, and `v1_current` covers `5/8`.
+- On Track A `intervention_object` replay today, only `v0_current`,
+  `v1_current`, and `random_with_coverage` are legal available-now baselines.
+  Gene-only baselines do not apply to intervention-object slices, and the
+  protocol-only labels are not executable challengers here.
+- PR3 was honestly unblocked for the real stop/go comparison, and that decision
+  run has now been executed. The default public-slice backfill path reads
+  archived source descriptors from the checked-in
+  `scz_track_a_historical_replay` fixture surface, which raises
+  `principal_current_baseline_compatible_entity_count` to `4` on `2024-06-15`
+  and `5` on the other four evaluable slices through `2024-09-25`.
+- The principal `2024-09-25` decision run ended `HOLD`.
+  `random_with_coverage` scored `0.500000` with 95% CI `[0.000000, 1.000000]`
+  on `3y average_precision_any_positive_outcome`, while `v0_current` and
+  `v1_current` both scored `0.125000` with 95% CI `[0.000000, 0.275794]`.
+  `random_with_coverage` is a sanity baseline, not a milestone-clearing replay
+  layer, and both control baselines miss the lone principal positive in error
+  review.
 - Track A now admits `coverage_state = included` denominator rows whose first checked-
   in mapped event lands after the cutoff, but it does so conservatively: pre-approval
   rows rewind to `phase_3_or_registration`, while future-only unresolved rows still do

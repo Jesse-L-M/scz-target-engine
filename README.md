@@ -84,12 +84,13 @@ foundation still does not implement consortium-dump parsing.
 - Track A public slices now pin the checked-in denominator locally via
   `program_universe.csv` and `events.csv`. As of April 8, 2026, the first five
   checked-in cutoffs through `2024-09-25` are principal-`3y` evaluable with one
-  honest positive intervention object each, and the real `v0_current` /
-  `v1_current` stop-go comparison is now honestly unblocked because the checked-in
-  Track A replay archive universe yields non-zero current-baseline coverage on every
-  evaluable slice. On the principal `2024-09-25` replay, `random_with_coverage`
-  covers `8/8` intervention objects, `v0_current` covers `4/8`, and `v1_current`
-  covers `5/8`. The later five cutoffs remain non-evaluable after the positive
+  honest positive intervention object each. The actual PR3 decision run on April 8,
+  2026 ended `HOLD`: on the principal `2024-09-25` slice,
+  `random_with_coverage` scored `0.500000` with 95% CI `[0.000000, 1.000000]`,
+  while `v0_current` and `v1_current` both scored `0.125000` with 95% CI
+  `[0.000000, 0.275794]` and both missed the lone positive in error review.
+  `random_with_coverage` remains a sanity baseline, not a milestone-clearing
+  replay layer. The later five cutoffs remain non-evaluable after the positive
   approval boundary lands.
 - Benchmark breadth is still limited to the frozen schizophrenia question, a small deterministic cohort, and the current `available_now` baseline subset.
 - Benchmark outputs are diagnostic artifacts. They are not proof of calibration, threshold quality, or deployment readiness.

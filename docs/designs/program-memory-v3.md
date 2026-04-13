@@ -194,6 +194,19 @@ Every accepted `claim` or `belief_update` must separate:
 
 No single blended score is allowed to erase which part is weak.
 
+### Current implementation boundary
+
+The checked-in implementation is currently a hand-curated KarXT /
+`xanomeline-trospium-schizophrenia` pilot path. Non-KarXT programs still fall back
+to empty scaffold outputs.
+
+The next substrate gaps are:
+
+- immutable source capture plus digests
+- first-class structured confidence fields instead of packing most of the split into
+  coarse labels and `notes`
+- generic harvest/adjudication beyond the KarXT special case
+
 ### Canonical dossier contract
 
 The registered `v3` artifacts are the canonical contract.
@@ -222,6 +235,9 @@ Current rules:
 
 - `source_manifest.json` carries `unresolved_questions`; there is no separate
   `open_questions.md` contract yet
+- real dossier `program_id` values must resolve through the checked-in identity
+  catalog or an explicit pilot registry before writing review artifacts; ambiguous
+  alias inputs should fail closed instead of spawning near-duplicate programs
 - `claims.csv` is the single adjudicated claim ledger; accepted and rejected claims
   are distinguished by status, not by separate files
 - insight packets must be built from adjudicated artifacts, not from raw documents or
@@ -232,6 +248,8 @@ Deferred next-contract artifacts:
 - `exposure_evidence`
 - claim-link graphs
 - dedicated source-history diff artifacts
+- first-class randomized / treated / efficacy-analysis denominator fields plus
+  comparator-value columns for result and harm observations
 - dedicated diarization briefs
 - compatibility projections for replay / policy / packet consumers
 

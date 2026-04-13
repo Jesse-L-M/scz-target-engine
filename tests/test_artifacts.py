@@ -1103,7 +1103,7 @@ def test_interneuron_rescue_governance_artifacts_validate_against_registered_sch
     }
 
 
-def test_program_memory_v3_stub_artifacts_validate_against_registered_schemas(
+def test_program_memory_v3_karxt_artifacts_validate_against_registered_schemas(
     tmp_path: Path,
 ) -> None:
     harvest_dir = tmp_path / "harvest"
@@ -1128,9 +1128,13 @@ def test_program_memory_v3_stub_artifacts_validate_against_registered_schemas(
     materialize_program_memory_v3_insight_packet(
         program_dir=adjudicated_dir,
         output_file=insight_packet_path,
-        packet_id="karxt_packet_v1",
-        packet_question="What should change about beliefs for KarXT?",
-        scope_summary="Single-program review packet.",
+        packet_id="karxt-acute-efficacy-tolerability",
+        packet_question=(
+            "What should the public KarXT schizophrenia evidence update about "
+            "acute efficacy, tolerability burden, and what is molecule-specific "
+            "vs mechanism-general?"
+        ),
+        scope_summary="Single-program KarXT schizophrenia pilot packet.",
         generated_at="2026-04-12",
     )
 
@@ -1174,4 +1178,16 @@ def test_program_memory_v3_stub_artifacts_validate_against_registered_schemas(
         load_artifact(adjudicated_dir / "program_card.json").artifact_name
         == "program_memory_v3_program_card"
     )
-    assert load_artifact(insight_packet_path).artifact_name == "program_memory_v3_insight_packet"
+    assert (
+        load_artifact(insight_packet_path).artifact_name
+        == "program_memory_v3_insight_packet"
+    )
+
+    source_manifest = json.loads(
+        (harvest_dir / "source_manifest.json").read_text(encoding="utf-8")
+    )
+    packet_payload = json.loads(insight_packet_path.read_text(encoding="utf-8"))
+
+    assert source_manifest["program_id"] == "xanomeline-trospium-schizophrenia"
+    assert source_manifest["source_document_count"] >= 10
+    assert packet_payload["candidate_insights"]

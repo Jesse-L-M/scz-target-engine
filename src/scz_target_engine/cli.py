@@ -47,6 +47,9 @@ from scz_target_engine.program_memory import (
     build_program_memory_harvest_batch,
     build_program_memory_harvest_review_rows,
     load_program_memory_harvest_batch,
+    materialize_program_memory_v3_adjudication_bundle,
+    materialize_program_memory_v3_harvest_bundle,
+    materialize_program_memory_v3_insight_packet,
     write_program_memory_adjudication_outputs,
     write_program_memory_coverage_outputs,
     write_program_memory_harvest_batch,
@@ -196,6 +199,38 @@ def _configure_program_memory_coverage_audit_parser(
     parser.add_argument("--focus-target-class")
     parser.add_argument("--focus-domain")
     parser.add_argument("--focus-failure-scope")
+
+
+def _configure_program_memory_harvest_program_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--program-id", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--program-label")
+    parser.add_argument("--materialized-at")
+    parser.add_argument("--corpus-tier")
+    parser.add_argument("--source-url", action="append", default=[])
+
+
+def _configure_program_memory_adjudicate_program_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--harvest-dir", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--adjudication-id", required=True)
+    parser.add_argument("--reviewer", required=True)
+    parser.add_argument("--reviewed-at")
+
+
+def _configure_program_memory_build_insight_packet_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
+    parser.add_argument("--program-dir", required=True)
+    parser.add_argument("--output-file", required=True)
+    parser.add_argument("--packet-id", required=True)
+    parser.add_argument("--packet-question")
+    parser.add_argument("--scope-summary")
+    parser.add_argument("--generated-at")
 
 
 def _configure_fetch_opentargets_parser(parser: argparse.ArgumentParser) -> None:
@@ -552,6 +587,21 @@ COMMAND_ROUTES = (
         "program-memory-coverage-audit",
         ("program-memory", "coverage-audit"),
         _configure_program_memory_coverage_audit_parser,
+    ),
+    CommandRoute(
+        "program-memory-harvest-program",
+        ("program-memory", "harvest-program"),
+        _configure_program_memory_harvest_program_parser,
+    ),
+    CommandRoute(
+        "program-memory-adjudicate-program",
+        ("program-memory", "adjudicate-program"),
+        _configure_program_memory_adjudicate_program_parser,
+    ),
+    CommandRoute(
+        "program-memory-build-insight-packet",
+        ("program-memory", "build-insight-packet"),
+        _configure_program_memory_build_insight_packet_parser,
     ),
     CommandRoute(
         "fetch-opentargets",
@@ -1019,6 +1069,41 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+        return 0
+
+    if args.command == "program-memory-harvest-program":
+        result = materialize_program_memory_v3_harvest_bundle(
+            output_dir=Path(args.output_dir).resolve(),
+            program_id=args.program_id,
+            program_label=args.program_label or "",
+            materialized_at=args.materialized_at or "",
+            source_urls=tuple(args.source_url),
+            corpus_tier=args.corpus_tier or "",
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "program-memory-adjudicate-program":
+        result = materialize_program_memory_v3_adjudication_bundle(
+            harvest_dir=Path(args.harvest_dir).resolve(),
+            output_dir=Path(args.output_dir).resolve(),
+            adjudication_id=args.adjudication_id,
+            reviewer=args.reviewer,
+            reviewed_at=args.reviewed_at or "",
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "program-memory-build-insight-packet":
+        result = materialize_program_memory_v3_insight_packet(
+            program_dir=Path(args.program_dir).resolve(),
+            output_file=Path(args.output_file).resolve(),
+            packet_id=args.packet_id,
+            packet_question=args.packet_question or "",
+            scope_summary=args.scope_summary or "",
+            generated_at=args.generated_at or "",
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
     if args.command == "rescue-run-glutamatergic-convergence":

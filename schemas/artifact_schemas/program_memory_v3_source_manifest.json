@@ -1,0 +1,79 @@
+{
+  "artifact_name": "program_memory_v3_source_manifest",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Program-memory v3 harvest manifest for one program review bundle.",
+  "key_fields": [
+    "program_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Program-memory v3 schema version."
+    },
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "program_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable program label."
+    },
+    {
+      "name": "review_stage",
+      "field_type": "string",
+      "required": true,
+      "description": "Current review stage for the bundle."
+    },
+    {
+      "name": "corpus_tier",
+      "field_type": "string",
+      "required": true,
+      "description": "Tiered scope bucket for the program."
+    },
+    {
+      "name": "materialized_at",
+      "field_type": "date",
+      "required": true,
+      "description": "Date the harvest bundle was materialized."
+    },
+    {
+      "name": "source_document_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Declared count of source documents in the manifest."
+    },
+    {
+      "name": "source_documents",
+      "field_type": "object[]",
+      "required": true,
+      "description": "Per-source metadata rows linked to the program."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "unresolved_questions",
+      "field_type": "string[]",
+      "required": false,
+      "description": "Open extraction or adjudication questions."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

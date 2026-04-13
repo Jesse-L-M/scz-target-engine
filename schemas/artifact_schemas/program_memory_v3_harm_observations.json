@@ -1,0 +1,112 @@
+{
+  "artifact_name": "program_memory_v3_harm_observations",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Program-memory v3 safety and tolerability observations for one harvested program bundle.",
+  "key_fields": [
+    "program_id",
+    "study_id",
+    "arm_id",
+    "harm_id"
+  ],
+  "required_fields": [
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "study_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical study identifier."
+    },
+    {
+      "name": "arm_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable arm identifier within the study."
+    },
+    {
+      "name": "harm_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable harm observation identifier."
+    },
+    {
+      "name": "harm_term",
+      "field_type": "string",
+      "required": true,
+      "description": "Normalized harm term or safety concept."
+    },
+    {
+      "name": "harm_category",
+      "field_type": "string",
+      "required": true,
+      "description": "Safety category such as metabolic or EPS."
+    },
+    {
+      "name": "severity_scope",
+      "field_type": "string",
+      "required": true,
+      "description": "Severity or seriousness scope."
+    },
+    {
+      "name": "result_summary",
+      "field_type": "string",
+      "required": true,
+      "description": "Short normalized summary of the safety observation."
+    },
+    {
+      "name": "source_document_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Source document row anchoring the observation."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "treatment_label",
+      "field_type": "string",
+      "required": false,
+      "description": "Normalized treatment-arm label."
+    },
+    {
+      "name": "comparator_label",
+      "field_type": "string",
+      "required": false,
+      "description": "Comparator arm label when applicable."
+    },
+    {
+      "name": "incidence_percent",
+      "field_type": "string",
+      "required": false,
+      "description": "Incidence proportion text when reported."
+    },
+    {
+      "name": "incidence_count",
+      "field_type": "string",
+      "required": false,
+      "description": "Incidence count text when reported."
+    },
+    {
+      "name": "serious_flag",
+      "field_type": "string",
+      "required": false,
+      "description": "Serious adverse event indicator when reported."
+    },
+    {
+      "name": "discontinuation_flag",
+      "field_type": "string",
+      "required": false,
+      "description": "Discontinuation due to harm indicator when reported."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

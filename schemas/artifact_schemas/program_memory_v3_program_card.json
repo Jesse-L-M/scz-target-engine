@@ -1,0 +1,115 @@
+{
+  "artifact_name": "program_memory_v3_program_card",
+  "schema_version": "v1",
+  "file_format": "json",
+  "description": "Program-memory v3 adjudicated program card used for synthesis and review.",
+  "key_fields": [
+    "program_id"
+  ],
+  "required_fields": [
+    {
+      "name": "schema_name",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact schema identifier."
+    },
+    {
+      "name": "schema_version",
+      "field_type": "string",
+      "required": true,
+      "description": "Program-memory v3 schema version."
+    },
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "program_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable program label."
+    },
+    {
+      "name": "adjudication_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable adjudication identifier."
+    },
+    {
+      "name": "reviewer",
+      "field_type": "string",
+      "required": true,
+      "description": "Reviewer or adjudicator identifier."
+    },
+    {
+      "name": "review_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Current program-card review status."
+    },
+    {
+      "name": "overall_verdict",
+      "field_type": "string",
+      "required": true,
+      "description": "Top-level adjudicated verdict."
+    },
+    {
+      "name": "materialized_at",
+      "field_type": "date",
+      "required": true,
+      "description": "Date the program card was materialized."
+    },
+    {
+      "name": "source_document_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Declared source-document count inherited from harvest."
+    },
+    {
+      "name": "claim_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Declared claim count attached to the card."
+    },
+    {
+      "name": "caveat_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Declared caveat count attached to the card."
+    },
+    {
+      "name": "belief_update_count",
+      "field_type": "integer",
+      "required": true,
+      "description": "Declared belief-update count attached to the card."
+    },
+    {
+      "name": "key_takeaways",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Top-level review takeaways."
+    },
+    {
+      "name": "top_caveats",
+      "field_type": "string[]",
+      "required": true,
+      "description": "Most important caveats to surface above the fold."
+    },
+    {
+      "name": "evidence_summary",
+      "field_type": "string",
+      "required": true,
+      "description": "One-paragraph evidence summary."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

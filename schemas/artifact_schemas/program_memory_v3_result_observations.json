@@ -1,0 +1,125 @@
+{
+  "artifact_name": "program_memory_v3_result_observations",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Program-memory v3 efficacy and endpoint observations for one harvested program bundle.",
+  "key_fields": [
+    "program_id",
+    "study_id",
+    "arm_id",
+    "endpoint_id",
+    "timepoint_label"
+  ],
+  "required_fields": [
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "study_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical study identifier."
+    },
+    {
+      "name": "arm_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable arm identifier within the study."
+    },
+    {
+      "name": "endpoint_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable endpoint identifier."
+    },
+    {
+      "name": "endpoint_role",
+      "field_type": "string",
+      "required": true,
+      "description": "Endpoint role such as primary or secondary."
+    },
+    {
+      "name": "endpoint_domain",
+      "field_type": "string",
+      "required": true,
+      "description": "Clinical domain assessed by the endpoint."
+    },
+    {
+      "name": "timepoint_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Timepoint or visit label for the observation."
+    },
+    {
+      "name": "result_direction",
+      "field_type": "string",
+      "required": true,
+      "description": "Normalized result direction label."
+    },
+    {
+      "name": "result_summary",
+      "field_type": "string",
+      "required": true,
+      "description": "Short normalized summary of the observed result."
+    },
+    {
+      "name": "source_document_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Source document row anchoring the observation."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "analysis_population",
+      "field_type": "string",
+      "required": false,
+      "description": "Analysis population used for the observation."
+    },
+    {
+      "name": "treatment_label",
+      "field_type": "string",
+      "required": false,
+      "description": "Normalized treatment-arm label."
+    },
+    {
+      "name": "comparator_label",
+      "field_type": "string",
+      "required": false,
+      "description": "Comparator arm label when applicable."
+    },
+    {
+      "name": "effect_size",
+      "field_type": "string",
+      "required": false,
+      "description": "Effect-size value captured as emitted text."
+    },
+    {
+      "name": "effect_size_unit",
+      "field_type": "string",
+      "required": false,
+      "description": "Unit for the effect-size value."
+    },
+    {
+      "name": "p_value",
+      "field_type": "string",
+      "required": false,
+      "description": "P-value text when reported."
+    },
+    {
+      "name": "confidence_interval",
+      "field_type": "string",
+      "required": false,
+      "description": "Confidence interval text when reported."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

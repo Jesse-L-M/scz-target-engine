@@ -6,6 +6,16 @@ that future task work can consume without changing current build semantics.
 ## Registered Families
 
 - `program_memory_release`
+- `program_memory_v3_source_manifest`
+- `program_memory_v3_study_index`
+- `program_memory_v3_result_observations`
+- `program_memory_v3_harm_observations`
+- `program_memory_v3_contradiction_log`
+- `program_memory_v3_claim_ledger`
+- `program_memory_v3_caveats`
+- `program_memory_v3_belief_updates`
+- `program_memory_v3_program_card`
+- `program_memory_v3_insight_packet`
 - `benchmark_release`
 - `rescue_release`
 - `variant_context_release`
@@ -142,6 +152,24 @@ contract provenance fields live on the manifest artifacts:
 
 - `BenchmarkSnapshotManifest` may include optional `benchmark_suite_id` and `benchmark_task_id`
 - `BenchmarkModelRunManifest` may include optional `benchmark_suite_id` and `benchmark_task_id`
+
+The program-memory `v3` draft dossier path now also registers first-pass stable
+artifact families for single-program review bundles and scoped synthesis packets:
+
+- `program_memory_v3_source_manifest`
+- `program_memory_v3_study_index`
+- `program_memory_v3_result_observations`
+- `program_memory_v3_harm_observations`
+- `program_memory_v3_contradiction_log`
+- `program_memory_v3_claim_ledger`
+- `program_memory_v3_caveats`
+- `program_memory_v3_belief_updates`
+- `program_memory_v3_program_card`
+- `program_memory_v3_insight_packet`
+
+These are draft but explicit repo-wide contracts, not ad hoc workflow files. They
+exist so `harvest-program`, `adjudicate-program`, and `build-insight-packet` can
+emit self-validating machine-readable bundles from day one.
 
 For current ledger and `v1` artifacts, validation stays additive and non-invasive:
 

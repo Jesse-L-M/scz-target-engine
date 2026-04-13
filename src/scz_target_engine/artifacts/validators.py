@@ -492,6 +492,161 @@ def _validate_release_manifest(
     return manifest
 
 
+def _require_non_negative_int(value: object, field_name: str) -> int:
+    parsed = _require_int(value, field_name)
+    if parsed < 0:
+        raise ValueError(f"{field_name} must be zero or greater")
+    return parsed
+
+
+def _validate_program_memory_v3_csv_artifact(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> list[dict[str, str]]:
+    fieldnames, rows = _read_csv_artifact(path)
+    _ensure_required_fields(
+        schema,
+        set(fieldnames),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    return rows
+
+
+def _validate_program_memory_v3_source_manifest(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    source_document_count = _require_non_negative_int(
+        payload.get("source_document_count"),
+        "program_memory_v3_source_manifest.source_document_count",
+    )
+    source_documents = _require_list(
+        payload.get("source_documents"),
+        "program_memory_v3_source_manifest.source_documents",
+    )
+    if source_document_count != len(source_documents):
+        raise ValueError(
+            "program_memory_v3_source_manifest.source_document_count must match "
+            "source_documents"
+        )
+    for index, item in enumerate(source_documents):
+        document = _require_mapping(
+            item,
+            f"program_memory_v3_source_manifest.source_documents[{index}]",
+        )
+        for field_name in (
+            "source_document_id",
+            "source_kind",
+            "source_label",
+            "source_locator",
+            "source_tier",
+            "extraction_status",
+        ):
+            _require_text(
+                document.get(field_name, ""),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].{field_name}"
+                ),
+            )
+    unresolved_questions = payload.get("unresolved_questions")
+    if unresolved_questions is not None:
+        _require_string_list(
+            unresolved_questions,
+            "program_memory_v3_source_manifest.unresolved_questions",
+        )
+    return payload
+
+
+def _validate_program_memory_v3_program_card(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    for field_name in (
+        "source_document_count",
+        "claim_count",
+        "caveat_count",
+        "belief_update_count",
+    ):
+        _require_non_negative_int(
+            payload.get(field_name),
+            f"program_memory_v3_program_card.{field_name}",
+        )
+    _require_string_list(
+        payload.get("key_takeaways"),
+        "program_memory_v3_program_card.key_takeaways",
+    )
+    _require_string_list(
+        payload.get("top_caveats"),
+        "program_memory_v3_program_card.top_caveats",
+    )
+    return payload
+
+
+def _validate_program_memory_v3_insight_packet(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> dict[str, object]:
+    payload = _load_json_mapping(path)
+    _ensure_required_fields(
+        schema,
+        set(payload),
+        context=f"{schema.artifact_name} artifact {path}",
+    )
+    program_ids = _require_string_list(
+        payload.get("program_ids"),
+        "program_memory_v3_insight_packet.program_ids",
+    )
+    if not program_ids:
+        raise ValueError("program_memory_v3_insight_packet.program_ids must not be empty")
+    evidence_artifacts = _require_list(
+        payload.get("evidence_artifacts"),
+        "program_memory_v3_insight_packet.evidence_artifacts",
+    )
+    if not evidence_artifacts:
+        raise ValueError(
+            "program_memory_v3_insight_packet.evidence_artifacts must not be empty"
+        )
+    for index, item in enumerate(evidence_artifacts):
+        artifact = _require_mapping(
+            item,
+            f"program_memory_v3_insight_packet.evidence_artifacts[{index}]",
+        )
+        _require_text(
+            artifact.get("artifact_name", ""),
+            (
+                "program_memory_v3_insight_packet.evidence_artifacts"
+                f"[{index}].artifact_name"
+            ),
+        )
+        _require_text(
+            artifact.get("path", ""),
+            f"program_memory_v3_insight_packet.evidence_artifacts[{index}].path",
+        )
+    candidate_insights = _require_list(
+        payload.get("candidate_insights"),
+        "program_memory_v3_insight_packet.candidate_insights",
+    )
+    for index, item in enumerate(candidate_insights):
+        _require_mapping(
+            item,
+            f"program_memory_v3_insight_packet.candidate_insights[{index}]",
+        )
+    return payload
+
+
 def _validate_structural_failure_history(
     payload: Mapping[str, object],
     *,
@@ -2901,6 +3056,52 @@ def infer_artifact_name(
     if suffix == ".csv":
         fieldnames, _ = _read_csv_artifact(path)
         fieldname_set = set(fieldnames)
+        if path.name == "study_index.csv" and {
+            "program_id",
+            "study_id",
+            "study_label",
+            "study_phase",
+        }.issubset(fieldname_set):
+            return "program_memory_v3_study_index"
+        if path.name == "result_observations.csv" and {
+            "program_id",
+            "study_id",
+            "arm_id",
+            "endpoint_id",
+            "timepoint_label",
+        }.issubset(fieldname_set):
+            return "program_memory_v3_result_observations"
+        if path.name == "harm_observations.csv" and {
+            "program_id",
+            "study_id",
+            "arm_id",
+            "harm_id",
+        }.issubset(fieldname_set):
+            return "program_memory_v3_harm_observations"
+        if path.name == "contradictions.csv" and {
+            "program_id",
+            "contradiction_id",
+            "claim_topic",
+        }.issubset(fieldname_set):
+            return "program_memory_v3_contradiction_log"
+        if path.name == "claims.csv" and {
+            "program_id",
+            "claim_id",
+            "claim_kind",
+        }.issubset(fieldname_set):
+            return "program_memory_v3_claim_ledger"
+        if path.name == "caveats.csv" and {
+            "program_id",
+            "caveat_id",
+            "caveat_kind",
+        }.issubset(fieldname_set):
+            return "program_memory_v3_caveats"
+        if path.name == "belief_updates.csv" and {
+            "program_id",
+            "belief_update_id",
+            "belief_domain",
+        }.issubset(fieldname_set):
+            return "program_memory_v3_belief_updates"
         if {"cohort_id", "snapshot_id", "label_name", "horizon"}.issubset(fieldname_set):
             return "benchmark_cohort_labels"
         if {"domain_slug", "domain_head_score_v1", "domain_rank_v1"}.issubset(fieldname_set):
@@ -2942,6 +3143,16 @@ _ARTIFACT_VALIDATORS = {
     "benchmark_metric_output_payload": _validate_benchmark_metric_output_payload,
     "benchmark_confidence_interval_payload": _validate_benchmark_confidence_interval_payload,
     "program_memory_release": _validate_release_manifest,
+    "program_memory_v3_source_manifest": _validate_program_memory_v3_source_manifest,
+    "program_memory_v3_study_index": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_result_observations": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_harm_observations": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_contradiction_log": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_claim_ledger": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_caveats": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_belief_updates": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_program_card": _validate_program_memory_v3_program_card,
+    "program_memory_v3_insight_packet": _validate_program_memory_v3_insight_packet,
     "benchmark_release": _validate_release_manifest,
     "rescue_release": _validate_release_manifest,
     "variant_context_release": _validate_release_manifest,

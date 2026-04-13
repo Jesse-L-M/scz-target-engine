@@ -1,0 +1,80 @@
+{
+  "artifact_name": "program_memory_v3_claim_ledger",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Program-memory v3 adjudicated claim ledger for one program.",
+  "key_fields": [
+    "program_id",
+    "claim_id"
+  ],
+  "required_fields": [
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "claim_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable adjudicated claim identifier."
+    },
+    {
+      "name": "claim_kind",
+      "field_type": "string",
+      "required": true,
+      "description": "Claim family such as efficacy, safety, or exposure."
+    },
+    {
+      "name": "claim_statement",
+      "field_type": "string",
+      "required": true,
+      "description": "Short normalized claim statement."
+    },
+    {
+      "name": "evidence_scope",
+      "field_type": "string",
+      "required": true,
+      "description": "Scope of the evidence supporting the claim."
+    },
+    {
+      "name": "primary_source_document_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Primary source document anchoring the claim."
+    },
+    {
+      "name": "adjudication_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Adjudication outcome for the claim."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "study_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Study identifier when the claim is study-scoped."
+    },
+    {
+      "name": "confidence_label",
+      "field_type": "string",
+      "required": false,
+      "description": "Confidence label for the claim."
+    },
+    {
+      "name": "supporting_source_document_ids",
+      "field_type": "string",
+      "required": false,
+      "description": "Delimited list of additional supporting source documents."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

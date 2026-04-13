@@ -13,6 +13,11 @@ from scz_target_engine.benchmark_snapshots import (
 )
 from scz_target_engine.config import load_config
 from scz_target_engine.engine import build_outputs
+from scz_target_engine.program_memory import (
+    materialize_program_memory_v3_adjudication_bundle,
+    materialize_program_memory_v3_harvest_bundle,
+    materialize_program_memory_v3_insight_packet,
+)
 
 
 def _schema_signature(schema: object) -> tuple[object, ...]:
@@ -69,6 +74,16 @@ def test_artifact_registry_covers_current_output_and_contract_families() -> None
 
     assert {schema.artifact_name for schema in schemas} == {
         "program_memory_release",
+        "program_memory_v3_source_manifest",
+        "program_memory_v3_study_index",
+        "program_memory_v3_result_observations",
+        "program_memory_v3_harm_observations",
+        "program_memory_v3_contradiction_log",
+        "program_memory_v3_claim_ledger",
+        "program_memory_v3_caveats",
+        "program_memory_v3_belief_updates",
+        "program_memory_v3_program_card",
+        "program_memory_v3_insight_packet",
         "benchmark_release",
         "rescue_release",
         "variant_context_release",
@@ -1086,3 +1101,77 @@ def test_interneuron_rescue_governance_artifacts_validate_against_registered_sch
         "interneuron_arbor_ranking_inputs_2023_12_31",
         "interneuron_followup_labels_2026_03_31",
     }
+
+
+def test_program_memory_v3_stub_artifacts_validate_against_registered_schemas(
+    tmp_path: Path,
+) -> None:
+    harvest_dir = tmp_path / "harvest"
+    adjudicated_dir = tmp_path / "adjudicated"
+    insight_packet_path = tmp_path / "packet" / "insight_packet.json"
+
+    materialize_program_memory_v3_harvest_bundle(
+        output_dir=harvest_dir,
+        program_id="karxt",
+        program_label="KarXT",
+        materialized_at="2026-04-12",
+        source_urls=("https://clinicaltrials.gov/study/NCT04659161",),
+        corpus_tier="A",
+    )
+    materialize_program_memory_v3_adjudication_bundle(
+        harvest_dir=harvest_dir,
+        output_dir=adjudicated_dir,
+        adjudication_id="karxt_review_v1",
+        reviewer="tester@example.com",
+        reviewed_at="2026-04-12",
+    )
+    materialize_program_memory_v3_insight_packet(
+        program_dir=adjudicated_dir,
+        output_file=insight_packet_path,
+        packet_id="karxt_packet_v1",
+        packet_question="What should change about beliefs for KarXT?",
+        scope_summary="Single-program review packet.",
+        generated_at="2026-04-12",
+    )
+
+    assert (
+        load_artifact(harvest_dir / "source_manifest.json").artifact_name
+        == "program_memory_v3_source_manifest"
+    )
+    assert (
+        load_artifact(harvest_dir / "study_index.csv").artifact_name
+        == "program_memory_v3_study_index"
+    )
+    assert (
+        load_artifact(harvest_dir / "result_observations.csv").artifact_name
+        == "program_memory_v3_result_observations"
+    )
+    assert (
+        load_artifact(harvest_dir / "harm_observations.csv").artifact_name
+        == "program_memory_v3_harm_observations"
+    )
+    assert (
+        load_artifact(harvest_dir / "contradictions.csv").artifact_name
+        == "program_memory_v3_contradiction_log"
+    )
+    assert (
+        load_artifact(adjudicated_dir / "claims.csv").artifact_name
+        == "program_memory_v3_claim_ledger"
+    )
+    assert (
+        load_artifact(adjudicated_dir / "contradictions.csv").artifact_name
+        == "program_memory_v3_contradiction_log"
+    )
+    assert (
+        load_artifact(adjudicated_dir / "caveats.csv").artifact_name
+        == "program_memory_v3_caveats"
+    )
+    assert (
+        load_artifact(adjudicated_dir / "belief_updates.csv").artifact_name
+        == "program_memory_v3_belief_updates"
+    )
+    assert (
+        load_artifact(adjudicated_dir / "program_card.json").artifact_name
+        == "program_memory_v3_program_card"
+    )
+    assert load_artifact(insight_packet_path).artifact_name == "program_memory_v3_insight_packet"

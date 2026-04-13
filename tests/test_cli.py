@@ -139,6 +139,48 @@ def test_cli_validate_runs() -> None:
         ),
         (
             [
+                "program-memory",
+                "harvest-program",
+                "--program-id",
+                "karxt",
+                "--output-dir",
+                "harvest_bundle",
+            ],
+            "program-memory-harvest-program",
+            ("program-memory", "harvest-program"),
+        ),
+        (
+            [
+                "program-memory",
+                "adjudicate-program",
+                "--harvest-dir",
+                "harvest_bundle",
+                "--output-dir",
+                "adjudicated_bundle",
+                "--adjudication-id",
+                "karxt_review_v1",
+                "--reviewer",
+                "reviewer@example.com",
+            ],
+            "program-memory-adjudicate-program",
+            ("program-memory", "adjudicate-program"),
+        ),
+        (
+            [
+                "program-memory",
+                "build-insight-packet",
+                "--program-dir",
+                "adjudicated_bundle",
+                "--output-file",
+                "packet.json",
+                "--packet-id",
+                "karxt_packet_v1",
+            ],
+            "program-memory-build-insight-packet",
+            ("program-memory", "build-insight-packet"),
+        ),
+        (
+            [
                 "benchmark",
                 "backfill",
                 "public-slices",
@@ -512,6 +554,74 @@ def test_cli_register_prospective_prediction_rejects_existing_output_file(
                 "forecast_chrm4_acute_translation_guardrails_2026_03_31",
             ]
         )
+
+
+def test_cli_program_memory_v3_stub_workflow_runs(tmp_path: Path) -> None:
+    harvest_dir = tmp_path / "harvest"
+    adjudicated_dir = tmp_path / "adjudicated"
+    insight_packet_path = tmp_path / "packet" / "insight_packet.json"
+
+    harvest_exit_code = main(
+        [
+            "program-memory",
+            "harvest-program",
+            "--program-id",
+            "karxt",
+            "--output-dir",
+            str(harvest_dir.resolve()),
+            "--program-label",
+            "KarXT",
+            "--materialized-at",
+            "2026-04-12",
+            "--corpus-tier",
+            "A",
+            "--source-url",
+            "https://clinicaltrials.gov/study/NCT04659161",
+        ]
+    )
+    assert harvest_exit_code == 0
+    assert (harvest_dir / "source_manifest.json").exists()
+
+    adjudicate_exit_code = main(
+        [
+            "program-memory",
+            "adjudicate-program",
+            "--harvest-dir",
+            str(harvest_dir.resolve()),
+            "--output-dir",
+            str(adjudicated_dir.resolve()),
+            "--adjudication-id",
+            "karxt_review_v1",
+            "--reviewer",
+            "reviewer@example.com",
+            "--reviewed-at",
+            "2026-04-12",
+        ]
+    )
+    assert adjudicate_exit_code == 0
+    assert (adjudicated_dir / "program_card.json").exists()
+    assert (adjudicated_dir / "contradictions.csv").exists()
+
+    packet_exit_code = main(
+        [
+            "program-memory",
+            "build-insight-packet",
+            "--program-dir",
+            str(adjudicated_dir.resolve()),
+            "--output-file",
+            str(insight_packet_path.resolve()),
+            "--packet-id",
+            "karxt_packet_v1",
+            "--packet-question",
+            "What should change about beliefs for KarXT?",
+            "--scope-summary",
+            "Single-program review packet.",
+            "--generated-at",
+            "2026-04-12",
+        ]
+    )
+    assert packet_exit_code == 0
+    assert insight_packet_path.exists()
 
 
 def test_cli_build_expert_review_packets_rejects_reserved_required_finding(

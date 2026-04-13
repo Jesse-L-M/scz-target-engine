@@ -1,0 +1,80 @@
+{
+  "artifact_name": "program_memory_v3_belief_updates",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Program-memory v3 belief updates distilled from adjudicated claims.",
+  "key_fields": [
+    "program_id",
+    "belief_update_id"
+  ],
+  "required_fields": [
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "belief_update_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable belief-update identifier."
+    },
+    {
+      "name": "belief_domain",
+      "field_type": "string",
+      "required": true,
+      "description": "Belief domain such as target, mechanism, or design."
+    },
+    {
+      "name": "update_direction",
+      "field_type": "string",
+      "required": true,
+      "description": "Direction of the belief update."
+    },
+    {
+      "name": "update_summary",
+      "field_type": "string",
+      "required": true,
+      "description": "Short normalized belief-update summary."
+    },
+    {
+      "name": "confidence_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Confidence label for the belief update."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "target_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Target identifier when the belief update is target-scoped."
+    },
+    {
+      "name": "mechanism_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Mechanism identifier when the belief update is mechanism-scoped."
+    },
+    {
+      "name": "affected_population",
+      "field_type": "string",
+      "required": false,
+      "description": "Population slice most affected by the update."
+    },
+    {
+      "name": "supporting_claim_ids",
+      "field_type": "string",
+      "required": false,
+      "description": "Delimited list of supporting claim identifiers."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

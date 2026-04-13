@@ -1,0 +1,74 @@
+{
+  "artifact_name": "program_memory_v3_contradiction_log",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Program-memory v3 contradiction log capturing source conflicts before adjudication.",
+  "key_fields": [
+    "program_id",
+    "contradiction_id"
+  ],
+  "required_fields": [
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "contradiction_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable contradiction identifier."
+    },
+    {
+      "name": "claim_topic",
+      "field_type": "string",
+      "required": true,
+      "description": "Claim topic or field under dispute."
+    },
+    {
+      "name": "source_document_id_a",
+      "field_type": "string",
+      "required": true,
+      "description": "First source document in the contradiction pair."
+    },
+    {
+      "name": "source_document_id_b",
+      "field_type": "string",
+      "required": true,
+      "description": "Second source document in the contradiction pair."
+    },
+    {
+      "name": "contradiction_summary",
+      "field_type": "string",
+      "required": true,
+      "description": "Short normalized contradiction summary."
+    },
+    {
+      "name": "adjudication_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Current contradiction resolution state."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "preferred_source_document_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Preferred source when one already dominates."
+    },
+    {
+      "name": "rationale",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional explanation for the contradiction state."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

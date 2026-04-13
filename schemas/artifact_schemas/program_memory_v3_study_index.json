@@ -1,0 +1,86 @@
+{
+  "artifact_name": "program_memory_v3_study_index",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Program-memory v3 study-level index for one harvested program bundle.",
+  "key_fields": [
+    "program_id",
+    "study_id"
+  ],
+  "required_fields": [
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "study_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical study identifier."
+    },
+    {
+      "name": "study_label",
+      "field_type": "string",
+      "required": true,
+      "description": "Human-readable study label."
+    },
+    {
+      "name": "study_phase",
+      "field_type": "string",
+      "required": true,
+      "description": "Normalized study phase label."
+    },
+    {
+      "name": "condition_scope",
+      "field_type": "string",
+      "required": true,
+      "description": "Indication or condition slice for the study."
+    },
+    {
+      "name": "population_scope",
+      "field_type": "string",
+      "required": true,
+      "description": "Normalized population scope for the study."
+    },
+    {
+      "name": "study_status",
+      "field_type": "string",
+      "required": true,
+      "description": "Current or terminal study status."
+    },
+    {
+      "name": "source_document_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Source document row anchoring the study entry."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "nct_id",
+      "field_type": "string",
+      "required": false,
+      "description": "ClinicalTrials.gov NCT identifier when available."
+    },
+    {
+      "name": "design_summary",
+      "field_type": "string",
+      "required": false,
+      "description": "Short normalized study-design summary."
+    },
+    {
+      "name": "comparator_type",
+      "field_type": "string",
+      "required": false,
+      "description": "Comparator class or control type."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

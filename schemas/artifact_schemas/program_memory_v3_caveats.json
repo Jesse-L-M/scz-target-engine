@@ -1,0 +1,68 @@
+{
+  "artifact_name": "program_memory_v3_caveats",
+  "schema_version": "v1",
+  "file_format": "csv",
+  "description": "Program-memory v3 caveat log for one adjudicated program.",
+  "key_fields": [
+    "program_id",
+    "caveat_id"
+  ],
+  "required_fields": [
+    {
+      "name": "program_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable canonical program identifier."
+    },
+    {
+      "name": "caveat_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Stable caveat identifier."
+    },
+    {
+      "name": "caveat_kind",
+      "field_type": "string",
+      "required": true,
+      "description": "Caveat family such as reporting, design, or exposure."
+    },
+    {
+      "name": "applies_to_kind",
+      "field_type": "string",
+      "required": true,
+      "description": "Artifact or claim type the caveat applies to."
+    },
+    {
+      "name": "applies_to_id",
+      "field_type": "string",
+      "required": true,
+      "description": "Identifier of the artifact or claim the caveat applies to."
+    },
+    {
+      "name": "caveat_summary",
+      "field_type": "string",
+      "required": true,
+      "description": "Short normalized caveat summary."
+    },
+    {
+      "name": "severity",
+      "field_type": "string",
+      "required": true,
+      "description": "Severity or importance label for the caveat."
+    }
+  ],
+  "optional_fields": [
+    {
+      "name": "source_document_id",
+      "field_type": "string",
+      "required": false,
+      "description": "Source document anchoring the caveat when applicable."
+    },
+    {
+      "name": "notes",
+      "field_type": "string",
+      "required": false,
+      "description": "Optional free-text notes."
+    }
+  ]
+}

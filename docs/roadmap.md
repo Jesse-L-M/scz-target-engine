@@ -2,8 +2,8 @@
 
 This is the short source-of-truth pointer for the repo strategy.
 
-For the full working roadmap, read
-`docs/designs/deep-scz-validate-calibrate.md`.
+For the active schizophrenia program-memory implementation lane, read
+`docs/designs/program-memory-v3.md`.
 For shipped behavior and claim boundaries, read `docs/claim.md`.
 For build-spec rules and the milestone-spec template, read
 `docs/designs/README.md`.
@@ -42,17 +42,19 @@ variant-to-context substrate -> SCZ-Rescue-1 -> rescue models -> assay / kill te
 ## Current Sequencing
 
 1. Freeze contracts, compatibility, smoke path, and distribution docs.
-2. Build program-memory denominator and failure-memory coverage.
-3. Prove real uplift on historical replay.
-4. Only then ship `SCZ-Rescue-1` as the flagship scientific product.
-5. Expand the atlas into a variant-to-context feature store for rescue and replay.
-6. Translate replay and rescue wins into policy and packet surfaces.
-7. Externalize one real credibility track.
+2. Keep the shipped program-memory denominator stable as the foundation.
+3. Build `program_memory_v3`, the dossier, adjudication, and insight-packet layer.
+4. Prove real uplift on historical replay.
+5. Only then ship `SCZ-Rescue-1` as the flagship scientific product.
+6. Expand the atlas into a variant-to-context feature store for rescue and replay.
+7. Translate replay and rescue wins into policy and packet surfaces.
+8. Externalize one real credibility track.
 
 ## Milestones
 
 - Milestone 0: contracts, compatibility, smoke path, and release path
-- Milestone 1: Program Memory 2.0 with explicit denominator accounting
+- Milestone 1A: program-memory denominator and coverage foundation
+- Milestone 1B: `program_memory_v3` dossier, adjudication, and insight-packet system
 - Milestone 2: real historical replay with intervention-object feature bundles
 - Milestone 3: `SCZ-Rescue-1` in one defined glutamatergic-neuron context
 - Milestone 4: variant-to-context substrate for rescue and replay
@@ -63,24 +65,28 @@ variant-to-context substrate -> SCZ-Rescue-1 -> rescue models -> assay / kill te
 
 1. `contracts-and-compat-v2`
 2. `program-memory-denominator-v1`
-3. `replay-track-a-v1`
-4. `replay-track-b-v1`
-5. `SCZ-Rescue-1-v1`
-6. `variant-to-context-v1`
-7. `policy-and-packets-v1`
-8. `external-credibility-v1`
+3. `program-memory-v3`
+4. `replay-track-a-v1`
+5. `replay-track-b-v1`
+6. `SCZ-Rescue-1-v1`
+7. `variant-to-context-v1`
+8. `policy-and-packets-v1`
+9. `external-credibility-v1`
 
-Critical sequencing rule: do not start PRs 5-8 until PR4 proves there is real
+Critical sequencing rule: do not start PRs 6-9 until PR5 proves there is real
 uplift worth translating.
 
 ## Execution Contract
 
 - Strategy docs:
-  `docs/roadmap.md` plus `docs/designs/deep-scz-validate-calibrate.md`
+  `docs/roadmap.md` plus `docs/designs/program-memory-v3.md` for the current
+  program-memory lane
 - Build-specs:
   `docs/designs/*.md`
 - Cross-cutting decisions:
   `docs/decisions/*.md`
+- Continuity / routing:
+  `docs/designs/program-memory-v3-resolver.md`
 - Milestone 0 compatibility surface:
   `docs/intervention_object_compatibility.md`,
   `docs/artifact_schemas.md`,

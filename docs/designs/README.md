@@ -3,8 +3,17 @@
 This directory is for build-spec documents, not broad strategy docs.
 
 Use [docs/roadmap.md](../roadmap.md) for the short strategy view and
-[deep-scz-validate-calibrate.md](deep-scz-validate-calibrate.md) for the detailed
-working roadmap.
+[program-memory-v3.md](program-memory-v3.md) for the active schizophrenia
+program-memory implementation lane.
+
+## Current Active Continuity Docs
+
+For future agents or fresh workspaces, start here:
+
+- `program-memory-v3.md`, active dossier, adjudication, and packet-build spec
+- `program-memory-v3-resolver.md`, routing table for skills, artifacts, and CLI use
+- `program-memory-denominator-v1.md`, shipped denominator foundation that `v3`
+  builds on rather than replacing immediately
 
 ## What Belongs Here
 
@@ -15,6 +24,7 @@ Good examples:
 
 - `contracts-and-compat-v2.md`
 - `program-memory-denominator-v1.md`
+- `program-memory-v3.md`
 - `replay-track-a-v1.md`
 - `replay-track-b-v1.md`
 - `scz-rescue-1-v1.md`
@@ -41,7 +51,7 @@ Last updated: YYYY-MM-DD
 ## Repo Planning Contract
 
 - One strategy source of truth:
-  `docs/roadmap.md` plus `docs/designs/deep-scz-validate-calibrate.md`
+  `docs/roadmap.md`
 - One active build-spec per workstream
 - If direction changes, update the existing spec or mark it superseded
 - Do not keep two active specs for the same milestone
@@ -69,9 +79,10 @@ These are the next build-specs the roadmap expects:
 
 1. `contracts-and-compat-v2.md`
 2. `program-memory-denominator-v1.md`
-3. `replay-track-a-v1.md`
-4. `replay-track-b-v1.md`
-5. `scz-rescue-1-v1.md`
-6. `variant-to-context-v1.md`
-7. `policy-and-packets-v1.md`
-8. `external-credibility-v1.md`
+3. `program-memory-v3.md`
+4. `replay-track-a-v1.md`
+5. `replay-track-b-v1.md`
+6. `scz-rescue-1-v1.md`
+7. `variant-to-context-v1.md`
+8. `policy-and-packets-v1.md`
+9. `external-credibility-v1.md`

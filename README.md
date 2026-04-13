@@ -77,6 +77,23 @@ slices do not fall back to live source data.
 
 See [docs/claim.md](docs/claim.md) for the full claim boundary.
 
+## Start Here
+
+If you are picking up the repo fresh, do not infer the current plan from old
+milestone names alone.
+
+Use these docs first:
+
+- [docs/roadmap.md](docs/roadmap.md), short strategy and current sequencing
+- [docs/designs/program-memory-v3.md](docs/designs/program-memory-v3.md), active
+  build spec for the schizophrenia program-memory dossier system
+- [docs/designs/program-memory-v3-resolver.md](docs/designs/program-memory-v3-resolver.md),
+  routing table for which artifacts, skills, and commands to use for harvest,
+  adjudication, and insight-packet work
+- [docs/program_history.md](docs/program_history.md), current shipped `v2`
+  denominator/event boundary
+- [docs/claim.md](docs/claim.md), honest boundary for what is and is not shipped
+
 ## Quickstart
 
 Requires [uv](https://github.com/astral-sh/uv).
@@ -157,7 +174,8 @@ Both lanes converge on `intervention_object_id` as the shared key.
 | # | Focus | Status |
 |---|-------|--------|
 | 0 | Contracts, compatibility, smoke path | Shipped |
-| 1 | Program memory denominator | In progress |
+| 1A | Program memory denominator foundation | Shipped |
+| 1B | `program_memory_v3` dossier and packet system | In progress |
 | 2 | Historical replay with intervention-object features | Future |
 | 3 | SCZ-Rescue-1 in glutamatergic context | Future |
 | 4 | Variant-to-context substrate | Future |
@@ -167,8 +185,8 @@ Both lanes converge on `intervention_object_id` as the shared key.
 Critical rule: milestones 5-6 don't start until milestone 4 proves real uplift.
 
 See [docs/roadmap.md](docs/roadmap.md) for full strategy and
-[docs/designs/deep-scz-validate-calibrate.md](docs/designs/deep-scz-validate-calibrate.md)
-for the detailed working plan.
+[docs/designs/program-memory-v3.md](docs/designs/program-memory-v3.md) for the
+active program-memory implementation lane.
 
 ## Data Sources
 
@@ -208,6 +226,8 @@ scripts/run_contract_smoke_path.sh  # CI-executed contract verifier
 | [docs/ontology.md](docs/ontology.md) | The 8 clinical domain definitions used by v1 |
 | [docs/benchmarking.md](docs/benchmarking.md) | Benchmark protocol, workflow, artifact layout |
 | [docs/program_history.md](docs/program_history.md) | Program memory schema and curation rules |
+| [docs/designs/program-memory-v3.md](docs/designs/program-memory-v3.md) | Active `v3` dossier and insight-packet build spec |
+| [docs/designs/program-memory-v3-resolver.md](docs/designs/program-memory-v3-resolver.md) | Task routing and continuity guide for future agents |
 | [docs/rescue_tasks.md](docs/rescue_tasks.md) | Rescue task governance and contracts |
 | [docs/roadmap.md](docs/roadmap.md) | Strategy and milestone sequencing |
 | [docs/artifact_schemas.md](docs/artifact_schemas.md) | Registered output schemas and validation |

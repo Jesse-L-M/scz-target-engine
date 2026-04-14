@@ -16,6 +16,12 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
   program denominator with effectively complete approved coverage, near-exhaustive
   phase 2/3 coverage, and explicit `included` / `unresolved` / `duplicate` /
   `excluded` / `out_of_scope` accounting
+- `program_memory_v3` now hardens one KarXT schizophrenia pilot dossier with
+  snapshot-backed source manifests for the curated pilot sources, structured
+  confidence fields, and first-class denominator/comparator columns; unknown
+  non-pilot program IDs fail closed unless explicit seed mode is requested, and
+  explicit seed mode only writes immutable URL-seed records rather than claiming
+  raw source capture
 - the benchmark path is now runnable end to end from frozen snapshot, cohort, and runner artifacts
 - the Milestone 0 compatibility surface is now frozen through
   `docs/intervention_object_compatibility.md`, six registered release-manifest

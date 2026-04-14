@@ -5,7 +5,7 @@ Owner branch: Jesse-L-M/schiz-trial-audit
 Depends on: docs/designs/contracts-and-compat-v2.md, docs/designs/program-memory-denominator-v1.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-13
+Last updated: 2026-04-14
 
 ## Objective
 
@@ -197,15 +197,15 @@ No single blended score is allowed to erase which part is weak.
 ### Current implementation boundary
 
 The checked-in implementation is currently a hand-curated KarXT /
-`xanomeline-trospium-schizophrenia` pilot path. Non-KarXT programs still fall back
-to empty scaffold outputs.
+`xanomeline-trospium-schizophrenia` pilot path. Unknown non-pilot programs now fail
+closed by default unless explicit seed-mode bootstrap is requested.
 
 The next substrate gaps are:
 
-- immutable source capture plus digests
-- first-class structured confidence fields instead of packing most of the split into
-  coarse labels and `notes`
 - generic harvest/adjudication beyond the KarXT special case
+- first-class source-history diff artifacts rather than linked current/history
+  snapshots alone
+- richer exposure-evidence capture beyond the current result/harm/claim surfaces
 
 ### Canonical dossier contract
 
@@ -235,11 +235,24 @@ Current rules:
 
 - `source_manifest.json` carries `unresolved_questions`; there is no separate
   `open_questions.md` contract yet
+- every `source_documents` entry must carry immutable capture metadata:
+  `captured_at`, `raw_artifact_path`, `content_sha256`, `source_version`, and
+  `content_type`
+- curated pilot sources are expected to point at immutable raw snapshot captures;
+  explicit seed-mode bootstrap writes immutable URL-seed records and remains
+  non-authoritative until a real harvest replaces them
 - real dossier `program_id` values must resolve through the checked-in identity
   catalog or an explicit pilot registry before writing review artifacts; ambiguous
   alias inputs should fail closed instead of spawning near-duplicate programs
+- unknown non-pilot programs fail closed by default unless an explicit seed-mode
+  bootstrap is requested
+- `result_observations.csv` and `harm_observations.csv` now carry first-class
+  randomized, treated, and efficacy-analysis denominator columns plus comparator
+  value fields where applicable
 - `claims.csv` is the single adjudicated claim ledger; accepted and rejected claims
   are distinguished by status, not by separate files
+- `claims.csv` and `belief_updates.csv` must carry the six structured confidence
+  fields directly; `notes` is not the main confidence carrier
 - insight packets must be built from adjudicated artifacts, not from raw documents or
   freeform summaries
 
@@ -248,8 +261,6 @@ Deferred next-contract artifacts:
 - `exposure_evidence`
 - claim-link graphs
 - dedicated source-history diff artifacts
-- first-class randomized / treated / efficacy-analysis denominator fields plus
-  comparator-value columns for result and harm observations
 - dedicated diarization briefs
 - compatibility projections for replay / policy / packet consumers
 
@@ -309,8 +320,9 @@ Milestone 0 sequencing:
 ## Acceptance Tests
 
 - Unit:
-  schema tests for `source_documents`, `claims`, `contradictions`,
-  `belief_updates`, and `program_cards`
+  schema tests for `source_documents`, `result_observations`,
+  `harm_observations`, `claims`, `contradictions`, `belief_updates`, and
+  `program_cards`
 - Integration:
   deterministic harvest of one known approval, one known phase 3 failure, and one
   current active program from raw capture to adjudicated dossier

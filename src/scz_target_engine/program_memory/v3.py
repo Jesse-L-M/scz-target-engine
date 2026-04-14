@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from hashlib import sha256
 from pathlib import Path
 
 from scz_target_engine.io import read_csv_table, read_json, write_csv, write_json
@@ -16,6 +17,8 @@ from scz_target_engine.program_memory.v3_karxt import (
     karxt_harvest_unresolved_questions,
     karxt_program_card_payload,
     karxt_result_observation_rows,
+    karxt_source_capture_fixture_bytes,
+    karxt_source_capture_fixture_file_name,
     karxt_study_index_rows,
     resolve_karxt_schizophrenia_pilot,
     unresolved_karxt_schizophrenia_identity,
@@ -32,7 +35,12 @@ PROGRAM_MEMORY_V3_CAVEATS = "program_memory_v3_caveats"
 PROGRAM_MEMORY_V3_BELIEF_UPDATES = "program_memory_v3_belief_updates"
 PROGRAM_MEMORY_V3_PROGRAM_CARD = "program_memory_v3_program_card"
 PROGRAM_MEMORY_V3_INSIGHT_PACKET = "program_memory_v3_insight_packet"
-PROGRAM_MEMORY_V3_SCHEMA_VERSION = "v1"
+PROGRAM_MEMORY_V3_SOURCE_MANIFEST_SCHEMA_VERSION = "v2"
+PROGRAM_MEMORY_V3_PROGRAM_CARD_SCHEMA_VERSION = "v1"
+PROGRAM_MEMORY_V3_INSIGHT_PACKET_SCHEMA_VERSION = "v1"
+PROGRAM_MEMORY_V3_SOURCE_CAPTURE_DIR_NAME = "source_captures"
+# Compatibility alias for callers that previously imported one shared v3 schema version.
+PROGRAM_MEMORY_V3_SCHEMA_VERSION = PROGRAM_MEMORY_V3_SOURCE_MANIFEST_SCHEMA_VERSION
 
 PROGRAM_MEMORY_V3_SOURCE_MANIFEST_FILE_NAME = "source_manifest.json"
 PROGRAM_MEMORY_V3_STUDY_INDEX_FILE_NAME = "study_index.csv"
@@ -74,6 +82,15 @@ PROGRAM_MEMORY_V3_RESULT_OBSERVATION_FIELDNAMES = [
     "analysis_population",
     "treatment_label",
     "comparator_label",
+    "treatment_observed_value",
+    "comparator_observed_value",
+    "observed_value_unit",
+    "randomized_denominator_treatment",
+    "randomized_denominator_comparator",
+    "treated_denominator_treatment",
+    "treated_denominator_comparator",
+    "efficacy_analysis_denominator_treatment",
+    "efficacy_analysis_denominator_comparator",
     "effect_size",
     "effect_size_unit",
     "p_value",
@@ -94,7 +111,15 @@ PROGRAM_MEMORY_V3_HARM_OBSERVATION_FIELDNAMES = [
     "treatment_label",
     "comparator_label",
     "incidence_percent",
+    "comparator_incidence_percent",
     "incidence_count",
+    "comparator_incidence_count",
+    "randomized_denominator_treatment",
+    "randomized_denominator_comparator",
+    "treated_denominator_treatment",
+    "treated_denominator_comparator",
+    "efficacy_analysis_denominator_treatment",
+    "efficacy_analysis_denominator_comparator",
     "serious_flag",
     "discontinuation_flag",
     "notes",
@@ -122,6 +147,12 @@ PROGRAM_MEMORY_V3_CLAIM_LEDGER_FIELDNAMES = [
     "primary_source_document_id",
     "adjudication_status",
     "study_id",
+    "extraction_confidence",
+    "source_reliability",
+    "risk_of_bias",
+    "reporting_integrity_risk",
+    "transportability_confidence",
+    "interpretation_confidence",
     "confidence_label",
     "supporting_source_document_ids",
     "notes",
@@ -145,6 +176,12 @@ PROGRAM_MEMORY_V3_BELIEF_UPDATE_FIELDNAMES = [
     "belief_domain",
     "update_direction",
     "update_summary",
+    "extraction_confidence",
+    "source_reliability",
+    "risk_of_bias",
+    "reporting_integrity_risk",
+    "transportability_confidence",
+    "interpretation_confidence",
     "confidence_label",
     "target_id",
     "mechanism_id",
@@ -184,17 +221,90 @@ def _load_registered_artifact(path: Path, *, artifact_name: str) -> None:
     load_artifact(path, artifact_name=artifact_name)
 
 
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _default_content_type(source_locator: str) -> str:
+    lowered = source_locator.lower()
+    if lowered.endswith(".pdf"):
+        return "application/pdf"
+    return "text/html"
+
+
 def _source_document_rows(program_id: str, source_urls: tuple[str, ...]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for index, source_url in enumerate(source_urls, start=1):
         rows.append(
             {
                 "source_document_id": f"{program_id}__src_{index:03d}",
-                "source_kind": "url",
+                "source_kind": "seed_locator",
                 "source_label": source_url,
                 "source_locator": source_url,
-                "source_tier": "public_unreviewed",
+                "source_tier": "seed_locator",
                 "extraction_status": "pending",
+                "source_version": "",
+                "content_type": "text/uri-list",
+            }
+        )
+    return rows
+
+
+def _write_source_capture(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+
+
+def _materialize_source_capture_rows(
+    *,
+    output_dir: Path,
+    program_id: str,
+    captured_at: str,
+    source_documents: list[dict[str, str]],
+    use_curated_pilot_fixtures: bool,
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for source_document in source_documents:
+        source_document_id = _clean_text(source_document.get("source_document_id", ""))
+        if not source_document_id:
+            raise ValueError("source documents require source_document_id")
+        source_version = str(source_document.get("source_version", ""))
+        if use_curated_pilot_fixtures:
+            capture_file_name = karxt_source_capture_fixture_file_name(source_document_id)
+            capture_bytes = karxt_source_capture_fixture_bytes(source_document_id)
+            content_type = str(
+                source_document.get(
+                    "content_type",
+                    _default_content_type(str(source_document.get("source_locator", ""))),
+                )
+            )
+        else:
+            capture_file_name = f"{source_document_id}.uri"
+            source_locator = _clean_text(source_document.get("source_locator", ""))
+            capture_bytes = f"{source_locator}\n".encode("utf-8")
+            content_type = "text/uri-list"
+        relative_capture_path = (
+            Path(PROGRAM_MEMORY_V3_SOURCE_CAPTURE_DIR_NAME) / capture_file_name
+        )
+        capture_path = output_dir / relative_capture_path
+        _write_source_capture(capture_path, capture_bytes)
+        rows.append(
+            {
+                "source_document_id": source_document_id,
+                "source_kind": str(source_document.get("source_kind", "")),
+                "source_label": str(source_document.get("source_label", "")),
+                "source_locator": str(source_document.get("source_locator", "")),
+                "source_tier": str(source_document.get("source_tier", "")),
+                "extraction_status": str(source_document.get("extraction_status", "")),
+                "captured_at": captured_at,
+                "raw_artifact_path": str(relative_capture_path),
+                "content_sha256": _file_sha256(capture_path),
+                "source_version": source_version,
+                "content_type": content_type,
             }
         )
     return rows
@@ -226,6 +336,7 @@ def materialize_program_memory_v3_harvest_bundle(
     materialized_at: str = "",
     source_urls: tuple[str, ...] = (),
     corpus_tier: str = "",
+    seed_mode: bool = False,
 ) -> dict[str, object]:
     resolved_output_dir = output_dir.resolve()
     resolved_output_dir.mkdir(parents=True, exist_ok=True)
@@ -251,6 +362,16 @@ def materialize_program_memory_v3_harvest_bundle(
         normalized_program_id = pilot_resolution.canonical_program_id
         normalized_program_label = pilot_resolution.canonical_program_label
     else:
+        if not seed_mode:
+            raise ValueError(
+                "program_id must resolve through the curated pilot registry by "
+                "default; pass seed_mode=True (CLI: --seed-mode) with source URLs "
+                "to scaffold an explicit seed program"
+            )
+        if not source_urls:
+            raise ValueError(
+                "seed_mode requires at least one source_url for an unregistered program"
+            )
         normalized_program_id = requested_program_id
         normalized_program_label = _defaulted_text(
             requested_program_label,
@@ -261,13 +382,18 @@ def materialize_program_memory_v3_harvest_bundle(
         corpus_tier,
         "A" if pilot_resolution is not None else "unspecified",
     )
-    # Current v3 boundary: KarXT is the only populated curated pilot.
-    # Other programs still emit scaffold artifacts until immutable source capture,
-    # structured confidence fields, and generic harvest/adjudication land.
+    normalized_seed_mode = bool(seed_mode and pilot_resolution is None)
     if pilot_resolution is not None:
         source_documents = karxt_harvest_source_documents()
     else:
         source_documents = _source_document_rows(normalized_program_id, source_urls)
+    source_documents = _materialize_source_capture_rows(
+        output_dir=resolved_output_dir,
+        program_id=normalized_program_id,
+        captured_at=normalized_materialized_at,
+        source_documents=source_documents,
+        use_curated_pilot_fixtures=pilot_resolution is not None,
+    )
 
     source_manifest_path = (
         resolved_output_dir / PROGRAM_MEMORY_V3_SOURCE_MANIFEST_FILE_NAME
@@ -285,12 +411,13 @@ def materialize_program_memory_v3_harvest_bundle(
 
     source_manifest_payload = {
         "schema_name": PROGRAM_MEMORY_V3_SOURCE_MANIFEST,
-        "schema_version": PROGRAM_MEMORY_V3_SCHEMA_VERSION,
+        "schema_version": PROGRAM_MEMORY_V3_SOURCE_MANIFEST_SCHEMA_VERSION,
         "program_id": normalized_program_id,
         "program_label": normalized_program_label,
         "review_stage": "harvest",
         "corpus_tier": normalized_corpus_tier,
         "materialized_at": normalized_materialized_at,
+        "seed_mode": normalized_seed_mode,
         "source_document_count": len(source_documents),
         "source_documents": source_documents,
         "unresolved_questions": (
@@ -368,6 +495,7 @@ def materialize_program_memory_v3_harvest_bundle(
         "program_id": normalized_program_id,
         "program_label": normalized_program_label,
         "materialized_at": normalized_materialized_at,
+        "seed_mode": normalized_seed_mode,
         "source_document_count": len(source_documents),
         "output_dir": str(resolved_output_dir),
         "source_manifest_file": str(source_manifest_path),
@@ -401,6 +529,10 @@ def materialize_program_memory_v3_adjudication_bundle(
     source_manifest_path = (
         resolved_harvest_dir / PROGRAM_MEMORY_V3_SOURCE_MANIFEST_FILE_NAME
     )
+    _load_registered_artifact(
+        source_manifest_path,
+        artifact_name=PROGRAM_MEMORY_V3_SOURCE_MANIFEST,
+    )
     source_manifest = _validated_json_object(source_manifest_path)
     normalized_adjudication_id = _clean_text(adjudication_id)
     normalized_reviewer = _clean_text(reviewer)
@@ -412,8 +544,14 @@ def materialize_program_memory_v3_adjudication_bundle(
     program_id = str(source_manifest.get("program_id") or "").strip()
     program_label = str(source_manifest.get("program_label") or "").strip()
     materialized_at = _defaulted_text(reviewed_at, _today_string())
+    seed_mode = bool(source_manifest.get("seed_mode"))
     source_document_count = int(source_manifest.get("source_document_count") or 0)
     pilot_resolution = resolve_karxt_schizophrenia_pilot(program_id, program_label)
+    if pilot_resolution is None and not seed_mode:
+        raise ValueError(
+            "harvest bundle program_id does not resolve through the curated pilot "
+            "registry and was not materialized in seed_mode"
+        )
 
     claim_ledger_path = resolved_output_dir / PROGRAM_MEMORY_V3_CLAIM_LEDGER_FILE_NAME
     caveats_path = resolved_output_dir / PROGRAM_MEMORY_V3_CAVEATS_FILE_NAME
@@ -461,7 +599,7 @@ def materialize_program_memory_v3_adjudication_bundle(
             program_card_path,
             {
                 "schema_name": PROGRAM_MEMORY_V3_PROGRAM_CARD,
-                "schema_version": PROGRAM_MEMORY_V3_SCHEMA_VERSION,
+                "schema_version": PROGRAM_MEMORY_V3_PROGRAM_CARD_SCHEMA_VERSION,
                 **program_card_payload,
             },
         )
@@ -483,7 +621,7 @@ def materialize_program_memory_v3_adjudication_bundle(
             program_card_path,
             {
                 "schema_name": PROGRAM_MEMORY_V3_PROGRAM_CARD,
-                "schema_version": PROGRAM_MEMORY_V3_SCHEMA_VERSION,
+                "schema_version": PROGRAM_MEMORY_V3_PROGRAM_CARD_SCHEMA_VERSION,
                 "program_id": program_id,
                 "program_label": program_label,
                 "adjudication_id": normalized_adjudication_id,
@@ -573,7 +711,7 @@ def materialize_program_memory_v3_insight_packet(
 
     payload = {
         "schema_name": PROGRAM_MEMORY_V3_INSIGHT_PACKET,
-        "schema_version": PROGRAM_MEMORY_V3_SCHEMA_VERSION,
+        "schema_version": PROGRAM_MEMORY_V3_INSIGHT_PACKET_SCHEMA_VERSION,
         "packet_id": normalized_packet_id,
         "packet_question": question,
         "scope_summary": scope,

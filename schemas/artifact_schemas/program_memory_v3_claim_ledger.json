@@ -1,6 +1,6 @@
 {
   "artifact_name": "program_memory_v3_claim_ledger",
-  "schema_version": "v1",
+  "schema_version": "v2",
   "file_format": "csv",
   "description": "Program-memory v3 adjudicated claim ledger for one program.",
   "key_fields": [
@@ -49,6 +49,42 @@
       "field_type": "string",
       "required": true,
       "description": "Adjudication outcome for the claim."
+    },
+    {
+      "name": "extraction_confidence",
+      "field_type": "string",
+      "required": true,
+      "description": "Confidence in the fidelity of extraction from the cited sources."
+    },
+    {
+      "name": "source_reliability",
+      "field_type": "string",
+      "required": true,
+      "description": "Reliability of the source mix supporting the claim."
+    },
+    {
+      "name": "risk_of_bias",
+      "field_type": "string",
+      "required": true,
+      "description": "Bias risk for the evidence supporting the claim."
+    },
+    {
+      "name": "reporting_integrity_risk",
+      "field_type": "string",
+      "required": true,
+      "description": "Risk that reporting artifacts or source discrepancies distort the claim."
+    },
+    {
+      "name": "transportability_confidence",
+      "field_type": "string",
+      "required": true,
+      "description": "Confidence that the claim transports beyond the exact studied context."
+    },
+    {
+      "name": "interpretation_confidence",
+      "field_type": "string",
+      "required": true,
+      "description": "Confidence in the adjudicated interpretation itself."
     }
   ],
   "optional_fields": [

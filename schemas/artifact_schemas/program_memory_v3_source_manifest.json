@@ -1,6 +1,6 @@
 {
   "artifact_name": "program_memory_v3_source_manifest",
-  "schema_version": "v1",
+  "schema_version": "v2",
   "file_format": "json",
   "description": "Program-memory v3 harvest manifest for one program review bundle.",
   "key_fields": [
@@ -50,6 +50,12 @@
       "description": "Date the harvest bundle was materialized."
     },
     {
+      "name": "seed_mode",
+      "field_type": "boolean",
+      "required": true,
+      "description": "Whether the bundle was bootstrapped via explicit seed mode instead of the curated pilot registry."
+    },
+    {
       "name": "source_document_count",
       "field_type": "integer",
       "required": true,
@@ -59,7 +65,7 @@
       "name": "source_documents",
       "field_type": "object[]",
       "required": true,
-      "description": "Per-source metadata rows linked to the program."
+      "description": "Per-source metadata rows linked to the program, including immutable capture fields such as captured_at, raw_artifact_path, content_sha256, source_version, and content_type."
     }
   ],
   "optional_fields": [

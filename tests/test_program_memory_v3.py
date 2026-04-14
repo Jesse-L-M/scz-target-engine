@@ -1,4 +1,5 @@
 import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -29,7 +30,9 @@ def test_program_memory_v3_resolves_karxt_alias_to_canonical_program_id(
 
     assert result["requested_program_id"] == "karxt"
     assert result["program_id"] == "xanomeline-trospium-schizophrenia"
+    assert result["seed_mode"] is False
     assert source_manifest["program_id"] == "xanomeline-trospium-schizophrenia"
+    assert source_manifest["seed_mode"] is False
     assert source_manifest["source_document_count"] == len(
         source_manifest["source_documents"]
     )
@@ -49,6 +52,100 @@ def test_program_memory_v3_fails_closed_on_unresolved_karxt_identity(
             program_id="xanomeline-muscarinic-program",
             materialized_at="2026-04-12",
         )
+
+
+def test_program_memory_v3_fails_closed_on_unknown_nonpilot_program_by_default(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="curated pilot registry"):
+        materialize_program_memory_v3_harvest_bundle(
+            output_dir=tmp_path / "harvest",
+            program_id="future-muscarinic-program",
+            program_label="Future Muscarinic Program",
+            materialized_at="2026-04-12",
+            source_urls=("https://example.com/future-muscarinic-program",),
+        )
+
+
+def test_program_memory_v3_seed_mode_allows_explicit_unknown_program(
+    tmp_path: Path,
+) -> None:
+    harvest_dir = tmp_path / "harvest"
+
+    result = materialize_program_memory_v3_harvest_bundle(
+        output_dir=harvest_dir,
+        program_id="future-muscarinic-program",
+        program_label="Future Muscarinic Program",
+        materialized_at="2026-04-12",
+        source_urls=("https://example.com/future-muscarinic-program",),
+        seed_mode=True,
+    )
+
+    source_manifest = read_json(harvest_dir / "source_manifest.json")
+
+    assert result["seed_mode"] is True
+    assert source_manifest["seed_mode"] is True
+    assert source_manifest["source_document_count"] == 1
+
+
+def test_program_memory_v3_karxt_harvest_rows_are_capture_backed_and_structured(
+    tmp_path: Path,
+) -> None:
+    harvest_dir = tmp_path / "harvest"
+
+    materialize_program_memory_v3_harvest_bundle(
+        output_dir=harvest_dir,
+        program_id="karxt",
+        materialized_at="2026-04-12",
+    )
+
+    source_manifest = read_json(harvest_dir / "source_manifest.json")
+    result_rows = read_csv_rows(harvest_dir / "result_observations.csv")
+    harm_rows = read_csv_rows(harvest_dir / "harm_observations.csv")
+
+    for source_document in source_manifest["source_documents"]:
+        capture_path = harvest_dir / source_document["raw_artifact_path"]
+        assert source_document["captured_at"] == "2026-04-12"
+        assert source_document["content_type"]
+        assert "source_version" in source_document
+        assert capture_path.exists()
+        capture_sha = sha256(capture_path.read_bytes()).hexdigest()
+        assert source_document["content_sha256"] == capture_sha
+        assert capture_path.suffix == ".html"
+        capture_text = capture_path.read_text(encoding="utf-8", errors="ignore")
+        assert "<html" in capture_text.lower()
+
+    numeric_result_rows = [
+        row
+        for row in result_rows
+        if row["effect_size"] and row["comparator_label"]
+    ]
+    assert numeric_result_rows
+    for row in numeric_result_rows:
+        assert row["treatment_observed_value"]
+        assert row["comparator_observed_value"]
+        assert row["observed_value_unit"]
+        assert row["randomized_denominator_treatment"]
+        assert row["randomized_denominator_comparator"]
+        assert row["treated_denominator_treatment"]
+        assert row["treated_denominator_comparator"]
+        assert row["efficacy_analysis_denominator_treatment"]
+        assert row["efficacy_analysis_denominator_comparator"]
+
+    numeric_harm_rows = [
+        row
+        for row in harm_rows
+        if row["incidence_percent"] or row["incidence_count"]
+    ]
+    assert numeric_harm_rows
+    for row in numeric_harm_rows:
+        assert row["comparator_incidence_percent"]
+        assert row["randomized_denominator_treatment"]
+        assert row["randomized_denominator_comparator"]
+        assert row["treated_denominator_treatment"]
+        assert row["treated_denominator_comparator"]
+        if row["incidence_count"]:
+            assert row["comparator_incidence_count"]
 
 
 def test_program_memory_v3_karxt_adjudication_and_packet_are_populated(
@@ -94,6 +191,26 @@ def test_program_memory_v3_karxt_adjudication_and_packet_are_populated(
     assert adjudication_result["claim_count"] == len(claims)
     assert adjudication_result["caveat_count"] == len(caveats)
     assert adjudication_result["belief_update_count"] == len(belief_updates)
+    accepted_claims = [
+        row for row in claims if row["adjudication_status"].startswith("accepted")
+    ]
+    assert accepted_claims
+    for row in accepted_claims:
+        assert row["extraction_confidence"]
+        assert row["source_reliability"]
+        assert row["risk_of_bias"]
+        assert row["reporting_integrity_risk"]
+        assert row["transportability_confidence"]
+        assert row["interpretation_confidence"]
+        assert "extraction_confidence=" not in row["notes"]
+    for row in belief_updates:
+        assert row["extraction_confidence"]
+        assert row["source_reliability"]
+        assert row["risk_of_bias"]
+        assert row["reporting_integrity_risk"]
+        assert row["transportability_confidence"]
+        assert row["interpretation_confidence"]
+        assert "extraction_confidence=" not in row["notes"]
     assert program_card["overall_verdict"] == (
         "acute_efficacy_supported_with_cholinergic_tolerability_tradeoff"
     )
@@ -105,7 +222,32 @@ def test_program_memory_v3_karxt_adjudication_and_packet_are_populated(
     ]
 
 
-def test_program_memory_v3_non_karxt_programs_remain_scaffold_only(
+def test_program_memory_v3_seed_mode_materializes_immutable_locator_records(
+    tmp_path: Path,
+) -> None:
+    harvest_dir = tmp_path / "harvest"
+
+    materialize_program_memory_v3_harvest_bundle(
+        output_dir=harvest_dir,
+        program_id="future-muscarinic-program",
+        program_label="Future Muscarinic Program",
+        materialized_at="2026-04-12",
+        source_urls=("https://example.com/future-muscarinic-program",),
+        seed_mode=True,
+    )
+
+    source_manifest = read_json(harvest_dir / "source_manifest.json")
+    source_document = source_manifest["source_documents"][0]
+    capture_path = harvest_dir / source_document["raw_artifact_path"]
+
+    assert source_document["content_type"] == "text/uri-list"
+    assert capture_path.suffix == ".uri"
+    assert capture_path.read_text(encoding="utf-8").strip() == (
+        "https://example.com/future-muscarinic-program"
+    )
+
+
+def test_program_memory_v3_seed_mode_nonpilot_adjudication_remains_draft_only(
     tmp_path: Path,
 ) -> None:
     harvest_dir = tmp_path / "harvest"
@@ -117,6 +259,7 @@ def test_program_memory_v3_non_karxt_programs_remain_scaffold_only(
         program_label="Example Program",
         materialized_at="2026-04-12",
         source_urls=("https://example.com/source",),
+        seed_mode=True,
     )
     adjudication_result = materialize_program_memory_v3_adjudication_bundle(
         harvest_dir=harvest_dir,
@@ -135,7 +278,9 @@ def test_program_memory_v3_non_karxt_programs_remain_scaffold_only(
     program_card = read_json(adjudicated_dir / "program_card.json")
 
     assert harvest_result["identity_resolution"] is None
+    assert harvest_result["seed_mode"] is True
     assert source_manifest["program_id"] == "example-program"
+    assert source_manifest["seed_mode"] is True
     assert source_manifest["source_document_count"] == 1
     assert study_rows == []
     assert result_rows == []

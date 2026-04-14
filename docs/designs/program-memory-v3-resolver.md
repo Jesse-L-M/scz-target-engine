@@ -5,7 +5,7 @@ Owner branch: Jesse-L-M/schiz-trial-audit
 Depends on: docs/designs/program-memory-v3.md
 Blocked by: -
 Supersedes: -
-Last updated: 2026-04-13
+Last updated: 2026-04-14
 
 ## Purpose
 
@@ -43,7 +43,10 @@ Parameters:
 - `PROGRAM_ID` required
 - `PROGRAM_LABEL` optional
 - `CORPUS_TIER` optional
-- `SOURCE_URLS[]` optional seed set
+- `SOURCE_URLS[]` optional seed set; required when `SEED_MODE=true` for an unknown
+  non-pilot program
+- `SEED_MODE=false` by default; when true, allow an explicit seed bootstrap for an
+  unregistered program instead of failing closed
 - `OUTPUT_DIR=.context/program_memory/reviews/{PROGRAM_ID}/harvest/`
 - `WRITE_POLICY=review_only`
 
@@ -64,8 +67,9 @@ Writable artifacts:
 - `contradictions.csv`
 
 Do not create sidecar dossier files outside this contract. Record open questions in
-`source_manifest.json` under `unresolved_questions` and use row `notes` fields for
-capture-level qualifiers until dedicated artifacts are added.
+`source_manifest.json` under `unresolved_questions`. Use row `notes` fields only for
+qualifiers that are not already carried by the first-class capture, confidence, or
+denominator/comparator columns.
 
 ### 2. Adjudicate program
 
@@ -158,6 +162,12 @@ Implemented now:
 - harvest bootstrap bundle
 - adjudication bootstrap bundle
 - scoped insight packet bootstrap
+- immutable source-capture fields in `source_manifest.json`
+- first-class structured confidence fields in `claims.csv` and `belief_updates.csv`
+- first-class denominator and comparator fields in `result_observations.csv` and
+  `harm_observations.csv`
+- fail-closed default behavior for unknown programs unless explicit `seed_mode` is
+  requested
 - registry-backed validation for the emitted artifact families
 
 Deferred to the next contract revision:
@@ -165,7 +175,5 @@ Deferred to the next contract revision:
 - `exposure_evidence`
 - claim-link graphs
 - source-history diffs
-- analysis-population denominator fields and explicit comparator-value columns for
-  result / harm rows
 - dedicated diarization briefs
 - compatibility projections into shipped `v2` consumers

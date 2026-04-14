@@ -556,7 +556,7 @@ def test_cli_register_prospective_prediction_rejects_existing_output_file(
         )
 
 
-def test_cli_program_memory_v3_stub_workflow_runs(tmp_path: Path) -> None:
+def test_cli_program_memory_v3_karxt_workflow_runs(tmp_path: Path) -> None:
     harvest_dir = tmp_path / "harvest"
     adjudicated_dir = tmp_path / "adjudicated"
     insight_packet_path = tmp_path / "packet" / "insight_packet.json"
@@ -575,8 +575,6 @@ def test_cli_program_memory_v3_stub_workflow_runs(tmp_path: Path) -> None:
             "2026-04-12",
             "--corpus-tier",
             "A",
-            "--source-url",
-            "https://clinicaltrials.gov/study/NCT04659161",
         ]
     )
     assert harvest_exit_code == 0
@@ -611,17 +609,38 @@ def test_cli_program_memory_v3_stub_workflow_runs(tmp_path: Path) -> None:
             "--output-file",
             str(insight_packet_path.resolve()),
             "--packet-id",
-            "karxt_packet_v1",
+            "karxt-acute-efficacy-tolerability",
             "--packet-question",
-            "What should change about beliefs for KarXT?",
+            (
+                "What should the public KarXT schizophrenia evidence update about "
+                "acute efficacy, tolerability burden, and what is molecule-specific "
+                "vs mechanism-general?"
+            ),
             "--scope-summary",
-            "Single-program review packet.",
+            "Single-program KarXT schizophrenia pilot packet.",
             "--generated-at",
             "2026-04-12",
         ]
     )
     assert packet_exit_code == 0
     assert insight_packet_path.exists()
+
+    source_manifest = json.loads(
+        (harvest_dir / "source_manifest.json").read_text(encoding="utf-8")
+    )
+    study_index_lines = (
+        harvest_dir / "study_index.csv"
+    ).read_text(encoding="utf-8").strip().splitlines()
+    claims_lines = (
+        adjudicated_dir / "claims.csv"
+    ).read_text(encoding="utf-8").strip().splitlines()
+    packet_payload = json.loads(insight_packet_path.read_text(encoding="utf-8"))
+
+    assert source_manifest["program_id"] == "xanomeline-trospium-schizophrenia"
+    assert source_manifest["source_document_count"] >= 10
+    assert len(study_index_lines) > 1
+    assert len(claims_lines) > 1
+    assert packet_payload["candidate_insights"]
 
 
 def test_cli_build_expert_review_packets_rejects_reserved_required_finding(

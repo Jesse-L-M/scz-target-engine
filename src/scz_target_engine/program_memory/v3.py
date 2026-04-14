@@ -4,6 +4,22 @@ from datetime import date
 from pathlib import Path
 
 from scz_target_engine.io import read_csv_table, read_json, write_csv, write_json
+from scz_target_engine.program_memory.v3_karxt import (
+    karxt_adjudicated_contradiction_rows,
+    karxt_belief_update_rows,
+    karxt_candidate_insights,
+    karxt_caveat_rows,
+    karxt_claim_rows,
+    karxt_harm_observation_rows,
+    karxt_harvest_contradiction_rows,
+    karxt_harvest_source_documents,
+    karxt_harvest_unresolved_questions,
+    karxt_program_card_payload,
+    karxt_result_observation_rows,
+    karxt_study_index_rows,
+    resolve_karxt_schizophrenia_pilot,
+    unresolved_karxt_schizophrenia_identity,
+)
 
 
 PROGRAM_MEMORY_V3_SOURCE_MANIFEST = "program_memory_v3_source_manifest"
@@ -188,6 +204,15 @@ def _write_empty_csv(path: Path, fieldnames: list[str]) -> None:
     write_csv(path, [], fieldnames=fieldnames)
 
 
+def _write_rows_csv(
+    path: Path,
+    rows: list[dict[str, object]],
+    *,
+    fieldnames: list[str],
+) -> None:
+    write_csv(path, rows, fieldnames=fieldnames)
+
+
 def _copy_csv_artifact(source_path: Path, target_path: Path) -> None:
     fieldnames, rows = read_csv_table(source_path)
     write_csv(target_path, rows, fieldnames=fieldnames)
@@ -205,16 +230,44 @@ def materialize_program_memory_v3_harvest_bundle(
     resolved_output_dir = output_dir.resolve()
     resolved_output_dir.mkdir(parents=True, exist_ok=True)
 
-    normalized_program_id = _clean_text(program_id)
-    if not normalized_program_id:
+    requested_program_id = _clean_text(program_id)
+    if not requested_program_id:
         raise ValueError("program_id is required")
-    normalized_program_label = _defaulted_text(
-        program_label,
-        _default_program_label(normalized_program_id),
+    requested_program_label = _clean_text(program_label)
+    pilot_resolution = resolve_karxt_schizophrenia_pilot(
+        requested_program_id,
+        requested_program_label,
     )
+    if pilot_resolution is None and unresolved_karxt_schizophrenia_identity(
+        requested_program_id,
+        requested_program_label,
+    ):
+        raise ValueError(
+            "unresolved KarXT/xanomeline-trospium identity; use a canonical alias "
+            "such as karxt, cobenfy, xanomeline-trospium, or "
+            "xanomeline-trospium-schizophrenia"
+        )
+    if pilot_resolution is not None:
+        normalized_program_id = pilot_resolution.canonical_program_id
+        normalized_program_label = pilot_resolution.canonical_program_label
+    else:
+        normalized_program_id = requested_program_id
+        normalized_program_label = _defaulted_text(
+            requested_program_label,
+            _default_program_label(normalized_program_id),
+        )
     normalized_materialized_at = _defaulted_text(materialized_at, _today_string())
-    normalized_corpus_tier = _defaulted_text(corpus_tier, "unspecified")
-    source_documents = _source_document_rows(normalized_program_id, source_urls)
+    normalized_corpus_tier = _defaulted_text(
+        corpus_tier,
+        "A" if pilot_resolution is not None else "unspecified",
+    )
+    # Current v3 boundary: KarXT is the only populated curated pilot.
+    # Other programs still emit scaffold artifacts until immutable source capture,
+    # structured confidence fields, and generic harvest/adjudication land.
+    if pilot_resolution is not None:
+        source_documents = karxt_harvest_source_documents()
+    else:
+        source_documents = _source_document_rows(normalized_program_id, source_urls)
 
     source_manifest_path = (
         resolved_output_dir / PROGRAM_MEMORY_V3_SOURCE_MANIFEST_FILE_NAME
@@ -240,23 +293,54 @@ def materialize_program_memory_v3_harvest_bundle(
         "materialized_at": normalized_materialized_at,
         "source_document_count": len(source_documents),
         "source_documents": source_documents,
-        "unresolved_questions": [],
+        "unresolved_questions": (
+            karxt_harvest_unresolved_questions()
+            if pilot_resolution is not None
+            else []
+        ),
     }
+    if pilot_resolution is not None:
+        source_manifest_payload["notes"] = (
+            f"Requested identity resolved from {pilot_resolution.resolved_from} "
+            f"to canonical program_id={normalized_program_id}."
+        )
 
     write_json(source_manifest_path, source_manifest_payload)
-    _write_empty_csv(study_index_path, PROGRAM_MEMORY_V3_STUDY_INDEX_FIELDNAMES)
-    _write_empty_csv(
-        result_observations_path,
-        PROGRAM_MEMORY_V3_RESULT_OBSERVATION_FIELDNAMES,
-    )
-    _write_empty_csv(
-        harm_observations_path,
-        PROGRAM_MEMORY_V3_HARM_OBSERVATION_FIELDNAMES,
-    )
-    _write_empty_csv(
-        contradiction_log_path,
-        PROGRAM_MEMORY_V3_CONTRADICTION_LOG_FIELDNAMES,
-    )
+    if pilot_resolution is not None:
+        _write_rows_csv(
+            study_index_path,
+            karxt_study_index_rows(),
+            fieldnames=PROGRAM_MEMORY_V3_STUDY_INDEX_FIELDNAMES,
+        )
+        _write_rows_csv(
+            result_observations_path,
+            karxt_result_observation_rows(),
+            fieldnames=PROGRAM_MEMORY_V3_RESULT_OBSERVATION_FIELDNAMES,
+        )
+        _write_rows_csv(
+            harm_observations_path,
+            karxt_harm_observation_rows(),
+            fieldnames=PROGRAM_MEMORY_V3_HARM_OBSERVATION_FIELDNAMES,
+        )
+        _write_rows_csv(
+            contradiction_log_path,
+            karxt_harvest_contradiction_rows(),
+            fieldnames=PROGRAM_MEMORY_V3_CONTRADICTION_LOG_FIELDNAMES,
+        )
+    else:
+        _write_empty_csv(study_index_path, PROGRAM_MEMORY_V3_STUDY_INDEX_FIELDNAMES)
+        _write_empty_csv(
+            result_observations_path,
+            PROGRAM_MEMORY_V3_RESULT_OBSERVATION_FIELDNAMES,
+        )
+        _write_empty_csv(
+            harm_observations_path,
+            PROGRAM_MEMORY_V3_HARM_OBSERVATION_FIELDNAMES,
+        )
+        _write_empty_csv(
+            contradiction_log_path,
+            PROGRAM_MEMORY_V3_CONTRADICTION_LOG_FIELDNAMES,
+        )
 
     _load_registered_artifact(
         source_manifest_path,
@@ -280,6 +364,7 @@ def materialize_program_memory_v3_harvest_bundle(
     )
 
     return {
+        "requested_program_id": requested_program_id,
         "program_id": normalized_program_id,
         "program_label": normalized_program_label,
         "materialized_at": normalized_materialized_at,
@@ -290,6 +375,14 @@ def materialize_program_memory_v3_harvest_bundle(
         "result_observations_file": str(result_observations_path),
         "harm_observations_file": str(harm_observations_path),
         "contradictions_file": str(contradiction_log_path),
+        "identity_resolution": (
+            {
+                "resolved_from": pilot_resolution.resolved_from,
+                "canonical_program_id": normalized_program_id,
+            }
+            if pilot_resolution is not None
+            else None
+        ),
     }
 
 
@@ -320,6 +413,7 @@ def materialize_program_memory_v3_adjudication_bundle(
     program_label = str(source_manifest.get("program_label") or "").strip()
     materialized_at = _defaulted_text(reviewed_at, _today_string())
     source_document_count = int(source_manifest.get("source_document_count") or 0)
+    pilot_resolution = resolve_karxt_schizophrenia_pilot(program_id, program_label)
 
     claim_ledger_path = resolved_output_dir / PROGRAM_MEMORY_V3_CLAIM_LEDGER_FILE_NAME
     caveats_path = resolved_output_dir / PROGRAM_MEMORY_V3_CAVEATS_FILE_NAME
@@ -332,40 +426,80 @@ def materialize_program_memory_v3_adjudication_bundle(
         resolved_harvest_dir / PROGRAM_MEMORY_V3_CONTRADICTION_LOG_FILE_NAME
     )
 
-    _write_empty_csv(claim_ledger_path, PROGRAM_MEMORY_V3_CLAIM_LEDGER_FIELDNAMES)
-    _write_empty_csv(caveats_path, PROGRAM_MEMORY_V3_CAVEATS_FIELDNAMES)
-    _write_empty_csv(
-        belief_updates_path,
-        PROGRAM_MEMORY_V3_BELIEF_UPDATE_FIELDNAMES,
-    )
-    if harvest_contradiction_log_path.exists():
-        _copy_csv_artifact(harvest_contradiction_log_path, contradiction_log_path)
-    else:
-        _write_empty_csv(
-            contradiction_log_path,
-            PROGRAM_MEMORY_V3_CONTRADICTION_LOG_FIELDNAMES,
+    if pilot_resolution is not None:
+        claim_rows = karxt_claim_rows()
+        caveat_rows = karxt_caveat_rows()
+        belief_update_rows = karxt_belief_update_rows()
+        contradiction_rows = karxt_adjudicated_contradiction_rows()
+        _write_rows_csv(
+            claim_ledger_path,
+            claim_rows,
+            fieldnames=PROGRAM_MEMORY_V3_CLAIM_LEDGER_FIELDNAMES,
         )
-    write_json(
-        program_card_path,
-        {
-            "schema_name": PROGRAM_MEMORY_V3_PROGRAM_CARD,
-            "schema_version": PROGRAM_MEMORY_V3_SCHEMA_VERSION,
-            "program_id": program_id,
-            "program_label": program_label,
-            "adjudication_id": normalized_adjudication_id,
-            "reviewer": normalized_reviewer,
-            "review_status": "draft",
-            "overall_verdict": "unresolved",
-            "materialized_at": materialized_at,
-            "source_document_count": source_document_count,
-            "claim_count": 0,
-            "caveat_count": 0,
-            "belief_update_count": 0,
-            "key_takeaways": [],
-            "top_caveats": [],
-            "evidence_summary": "Draft adjudication scaffold with no accepted claims yet.",
-        },
-    )
+        _write_rows_csv(
+            caveats_path,
+            caveat_rows,
+            fieldnames=PROGRAM_MEMORY_V3_CAVEATS_FIELDNAMES,
+        )
+        _write_rows_csv(
+            belief_updates_path,
+            belief_update_rows,
+            fieldnames=PROGRAM_MEMORY_V3_BELIEF_UPDATE_FIELDNAMES,
+        )
+        _write_rows_csv(
+            contradiction_log_path,
+            contradiction_rows,
+            fieldnames=PROGRAM_MEMORY_V3_CONTRADICTION_LOG_FIELDNAMES,
+        )
+        program_card_payload = karxt_program_card_payload(
+            adjudication_id=normalized_adjudication_id,
+            reviewer=normalized_reviewer,
+            reviewed_at=materialized_at,
+            source_document_count=source_document_count,
+        )
+        write_json(
+            program_card_path,
+            {
+                "schema_name": PROGRAM_MEMORY_V3_PROGRAM_CARD,
+                "schema_version": PROGRAM_MEMORY_V3_SCHEMA_VERSION,
+                **program_card_payload,
+            },
+        )
+    else:
+        _write_empty_csv(claim_ledger_path, PROGRAM_MEMORY_V3_CLAIM_LEDGER_FIELDNAMES)
+        _write_empty_csv(caveats_path, PROGRAM_MEMORY_V3_CAVEATS_FIELDNAMES)
+        _write_empty_csv(
+            belief_updates_path,
+            PROGRAM_MEMORY_V3_BELIEF_UPDATE_FIELDNAMES,
+        )
+        if harvest_contradiction_log_path.exists():
+            _copy_csv_artifact(harvest_contradiction_log_path, contradiction_log_path)
+        else:
+            _write_empty_csv(
+                contradiction_log_path,
+                PROGRAM_MEMORY_V3_CONTRADICTION_LOG_FIELDNAMES,
+            )
+        write_json(
+            program_card_path,
+            {
+                "schema_name": PROGRAM_MEMORY_V3_PROGRAM_CARD,
+                "schema_version": PROGRAM_MEMORY_V3_SCHEMA_VERSION,
+                "program_id": program_id,
+                "program_label": program_label,
+                "adjudication_id": normalized_adjudication_id,
+                "reviewer": normalized_reviewer,
+                "review_status": "draft",
+                "overall_verdict": "unresolved",
+                "materialized_at": materialized_at,
+                "source_document_count": source_document_count,
+                "claim_count": 0,
+                "caveat_count": 0,
+                "belief_update_count": 0,
+                "key_takeaways": [],
+                "top_caveats": [],
+                "evidence_summary": "Draft adjudication scaffold with no accepted claims yet.",
+            },
+        )
 
     _load_registered_artifact(
         claim_ledger_path,
@@ -396,6 +530,11 @@ def materialize_program_memory_v3_adjudication_bundle(
         "belief_updates_file": str(belief_updates_path),
         "contradictions_file": str(contradiction_log_path),
         "program_card_file": str(program_card_path),
+        "claim_count": len(karxt_claim_rows()) if pilot_resolution is not None else 0,
+        "caveat_count": len(karxt_caveat_rows()) if pilot_resolution is not None else 0,
+        "belief_update_count": (
+            len(karxt_belief_update_rows()) if pilot_resolution is not None else 0
+        ),
     }
 
 
@@ -426,6 +565,10 @@ def materialize_program_memory_v3_insight_packet(
     scope = _defaulted_text(
         scope_summary,
         "Single-program draft packet built from adjudicated program-memory v3 artifacts.",
+    )
+    pilot_resolution = resolve_karxt_schizophrenia_pilot(program_id, "")
+    candidate_insights = (
+        karxt_candidate_insights() if pilot_resolution is not None else []
     )
 
     payload = {
@@ -464,7 +607,7 @@ def materialize_program_memory_v3_insight_packet(
                 ),
             },
         ],
-        "candidate_insights": [],
+        "candidate_insights": candidate_insights,
     }
     write_json(resolved_output_file, payload)
     _load_registered_artifact(
@@ -477,5 +620,5 @@ def materialize_program_memory_v3_insight_packet(
         "program_ids": [program_id],
         "output_file": str(resolved_output_file),
         "evidence_artifact_count": len(payload["evidence_artifacts"]),
-        "candidate_insight_count": 0,
+        "candidate_insight_count": len(candidate_insights),
     }

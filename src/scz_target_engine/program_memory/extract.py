@@ -395,6 +395,17 @@ def canonicalize_program_memory_asset_identity(
     )
 
 
+def resolve_program_memory_asset_identifier(value: str) -> str | None:
+    normalized = _normalize_identity_key(value)
+    if not normalized:
+        return None
+    asset_index, _ = _get_checked_in_program_memory_identity_catalog()
+    matched_asset = asset_index.get(normalized)
+    if matched_asset is None:
+        return None
+    return matched_asset.asset_id
+
+
 def canonicalize_program_memory_event_identity(
     asset: ProgramMemoryAsset,
     event: ProgramMemoryEvent,

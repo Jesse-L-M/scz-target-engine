@@ -22,6 +22,8 @@ The rule is directional:
 - skills own judgment, caveating, and procedure
 - deterministic code owns artifact creation, schema validation, and packet assembly
 - review work stays read-only outside `.context/program_memory/reviews/` by default
+- real pilot program identifiers should resolve through the checked-in alias catalog
+  or an explicit pilot registry before any bundle is written
 
 ## Task Types
 
@@ -163,5 +165,7 @@ Deferred to the next contract revision:
 - `exposure_evidence`
 - claim-link graphs
 - source-history diffs
+- analysis-population denominator fields and explicit comparator-value columns for
+  result / harm rows
 - dedicated diarization briefs
 - compatibility projections into shipped `v2` consumers

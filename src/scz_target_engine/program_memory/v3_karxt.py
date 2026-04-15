@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from importlib.resources import files
+import json
 from typing import Any
 
 from scz_target_engine.program_memory._helpers import clean_text, slugify
@@ -28,6 +30,9 @@ _KARXT_SOURCE_CAPTURE_RESOURCE_ROOT = files("scz_target_engine.program_memory").
     "source_captures",
     "karxt",
 )
+_KARXT_SOURCE_CAPTURE_MANIFEST_RESOURCE = _KARXT_SOURCE_CAPTURE_RESOURCE_ROOT.joinpath(
+    "capture_manifest.json",
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +43,16 @@ class ProgramMemoryV3PilotResolution:
     requested_program_id: str
     requested_program_label: str
     resolved_from: str
+
+
+@dataclass(frozen=True)
+class SourceCaptureFixtureMetadata:
+    source_document_id: str
+    captured_at: str
+    capture_method: str
+    content_type: str
+    source_version: str
+    fixture_file_name: str
 
 
 def _normalize_identity(value: str) -> str:
@@ -56,8 +71,73 @@ def _copy_objects(rows: tuple[dict[str, Any], ...]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+@lru_cache(maxsize=1)
+def _karxt_source_capture_fixture_metadata_by_id() -> dict[str, SourceCaptureFixtureMetadata]:
+    payload = json.loads(_KARXT_SOURCE_CAPTURE_MANIFEST_RESOURCE.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("KarXT capture manifest must be a JSON object")
+    capture_rows = payload.get("captures")
+    if not isinstance(capture_rows, list):
+        raise ValueError("KarXT capture manifest requires a captures list")
+
+    fixtures: dict[str, SourceCaptureFixtureMetadata] = {}
+    for index, item in enumerate(capture_rows):
+        if not isinstance(item, dict):
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] must be a JSON object"
+            )
+        metadata = SourceCaptureFixtureMetadata(
+            source_document_id=clean_text(str(item.get("source_document_id", ""))),
+            captured_at=clean_text(str(item.get("captured_at", ""))),
+            capture_method=clean_text(str(item.get("capture_method", ""))),
+            content_type=clean_text(str(item.get("content_type", ""))),
+            source_version=clean_text(str(item.get("source_version", ""))),
+            fixture_file_name=clean_text(str(item.get("fixture_file_name", ""))),
+        )
+        if not metadata.source_document_id:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires source_document_id"
+            )
+        if not metadata.captured_at:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires captured_at"
+            )
+        if not metadata.capture_method:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires capture_method"
+            )
+        if not metadata.content_type:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires content_type"
+            )
+        if not metadata.fixture_file_name:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires fixture_file_name"
+            )
+        if metadata.source_document_id in fixtures:
+            raise ValueError(
+                "KarXT capture manifest contains duplicate source_document_id "
+                f"{metadata.source_document_id}"
+            )
+        fixtures[metadata.source_document_id] = metadata
+    return fixtures
+
+
+def karxt_source_capture_fixture_metadata(
+    source_document_id: str,
+) -> SourceCaptureFixtureMetadata:
+    normalized_source_document_id = clean_text(source_document_id)
+    fixtures = _karxt_source_capture_fixture_metadata_by_id()
+    try:
+        return fixtures[normalized_source_document_id]
+    except KeyError as exc:
+        raise ValueError(
+            f"missing KarXT source capture fixture metadata for {normalized_source_document_id}"
+        ) from exc
+
+
 def karxt_source_capture_fixture_file_name(source_document_id: str) -> str:
-    return f"{clean_text(source_document_id)}.html"
+    return karxt_source_capture_fixture_metadata(source_document_id).fixture_file_name
 
 
 def karxt_source_capture_fixture_bytes(source_document_id: str) -> bytes:
@@ -135,8 +215,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT03697252",
         "source_tier": "trial_registry",
         "extraction_status": "linked_for_context",
-        "source_version": "NCT03697252-current",
-        "content_type": "text/html",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("ctgov_history_nct03697252"),
@@ -146,7 +226,7 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_tier": "trial_registry_history",
         "extraction_status": "linked_for_context",
         "source_version": "NCT03697252-history",
-        "content_type": "text/html",
+        "content_type": "text/uri-list",
     },
     {
         "source_document_id": _source_document_id("nejm_emergent_1_2021"),
@@ -155,8 +235,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/33626254/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
-        "source_version": "PMID:33626254",
-        "content_type": "text/html",
+        "source_version": "PMID:33626254 version=1 revised=2025-05-30",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("ctgov_current_nct04659161"),
@@ -165,8 +245,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04659161",
         "source_tier": "trial_registry",
         "extraction_status": "extracted",
-        "source_version": "NCT04659161-current",
-        "content_type": "text/html",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("ctgov_history_nct04659161_v21"),
@@ -176,7 +256,7 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_tier": "trial_registry_history",
         "extraction_status": "extracted",
         "source_version": "NCT04659161-history-v21",
-        "content_type": "text/html",
+        "content_type": "text/uri-list",
     },
     {
         "source_document_id": _source_document_id("lancet_emergent_2_2024"),
@@ -185,8 +265,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/38104575/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
-        "source_version": "PMID:38104575",
-        "content_type": "text/html",
+        "source_version": "PMID:38104575 version=1 revised=2025-05-01",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("ctgov_current_nct04738123"),
@@ -195,8 +275,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04738123",
         "source_tier": "trial_registry",
         "extraction_status": "extracted",
-        "source_version": "NCT04738123-current",
-        "content_type": "text/html",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("ctgov_history_nct04738123"),
@@ -206,7 +286,7 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_tier": "trial_registry_history",
         "extraction_status": "linked_for_context",
         "source_version": "NCT04738123-history",
-        "content_type": "text/html",
+        "content_type": "text/uri-list",
     },
     {
         "source_document_id": _source_document_id("jama_emergent_3_2024"),
@@ -215,8 +295,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/38691387/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
-        "source_version": "PMID:38691387",
-        "content_type": "text/html",
+        "source_version": "PMID:38691387 version=1 revised=2025-01-28",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("ctgov_current_nct04820309"),
@@ -225,8 +305,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04820309",
         "source_tier": "trial_registry",
         "extraction_status": "linked_for_context",
-        "source_version": "NCT04820309-current",
-        "content_type": "text/html",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("schres_emergent_5_2026"),
@@ -235,8 +315,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/41506001/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
-        "source_version": "PMID:41506001",
-        "content_type": "text/html",
+        "source_version": "PMID:41506001 version=1 revised=2026-01-27",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("schizophrenia_pooled_efficacy_2024"),
@@ -245,8 +325,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/39488504/",
         "source_tier": "peer_reviewed_secondary_analysis",
         "extraction_status": "extracted",
-        "source_version": "PMID:39488504",
-        "content_type": "text/html",
+        "source_version": "PMID:39488504 version=1 revised=2025-03-21",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("jcp_pooled_safety_2025"),
@@ -255,8 +335,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/40047530/",
         "source_tier": "peer_reviewed_secondary_analysis",
         "extraction_status": "extracted",
-        "source_version": "PMID:40047530",
-        "content_type": "text/html",
+        "source_version": "PMID:40047530 version=1 revised=2025-05-28",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("fda_approval_announcement_2024_09_27"),
@@ -281,7 +361,7 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
 )
 
 _HARVEST_UNRESOLVED_QUESTIONS: tuple[str, ...] = (
-    "ClinicalTrials.gov history tabs are linked for each study, but the current v3 contract still lacks a first-class source-history diff artifact.",
+    "ClinicalTrials.gov history references are preserved as explicit URL-seed records for each study, but the current v3 contract still lacks a first-class raw history capture and diff artifact.",
     "Direct schizophrenia evidence in this pilot is combination-level and does not isolate xanomeline, trospium, CHRM1, or CHRM4 contributions.",
 )
 
@@ -1294,7 +1374,7 @@ _PROGRAM_CARD_KEY_TAKEAWAYS: tuple[str, ...] = (
 _PROGRAM_CARD_TOP_CAVEATS: tuple[str, ...] = (
     "All comparative efficacy trials are short 5-week inpatient studies.",
     "Mechanism decomposition remains unresolved because the approved evidence is combination-level.",
-    "ClinicalTrials.gov history shifts remain capture-linked, but field-level source-history diffs are still not a dedicated artifact.",
+    "ClinicalTrials.gov history context is still linked through explicit URL-seed records; raw history capture and field-level source-history diffs are still not a dedicated artifact.",
 )
 
 

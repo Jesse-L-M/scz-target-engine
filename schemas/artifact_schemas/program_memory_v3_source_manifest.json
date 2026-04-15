@@ -1,6 +1,6 @@
 {
   "artifact_name": "program_memory_v3_source_manifest",
-  "schema_version": "v2",
+  "schema_version": "v3",
   "file_format": "json",
   "description": "Program-memory v3 harvest manifest for one program review bundle.",
   "key_fields": [
@@ -65,7 +65,7 @@
       "name": "source_documents",
       "field_type": "object[]",
       "required": true,
-      "description": "Per-source metadata rows linked to the program, including immutable capture fields such as captured_at, raw_artifact_path, content_sha256, source_version, and content_type."
+      "description": "Per-source metadata rows linked to the program, including immutable capture fields such as capture_method, captured_at, raw_artifact_path, content_sha256, source_version, and content_type."
     }
   ],
   "optional_fields": [

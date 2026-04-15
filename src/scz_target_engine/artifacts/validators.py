@@ -6,6 +6,7 @@ import csv
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
+import xml.etree.ElementTree as ET
 
 from scz_target_engine.artifacts.models import (
     ArtifactSchemaDefinition,
@@ -725,6 +726,7 @@ def _validate_program_memory_v3_source_manifest(
             "source_locator",
             "source_tier",
             "extraction_status",
+            "capture_method",
             "captured_at",
             "raw_artifact_path",
             "content_sha256",
@@ -782,6 +784,112 @@ def _validate_program_memory_v3_source_manifest(
                 "program_memory_v3_source_manifest.source_documents"
                 f"[{index}].content_sha256 must match the referenced raw artifact"
             )
+        capture_method = _require_text(
+            document.get("capture_method", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].capture_method"
+            ),
+        )
+        content_type = _require_text(
+            document.get("content_type", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].content_type"
+            ),
+        )
+        source_locator = _require_text(
+            document.get("source_locator", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].source_locator"
+            ),
+        )
+        if capture_method == "clinicaltrials_gov_api_v2_json":
+            if content_type != "application/json":
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be application/json for "
+                    "clinicaltrials_gov_api_v2_json"
+                )
+            capture_payload = _load_json_mapping(resolved_capture_path)
+            protocol_section = _require_mapping(
+                capture_payload.get("protocolSection"),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].protocolSection"
+                ),
+            )
+            identification_module = _require_mapping(
+                protocol_section.get("identificationModule"),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].protocolSection.identificationModule"
+                ),
+            )
+            nct_id = _require_text(
+                identification_module.get("nctId", ""),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].protocolSection.identificationModule.nctId"
+                ),
+            )
+            expected_nct_id = source_locator.rstrip("/").split("/")[-1].split("?")[0]
+            if nct_id != expected_nct_id:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] ClinicalTrials.gov capture nctId must match source_locator"
+                )
+        elif capture_method == "pubmed_efetch_xml":
+            if content_type not in {"application/xml", "text/xml"}:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be XML for pubmed_efetch_xml"
+                )
+            try:
+                capture_root = ET.fromstring(
+                    resolved_capture_path.read_text(encoding="utf-8")
+                )
+            except ET.ParseError as exc:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] pubmed_efetch_xml capture must be valid XML"
+                ) from exc
+            pmid = _require_text(
+                capture_root.findtext(".//PMID"),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].pmid"
+                ),
+            )
+            expected_pmid = source_locator.rstrip("/").split("/")[-1]
+            if pmid != expected_pmid:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] PubMed capture PMID must match source_locator"
+                )
+        elif capture_method == "url_seed_record":
+            if content_type != "text/uri-list":
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be text/uri-list for url_seed_record"
+                )
+            lines = [
+                line.strip()
+                for line in resolved_capture_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            if len(lines) != 1 or lines[0] != source_locator:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] url_seed_record must contain exactly the declared source_locator"
+                )
+        elif capture_method == "web_html_snapshot":
+            if not content_type.startswith("text/html"):
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be text/html for web_html_snapshot"
+                )
     unresolved_questions = payload.get("unresolved_questions")
     if unresolved_questions is not None:
         _require_string_list(

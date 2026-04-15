@@ -175,8 +175,11 @@ Within that `program_memory_v3` family, the current Gate 1 hardening contract no
 expects:
 
 - immutable source-capture metadata in `source_manifest.json`, including
-  `captured_at`, `raw_artifact_path`, `content_sha256`, `source_version`, and
-  `content_type` for each source document
+  `capture_method`, `captured_at`, `raw_artifact_path`, `content_sha256`,
+  `source_version`, and `content_type` for each source document; current KarXT
+  fixtures now use source-faithful ClinicalTrials.gov JSON and PubMed XML
+  captures, while unresolved ClinicalTrials.gov history context stays explicit as
+  URL-seed records instead of pretending to be raw snapshots
 - first-class structured confidence fields in `claims.csv` and
   `belief_updates.csv`
 - first-class randomized, treated, and efficacy-analysis denominator fields plus

@@ -1,6 +1,7 @@
 import json
 from hashlib import sha256
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -10,6 +11,23 @@ from scz_target_engine.program_memory import (
     materialize_program_memory_v3_harvest_bundle,
     materialize_program_memory_v3_insight_packet,
 )
+
+
+KARXT_CAPTURED_AT = "2026-04-15T12:28:03Z"
+KARXT_CT_GOV_CURRENT_SOURCE_IDS = {
+    "xanomeline-trospium-schizophrenia__ctgov_current_nct03697252": "NCT03697252",
+    "xanomeline-trospium-schizophrenia__ctgov_current_nct04659161": "NCT04659161",
+    "xanomeline-trospium-schizophrenia__ctgov_current_nct04738123": "NCT04738123",
+    "xanomeline-trospium-schizophrenia__ctgov_current_nct04820309": "NCT04820309",
+}
+KARXT_PUBMED_SOURCE_IDS = {
+    "xanomeline-trospium-schizophrenia__nejm_emergent_1_2021": "33626254",
+    "xanomeline-trospium-schizophrenia__lancet_emergent_2_2024": "38104575",
+    "xanomeline-trospium-schizophrenia__jama_emergent_3_2024": "38691387",
+    "xanomeline-trospium-schizophrenia__schres_emergent_5_2026": "41506001",
+    "xanomeline-trospium-schizophrenia__schizophrenia_pooled_efficacy_2024": "39488504",
+    "xanomeline-trospium-schizophrenia__jcp_pooled_safety_2025": "40047530",
+}
 
 
 def test_program_memory_v3_resolves_karxt_alias_to_canonical_program_id(
@@ -38,7 +56,7 @@ def test_program_memory_v3_resolves_karxt_alias_to_canonical_program_id(
     )
     assert len(study_rows) >= 4
     assert contradiction_rows
-    assert "first-class source-history diff artifact" in source_manifest[
+    assert "raw history capture and diff artifact" in source_manifest[
         "unresolved_questions"
     ][0]
 
@@ -102,18 +120,52 @@ def test_program_memory_v3_karxt_harvest_rows_are_capture_backed_and_structured(
     source_manifest = read_json(harvest_dir / "source_manifest.json")
     result_rows = read_csv_rows(harvest_dir / "result_observations.csv")
     harm_rows = read_csv_rows(harvest_dir / "harm_observations.csv")
+    ctgov_capture_hashes: dict[str, str] = {}
 
     for source_document in source_manifest["source_documents"]:
         capture_path = harvest_dir / source_document["raw_artifact_path"]
-        assert source_document["captured_at"] == "2026-04-12"
+        assert source_document["captured_at"] == KARXT_CAPTURED_AT
+        assert source_document["captured_at"] != source_manifest["materialized_at"]
+        assert source_document["capture_method"]
         assert source_document["content_type"]
         assert "source_version" in source_document
         assert capture_path.exists()
         capture_sha = sha256(capture_path.read_bytes()).hexdigest()
         assert source_document["content_sha256"] == capture_sha
-        assert capture_path.suffix == ".html"
-        capture_text = capture_path.read_text(encoding="utf-8", errors="ignore")
-        assert "<html" in capture_text.lower()
+        source_document_id = source_document["source_document_id"]
+        if source_document_id in KARXT_CT_GOV_CURRENT_SOURCE_IDS:
+            assert source_document["capture_method"] == "clinicaltrials_gov_api_v2_json"
+            assert source_document["content_type"] == "application/json"
+            assert capture_path.suffix == ".json"
+            capture_payload = json.loads(capture_path.read_text(encoding="utf-8"))
+            assert (
+                capture_payload["protocolSection"]["identificationModule"]["nctId"]
+                == KARXT_CT_GOV_CURRENT_SOURCE_IDS[source_document_id]
+            )
+            ctgov_capture_hashes[source_document_id] = capture_sha
+        elif source_document_id in KARXT_PUBMED_SOURCE_IDS:
+            assert source_document["capture_method"] == "pubmed_efetch_xml"
+            assert source_document["content_type"] == "application/xml"
+            assert capture_path.suffix == ".xml"
+            capture_root = ET.fromstring(capture_path.read_text(encoding="utf-8"))
+            assert capture_root.findtext(".//PMID") == KARXT_PUBMED_SOURCE_IDS[
+                source_document_id
+            ]
+        elif source_document["source_kind"] == "clinicaltrials_gov_history":
+            assert source_document["capture_method"] == "url_seed_record"
+            assert source_document["content_type"] == "text/uri-list"
+            assert capture_path.suffix == ".uri"
+            assert capture_path.read_text(encoding="utf-8").strip() == source_document[
+                "source_locator"
+            ]
+        else:
+            assert source_document["capture_method"] == "web_html_snapshot"
+            assert capture_path.suffix == ".html"
+            capture_text = capture_path.read_text(encoding="utf-8", errors="ignore")
+            assert "<html" in capture_text.lower()
+
+    assert set(ctgov_capture_hashes) == set(KARXT_CT_GOV_CURRENT_SOURCE_IDS)
+    assert len(set(ctgov_capture_hashes.values())) == len(KARXT_CT_GOV_CURRENT_SOURCE_IDS)
 
     numeric_result_rows = [
         row
@@ -240,6 +292,8 @@ def test_program_memory_v3_seed_mode_materializes_immutable_locator_records(
     source_document = source_manifest["source_documents"][0]
     capture_path = harvest_dir / source_document["raw_artifact_path"]
 
+    assert source_document["capture_method"] == "url_seed_record"
+    assert source_document["captured_at"] == "2026-04-12"
     assert source_document["content_type"] == "text/uri-list"
     assert capture_path.suffix == ".uri"
     assert capture_path.read_text(encoding="utf-8").strip() == (

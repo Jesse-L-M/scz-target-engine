@@ -203,8 +203,8 @@ closed by default unless explicit seed-mode bootstrap is requested.
 The next substrate gaps are:
 
 - generic harvest/adjudication beyond the KarXT special case
-- first-class source-history diff artifacts rather than linked current/history
-  snapshots alone
+- first-class raw source-history capture and diff artifacts rather than current
+  raw captures plus linked history URL-seed records alone
 - richer exposure-evidence capture beyond the current result/harm/claim surfaces
 
 ### Canonical dossier contract
@@ -236,11 +236,14 @@ Current rules:
 - `source_manifest.json` carries `unresolved_questions`; there is no separate
   `open_questions.md` contract yet
 - every `source_documents` entry must carry immutable capture metadata:
-  `captured_at`, `raw_artifact_path`, `content_sha256`, `source_version`, and
-  `content_type`
-- curated pilot sources are expected to point at immutable raw snapshot captures;
-  explicit seed-mode bootstrap writes immutable URL-seed records and remains
-  non-authoritative until a real harvest replaces them
+  `capture_method`, `captured_at`, `raw_artifact_path`, `content_sha256`,
+  `source_version`, and `content_type`
+- curated pilot sources may mix source-faithful machine-readable captures
+  (ClinicalTrials.gov API v2 JSON and PubMed EFetch XML), checked-in HTML
+  snapshots for regulatory pages, and explicit URL-seed records where a real raw
+  history capture path is still deferred; explicit seed-mode bootstrap writes the
+  same immutable URL-seed record shape and remains non-authoritative until a real
+  harvest replaces it
 - real dossier `program_id` values must resolve through the checked-in identity
   catalog or an explicit pilot registry before writing review artifacts; ambiguous
   alias inputs should fail closed instead of spawning near-duplicate programs

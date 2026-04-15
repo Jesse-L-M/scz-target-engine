@@ -638,6 +638,22 @@ def test_cli_program_memory_v3_karxt_workflow_runs(tmp_path: Path) -> None:
 
     assert source_manifest["program_id"] == "xanomeline-trospium-schizophrenia"
     assert source_manifest["source_document_count"] >= 10
+    assert any(
+        document["capture_method"] == "clinicaltrials_gov_api_v2_json"
+        for document in source_manifest["source_documents"]
+    )
+    assert any(
+        document["capture_method"] == "pubmed_efetch_xml"
+        for document in source_manifest["source_documents"]
+    )
+    assert any(
+        document["capture_method"] == "url_seed_record"
+        for document in source_manifest["source_documents"]
+    )
+    assert all(
+        document["captured_at"] != source_manifest["materialized_at"]
+        for document in source_manifest["source_documents"]
+    )
     assert len(study_index_lines) > 1
     assert len(claims_lines) > 1
     assert packet_payload["candidate_insights"]
@@ -694,6 +710,7 @@ def test_cli_program_memory_v3_seed_mode_allows_unknown_program_bootstrap(
 
     assert exit_code == 0
     assert source_manifest["seed_mode"] is True
+    assert source_manifest["source_documents"][0]["capture_method"] == "url_seed_record"
 
 
 def test_cli_build_expert_review_packets_rejects_reserved_required_finding(

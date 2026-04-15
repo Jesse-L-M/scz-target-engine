@@ -19,6 +19,7 @@ from scz_target_engine.program_memory.v3_karxt import (
     karxt_result_observation_rows,
     karxt_source_capture_fixture_bytes,
     karxt_source_capture_fixture_file_name,
+    karxt_source_capture_fixture_metadata,
     karxt_study_index_rows,
     resolve_karxt_schizophrenia_pilot,
     unresolved_karxt_schizophrenia_identity,
@@ -35,7 +36,7 @@ PROGRAM_MEMORY_V3_CAVEATS = "program_memory_v3_caveats"
 PROGRAM_MEMORY_V3_BELIEF_UPDATES = "program_memory_v3_belief_updates"
 PROGRAM_MEMORY_V3_PROGRAM_CARD = "program_memory_v3_program_card"
 PROGRAM_MEMORY_V3_INSIGHT_PACKET = "program_memory_v3_insight_packet"
-PROGRAM_MEMORY_V3_SOURCE_MANIFEST_SCHEMA_VERSION = "v2"
+PROGRAM_MEMORY_V3_SOURCE_MANIFEST_SCHEMA_VERSION = "v3"
 PROGRAM_MEMORY_V3_PROGRAM_CARD_SCHEMA_VERSION = "v1"
 PROGRAM_MEMORY_V3_INSIGHT_PACKET_SCHEMA_VERSION = "v1"
 PROGRAM_MEMORY_V3_SOURCE_CAPTURE_DIR_NAME = "source_captures"
@@ -229,13 +230,6 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _default_content_type(source_locator: str) -> str:
-    lowered = source_locator.lower()
-    if lowered.endswith(".pdf"):
-        return "application/pdf"
-    return "text/html"
-
-
 def _source_document_rows(program_id: str, source_urls: tuple[str, ...]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for index, source_url in enumerate(source_urls, start=1):
@@ -247,6 +241,7 @@ def _source_document_rows(program_id: str, source_urls: tuple[str, ...]) -> list
                 "source_locator": source_url,
                 "source_tier": "seed_locator",
                 "extraction_status": "pending",
+                "capture_method": "url_seed_record",
                 "source_version": "",
                 "content_type": "text/uri-list",
             }
@@ -262,8 +257,7 @@ def _write_source_capture(path: Path, payload: bytes) -> None:
 def _materialize_source_capture_rows(
     *,
     output_dir: Path,
-    program_id: str,
-    captured_at: str,
+    materialized_at: str,
     source_documents: list[dict[str, str]],
     use_curated_pilot_fixtures: bool,
 ) -> list[dict[str, str]]:
@@ -272,20 +266,21 @@ def _materialize_source_capture_rows(
         source_document_id = _clean_text(source_document.get("source_document_id", ""))
         if not source_document_id:
             raise ValueError("source documents require source_document_id")
-        source_version = str(source_document.get("source_version", ""))
         if use_curated_pilot_fixtures:
+            fixture_metadata = karxt_source_capture_fixture_metadata(source_document_id)
             capture_file_name = karxt_source_capture_fixture_file_name(source_document_id)
             capture_bytes = karxt_source_capture_fixture_bytes(source_document_id)
-            content_type = str(
-                source_document.get(
-                    "content_type",
-                    _default_content_type(str(source_document.get("source_locator", ""))),
-                )
-            )
+            captured_at = fixture_metadata.captured_at
+            capture_method = fixture_metadata.capture_method
+            source_version = fixture_metadata.source_version
+            content_type = fixture_metadata.content_type
         else:
             capture_file_name = f"{source_document_id}.uri"
             source_locator = _clean_text(source_document.get("source_locator", ""))
             capture_bytes = f"{source_locator}\n".encode("utf-8")
+            captured_at = materialized_at
+            capture_method = str(source_document.get("capture_method", "url_seed_record"))
+            source_version = str(source_document.get("source_version", ""))
             content_type = "text/uri-list"
         relative_capture_path = (
             Path(PROGRAM_MEMORY_V3_SOURCE_CAPTURE_DIR_NAME) / capture_file_name
@@ -300,6 +295,7 @@ def _materialize_source_capture_rows(
                 "source_locator": str(source_document.get("source_locator", "")),
                 "source_tier": str(source_document.get("source_tier", "")),
                 "extraction_status": str(source_document.get("extraction_status", "")),
+                "capture_method": capture_method,
                 "captured_at": captured_at,
                 "raw_artifact_path": str(relative_capture_path),
                 "content_sha256": _file_sha256(capture_path),
@@ -389,8 +385,7 @@ def materialize_program_memory_v3_harvest_bundle(
         source_documents = _source_document_rows(normalized_program_id, source_urls)
     source_documents = _materialize_source_capture_rows(
         output_dir=resolved_output_dir,
-        program_id=normalized_program_id,
-        captured_at=normalized_materialized_at,
+        materialized_at=normalized_materialized_at,
         source_documents=source_documents,
         use_curated_pilot_fixtures=pilot_resolution is not None,
     )

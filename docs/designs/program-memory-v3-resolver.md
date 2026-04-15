@@ -162,7 +162,8 @@ Implemented now:
 - harvest bootstrap bundle
 - adjudication bootstrap bundle
 - scoped insight packet bootstrap
-- immutable source-capture fields in `source_manifest.json`
+- immutable source-capture fields in `source_manifest.json`, including
+  first-class `capture_method`
 - first-class structured confidence fields in `claims.csv` and `belief_updates.csv`
 - first-class denominator and comparator fields in `result_observations.csv` and
   `harm_observations.csv`
@@ -174,6 +175,7 @@ Deferred to the next contract revision:
 
 - `exposure_evidence`
 - claim-link graphs
-- source-history diffs
+- raw source-history capture and diff artifacts beyond explicit URL-seed history
+  records
 - dedicated diarization briefs
 - compatibility projections into shipped `v2` consumers

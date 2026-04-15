@@ -16,6 +16,13 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
   program denominator with effectively complete approved coverage, near-exhaustive
   phase 2/3 coverage, and explicit `included` / `unresolved` / `duplicate` /
   `excluded` / `out_of_scope` accounting
+- `program_memory_v3` now hardens one KarXT schizophrenia pilot dossier with
+  source-faithful ClinicalTrials.gov API v2 JSON captures, PubMed EFetch XML
+  captures, refreshed regulatory HTML snapshots, and explicit URL-seed history
+  records for the curated pilot sources, plus structured confidence fields and
+  first-class denominator/comparator columns; unknown non-pilot program IDs
+  fail closed unless explicit seed mode is requested, and explicit seed mode
+  only writes immutable URL-seed records rather than claiming raw source capture
 - the benchmark path is now runnable end to end from frozen snapshot, cohort, and runner artifacts
 - the Milestone 0 compatibility surface is now frozen through
   `docs/intervention_object_compatibility.md`, six registered release-manifest
@@ -28,6 +35,9 @@ sequencing, read `docs/roadmap.md`. For the detailed working plan, read
 - `v1` is not a validated clinical advancement authority, even though it now assigns explicit numeric failure, directionality, and subgroup heads from the PR7 target-ledger substrate.
 - `v0` now has a non-seed candidate-registry ingest path, but the checked-in example scoring workflow still relies on curated shortlists and source-specific harmonization.
 - atlas raw-source staging now exists for selected adapter-backed pulls, but it is still not raw consortium-dump ingestion and it does not replace the current scoring inputs
+- `program_memory_v3` is not yet a first-class raw ClinicalTrials.gov history
+  capture or diff substrate; those history references currently remain explicit
+  URL-seed records in the KarXT pilot rather than claimed raw snapshots
 - the benchmark path is not a production-scale historical replay system
 - the benchmark path now backfills ten checked-in Track A public slices with
   slice-local `program_universe.csv` and `events.csv`, and five of those cutoffs

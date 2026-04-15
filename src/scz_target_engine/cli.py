@@ -210,6 +210,7 @@ def _configure_program_memory_harvest_program_parser(
     parser.add_argument("--materialized-at")
     parser.add_argument("--corpus-tier")
     parser.add_argument("--source-url", action="append", default=[])
+    parser.add_argument("--seed-mode", action="store_true")
 
 
 def _configure_program_memory_adjudicate_program_parser(
@@ -1079,6 +1080,7 @@ def main(argv: list[str] | None = None) -> int:
             materialized_at=args.materialized_at or "",
             source_urls=tuple(args.source_url),
             corpus_tier=args.corpus_tier or "",
+            seed_mode=bool(args.seed_mode),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

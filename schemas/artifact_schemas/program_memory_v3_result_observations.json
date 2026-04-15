@@ -1,6 +1,6 @@
 {
   "artifact_name": "program_memory_v3_result_observations",
-  "schema_version": "v1",
+  "schema_version": "v2",
   "file_format": "csv",
   "description": "Program-memory v3 efficacy and endpoint observations for one harvested program bundle.",
   "key_fields": [
@@ -70,6 +70,60 @@
       "field_type": "string",
       "required": true,
       "description": "Source document row anchoring the observation."
+    },
+    {
+      "name": "treatment_observed_value",
+      "field_type": "string",
+      "required": true,
+      "description": "Observed treatment-arm value for the endpoint when reported."
+    },
+    {
+      "name": "comparator_observed_value",
+      "field_type": "string",
+      "required": true,
+      "description": "Observed comparator-arm value for the endpoint when reported."
+    },
+    {
+      "name": "observed_value_unit",
+      "field_type": "string",
+      "required": true,
+      "description": "Unit for treatment_observed_value and comparator_observed_value."
+    },
+    {
+      "name": "randomized_denominator_treatment",
+      "field_type": "string",
+      "required": true,
+      "description": "Randomized treatment-arm denominator when known."
+    },
+    {
+      "name": "randomized_denominator_comparator",
+      "field_type": "string",
+      "required": true,
+      "description": "Randomized comparator-arm denominator when known."
+    },
+    {
+      "name": "treated_denominator_treatment",
+      "field_type": "string",
+      "required": true,
+      "description": "Treated or safety-population treatment-arm denominator when known."
+    },
+    {
+      "name": "treated_denominator_comparator",
+      "field_type": "string",
+      "required": true,
+      "description": "Treated or safety-population comparator-arm denominator when known."
+    },
+    {
+      "name": "efficacy_analysis_denominator_treatment",
+      "field_type": "string",
+      "required": true,
+      "description": "Primary efficacy-analysis treatment-arm denominator when known."
+    },
+    {
+      "name": "efficacy_analysis_denominator_comparator",
+      "field_type": "string",
+      "required": true,
+      "description": "Primary efficacy-analysis comparator-arm denominator when known."
     }
   ],
   "optional_fields": [

@@ -638,9 +638,79 @@ def test_cli_program_memory_v3_karxt_workflow_runs(tmp_path: Path) -> None:
 
     assert source_manifest["program_id"] == "xanomeline-trospium-schizophrenia"
     assert source_manifest["source_document_count"] >= 10
+    assert any(
+        document["capture_method"] == "clinicaltrials_gov_api_v2_json"
+        for document in source_manifest["source_documents"]
+    )
+    assert any(
+        document["capture_method"] == "pubmed_efetch_xml"
+        for document in source_manifest["source_documents"]
+    )
+    assert any(
+        document["capture_method"] == "url_seed_record"
+        for document in source_manifest["source_documents"]
+    )
+    assert all(
+        document["captured_at"] != source_manifest["materialized_at"]
+        for document in source_manifest["source_documents"]
+    )
     assert len(study_index_lines) > 1
     assert len(claims_lines) > 1
     assert packet_payload["candidate_insights"]
+
+
+def test_cli_program_memory_v3_unknown_program_fails_closed_without_seed_mode(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="curated pilot registry"):
+        main(
+            [
+                "program-memory",
+                "harvest-program",
+                "--program-id",
+                "future-muscarinic-program",
+                "--program-label",
+                "Future Muscarinic Program",
+                "--output-dir",
+                str((tmp_path / "harvest").resolve()),
+                "--source-url",
+                "https://example.com/future-muscarinic-program",
+                "--materialized-at",
+                "2026-04-12",
+            ]
+        )
+
+
+def test_cli_program_memory_v3_seed_mode_allows_unknown_program_bootstrap(
+    tmp_path: Path,
+) -> None:
+    harvest_dir = tmp_path / "harvest"
+
+    exit_code = main(
+        [
+            "program-memory",
+            "harvest-program",
+            "--program-id",
+            "future-muscarinic-program",
+            "--program-label",
+            "Future Muscarinic Program",
+            "--output-dir",
+            str(harvest_dir.resolve()),
+            "--source-url",
+            "https://example.com/future-muscarinic-program",
+            "--materialized-at",
+            "2026-04-12",
+            "--seed-mode",
+        ]
+    )
+
+    source_manifest = json.loads(
+        (harvest_dir / "source_manifest.json").read_text(encoding="utf-8")
+    )
+
+    assert exit_code == 0
+    assert source_manifest["seed_mode"] is True
+    assert source_manifest["source_documents"][0]["capture_method"] == "url_seed_record"
 
 
 def test_cli_build_expert_review_packets_rejects_reserved_required_finding(

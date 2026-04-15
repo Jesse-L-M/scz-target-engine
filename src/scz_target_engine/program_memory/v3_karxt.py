@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+from importlib.resources import files
+import json
 from typing import Any
 
 from scz_target_engine.program_memory._helpers import clean_text, slugify
@@ -23,6 +26,13 @@ _KARXT_PROGRAM_ALIAS_KEYS = {
     "xanomeline-and-trospium-schizophrenia",
     "xanomeline-trospium-schizophrenia-program",
 }
+_KARXT_SOURCE_CAPTURE_RESOURCE_ROOT = files("scz_target_engine.program_memory").joinpath(
+    "source_captures",
+    "karxt",
+)
+_KARXT_SOURCE_CAPTURE_MANIFEST_RESOURCE = _KARXT_SOURCE_CAPTURE_RESOURCE_ROOT.joinpath(
+    "capture_manifest.json",
+)
 
 
 @dataclass(frozen=True)
@@ -33,6 +43,16 @@ class ProgramMemoryV3PilotResolution:
     requested_program_id: str
     requested_program_label: str
     resolved_from: str
+
+
+@dataclass(frozen=True)
+class SourceCaptureFixtureMetadata:
+    source_document_id: str
+    captured_at: str
+    capture_method: str
+    content_type: str
+    source_version: str
+    fixture_file_name: str
 
 
 def _normalize_identity(value: str) -> str:
@@ -49,6 +69,80 @@ def _copy_rows(rows: tuple[dict[str, str], ...]) -> list[dict[str, str]]:
 
 def _copy_objects(rows: tuple[dict[str, Any], ...]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
+
+
+@lru_cache(maxsize=1)
+def _karxt_source_capture_fixture_metadata_by_id() -> dict[str, SourceCaptureFixtureMetadata]:
+    payload = json.loads(_KARXT_SOURCE_CAPTURE_MANIFEST_RESOURCE.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("KarXT capture manifest must be a JSON object")
+    capture_rows = payload.get("captures")
+    if not isinstance(capture_rows, list):
+        raise ValueError("KarXT capture manifest requires a captures list")
+
+    fixtures: dict[str, SourceCaptureFixtureMetadata] = {}
+    for index, item in enumerate(capture_rows):
+        if not isinstance(item, dict):
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] must be a JSON object"
+            )
+        metadata = SourceCaptureFixtureMetadata(
+            source_document_id=clean_text(str(item.get("source_document_id", ""))),
+            captured_at=clean_text(str(item.get("captured_at", ""))),
+            capture_method=clean_text(str(item.get("capture_method", ""))),
+            content_type=clean_text(str(item.get("content_type", ""))),
+            source_version=clean_text(str(item.get("source_version", ""))),
+            fixture_file_name=clean_text(str(item.get("fixture_file_name", ""))),
+        )
+        if not metadata.source_document_id:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires source_document_id"
+            )
+        if not metadata.captured_at:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires captured_at"
+            )
+        if not metadata.capture_method:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires capture_method"
+            )
+        if not metadata.content_type:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires content_type"
+            )
+        if not metadata.fixture_file_name:
+            raise ValueError(
+                f"KarXT capture manifest captures[{index}] requires fixture_file_name"
+            )
+        if metadata.source_document_id in fixtures:
+            raise ValueError(
+                "KarXT capture manifest contains duplicate source_document_id "
+                f"{metadata.source_document_id}"
+            )
+        fixtures[metadata.source_document_id] = metadata
+    return fixtures
+
+
+def karxt_source_capture_fixture_metadata(
+    source_document_id: str,
+) -> SourceCaptureFixtureMetadata:
+    normalized_source_document_id = clean_text(source_document_id)
+    fixtures = _karxt_source_capture_fixture_metadata_by_id()
+    try:
+        return fixtures[normalized_source_document_id]
+    except KeyError as exc:
+        raise ValueError(
+            f"missing KarXT source capture fixture metadata for {normalized_source_document_id}"
+        ) from exc
+
+
+def karxt_source_capture_fixture_file_name(source_document_id: str) -> str:
+    return karxt_source_capture_fixture_metadata(source_document_id).fixture_file_name
+
+
+def karxt_source_capture_fixture_bytes(source_document_id: str) -> bytes:
+    fixture_name = karxt_source_capture_fixture_file_name(source_document_id)
+    return _KARXT_SOURCE_CAPTURE_RESOURCE_ROOT.joinpath(fixture_name).read_bytes()
 
 
 def _looks_like_karxt_identity(value: str) -> bool:
@@ -121,6 +215,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT03697252",
         "source_tier": "trial_registry",
         "extraction_status": "linked_for_context",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("ctgov_history_nct03697252"),
@@ -129,6 +225,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT03697252?tab=history",
         "source_tier": "trial_registry_history",
         "extraction_status": "linked_for_context",
+        "source_version": "NCT03697252-history",
+        "content_type": "text/uri-list",
     },
     {
         "source_document_id": _source_document_id("nejm_emergent_1_2021"),
@@ -137,6 +235,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/33626254/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
+        "source_version": "PMID:33626254 version=1 revised=2025-05-30",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("ctgov_current_nct04659161"),
@@ -145,6 +245,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04659161",
         "source_tier": "trial_registry",
         "extraction_status": "extracted",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("ctgov_history_nct04659161_v21"),
@@ -153,6 +255,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04659161?a=21&tab=history",
         "source_tier": "trial_registry_history",
         "extraction_status": "extracted",
+        "source_version": "NCT04659161-history-v21",
+        "content_type": "text/uri-list",
     },
     {
         "source_document_id": _source_document_id("lancet_emergent_2_2024"),
@@ -161,6 +265,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/38104575/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
+        "source_version": "PMID:38104575 version=1 revised=2025-05-01",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("ctgov_current_nct04738123"),
@@ -169,6 +275,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04738123",
         "source_tier": "trial_registry",
         "extraction_status": "extracted",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("ctgov_history_nct04738123"),
@@ -177,6 +285,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04738123?tab=history",
         "source_tier": "trial_registry_history",
         "extraction_status": "linked_for_context",
+        "source_version": "NCT04738123-history",
+        "content_type": "text/uri-list",
     },
     {
         "source_document_id": _source_document_id("jama_emergent_3_2024"),
@@ -185,6 +295,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/38691387/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
+        "source_version": "PMID:38691387 version=1 revised=2025-01-28",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("ctgov_current_nct04820309"),
@@ -193,6 +305,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://clinicaltrials.gov/study/NCT04820309",
         "source_tier": "trial_registry",
         "extraction_status": "linked_for_context",
+        "source_version": "versionHolder:2026-04-14",
+        "content_type": "application/json",
     },
     {
         "source_document_id": _source_document_id("schres_emergent_5_2026"),
@@ -201,6 +315,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/41506001/",
         "source_tier": "peer_reviewed_primary_results",
         "extraction_status": "extracted",
+        "source_version": "PMID:41506001 version=1 revised=2026-01-27",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("schizophrenia_pooled_efficacy_2024"),
@@ -209,6 +325,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/39488504/",
         "source_tier": "peer_reviewed_secondary_analysis",
         "extraction_status": "extracted",
+        "source_version": "PMID:39488504 version=1 revised=2025-03-21",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("jcp_pooled_safety_2025"),
@@ -217,6 +335,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://pubmed.ncbi.nlm.nih.gov/40047530/",
         "source_tier": "peer_reviewed_secondary_analysis",
         "extraction_status": "extracted",
+        "source_version": "PMID:40047530 version=1 revised=2025-05-28",
+        "content_type": "application/xml",
     },
     {
         "source_document_id": _source_document_id("fda_approval_announcement_2024_09_27"),
@@ -225,6 +345,8 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://www.fda.gov/news-events/press-announcements/fda-approves-drug-new-mechanism-action-treatment-schizophrenia",
         "source_tier": "regulatory",
         "extraction_status": "extracted",
+        "source_version": "2024-09-27-announcement",
+        "content_type": "text/html",
     },
     {
         "source_document_id": _source_document_id("dailymed_label_2024"),
@@ -233,11 +355,13 @@ _SOURCE_DOCUMENTS: tuple[dict[str, str], ...] = (
         "source_locator": "https://dailymed.nlm.nih.gov/dailymed/fda/fdaDrugXsl.cfm?setid=8f0e73bf-6025-44f6-ab64-0983322de0df&type=display",
         "source_tier": "regulatory",
         "extraction_status": "extracted",
+        "source_version": "setid:8f0e73bf-6025-44f6-ab64-0983322de0df",
+        "content_type": "text/html",
     },
 )
 
 _HARVEST_UNRESOLVED_QUESTIONS: tuple[str, ...] = (
-    "ClinicalTrials.gov history tabs are linked for each study, but the current v3 contract still lacks a first-class source-history diff artifact.",
+    "ClinicalTrials.gov history references are preserved as explicit URL-seed records for each study, but the current v3 contract still lacks a first-class raw history capture and diff artifact.",
     "Direct schizophrenia evidence in this pilot is combination-level and does not isolate xanomeline, trospium, CHRM1, or CHRM4 contributions.",
 )
 
@@ -326,14 +450,23 @@ _RESULT_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "result_direction": "improved_vs_placebo",
         "result_summary": "PANSS total score improved more than placebo at week 5 (-17.4 vs -5.9; least-squares mean difference -11.6).",
         "source_document_id": _source_document_id("nejm_emergent_1_2021"),
-        "analysis_population": "randomized_participants",
+        "analysis_population": "modified_intention_to_treat",
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
+        "treatment_observed_value": "-17.4",
+        "comparator_observed_value": "-5.9",
+        "observed_value_unit": "panss_total_change_from_baseline_points",
+        "randomized_denominator_treatment": "90",
+        "randomized_denominator_comparator": "92",
+        "treated_denominator_treatment": "89",
+        "treated_denominator_comparator": "90",
+        "efficacy_analysis_denominator_treatment": "83",
+        "efficacy_analysis_denominator_comparator": "87",
         "effect_size": "-11.6",
         "effect_size_unit": "ls_mean_difference_panss_points",
         "p_value": "<0.001",
         "confidence_interval": "-16.1 to -7.1",
-        "notes": "Phase 2 NEJM trial NCT03697252.",
+        "notes": "Primary efficacy interpretation is anchored to the NEJM report, with randomized, treated, and mITT denominators carried explicitly.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -349,11 +482,20 @@ _RESULT_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "analysis_population": "modified_intention_to_treat",
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
+        "treatment_observed_value": "-21.2",
+        "comparator_observed_value": "-11.6",
+        "observed_value_unit": "panss_total_change_from_baseline_points",
+        "randomized_denominator_treatment": "126",
+        "randomized_denominator_comparator": "126",
+        "treated_denominator_treatment": "126",
+        "treated_denominator_comparator": "125",
+        "efficacy_analysis_denominator_treatment": "117",
+        "efficacy_analysis_denominator_comparator": "119",
         "effect_size": "-9.6",
         "effect_size_unit": "ls_mean_difference_panss_points",
         "p_value": "<0.0001",
         "confidence_interval": "-13.9 to -5.2",
-        "notes": "Lancet abstract reports 126/126 randomized; FDA label table reports mITT denominators of 117/119.",
+        "notes": "The Lancet report and the FDA label emphasize different populations, so the row preserves randomized, treated, and mITT denominators explicitly.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -366,14 +508,23 @@ _RESULT_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "result_direction": "improved_vs_placebo",
         "result_summary": "PANSS total score improved more than placebo at week 5 (-20.6 vs -12.2; least-squares mean difference -8.4).",
         "source_document_id": _source_document_id("jama_emergent_3_2024"),
-        "analysis_population": "randomized_participants_reported_in_abstract",
+        "analysis_population": "modified_intention_to_treat",
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
+        "treatment_observed_value": "-20.6",
+        "comparator_observed_value": "-12.2",
+        "observed_value_unit": "panss_total_change_from_baseline_points",
+        "randomized_denominator_treatment": "125",
+        "randomized_denominator_comparator": "131",
+        "treated_denominator_treatment": "125",
+        "treated_denominator_comparator": "128",
+        "efficacy_analysis_denominator_treatment": "114",
+        "efficacy_analysis_denominator_comparator": "120",
         "effect_size": "-8.4",
         "effect_size_unit": "ls_mean_difference_panss_points",
         "p_value": "<0.001",
         "confidence_interval": "-12.4 to -4.3",
-        "notes": "JAMA Psychiatry abstract reports 125/131 randomized; FDA label table reports mITT denominators of 114/120.",
+        "notes": "The JAMA report, treated safety set, and FDA-label mITT set use different denominators, which are now preserved directly on the row.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -386,14 +537,23 @@ _RESULT_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "result_direction": "improved_vs_placebo",
         "result_summary": "Pooled acute EMERGENT analysis favored xanomeline/trospium for PANSS total score at week 5.",
         "source_document_id": _source_document_id("schizophrenia_pooled_efficacy_2024"),
-        "analysis_population": "pooled_randomized_placebo_controlled_trials",
+        "analysis_population": "pooled_modified_intention_to_treat",
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
+        "treatment_observed_value": "-20.6",
+        "comparator_observed_value": "-10.8",
+        "observed_value_unit": "panss_total_change_from_baseline_points",
+        "randomized_denominator_treatment": "341",
+        "randomized_denominator_comparator": "349",
+        "treated_denominator_treatment": "340",
+        "treated_denominator_comparator": "343",
+        "efficacy_analysis_denominator_treatment": "314",
+        "efficacy_analysis_denominator_comparator": "326",
         "effect_size": "-9.9",
         "effect_size_unit": "ls_mean_difference_panss_points",
         "p_value": "<0.0001",
         "confidence_interval": "-12.4 to -7.3",
-        "notes": "Pooled EMERGENT-1, EMERGENT-2, and EMERGENT-3 analyses; Cohen d 0.65 in the published abstract.",
+        "notes": "Pooled denominators aggregate the three acute randomized trials so the pooled row does not rely on free-text denominator context.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -409,6 +569,15 @@ _RESULT_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "analysis_population": "single_arm_open_label",
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "",
+        "treatment_observed_value": "",
+        "comparator_observed_value": "",
+        "observed_value_unit": "",
+        "randomized_denominator_treatment": "",
+        "randomized_denominator_comparator": "",
+        "treated_denominator_treatment": "",
+        "treated_denominator_comparator": "",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "effect_size": "",
         "effect_size_unit": "",
         "p_value": "",
@@ -431,10 +600,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "21.4",
+        "comparator_incidence_percent": "10.4",
         "incidence_count": "27",
+        "comparator_incidence_count": "13",
+        "randomized_denominator_treatment": "126",
+        "randomized_denominator_comparator": "126",
+        "treated_denominator_treatment": "126",
+        "treated_denominator_comparator": "125",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "ClinicalTrials.gov history v21 adverse-event table reports 27/126 vs 13/125.",
+        "notes": "ClinicalTrials.gov history v21 adverse-event table anchor.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -449,10 +626,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "19.1",
+        "comparator_incidence_percent": "8.0",
         "incidence_count": "24",
+        "comparator_incidence_count": "10",
+        "randomized_denominator_treatment": "126",
+        "randomized_denominator_comparator": "126",
+        "treated_denominator_treatment": "126",
+        "treated_denominator_comparator": "125",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "ClinicalTrials.gov history v21 adverse-event table reports 24/126 vs 10/125.",
+        "notes": "ClinicalTrials.gov history v21 adverse-event table anchor.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -467,10 +652,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "19.1",
+        "comparator_incidence_percent": "5.6",
         "incidence_count": "24",
+        "comparator_incidence_count": "7",
+        "randomized_denominator_treatment": "126",
+        "randomized_denominator_comparator": "126",
+        "treated_denominator_treatment": "126",
+        "treated_denominator_comparator": "125",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "ClinicalTrials.gov history v21 adverse-event table reports 24/126 vs 7/125.",
+        "notes": "ClinicalTrials.gov history v21 adverse-event table anchor.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -485,10 +678,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "14.3",
+        "comparator_incidence_percent": "0.8",
         "incidence_count": "18",
+        "comparator_incidence_count": "1",
+        "randomized_denominator_treatment": "126",
+        "randomized_denominator_comparator": "126",
+        "treated_denominator_treatment": "126",
+        "treated_denominator_comparator": "125",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "ClinicalTrials.gov history v21 adverse-event table reports 18/126 vs 1/125.",
+        "notes": "ClinicalTrials.gov history v21 adverse-event table anchor.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -503,10 +704,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "9.5",
+        "comparator_incidence_percent": "0.8",
         "incidence_count": "12",
+        "comparator_incidence_count": "1",
+        "randomized_denominator_treatment": "126",
+        "randomized_denominator_comparator": "126",
+        "treated_denominator_treatment": "126",
+        "treated_denominator_comparator": "125",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "ClinicalTrials.gov history v21 adverse-event table reports 12/126 vs 1/125.",
+        "notes": "ClinicalTrials.gov history v21 adverse-event table anchor.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -521,10 +730,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "7.0",
+        "comparator_incidence_percent": "6.0",
         "incidence_count": "9",
+        "comparator_incidence_count": "7",
+        "randomized_denominator_treatment": "126",
+        "randomized_denominator_comparator": "126",
+        "treated_denominator_treatment": "126",
+        "treated_denominator_comparator": "126",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "true",
-        "notes": "Lancet abstract reports 9/126 discontinuations in the active arm and 7/126 in placebo.",
+        "notes": "Lancet abstract discontinuation summary.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -539,10 +756,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "19.2",
+        "comparator_incidence_percent": "1.6",
         "incidence_count": "24",
+        "comparator_incidence_count": "2",
+        "randomized_denominator_treatment": "125",
+        "randomized_denominator_comparator": "131",
+        "treated_denominator_treatment": "125",
+        "treated_denominator_comparator": "128",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "JAMA abstract reports 24/125 vs 2/131.",
+        "notes": "JAMA safety percentages align to treated denominators rather than the larger randomized placebo total.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -557,10 +782,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "16.0",
+        "comparator_incidence_percent": "1.6",
         "incidence_count": "20",
+        "comparator_incidence_count": "2",
+        "randomized_denominator_treatment": "125",
+        "randomized_denominator_comparator": "131",
+        "treated_denominator_treatment": "125",
+        "treated_denominator_comparator": "128",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "JAMA abstract reports 20/125 vs 2/131.",
+        "notes": "JAMA safety percentages align to treated denominators rather than the larger randomized placebo total.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -575,10 +808,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "16.0",
+        "comparator_incidence_percent": "0.8",
         "incidence_count": "20",
+        "comparator_incidence_count": "1",
+        "randomized_denominator_treatment": "125",
+        "randomized_denominator_comparator": "131",
+        "treated_denominator_treatment": "125",
+        "treated_denominator_comparator": "128",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "JAMA abstract reports 20/125 vs 1/131.",
+        "notes": "JAMA safety percentages align to treated denominators rather than the larger randomized placebo total.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -593,10 +834,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "12.8",
+        "comparator_incidence_percent": "3.9",
         "incidence_count": "16",
+        "comparator_incidence_count": "5",
+        "randomized_denominator_treatment": "125",
+        "randomized_denominator_comparator": "131",
+        "treated_denominator_treatment": "125",
+        "treated_denominator_comparator": "128",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "JAMA abstract reports 16/125 vs 5/131.",
+        "notes": "JAMA safety percentages align to treated denominators rather than the larger randomized placebo total.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -611,10 +860,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "6.4",
+        "comparator_incidence_percent": "5.5",
         "incidence_count": "8",
+        "comparator_incidence_count": "7",
+        "randomized_denominator_treatment": "125",
+        "randomized_denominator_comparator": "131",
+        "treated_denominator_treatment": "125",
+        "treated_denominator_comparator": "128",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "true",
-        "notes": "JAMA abstract reports 8/125 vs 7/131.",
+        "notes": "JAMA safety percentages align to treated denominators rather than the larger randomized placebo total.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -629,10 +886,18 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "67.9",
+        "comparator_incidence_percent": "51.3",
         "incidence_count": "",
+        "comparator_incidence_count": "",
+        "randomized_denominator_treatment": "341",
+        "randomized_denominator_comparator": "349",
+        "treated_denominator_treatment": "340",
+        "treated_denominator_comparator": "343",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
-        "notes": "Pooled safety abstract does not report an active-arm numerator in the abstract text.",
+        "notes": "The pooled safety abstract reports percentages but not exact numerator counts.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -647,7 +912,15 @@ _HARM_OBSERVATION_ROWS: tuple[dict[str, str], ...] = (
         "treatment_label": "xanomeline + trospium",
         "comparator_label": "placebo",
         "incidence_percent": "",
+        "comparator_incidence_percent": "",
         "incidence_count": "",
+        "comparator_incidence_count": "",
+        "randomized_denominator_treatment": "341",
+        "randomized_denominator_comparator": "349",
+        "treated_denominator_treatment": "340",
+        "treated_denominator_comparator": "343",
+        "efficacy_analysis_denominator_treatment": "",
+        "efficacy_analysis_denominator_comparator": "",
         "serious_flag": "false",
         "discontinuation_flag": "false",
         "notes": "The pooled safety abstract does not provide exact percentages for these events in the abstract text.",
@@ -664,7 +937,7 @@ _HARVEST_CONTRADICTIONS: tuple[dict[str, str], ...] = (
         "contradiction_summary": "EMERGENT-2 denominator differs across sources: randomized totals in the Lancet abstract versus smaller mITT denominators in the FDA label table.",
         "adjudication_status": "preserved_for_adjudication",
         "preferred_source_document_id": "",
-        "rationale": "This appears to be a randomized-versus-efficacy-population distinction rather than a data error, but the current contract lacks first-class denominator fields.",
+        "rationale": "This appears to be a randomized-versus-efficacy-population distinction rather than a data error, so the differing denominators stay explicit in the harvest rows and contradiction log.",
         "notes": "Lancet abstract reports 126/126 randomized; DailyMed Table 4 reports 117/119 for the primary efficacy analysis.",
     },
     {
@@ -703,6 +976,12 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("schizophrenia_pooled_efficacy_2024"),
         "adjudication_status": "accepted",
         "study_id": "pooled-emergent-acute",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low_to_medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "high",
         "confidence_label": "high",
         "supporting_source_document_ids": "|".join(
             (
@@ -711,7 +990,7 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
                 _source_document_id("jama_emergent_3_2024"),
             )
         ),
-        "notes": "extraction_confidence=high; source_reliability=high; risk_of_bias=medium; reporting_integrity_risk=low_to_medium; transportability_confidence=medium for acute hospitalized adults; interpretation_confidence=high at molecule scope.",
+        "notes": "Keep the accepted interpretation at molecule scope for short inpatient acute-schizophrenia trials.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -722,6 +1001,12 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("schizophrenia_pooled_efficacy_2024"),
         "adjudication_status": "accepted",
         "study_id": "pooled-emergent-acute",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low_to_medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "high",
         "confidence_label": "high",
         "supporting_source_document_ids": "|".join(
             (
@@ -730,7 +1015,7 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
                 _source_document_id("jama_emergent_3_2024"),
             )
         ),
-        "notes": "extraction_confidence=high; source_reliability=high; risk_of_bias=medium; reporting_integrity_risk=low_to_medium; transportability_confidence=medium; interpretation_confidence=high.",
+        "notes": "The range is meant as a compact acute-trial summary rather than a cross-population efficacy estimate.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -741,6 +1026,12 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("jcp_pooled_safety_2025"),
         "adjudication_status": "accepted",
         "study_id": "pooled-emergent-acute",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "high",
         "confidence_label": "high",
         "supporting_source_document_ids": "|".join(
             (
@@ -749,7 +1040,7 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
                 _source_document_id("dailymed_label_2024"),
             )
         ),
-        "notes": "extraction_confidence=high; source_reliability=high; risk_of_bias=medium; reporting_integrity_risk=medium because harms are summarized differently across sources; transportability_confidence=medium; interpretation_confidence=high.",
+        "notes": "The direction of the harm burden is stable across registry, journal, and label sources even though reporting granularity differs.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -760,6 +1051,12 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("jcp_pooled_safety_2025"),
         "adjudication_status": "accepted_with_caveat",
         "study_id": "pooled-emergent-acute",
+        "extraction_confidence": "medium",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "medium",
         "confidence_label": "medium",
         "supporting_source_document_ids": "|".join(
             (
@@ -767,7 +1064,7 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
                 _source_document_id("jama_emergent_3_2024"),
             )
         ),
-        "notes": "extraction_confidence=medium; source_reliability=high; risk_of_bias=medium; reporting_integrity_risk=medium because pooled abstracts do not give exact percentages for every event; transportability_confidence=medium; interpretation_confidence=medium.",
+        "notes": "This remains caveated because pooled abstract-level safety reporting does not provide exact percentages for every event family.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -778,9 +1075,15 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("jama_emergent_3_2024"),
         "adjudication_status": "accepted_with_caveat",
         "study_id": "emergent-3",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "medium",
         "confidence_label": "medium",
         "supporting_source_document_ids": _source_document_id("lancet_emergent_2_2024"),
-        "notes": "extraction_confidence=high; source_reliability=high; risk_of_bias=medium; reporting_integrity_risk=low; transportability_confidence=medium; interpretation_confidence=medium because discontinuation reflects short inpatient trials only.",
+        "notes": "Short inpatient discontinuation rates should not be over-read as a long-term adherence or persistence signal.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -791,6 +1094,12 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("schizophrenia_pooled_efficacy_2024"),
         "adjudication_status": "accepted",
         "study_id": "",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low",
+        "transportability_confidence": "not_applicable_to_mechanism_generalization",
+        "interpretation_confidence": "high",
         "confidence_label": "high",
         "supporting_source_document_ids": "|".join(
             (
@@ -800,7 +1109,7 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
                 _source_document_id("fda_approval_announcement_2024_09_27"),
             )
         ),
-        "notes": "extraction_confidence=high; source_reliability=high; risk_of_bias=medium; reporting_integrity_risk=low; transportability_confidence=not_applicable_to_mechanism_generalization; interpretation_confidence=high that the evidence is molecule-specific.",
+        "notes": "The public schizophrenia dataset supports the fixed combination more strongly than any decomposed target or class-general claim.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -811,9 +1120,15 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("fda_approval_announcement_2024_09_27"),
         "adjudication_status": "rejected",
         "study_id": "",
+        "extraction_confidence": "high",
+        "source_reliability": "medium",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low",
+        "transportability_confidence": "low",
+        "interpretation_confidence": "low",
         "confidence_label": "low",
         "supporting_source_document_ids": _source_document_id("schizophrenia_pooled_efficacy_2024"),
-        "notes": "extraction_confidence=high; source_reliability=high for the approval fact but not for broader mechanism extrapolation; risk_of_bias=medium; reporting_integrity_risk=low; transportability_confidence=low; interpretation_confidence=low because the public program does not decompose component or target contributions.",
+        "notes": "Rejected because the source set does not isolate component or target contributions well enough to support a broader class-validation claim.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -824,9 +1139,15 @@ _CLAIM_ROWS: tuple[dict[str, str], ...] = (
         "primary_source_document_id": _source_document_id("schres_emergent_5_2026"),
         "adjudication_status": "accepted_with_caveat",
         "study_id": "emergent-5",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "high",
+        "reporting_integrity_risk": "medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "medium",
         "confidence_label": "medium",
         "supporting_source_document_ids": _source_document_id("jcp_pooled_safety_2025"),
-        "notes": "extraction_confidence=high; source_reliability=high; risk_of_bias=high because the study is open-label and uncontrolled; reporting_integrity_risk=medium; transportability_confidence=medium for stable adults switched from prior antipsychotics; interpretation_confidence=medium.",
+        "notes": "Open-label follow-up supports no obvious new signal, but it remains uncontrolled and population-specific.",
     },
 )
 
@@ -884,7 +1205,7 @@ _CAVEAT_ROWS: tuple[dict[str, str], ...] = (
         "caveat_summary": "This pilot links ClinicalTrials.gov history pages but still cannot materialize field-level source-history diffs as first-class artifacts.",
         "severity": "low",
         "source_document_id": _source_document_id("ctgov_history_nct04659161_v21"),
-        "notes": "Important denominator and results-posting shifts remain preserved in notes and contradiction rows rather than a dedicated diff artifact.",
+        "notes": "Important denominator shifts now live in first-class observation columns, but field-level source-history diffs still lack a dedicated artifact.",
     },
 )
 
@@ -895,6 +1216,12 @@ _BELIEF_UPDATE_ROWS: tuple[dict[str, str], ...] = (
         "belief_domain": "molecule",
         "update_direction": "increase_confidence",
         "update_summary": "Increase confidence that xanomeline plus trospium can produce acute antipsychotic efficacy in adults hospitalized for schizophrenia exacerbation.",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low_to_medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "high",
         "confidence_label": "high",
         "target_id": "",
         "mechanism_id": "xanomeline-plus-trospium",
@@ -908,6 +1235,12 @@ _BELIEF_UPDATE_ROWS: tuple[dict[str, str], ...] = (
         "belief_domain": "molecule",
         "update_direction": "increase_confidence",
         "update_summary": "Increase confidence that cholinergic and gastrointestinal adverse events are part of the package for the approved combination, even when discontinuation rates stay close to placebo in short inpatient trials.",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "medium",
         "confidence_label": "medium",
         "target_id": "",
         "mechanism_id": "xanomeline-plus-trospium",
@@ -921,6 +1254,12 @@ _BELIEF_UPDATE_ROWS: tuple[dict[str, str], ...] = (
         "belief_domain": "mechanism",
         "update_direction": "increase_confidence",
         "update_summary": "Increase confidence that a non-D2 muscarinic-directed combination can show antipsychotic efficacy in schizophrenia.",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "medium",
         "confidence_label": "medium",
         "target_id": "",
         "mechanism_id": "muscarinic_cholinergic_modulation",
@@ -934,6 +1273,12 @@ _BELIEF_UPDATE_ROWS: tuple[dict[str, str], ...] = (
         "belief_domain": "target",
         "update_direction": "preserve_uncertainty",
         "update_summary": "Do not update strongly on CHRM1 versus CHRM4 contribution or on selective CHRM4 sufficiency from this program alone.",
+        "extraction_confidence": "high",
+        "source_reliability": "medium",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low",
+        "transportability_confidence": "low",
+        "interpretation_confidence": "low",
         "confidence_label": "low",
         "target_id": "CHRM1 / CHRM4",
         "mechanism_id": "muscarinic_cholinergic_modulation",
@@ -947,6 +1292,12 @@ _BELIEF_UPDATE_ROWS: tuple[dict[str, str], ...] = (
         "belief_domain": "population",
         "update_direction": "increase_confidence",
         "update_summary": "Increase confidence specifically for adults with acute psychosis requiring hospitalization, while keeping broader transportability guarded.",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "low_to_medium",
+        "transportability_confidence": "medium",
+        "interpretation_confidence": "medium",
         "confidence_label": "medium",
         "target_id": "",
         "mechanism_id": "xanomeline-plus-trospium",
@@ -960,6 +1311,12 @@ _BELIEF_UPDATE_ROWS: tuple[dict[str, str], ...] = (
         "belief_domain": "design_lesson",
         "update_direction": "increase_priority",
         "update_summary": "Future programs should report analysis-population denominators cleanly and separate molecule-level evidence from mechanism-general claims.",
+        "extraction_confidence": "high",
+        "source_reliability": "high",
+        "risk_of_bias": "medium",
+        "reporting_integrity_risk": "medium",
+        "transportability_confidence": "high",
+        "interpretation_confidence": "medium",
         "confidence_label": "medium",
         "target_id": "",
         "mechanism_id": "",
@@ -979,8 +1336,8 @@ _ADJUDICATED_CONTRADICTIONS: tuple[dict[str, str], ...] = (
         "contradiction_summary": "EMERGENT-2 uses different denominators across sources because randomized totals and mITT efficacy populations are both reported publicly.",
         "adjudication_status": "resolved_with_context",
         "preferred_source_document_id": _source_document_id("lancet_emergent_2_2024"),
-        "rationale": "Use the Lancet article for study-level efficacy interpretation, while preserving the FDA label denominator shift explicitly in notes and contradiction rows.",
-        "notes": "The current contract still lacks first-class fields for randomized, treated, and efficacy-analysis denominators.",
+        "rationale": "Use the Lancet article for study-level efficacy interpretation, while preserving the FDA label denominator shift directly in the structured denominator fields and contradiction row.",
+        "notes": "The difference is explanatory rather than disqualifying and remains visible in both the row-level fields and contradiction log.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -991,8 +1348,8 @@ _ADJUDICATED_CONTRADICTIONS: tuple[dict[str, str], ...] = (
         "contradiction_summary": "EMERGENT-3 uses different denominators across sources because randomized totals and mITT efficacy populations are both reported publicly.",
         "adjudication_status": "resolved_with_context",
         "preferred_source_document_id": _source_document_id("jama_emergent_3_2024"),
-        "rationale": "Use the JAMA article for study-level efficacy interpretation, while preserving the FDA label denominator shift explicitly in notes and contradiction rows.",
-        "notes": "The difference is explanatory rather than disqualifying, but it should remain visible until the schema grows denominator columns.",
+        "rationale": "Use the JAMA article for study-level efficacy interpretation, while preserving the FDA label denominator shift directly in the structured denominator fields and contradiction row.",
+        "notes": "The difference is explanatory rather than disqualifying and remains visible in both the row-level fields and contradiction log.",
     },
     {
         "program_id": KARXT_V3_PROGRAM_ID,
@@ -1017,7 +1374,7 @@ _PROGRAM_CARD_KEY_TAKEAWAYS: tuple[str, ...] = (
 _PROGRAM_CARD_TOP_CAVEATS: tuple[str, ...] = (
     "All comparative efficacy trials are short 5-week inpatient studies.",
     "Mechanism decomposition remains unresolved because the approved evidence is combination-level.",
-    "ClinicalTrials.gov history shifts and analysis denominators still require notes rather than first-class schema columns.",
+    "ClinicalTrials.gov history context is still linked through explicit URL-seed records; raw history capture and field-level source-history diffs are still not a dedicated artifact.",
 )
 
 

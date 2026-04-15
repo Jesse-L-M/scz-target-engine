@@ -1189,5 +1189,10 @@ def test_program_memory_v3_karxt_artifacts_validate_against_registered_schemas(
     packet_payload = json.loads(insight_packet_path.read_text(encoding="utf-8"))
 
     assert source_manifest["program_id"] == "xanomeline-trospium-schizophrenia"
+    assert source_manifest["schema_version"] == "v3"
     assert source_manifest["source_document_count"] >= 10
+    assert all(
+        source_document["capture_method"]
+        for source_document in source_manifest["source_documents"]
+    )
     assert packet_payload["candidate_insights"]

@@ -6,6 +6,7 @@ import csv
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
+import xml.etree.ElementTree as ET
 
 from scz_target_engine.artifacts.models import (
     ArtifactSchemaDefinition,
@@ -87,6 +88,16 @@ def _read_csv_artifact(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         if reader.fieldnames is None:
             raise ValueError(f"{path} must include a CSV header row")
         return list(reader.fieldnames), list(reader)
+
+
+PROGRAM_MEMORY_V3_STRUCTURED_CONFIDENCE_FIELDS = (
+    "extraction_confidence",
+    "source_reliability",
+    "risk_of_bias",
+    "reporting_integrity_risk",
+    "transportability_confidence",
+    "interpretation_confidence",
+)
 
 
 def _require_mapping(value: object, field_name: str) -> Mapping[str, object]:
@@ -512,6 +523,170 @@ def _validate_program_memory_v3_csv_artifact(
     return rows
 
 
+def _csv_row_required_text(row: Mapping[str, str], field_name: str, row_name: str) -> str:
+    value = str(row.get(field_name, "")).strip()
+    if not value:
+        raise ValueError(f"{row_name}.{field_name} must be a non-empty string")
+    return value
+
+
+def _csv_row_optional_text(row: Mapping[str, str], field_name: str) -> str:
+    return str(row.get(field_name, "")).strip()
+
+
+def _validate_program_memory_v3_legacy_confidence_notes(
+    *,
+    row: Mapping[str, str],
+    row_name: str,
+) -> None:
+    notes = _csv_row_optional_text(row, "notes").lower()
+    if any(f"{field_name}=" in notes for field_name in PROGRAM_MEMORY_V3_STRUCTURED_CONFIDENCE_FIELDS):
+        raise ValueError(
+            f"{row_name}.notes must not carry legacy structured-confidence text"
+        )
+
+
+def _validate_program_memory_v3_claim_ledger(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> list[dict[str, str]]:
+    rows = _validate_program_memory_v3_csv_artifact(path, schema)
+    for index, row in enumerate(rows):
+        row_name = f"program_memory_v3_claim_ledger[{index}]"
+        for field_name in (
+            "program_id",
+            "claim_id",
+            "claim_kind",
+            "claim_statement",
+            "evidence_scope",
+            "primary_source_document_id",
+            "adjudication_status",
+        ) + PROGRAM_MEMORY_V3_STRUCTURED_CONFIDENCE_FIELDS:
+            _csv_row_required_text(row, field_name, row_name)
+        _validate_program_memory_v3_legacy_confidence_notes(row=row, row_name=row_name)
+    return rows
+
+
+def _validate_program_memory_v3_belief_updates(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> list[dict[str, str]]:
+    rows = _validate_program_memory_v3_csv_artifact(path, schema)
+    for index, row in enumerate(rows):
+        row_name = f"program_memory_v3_belief_updates[{index}]"
+        for field_name in (
+            "program_id",
+            "belief_update_id",
+            "belief_domain",
+            "update_direction",
+            "update_summary",
+            "confidence_label",
+        ) + PROGRAM_MEMORY_V3_STRUCTURED_CONFIDENCE_FIELDS:
+            _csv_row_required_text(row, field_name, row_name)
+        _validate_program_memory_v3_legacy_confidence_notes(row=row, row_name=row_name)
+    return rows
+
+
+def _validate_program_memory_v3_result_observations(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> list[dict[str, str]]:
+    rows = _validate_program_memory_v3_csv_artifact(path, schema)
+    for index, row in enumerate(rows):
+        row_name = f"program_memory_v3_result_observations[{index}]"
+        numeric_result = any(
+            _csv_row_optional_text(row, field_name)
+            for field_name in (
+                "effect_size",
+                "p_value",
+                "confidence_interval",
+                "treatment_observed_value",
+                "comparator_observed_value",
+            )
+        )
+        for field_name in (
+            "randomized_denominator_treatment",
+            "randomized_denominator_comparator",
+            "treated_denominator_treatment",
+            "treated_denominator_comparator",
+            "efficacy_analysis_denominator_treatment",
+            "efficacy_analysis_denominator_comparator",
+        ):
+            _parse_optional_csv_int(
+                _csv_row_optional_text(row, field_name),
+                f"{row_name}.{field_name}",
+            )
+        if numeric_result and _csv_row_optional_text(row, "comparator_label"):
+            for field_name in (
+                "treatment_observed_value",
+                "comparator_observed_value",
+                "observed_value_unit",
+                "randomized_denominator_treatment",
+                "randomized_denominator_comparator",
+                "treated_denominator_treatment",
+                "treated_denominator_comparator",
+                "efficacy_analysis_denominator_treatment",
+                "efficacy_analysis_denominator_comparator",
+            ):
+                _csv_row_required_text(row, field_name, row_name)
+    return rows
+
+
+def _validate_program_memory_v3_harm_observations(
+    path: Path,
+    schema: ArtifactSchemaDefinition,
+) -> list[dict[str, str]]:
+    rows = _validate_program_memory_v3_csv_artifact(path, schema)
+    for index, row in enumerate(rows):
+        row_name = f"program_memory_v3_harm_observations[{index}]"
+        numeric_harm = any(
+            _csv_row_optional_text(row, field_name)
+            for field_name in (
+                "incidence_percent",
+                "comparator_incidence_percent",
+                "incidence_count",
+                "comparator_incidence_count",
+            )
+        )
+        for field_name in (
+            "randomized_denominator_treatment",
+            "randomized_denominator_comparator",
+            "treated_denominator_treatment",
+            "treated_denominator_comparator",
+            "efficacy_analysis_denominator_treatment",
+            "efficacy_analysis_denominator_comparator",
+            "incidence_count",
+            "comparator_incidence_count",
+        ):
+            _parse_optional_csv_int(
+                _csv_row_optional_text(row, field_name),
+                f"{row_name}.{field_name}",
+            )
+        for field_name in ("incidence_percent", "comparator_incidence_percent"):
+            _parse_optional_csv_float(
+                _csv_row_optional_text(row, field_name),
+                f"{row_name}.{field_name}",
+            )
+        if numeric_harm:
+            _csv_row_required_text(row, "treated_denominator_treatment", row_name)
+            if _csv_row_optional_text(row, "comparator_label"):
+                for field_name in (
+                    "randomized_denominator_treatment",
+                    "randomized_denominator_comparator",
+                    "treated_denominator_comparator",
+                ):
+                    _csv_row_required_text(row, field_name, row_name)
+            if _csv_row_optional_text(row, "incidence_percent") and _csv_row_optional_text(
+                row, "comparator_label"
+            ):
+                _csv_row_required_text(row, "comparator_incidence_percent", row_name)
+            if _csv_row_optional_text(row, "incidence_count") and _csv_row_optional_text(
+                row, "comparator_label"
+            ):
+                _csv_row_required_text(row, "comparator_incidence_count", row_name)
+    return rows
+
+
 def _validate_program_memory_v3_source_manifest(
     path: Path,
     schema: ArtifactSchemaDefinition,
@@ -525,6 +700,10 @@ def _validate_program_memory_v3_source_manifest(
     source_document_count = _require_non_negative_int(
         payload.get("source_document_count"),
         "program_memory_v3_source_manifest.source_document_count",
+    )
+    _require_bool(
+        payload.get("seed_mode"),
+        "program_memory_v3_source_manifest.seed_mode",
     )
     source_documents = _require_list(
         payload.get("source_documents"),
@@ -547,6 +726,11 @@ def _validate_program_memory_v3_source_manifest(
             "source_locator",
             "source_tier",
             "extraction_status",
+            "capture_method",
+            "captured_at",
+            "raw_artifact_path",
+            "content_sha256",
+            "content_type",
         ):
             _require_text(
                 document.get(field_name, ""),
@@ -555,6 +739,157 @@ def _validate_program_memory_v3_source_manifest(
                     f"[{index}].{field_name}"
                 ),
             )
+        _require_string(
+            document.get("source_version", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].source_version"
+            ),
+        )
+        raw_artifact_path = Path(
+            _require_text(
+                document.get("raw_artifact_path", ""),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].raw_artifact_path"
+                ),
+            )
+        )
+        resolved_capture_path = (
+            raw_artifact_path
+            if raw_artifact_path.is_absolute()
+            else (path.parent / raw_artifact_path).resolve()
+        )
+        if not resolved_capture_path.exists():
+            raise ValueError(
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].raw_artifact_path must reference an existing file"
+            )
+        declared_sha = _require_text(
+            document.get("content_sha256", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].content_sha256"
+            ),
+        )
+        if len(declared_sha) != 64 or any(
+            character not in "0123456789abcdef" for character in declared_sha.lower()
+        ):
+            raise ValueError(
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].content_sha256 must be a 64-character hex digest"
+            )
+        if _file_sha256(resolved_capture_path) != declared_sha:
+            raise ValueError(
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].content_sha256 must match the referenced raw artifact"
+            )
+        capture_method = _require_text(
+            document.get("capture_method", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].capture_method"
+            ),
+        )
+        content_type = _require_text(
+            document.get("content_type", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].content_type"
+            ),
+        )
+        source_locator = _require_text(
+            document.get("source_locator", ""),
+            (
+                "program_memory_v3_source_manifest.source_documents"
+                f"[{index}].source_locator"
+            ),
+        )
+        if capture_method == "clinicaltrials_gov_api_v2_json":
+            if content_type != "application/json":
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be application/json for "
+                    "clinicaltrials_gov_api_v2_json"
+                )
+            capture_payload = _load_json_mapping(resolved_capture_path)
+            protocol_section = _require_mapping(
+                capture_payload.get("protocolSection"),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].protocolSection"
+                ),
+            )
+            identification_module = _require_mapping(
+                protocol_section.get("identificationModule"),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].protocolSection.identificationModule"
+                ),
+            )
+            nct_id = _require_text(
+                identification_module.get("nctId", ""),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].protocolSection.identificationModule.nctId"
+                ),
+            )
+            expected_nct_id = source_locator.rstrip("/").split("/")[-1].split("?")[0]
+            if nct_id != expected_nct_id:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] ClinicalTrials.gov capture nctId must match source_locator"
+                )
+        elif capture_method == "pubmed_efetch_xml":
+            if content_type not in {"application/xml", "text/xml"}:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be XML for pubmed_efetch_xml"
+                )
+            try:
+                capture_root = ET.fromstring(
+                    resolved_capture_path.read_text(encoding="utf-8")
+                )
+            except ET.ParseError as exc:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] pubmed_efetch_xml capture must be valid XML"
+                ) from exc
+            pmid = _require_text(
+                capture_root.findtext(".//PMID"),
+                (
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].pmid"
+                ),
+            )
+            expected_pmid = source_locator.rstrip("/").split("/")[-1]
+            if pmid != expected_pmid:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] PubMed capture PMID must match source_locator"
+                )
+        elif capture_method == "url_seed_record":
+            if content_type != "text/uri-list":
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be text/uri-list for url_seed_record"
+                )
+            lines = [
+                line.strip()
+                for line in resolved_capture_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            if len(lines) != 1 or lines[0] != source_locator:
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}] url_seed_record must contain exactly the declared source_locator"
+                )
+        elif capture_method == "web_html_snapshot":
+            if not content_type.startswith("text/html"):
+                raise ValueError(
+                    "program_memory_v3_source_manifest.source_documents"
+                    f"[{index}].content_type must be text/html for web_html_snapshot"
+                )
     unresolved_questions = payload.get("unresolved_questions")
     if unresolved_questions is not None:
         _require_string_list(
@@ -3145,12 +3480,12 @@ _ARTIFACT_VALIDATORS = {
     "program_memory_release": _validate_release_manifest,
     "program_memory_v3_source_manifest": _validate_program_memory_v3_source_manifest,
     "program_memory_v3_study_index": _validate_program_memory_v3_csv_artifact,
-    "program_memory_v3_result_observations": _validate_program_memory_v3_csv_artifact,
-    "program_memory_v3_harm_observations": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_result_observations": _validate_program_memory_v3_result_observations,
+    "program_memory_v3_harm_observations": _validate_program_memory_v3_harm_observations,
     "program_memory_v3_contradiction_log": _validate_program_memory_v3_csv_artifact,
-    "program_memory_v3_claim_ledger": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_claim_ledger": _validate_program_memory_v3_claim_ledger,
     "program_memory_v3_caveats": _validate_program_memory_v3_csv_artifact,
-    "program_memory_v3_belief_updates": _validate_program_memory_v3_csv_artifact,
+    "program_memory_v3_belief_updates": _validate_program_memory_v3_belief_updates,
     "program_memory_v3_program_card": _validate_program_memory_v3_program_card,
     "program_memory_v3_insight_packet": _validate_program_memory_v3_insight_packet,
     "benchmark_release": _validate_release_manifest,

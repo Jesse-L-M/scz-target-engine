@@ -171,6 +171,20 @@ These are draft but explicit repo-wide contracts, not ad hoc workflow files. The
 exist so `harvest-program`, `adjudicate-program`, and `build-insight-packet` can
 emit self-validating machine-readable bundles from day one.
 
+Within that `program_memory_v3` family, the current Gate 1 hardening contract now
+expects:
+
+- immutable source-capture metadata in `source_manifest.json`, including
+  `capture_method`, `captured_at`, `raw_artifact_path`, `content_sha256`,
+  `source_version`, and `content_type` for each source document; current KarXT
+  fixtures now use source-faithful ClinicalTrials.gov JSON and PubMed XML
+  captures, while unresolved ClinicalTrials.gov history context stays explicit as
+  URL-seed records instead of pretending to be raw snapshots
+- first-class structured confidence fields in `claims.csv` and
+  `belief_updates.csv`
+- first-class randomized, treated, and efficacy-analysis denominator fields plus
+  comparator values in `result_observations.csv` and `harm_observations.csv`
+
 For current ledger and `v1` artifacts, validation stays additive and non-invasive:
 
 - `gene_target_ledgers` validates the current top-level payload plus derived counts

@@ -1,6 +1,6 @@
 {
   "artifact_name": "program_memory_v3_harm_observations",
-  "schema_version": "v1",
+  "schema_version": "v2",
   "file_format": "csv",
   "description": "Program-memory v3 safety and tolerability observations for one harvested program bundle.",
   "key_fields": [
@@ -63,6 +63,54 @@
       "field_type": "string",
       "required": true,
       "description": "Source document row anchoring the observation."
+    },
+    {
+      "name": "comparator_incidence_percent",
+      "field_type": "string",
+      "required": true,
+      "description": "Comparator-arm incidence proportion text when reported."
+    },
+    {
+      "name": "comparator_incidence_count",
+      "field_type": "string",
+      "required": true,
+      "description": "Comparator-arm incidence count text when reported."
+    },
+    {
+      "name": "randomized_denominator_treatment",
+      "field_type": "string",
+      "required": true,
+      "description": "Randomized treatment-arm denominator when known."
+    },
+    {
+      "name": "randomized_denominator_comparator",
+      "field_type": "string",
+      "required": true,
+      "description": "Randomized comparator-arm denominator when known."
+    },
+    {
+      "name": "treated_denominator_treatment",
+      "field_type": "string",
+      "required": true,
+      "description": "Treated or safety-population treatment-arm denominator when known."
+    },
+    {
+      "name": "treated_denominator_comparator",
+      "field_type": "string",
+      "required": true,
+      "description": "Treated or safety-population comparator-arm denominator when known."
+    },
+    {
+      "name": "efficacy_analysis_denominator_treatment",
+      "field_type": "string",
+      "required": true,
+      "description": "Efficacy-analysis treatment-arm denominator when reported for the harm context."
+    },
+    {
+      "name": "efficacy_analysis_denominator_comparator",
+      "field_type": "string",
+      "required": true,
+      "description": "Efficacy-analysis comparator-arm denominator when reported for the harm context."
     }
   ],
   "optional_fields": [
